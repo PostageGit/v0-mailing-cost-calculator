@@ -1,0 +1,87 @@
+// Types for the Flat Printing Calculator
+
+export interface PaperOption {
+  name: string
+  isCardstock: boolean
+  thickness: number
+  availableSizes: string[]
+}
+
+export interface SheetDimensions {
+  w: number
+  h: number
+}
+
+export interface LayoutResult {
+  cols: number
+  rows: number
+  isRotated: boolean
+}
+
+export interface CutsResult {
+  vertical: number
+  horizontal: number
+  total: number
+}
+
+export interface PrintingInputs {
+  qty: number
+  width: number
+  height: number
+  paperName: string
+  sidesValue: string
+  hasBleed: boolean
+  addOnCharge: number
+  addOnDescription: string
+}
+
+export interface PrintingCalcResult {
+  cost: number
+  sheets: number
+  sheetSize: string
+  layout: LayoutResult
+  level: number
+  markup: number
+  pricePerSheet: number
+  sheetDimensions: SheetDimensions
+  bleed: boolean
+  cuts: CutsResult
+  maxUps: number
+  cuttingCost: number
+  numberOfStacks: number
+  wasPrintingMinApplied: boolean
+  wasCuttingMinApplied: boolean
+}
+
+export interface SheetOptionRow {
+  size: string
+  ups: number
+  sheets: number
+  totalCuts: number
+  price: number
+  result: PrintingCalcResult
+}
+
+export interface FullPrintingResult {
+  printingCost: number
+  printingCostPlus10: number
+  addOnCharge: number
+  addOnDescription: string
+  cuttingCost: number
+  subtotal: number
+  grandTotal: number
+  result: PrintingCalcResult
+  inputs: PrintingInputs
+}
+
+export interface OrderItem {
+  id: number
+  summary: {
+    description: string
+    details: string
+    subtotal: number
+    total: number
+  }
+  inputs: PrintingInputs
+  fullResult: FullPrintingResult
+}

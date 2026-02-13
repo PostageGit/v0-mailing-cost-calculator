@@ -8,7 +8,7 @@ import { CalculatorForm } from "@/components/calculator-form"
 import { CostBreakdownTable } from "@/components/cost-breakdown"
 import { TotalsDisplay } from "@/components/totals-display"
 import { calculateCosts, type MailingInputs } from "@/lib/pricing"
-import { Calculator, LayoutGrid, Info } from "lucide-react"
+import { Info } from "lucide-react"
 
 export function MailingCalculator() {
   const [inputs, setInputs] = useState<MailingInputs>({
@@ -27,28 +27,7 @@ export function MailingCalculator() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto max-w-5xl px-4 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-primary text-primary-foreground">
-              <Calculator className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground tracking-tight">MailCost Pro</h1>
-              <p className="text-xs text-muted-foreground">Direct Mail Cost Calculator</p>
-            </div>
-          </div>
-          <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5">
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="text-xs">Calculator</span>
-          </Badge>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="mx-auto max-w-5xl px-4 py-8 flex flex-col gap-6">
+    <div className="mx-auto max-w-5xl flex flex-col gap-6">
         {/* Input Card */}
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="pb-4">
@@ -171,13 +150,12 @@ export function MailingCalculator() {
           </Card>
         </div>
 
-        {/* Bottom Totals (Desktop) */}
+        {/* Bottom Totals (Mobile) */}
         {costs.isValid && (
           <div className="block lg:hidden">
             <TotalsDisplay costs={costs} />
           </div>
         )}
-      </main>
     </div>
   )
 }
