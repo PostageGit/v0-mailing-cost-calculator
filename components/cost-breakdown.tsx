@@ -6,7 +6,6 @@ import {
   Monitor,
   Shield,
   Package,
-  Truck,
   Mail,
   Printer,
   Bookmark,
@@ -22,7 +21,6 @@ const lineItems = [
   { key: "computerWork" as const, label: "Computer Work", icon: Monitor, description: "Data processing & setup" },
   { key: "cass2nd" as const, label: "CASS 2nd", icon: Shield, description: "Address verification" },
   { key: "inserting" as const, label: "Inserting", icon: Package, description: "Envelope stuffing & assembly" },
-  { key: "ndc" as const, label: "NDC", icon: Truck, description: "Network Distribution Center" },
   { key: "postage" as const, label: "Postage", icon: Mail, description: "USPS mailing costs" },
 ]
 

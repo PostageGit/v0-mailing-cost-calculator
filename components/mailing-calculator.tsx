@@ -31,7 +31,7 @@ export function MailingCalculator() {
 
   // Compute the split totals for the quote
   const listWorkTotal = costs.isValid
-    ? costs.addressing + costs.computerWork + costs.cass2nd + costs.inserting + costs.ndc + costs.stamping + costs.printing
+    ? costs.addressing + costs.computerWork + costs.cass2nd + costs.inserting + costs.stamping + costs.printing
     : 0
   const postageTotal = costs.isValid ? costs.postage : 0
 
@@ -42,7 +42,6 @@ export function MailingCalculator() {
     if (costs.computerWork > 0) parts.push(`Computer Work: ${formatCurrency(costs.computerWork)}`)
     if (costs.cass2nd > 0) parts.push(`CASS 2nd: ${formatCurrency(costs.cass2nd)}`)
     if (costs.inserting > 0) parts.push(`Inserting: ${formatCurrency(costs.inserting)}`)
-    if (costs.ndc > 0) parts.push(`NDC: ${formatCurrency(costs.ndc)}`)
     if (costs.stamping > 0) parts.push(`Stamping: ${formatCurrency(costs.stamping)}`)
     if (costs.printing > 0) parts.push(`Printing: ${formatCurrency(costs.printing)}`)
 

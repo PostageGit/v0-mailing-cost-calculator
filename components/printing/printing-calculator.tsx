@@ -199,7 +199,7 @@ export function PrintingCalculator() {
 
   const handleAddToQuote = useCallback(() => {
     if (!fullResult) return
-    const desc = `${inputs.paperName}, ${inputs.sidesValue}, ${fullResult.result.sheetSize}${inputs.hasBleed ? " +Bleed" : ""}`
+    const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
     quote.addItem({
       category: "flat",
       label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,

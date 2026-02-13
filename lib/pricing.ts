@@ -138,9 +138,8 @@ export function calculateCosts(inputs: MailingInputs): CostBreakdown {
     inserting = (qty / 1000) * PRICING.inserting.envPer1000
   }
 
-  // G7 - NDC
-  // =IF(C4="1st Class", K7, M7)
-  const ndc = mailingClass === "1st Class" ? PRICING.ndc.firstClass : PRICING.ndc.notFirstClass
+  // NDC - removed, no longer offered
+  const ndc = 0
 
   // G8 - Postage
   // Complex formula with thresholds for single-piece vs bulk
