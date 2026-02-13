@@ -15,7 +15,7 @@ import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check } from "lucid
 import { useState, useCallback } from "react"
 import { formatCurrency } from "@/lib/pricing"
 
-const CATEGORIES: QuoteCategory[] = ["printing", "postage", "listwork"]
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork"]
 
 export function QuoteSidebar() {
   const {
@@ -45,6 +45,10 @@ export function QuoteSidebar() {
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
 
+  // Group printing categories together for a cleaner email layout
+  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet"]
+  const OTHER_CATS: QuoteCategory[] = ["postage", "listwork"]
+
   const buildPlainText = useCallback(() => {
     const lines: string[] = []
     const divider = "------------------------------"
@@ -57,28 +61,53 @@ export function QuoteSidebar() {
     lines.push(divider)
     lines.push("")
 
-    for (const cat of CATEGORIES) {
+    // Helper to render a category section
+    const renderCat = (cat: QuoteCategory, indent = "") => {
       const catItems = items.filter((i) => i.category === cat)
-      if (catItems.length === 0) continue
+      if (catItems.length === 0) return false
 
       const catTotal = getCategoryTotal(cat)
-      lines.push(getCategoryLabel(cat).toUpperCase())
-      lines.push("")
+      lines.push(`${indent}${getCategoryLabel(cat)}`)
 
-      for (const item of catItems) {
-        const amtStr = formatCurrency(item.amount)
-        lines.push(`  ${item.label}`)
+      catItems.forEach((item, idx) => {
+        const prefix = catItems.length > 1 ? `#${idx + 1} ` : ""
+        lines.push(`${indent}  ${prefix}${item.label}`)
         if (item.description) {
-          lines.push(`    ${item.description}`)
+          lines.push(`${indent}    ${item.description}`)
         }
-        lines.push(`    ${amtStr}`)
+        lines.push(`${indent}    ${formatCurrency(item.amount)}`)
         lines.push("")
-      }
+      })
 
-      lines.push(`  Subtotal: ${formatCurrency(catTotal)}`)
+      lines.push(`${indent}  Subtotal: ${formatCurrency(catTotal)}`)
+      lines.push("")
+      return true
+    }
+
+    // Printing super-group (flat + booklet)
+    const hasPrinting = PRINT_CATS.some(
+      (cat) => items.filter((i) => i.category === cat).length > 0
+    )
+    if (hasPrinting) {
+      const printTotal = PRINT_CATS.reduce((s, c) => s + getCategoryTotal(c), 0)
+      lines.push("PRINTING")
+      lines.push("")
+      for (const cat of PRINT_CATS) {
+        renderCat(cat, "  ")
+      }
+      lines.push(`  Printing Total: ${formatCurrency(printTotal)}`)
       lines.push("")
       lines.push(divider)
       lines.push("")
+    }
+
+    // Other categories
+    for (const cat of OTHER_CATS) {
+      const rendered = renderCat(cat)
+      if (rendered) {
+        lines.push(divider)
+        lines.push("")
+      }
     }
 
     lines.push(`TOTAL: ${formatCurrency(total)}`)
@@ -185,13 +214,16 @@ export function QuoteSidebar() {
                   {/* Category Items */}
                   {!isCollapsed && (
                     <div className="flex flex-col gap-1.5 ml-1">
-                      {catItems.map((item) => (
+                      {catItems.map((item, idx) => (
                         <div
                           key={item.id}
                           className="flex items-start justify-between gap-2 py-1.5 px-2 rounded-md bg-muted/40 group/item"
                         >
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-foreground truncate">
+                              {catItems.length > 1 && (
+                                <span className="text-muted-foreground font-mono mr-1">#{idx + 1}</span>
+                              )}
                               {item.label}
                             </p>
                             {item.description && (
@@ -225,7 +257,7 @@ export function QuoteSidebar() {
 
       {/* Footer: Grand Total + Copy */}
       {hasItems && (
-        <div className="flex-shrink-0 border-t border-border p-4 flex flex-col gap-3">
+        <div className="flex-shrink-0 border-t border-border p-4 flex flex-col gap-2.5">
           {CATEGORIES.map((cat) => {
             const catTotal = getCategoryTotal(cat)
             if (catTotal === 0) return null
@@ -238,6 +270,15 @@ export function QuoteSidebar() {
               </div>
             )
           })}
+          {/* Show combined printing total when both flat and booklet exist */}
+          {getCategoryTotal("flat") > 0 && getCategoryTotal("booklet") > 0 && (
+            <div className="flex items-center justify-between pt-1 border-t border-dashed border-border">
+              <span className="text-xs font-medium text-foreground">All Printing</span>
+              <span className="text-xs font-mono font-medium text-foreground tabular-nums">
+                {formatCurrency(getCategoryTotal("flat") + getCategoryTotal("booklet"))}
+              </span>
+            </div>
+          )}
           <Separator />
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-foreground">Project Total</span>

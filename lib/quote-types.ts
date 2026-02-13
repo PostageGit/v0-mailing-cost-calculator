@@ -1,6 +1,6 @@
 // Types for the unified Quote Builder
 
-export type QuoteCategory = "printing" | "postage" | "listwork"
+export type QuoteCategory = "flat" | "booklet" | "postage" | "listwork"
 
 export interface QuoteLineItem {
   id: number
@@ -17,8 +17,10 @@ export interface QuoteState {
 
 export function getCategoryLabel(cat: QuoteCategory): string {
   switch (cat) {
-    case "printing":
-      return "Printing"
+    case "flat":
+      return "Flat Printing"
+    case "booklet":
+      return "Fold & Staple"
     case "postage":
       return "Postage / USPS"
     case "listwork":
@@ -28,8 +30,10 @@ export function getCategoryLabel(cat: QuoteCategory): string {
 
 export function getCategoryColor(cat: QuoteCategory): string {
   switch (cat) {
-    case "printing":
+    case "flat":
       return "bg-primary/10 text-primary"
+    case "booklet":
+      return "bg-chart-3/10 text-chart-3"
     case "postage":
       return "bg-chart-2/10 text-chart-2"
     case "listwork":

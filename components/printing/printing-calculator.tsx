@@ -201,7 +201,7 @@ export function PrintingCalculator() {
     if (!fullResult) return
     const desc = `${inputs.paperName}, ${inputs.sidesValue}, ${fullResult.result.sheetSize}${inputs.hasBleed ? " +Bleed" : ""}`
     quote.addItem({
-      category: "printing",
+      category: "flat",
       label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
       description: desc,
       amount: fullResult.grandTotal,
