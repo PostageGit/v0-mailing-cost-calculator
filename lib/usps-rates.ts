@@ -1,253 +1,356 @@
-// USPS Commercial Bulk Rate Calculator -- 2026 Rates (Notice 123)
+// USPS Bulk Rate Calculator -- Jan 2026 Rates (Notice 123)
 // ---------------------------------------------------------------
 // IMPORTANT: "Flat" here is the USPS mail SHAPE (large envelope).
 // This is NOT related to "Flat Printing" (the printing calculator).
 // ---------------------------------------------------------------
+// No Parcel rates -- removed per business rules.
+// Postcards are First-Class ONLY -- disabled for Marketing/Nonprofit.
+// ---------------------------------------------------------------
 
-export type USPSMode = "COMM" | "NP"           // Commercial vs Nonprofit
-export type USPSService = "MKT" | "FCM"        // Marketing Mail vs First-Class Presort
-export type USPSShape = "POSTCARD" | "LETTER" | "FLAT" | "PARCEL"
-export type USPSPack = "ENV" | "FOLD" | "PLAS" // Standard / Folded Self-Mailer / Plastic Poly Bag
-export type USPSEntry = "NONE" | "DSCF" | "DDU" // Origin / DSCF Regional / DDU Local Delivery
-export type PresortLevel = 1 | 2 | 3 | 4       // Mixed / AADC / 5-Digit / Carrier Route (Saturation)
+// --- Types ---
 
-export const PRESORT_LABELS: Record<PresortLevel, string> = {
+export type USPSServiceType = "FCM_COMM" | "FCM_RETAIL" | "MKT_COMM" | "MKT_NP"
+export type USPSShape = "POSTCARD" | "LETTER" | "FLAT"
+export type USPSPack = "ENV" | "FOLD" | "PLAS"
+export type USPSEntry = "ORIGIN" | "DSCF" | "DDU"
+export type SortLevel = 1 | 2 | 3 // 1=Mixed, 2=ADC/AADC, 3=5-Digit
+
+export const SERVICE_LABELS: Record<USPSServiceType, string> = {
+  FCM_COMM: "First-Class Presort",
+  FCM_RETAIL: "First-Class Retail",
+  MKT_COMM: "Marketing Mail",
+  MKT_NP: "Nonprofit",
+}
+
+export const SORT_LABELS: Record<SortLevel, string> = {
   1: "Mixed (Basic)",
-  2: "AADC (Avg)",
+  2: "ADC / AADC",
   3: "5-Digit (Dense)",
-  4: "Carrier Rt (Sat)",
+}
+
+export const ENTRY_LABELS: Record<USPSEntry, string> = {
+  ORIGIN: "Origin (Local PO)",
+  DSCF: "DSCF (Regional Hub)",
+  DDU: "DDU (Local Carrier)",
 }
 
 export const SHAPE_LABELS: Record<USPSShape, string> = {
   POSTCARD: "Postcard",
   LETTER: "Letter",
-  FLAT: "Flat",       // USPS Flat = large envelope, NOT "Flat Printing"
-  PARCEL: "Parcel",
-}
-
-export const ENTRY_LABELS: Record<USPSEntry, string> = {
-  NONE: "Origin (Local PO)",
-  DSCF: "DSCF (Regional)",
-  DDU: "DDU (Local Delivery)",
+  FLAT: "Flat", // USPS mail shape, NOT "Flat Printing"
 }
 
 export interface USPSInputs {
-  mode: USPSMode
-  service: USPSService
+  service: USPSServiceType
   shape: USPSShape
   pack: USPSPack
   quantity: number
-  weight: number        // ounces
-  presort: PresortLevel
+  saturationQty: number // separate saturation quantity (Marketing only)
+  weight: number // ounces
+  sortLevel: SortLevel
   entry: USPSEntry
-  fullServiceIMb: boolean
 }
 
 export interface USPSResult {
-  pricePerPiece: number
+  avgPerPiece: number
   total: number
-  className: string     // e.g. "Marketing Letter", "First-Class Flat"
-  category: string      // presort level label
+  className: string
+  description: string // e.g. "4000 @ $0.407 (ADC) + 1000 @ $0.244 (Sat)"
   alerts: { type: "error" | "warning" | "info"; message: string }[]
   isValid: boolean
+  // For the labels display
+  rateAtLevel: Record<SortLevel, number>
+  satRate: number
 }
 
 // -------------------------------------------------------------------
-// RATE TABLES -- Verified from 2026 Notice 123
-// Sort levels: 1=Mixed, 2=AADC, 3=5-Digit, 4=Carrier Route/Saturation
+// RATE TABLES -- Exact values from Notice 123 (Jan 2026)
+// Sort: 1=Mixed, 2=ADC/AADC, 3=5-Digit
 // -------------------------------------------------------------------
-type RateTable = Record<number, number>
 
 const RATES = {
-  // ===== FIRST-CLASS PRESORT (FCM) =====
-  // Note: FCM has no Carrier Route -- level 4 maps to level 3 rates
-  FCM: {
-    LETTER:         { 1: 0.672, 2: 0.641, 3: 0.593, 4: 0.593 } as RateTable,
-    LETTER_NONMACH: { 1: 1.088, 2: 0.813, 3: 0.813, 4: 0.813 } as RateTable,
-    POSTCARD:       { 1: 0.462, 2: 0.445, 3: 0.420, 4: 0.420 } as RateTable,
-    FLAT:           { 1: 1.488, 2: 1.331, 3: 0.970, 4: 0.970 } as RateTable,
+  // === FIRST-CLASS RETAIL (Single Piece / Stamps) ===
+  FCM_RETAIL: {
+    LETTER: 0.78,
+    FLAT: 1.63,
+    POSTCARD: 0.61,
   },
 
-  // ===== MARKETING MAIL -- COMMERCIAL =====
-  MMM_COMM: {
-    // Origin entry
-    LETTER:           { 1: 0.433, 2: 0.407, 3: 0.372, 4: 0.244 } as RateTable,
-    LETTER_NONMACH:   { 1: 1.220, 2: 1.046, 3: 0.869, 4: 0.504 } as RateTable,
-    FLAT:             { 1: 1.185, 2: 1.101, 3: 0.770, 4: 0.351 } as RateTable,
-    // DSCF entry
-    DSCF_LETTER:      { 1: 0.429, 2: 0.403, 3: 0.368, 4: 0.227 } as RateTable,
-    DSCF_FLAT:        { 1: 1.063, 2: 0.948, 3: 0.732, 4: 0.353 } as RateTable,
-    // DDU entry (Saturation only for Flats)
-    DDU_FLAT:         { 4: 0.349 } as RateTable,
-    // Parcels
-    PARCEL_ORIGIN:    { 1: 4.296, 2: 3.866, 3: 3.651, 4: 3.651 } as RateTable,
-    PARCEL_ENTRY:     { 1: 3.742, 2: 3.097, 3: 2.225, 4: 2.225 } as RateTable, // DSCF
+  // === FIRST-CLASS PRESORT (500+ pieces) ===
+  FCM_COMM: {
+    LETTER:   { 1: 0.672, 2: 0.641, 3: 0.593 } as Record<number, number>,
+    NONMACH:  { 1: 1.088, 2: 0.939, 3: 0.813 } as Record<number, number>,
+    POSTCARD: { 1: 0.462, 2: 0.445, 3: 0.420 } as Record<number, number>,
+    // Flats: base price at 1oz, additional oz charged separately
+    FLAT_BASE: { 1: 1.488, 2: 1.331, 3: 0.970 } as Record<number, number>,
   },
 
-  // ===== MARKETING MAIL -- NONPROFIT =====
-  MMM_NP: {
-    LETTER:           { 1: 0.239, 2: 0.213, 3: 0.178, 4: 0.155 } as RateTable,
-    LETTER_NONMACH:   { 1: 0.953, 2: 0.779, 3: 0.602, 4: 0.332 } as RateTable,
-    FLAT:             { 1: 0.918, 2: 0.834, 3: 0.503, 4: 0.313 } as RateTable,
-    DSCF_LETTER:      { 1: 0.235, 2: 0.209, 3: 0.174, 4: 0.138 } as RateTable,
-    DSCF_FLAT:        { 1: 0.796, 2: 0.681, 3: 0.465, 4: 0.315 } as RateTable,
-    DDU_FLAT:         { 4: 0.311 } as RateTable,
-    PARCEL_ORIGIN:    { 1: 4.164, 2: 3.734, 3: 3.519, 4: 3.519 } as RateTable,
-    PARCEL_ENTRY:     { 1: 3.656, 2: 3.011, 3: 2.139, 4: 2.139 } as RateTable,
+  // === MARKETING MAIL -- COMMERCIAL ===
+  MKT_COMM: {
+    LETTER:  { 1: 0.433, 2: 0.407, 3: 0.372, SAT: 0.244 } as Record<string, number>,
+    NONMACH: { 1: 1.220, 2: 1.110, 3: 0.869 } as Record<string, number>,
+    // Flats <= 4oz (light)
+    FLAT_LIGHT:       { 1: 1.185, 2: 1.101, 3: 0.770, SAT: 0.351 } as Record<string, number>,
+    // Flats > 4oz (heavy): piece price + pound rate
+    FLAT_HEAVY_PIECE: { 1: 1.039, 2: 0.955, 3: 0.624, SAT: 0.165 } as Record<string, number>,
+    FLAT_POUND: {
+      AUTO: { ORIGIN: 0.745, DSCF: 0.433, DDU: 0.307 },
+      CR:   { ORIGIN: 0.710, DSCF: 0.398, DDU: 0.307 },
+    },
   },
 
-  // Parcel Select DDU (local drop, <1lb)
-  PS_DDU: 5.60,
+  // === MARKETING MAIL -- NONPROFIT ===
+  MKT_NP: {
+    LETTER:  { 1: 0.239, 2: 0.213, 3: 0.178, SAT: 0.155 } as Record<string, number>,
+    NONMACH: { 1: 0.953, 2: 0.843, 3: 0.602 } as Record<string, number>,
+    // Flats <= 4oz (light)
+    FLAT_LIGHT:       { 1: 0.918, 2: 0.834, 3: 0.503, SAT: 0.311 } as Record<string, number>,
+    // Flats > 4oz (heavy): piece price + pound rate
+    FLAT_HEAVY_PIECE: { 1: 0.786, 2: 0.702, 3: 0.371, SAT: 0.063 } as Record<string, number>,
+    FLAT_POUND: {
+      AUTO: { ORIGIN: 0.690, DSCF: 0.378, DDU: 0.277 },
+      CR:   { ORIGIN: 0.680, DSCF: 0.368, DDU: 0.277 },
+    },
+  },
 } as const
 
 // -------------------------------------------------------------------
-// CALCULATION
+// SPECS
+// -------------------------------------------------------------------
+export const SPECS: Record<USPSShape, { min: string; max: string; weight: string }> = {
+  POSTCARD: { min: "3.5 x 5 x 0.007 in", max: "6 x 9 x 0.016 in", weight: "N/A" },
+  LETTER:   { min: "3.5 x 5 x 0.007 in", max: "6.125 x 11.5 x 0.25 in", weight: "3.5 oz" },
+  FLAT:     { min: "6.125 x 11.5 x 0.25 in", max: "12 x 15 x 0.75 in", weight: "13 oz (FCM) / 16 oz (MKT)" },
+}
+
+// -------------------------------------------------------------------
+// CORE: Get rate for a single piece at a given sort level
+// -------------------------------------------------------------------
+function getRateForLevel(
+  service: USPSServiceType,
+  shape: USPSShape,
+  pack: USPSPack,
+  level: SortLevel | "SAT",
+  weight: number,
+  entry: USPSEntry,
+): number {
+  const isSat = level === "SAT"
+  const isPlastic = pack === "PLAS"
+
+  // --- FCM RETAIL: flat per-piece, no presort ---
+  if (service === "FCM_RETAIL") {
+    if (shape === "POSTCARD") return RATES.FCM_RETAIL.POSTCARD
+    if (shape === "LETTER") {
+      let p = RATES.FCM_RETAIL.LETTER
+      if (weight > 1) p += Math.ceil(weight - 1) * 0.28
+      return p
+    }
+    if (shape === "FLAT") {
+      let p = RATES.FCM_RETAIL.FLAT
+      if (weight > 1) p += Math.ceil(weight - 1) * 0.28
+      return p
+    }
+    return 0
+  }
+
+  // --- FCM PRESORT: Flats have weight-based adders ---
+  if (service === "FCM_COMM" && shape === "FLAT") {
+    const lvl = isSat ? 3 : (level as SortLevel) // FCM has no saturation, use 5-digit
+    let basePrice = RATES.FCM_COMM.FLAT_BASE[lvl] ?? 0
+    if (weight > 1) {
+      const extraOz = Math.ceil(weight - 1)
+      let totalAdd = 0
+      for (let i = 0; i < extraOz; i++) {
+        if ((1 + i) < 4) totalAdd += 0.27       // oz 2-4
+        else if ((1 + i) < 9) totalAdd += 0.28  // oz 5-9
+        else totalAdd += 0.30                     // oz 10-13
+      }
+      basePrice += totalAdd
+    }
+    return basePrice
+  }
+
+  // --- MARKETING FLATS (Light vs Heavy) ---
+  if ((service === "MKT_COMM" || service === "MKT_NP") && shape === "FLAT") {
+    const table = service === "MKT_COMM" ? RATES.MKT_COMM : RATES.MKT_NP
+
+    if (weight > 4) {
+      // Heavy flat: piece price + (weight_in_lbs * pound_rate)
+      const priceKey = isSat ? "SAT" : String(level)
+      const piecePrice = table.FLAT_HEAVY_PIECE[priceKey] ?? 0
+      // Saturation uses CR pound table, others use AUTO
+      const poundTable = isSat ? table.FLAT_POUND.CR : table.FLAT_POUND.AUTO
+      const poundRate = poundTable[entry] ?? poundTable.ORIGIN
+      return piecePrice + ((weight / 16) * poundRate)
+    } else {
+      // Light flat
+      const priceKey = isSat ? "SAT" : String(level)
+      let basePrice = table.FLAT_LIGHT[priceKey] ?? 0
+      // DSCF discount for light flats
+      if (entry === "DSCF") basePrice -= 0.04
+      // DDU + Saturation discount
+      if (entry === "DDU" && isSat) basePrice -= 0.05
+      return basePrice
+    }
+  }
+
+  // --- FCM PRESORT: Letters / Postcards ---
+  if (service === "FCM_COMM") {
+    const lvl = isSat ? 3 : (level as SortLevel)
+    if (shape === "POSTCARD") return RATES.FCM_COMM.POSTCARD[lvl] ?? 0
+    if (shape === "LETTER") {
+      return isPlastic
+        ? (RATES.FCM_COMM.NONMACH[lvl] ?? 0)
+        : (RATES.FCM_COMM.LETTER[lvl] ?? 0)
+    }
+    return 0
+  }
+
+  // --- MARKETING LETTERS ---
+  if ((service === "MKT_COMM" || service === "MKT_NP") && shape === "LETTER") {
+    const table = service === "MKT_COMM" ? RATES.MKT_COMM : RATES.MKT_NP
+
+    if (isPlastic) {
+      // Non-machinable -- no saturation rate
+      return table.NONMACH[3] ?? 0 // use best available
+    }
+
+    const priceKey = isSat ? "SAT" : String(level)
+    let price = table.LETTER[priceKey] ?? 0
+
+    // DSCF discount for letters: -$0.007
+    if (entry === "DSCF" && !isSat) price -= 0.007
+
+    return price
+  }
+
+  return 0
+}
+
+// -------------------------------------------------------------------
+// MAIN CALCULATION
 // -------------------------------------------------------------------
 export function calculateUSPSPostage(inputs: USPSInputs): USPSResult {
-  const { mode, service, shape, pack, quantity, weight, presort, entry, fullServiceIMb } = inputs
+  const { service, shape, pack, quantity, saturationQty, weight, sortLevel, entry } = inputs
   const alerts: USPSResult["alerts"] = []
-  let price = 0
-  let className = ""
-  let isPlastic = pack === "PLAS"
 
-  // ---- Validation ----
+  // Build rate labels for all levels
+  const rateAtLevel: Record<SortLevel, number> = {
+    1: getRateForLevel(service, shape, pack, 1, weight, entry),
+    2: getRateForLevel(service, shape, pack, 2, weight, entry),
+    3: getRateForLevel(service, shape, pack, 3, weight, entry),
+  }
+  const satRate = getRateForLevel(service, shape, pack, "SAT", weight, entry)
+
+  // Empty/invalid
   if (!quantity || quantity < 1) {
-    return { pricePerPiece: 0, total: 0, className: "", category: "", alerts: [], isValid: false }
+    return { avgPerPiece: 0, total: 0, className: "", description: "", alerts: [], isValid: false, rateAtLevel, satRate }
   }
 
-  // ---- Alerts for packaging ----
-  if (pack === "FOLD" && shape !== "PARCEL") {
-    alerts.push({ type: "error", message: "TABS REQUIRED: Folded self-mailers must be sealed with wafer seals (tabs). Unsealed edges jam machines and are rejected." })
-  }
-  if (isPlastic && shape === "LETTER") {
-    alerts.push({ type: "error", message: "NON-MACHINABLE: Letters in plastic cannot be machine sorted. Surcharge applied." })
+  const isMkt = service === "MKT_COMM" || service === "MKT_NP"
+  const isRetail = service === "FCM_RETAIL"
+
+  // --- Rule: Postcards are FCM only ---
+  if (isMkt && shape === "POSTCARD") {
+    alerts.push({ type: "error", message: "Postcards do not exist in USPS Marketing Mail / Nonprofit. Use First-Class for postcard pricing." })
+    return { avgPerPiece: 0, total: 0, className: "", description: "Not available", alerts, isValid: false, rateAtLevel, satRate }
   }
 
-  // ---- FIRST-CLASS PRESORT ----
-  if (service === "FCM") {
-    if (shape === "PARCEL") {
-      // Zone-based -- cannot calculate here
-      className = "Ground Advantage"
-      alerts.push({ type: "warning", message: "ZONE RATE: First-Class Parcels use Ground Advantage with zone-based pricing. Cannot calculate exact rate here." })
+  // --- Weight limits ---
+  if (shape === "LETTER" && weight > 3.5) {
+    alerts.push({ type: "error", message: "Letters cannot weigh more than 3.5 oz. Switch to Flat for heavier pieces." })
+    return { avgPerPiece: 0, total: 0, className: "", description: "Not available", alerts, isValid: false, rateAtLevel, satRate }
+  }
+  if (service === "FCM_COMM" && shape === "FLAT" && weight > 13) {
+    alerts.push({ type: "error", message: "First-Class Flats max 13 oz." })
+    return { avgPerPiece: 0, total: 0, className: "", description: "Not available", alerts, isValid: false, rateAtLevel, satRate }
+  }
+
+  // --- Minimum quantity ---
+  if (service === "FCM_COMM" && quantity < 500) {
+    alerts.push({ type: "warning", message: "Minimum 500 pieces required for First-Class Presort." })
+  }
+  if (isMkt && quantity < 200) {
+    alerts.push({ type: "warning", message: "Minimum 200 pieces required for Marketing Mail." })
+  }
+
+  // --- Packaging warnings ---
+  if (pack === "FOLD") {
+    alerts.push({ type: "warning", message: "Folded Mail: Must use wafer seals (tabs). Unsealed edges jam machines and are rejected." })
+  }
+  if (pack === "PLAS" && shape === "LETTER") {
+    alerts.push({ type: "warning", message: "Plastic: Letters in poly bags are Non-Machinable. Surcharge applied." })
+  }
+
+  // --- Calculate ---
+  let totalCost = 0
+  let desc = ""
+  let className = ""
+
+  if (isRetail) {
+    // Retail: single piece, no presort, no saturation
+    const p = getRateForLevel(service, shape, pack, 1, weight, entry)
+    totalCost = quantity * p
+    desc = "Single Piece Retail"
+    className = "First-Class Retail " + SHAPE_LABELS[shape]
+  } else {
+    // Presort: split between saturation qty and remainder
+    const qtySat = isMkt ? Math.min(saturationQty, quantity) : 0
+    const qtyRem = quantity - qtySat
+
+    let costSat = 0
+    let costRem = 0
+    let satRateUsed = 0
+    let remRateUsed = 0
+
+    if (qtySat > 0) {
+      satRateUsed = getRateForLevel(service, shape, pack, "SAT", weight, entry)
+      costSat = qtySat * satRateUsed
+    }
+    if (qtyRem > 0) {
+      remRateUsed = getRateForLevel(service, shape, pack, sortLevel, weight, entry)
+      costRem = qtyRem * remRateUsed
+    }
+
+    totalCost = costSat + costRem
+
+    // Build description
+    const parts: string[] = []
+    if (qtySat > 0) parts.push(`${qtySat.toLocaleString()} @ $${satRateUsed.toFixed(3)} (Sat)`)
+    if (qtyRem > 0) parts.push(`${qtyRem.toLocaleString()} @ $${remRateUsed.toFixed(3)} (${getSortName(sortLevel)})`)
+    desc = parts.join(" + ")
+
+    // Class name
+    if (service === "FCM_COMM") {
+      className = "First-Class " + (shape === "POSTCARD" ? "Card" : SHAPE_LABELS[shape])
     } else {
-      const tbl = RATES.FCM
-      if (shape === "POSTCARD") {
-        price = tbl.POSTCARD[presort] ?? 0
-      } else if (shape === "LETTER") {
-        price = isPlastic ? (tbl.LETTER_NONMACH[presort] ?? 0) : (tbl.LETTER[presort] ?? 0)
-      } else if (shape === "FLAT") {
-        // USPS FLAT shape, NOT "Flat Printing"
-        price = tbl.FLAT[presort] ?? 0
-      }
-
-      // FCM Full-Service IMb discount: -$0.003/pc
-      if (fullServiceIMb && price > 0) {
-        price -= 0.003
-      }
-
-      className = "First-Class " + (shape === "POSTCARD" ? "Card" : shape === "LETTER" ? "Letter" : "Flat")
-
-      if (mode === "NP") {
-        alerts.push({ type: "info", message: "Note: No Nonprofit rates exist for First-Class." })
-      }
-      if (quantity < 500) {
-        alerts.push({ type: "warning", message: "Minimum 500 pieces required for FCM Presort." })
-      }
+      const modeLabel = service === "MKT_NP" ? "Nonprofit" : "Marketing"
+      className = `${modeLabel} ${SHAPE_LABELS[shape]}`
     }
   }
 
-  // ---- MARKETING MAIL ----
-  else {
-    const tbl = mode === "NP" ? RATES.MMM_NP : RATES.MMM_COMM
-    const modeLabel = mode === "NP" ? "Nonprofit" : "Marketing"
-
-    // LETTER or POSTCARD (Postcards run as Letters in Marketing Mail)
-    if (shape === "LETTER" || shape === "POSTCARD") {
-      if (isPlastic) {
-        price = tbl.LETTER_NONMACH[presort] ?? 0
-      } else {
-        if (entry === "DSCF") {
-          price = tbl.DSCF_LETTER?.[presort] ?? tbl.LETTER[presort] ?? 0
-        } else {
-          price = tbl.LETTER[presort] ?? 0
-        }
-      }
-      className = `${modeLabel} Letter`
-      if (shape === "POSTCARD") {
-        alerts.push({ type: "info", message: "Marketing Mail 'Cards' run as Letters." })
-      }
-    }
-
-    // FLAT (USPS mail shape -- NOT "Flat Printing")
-    else if (shape === "FLAT") {
-      if (entry === "DDU" && presort === 4) {
-        price = tbl.DDU_FLAT?.[4] ?? tbl.FLAT[4] ?? 0
-      } else if (entry === "DSCF") {
-        price = tbl.DSCF_FLAT?.[presort] ?? tbl.FLAT[presort] ?? 0
-      } else {
-        price = tbl.FLAT[presort] ?? 0
-      }
-      className = `${modeLabel} Flat`
-
-      // Weight adder >4oz
-      if (weight > 4) {
-        const extra = ((weight - 4) / 16) * 0.90
-        price += extra
-        alerts.push({ type: "info", message: "Includes heavy weight surcharge (>4oz)." })
-      }
-    }
-
-    // PARCEL
-    else if (shape === "PARCEL") {
-      if (entry === "DDU") {
-        price = RATES.PS_DDU
-        className = "Parcel Select DDU"
-        if (weight > 16) {
-          price += (Math.ceil(weight / 16) - 1) * 0.50
-        }
-      } else if (entry === "DSCF") {
-        price = tbl.PARCEL_ENTRY?.[presort] ?? 0
-        className = `${modeLabel} Parcel (DSCF)`
-      } else {
-        // Origin -- no Saturation at Origin, cap at 5-Digit
-        const s = presort === 4 ? 3 : presort
-        price = tbl.PARCEL_ORIGIN?.[s] ?? 0
-        className = `${modeLabel} Parcel (Origin)`
-        if (presort === 4) {
-          alerts.push({ type: "info", message: "Saturation unavailable at Origin entry. Using 5-Digit rate." })
-        }
-      }
-
-      alerts.push({ type: "warning", message: "Standard commercial parcels use zone-based Ground Advantage. This tool calculates Parcel Select DDU (local drop) or Marketing Parcels only." })
-
-      if (quantity < 200 && entry !== "DDU") {
-        alerts.push({ type: "warning", message: "Minimum 200 pieces for Marketing Parcels." })
-      }
-    }
-
-    // Marketing Mail Full-Service IMb discount: -$0.005/pc (Letters/Flats only)
-    if (fullServiceIMb && shape !== "PARCEL" && price > 0) {
-      price -= 0.005
-    }
-  }
-
-  // Ensure price doesn't go negative from discounts
-  price = Math.max(price, 0)
-
-  const category = PRESORT_LABELS[presort]
-  const total = price * quantity
+  const avgPerPiece = quantity > 0 ? totalCost / quantity : 0
 
   return {
-    pricePerPiece: price,
-    total,
+    avgPerPiece,
+    total: totalCost,
     className,
-    category,
+    description: desc,
     alerts,
-    isValid: price > 0,
+    isValid: totalCost > 0,
+    rateAtLevel,
+    satRate,
   }
 }
 
-// Utility for 3-decimal display used for per-piece postage
+function getSortName(s: SortLevel): string {
+  if (s === 1) return "Mixed"
+  if (s === 2) return "ADC"
+  if (s === 3) return "5-Digit"
+  return ""
+}
+
+// Utility: 3-decimal display for per-piece postage
 export function formatPostageRate(value: number): string {
   return "$" + value.toFixed(3)
 }
