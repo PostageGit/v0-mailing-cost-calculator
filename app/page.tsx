@@ -5,13 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MailingCalculator } from "@/components/mailing-calculator"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
+import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
 import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mail, Printer, BookOpen, Calculator, LayoutDashboard, Settings } from "lucide-react"
+import { Mail, Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp } from "lucide-react"
 
 function AppContent() {
   const [view, setView] = useState<"calculators" | "dashboard">("calculators")
@@ -88,6 +89,10 @@ function AppContent() {
                   <BookOpen className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Fold & Staple</span>
                 </TabsTrigger>
+                <TabsTrigger value="usps" aria-label="USPS Postage Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Stamp className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">USPS Postage</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="mailing">
@@ -100,6 +105,10 @@ function AppContent() {
 
               <TabsContent value="booklet">
                 <BookletCalculator />
+              </TabsContent>
+
+              <TabsContent value="usps">
+                <USPSPostageCalculator />
               </TabsContent>
             </Tabs>
           </div>
