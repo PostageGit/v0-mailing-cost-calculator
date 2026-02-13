@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check } from "lucide-react"
+import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check, Save, FilePlus } from "lucide-react"
 import { useState, useCallback } from "react"
 import { formatCurrency } from "@/lib/pricing"
 
@@ -21,11 +21,15 @@ export function QuoteSidebar() {
   const {
     items,
     projectName,
+    savedId,
+    isSaving,
     setProjectName,
     removeItem,
     clearAll,
     getTotal,
     getCategoryTotal,
+    saveQuote,
+    newQuote,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
@@ -339,6 +343,28 @@ export function QuoteSidebar() {
                   Copy for Email
                 </>
               )}
+            </Button>
+          </div>
+
+          {/* Save & New */}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1 gap-1.5 text-xs h-8"
+              onClick={saveQuote}
+              disabled={isSaving}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {isSaving ? "Saving..." : savedId ? "Update Quote" : "Save Quote"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+              onClick={newQuote}
+            >
+              <FilePlus className="h-3.5 w-3.5" />
+              New
             </Button>
           </div>
 

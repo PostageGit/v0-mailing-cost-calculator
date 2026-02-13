@@ -1,11 +1,14 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react"
+import { mutate as globalMutate } from "swr"
 import type { QuoteLineItem, QuoteCategory } from "./quote-types"
 
 interface QuoteContextValue {
   items: QuoteLineItem[]
   projectName: string
+  savedId: string | null
+  isSaving: boolean
   setProjectName: (name: string) => void
   addItem: (item: Omit<QuoteLineItem, "id">) => void
   removeItem: (id: number) => void
@@ -14,6 +17,9 @@ interface QuoteContextValue {
   clearAll: () => void
   getTotal: () => number
   getCategoryTotal: (cat: QuoteCategory) => number
+  saveQuote: () => Promise<void>
+  loadQuote: (quoteId: string) => Promise<void>
+  newQuote: () => void
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
@@ -21,6 +27,8 @@ const QuoteContext = createContext<QuoteContextValue | null>(null)
 export function QuoteProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<QuoteLineItem[]>([])
   const [projectName, setProjectName] = useState("")
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   const addItem = useCallback((item: Omit<QuoteLineItem, "id">) => {
     const newItem: QuoteLineItem = { ...item, id: Date.now() + Math.random() }
@@ -56,11 +64,63 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     [items]
   )
 
+  const saveQuote = useCallback(async () => {
+    setIsSaving(true)
+    try {
+      const total = items.reduce((s, i) => s + i.amount, 0)
+      const payload = {
+        project_name: projectName || "Untitled Quote",
+        items,
+        total,
+      }
+
+      if (savedId) {
+        // Update existing
+        await fetch(`/api/quotes/${savedId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } else {
+        // Create new
+        const res = await fetch("/api/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        if (data.id) setSavedId(data.id)
+      }
+      // Revalidate the dashboard
+      globalMutate("/api/quotes")
+    } finally {
+      setIsSaving(false)
+    }
+  }, [items, projectName, savedId])
+
+  const loadQuote = useCallback(async (quoteId: string) => {
+    const res = await fetch(`/api/quotes/${quoteId}`)
+    const data = await res.json()
+    if (data.id) {
+      setSavedId(data.id)
+      setProjectName(data.project_name || "")
+      setItems(data.items || [])
+    }
+  }, [])
+
+  const newQuote = useCallback(() => {
+    setSavedId(null)
+    setProjectName("")
+    setItems([])
+  }, [])
+
   return (
     <QuoteContext.Provider
       value={{
         items,
         projectName,
+        savedId,
+        isSaving,
         setProjectName,
         addItem,
         removeItem,
@@ -69,6 +129,9 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         clearAll,
         getTotal,
         getCategoryTotal,
+        saveQuote,
+        loadQuote,
+        newQuote,
       }}
     >
       {children}
