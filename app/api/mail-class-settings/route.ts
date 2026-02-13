@@ -20,12 +20,7 @@ export async function POST(req: Request) {
     .from("mail_class_settings")
     .insert({
       class_name: body.class_name,
-      addressing: body.addressing ?? 0,
-      computer_work: body.computer_work ?? 0,
-      cass: body.cass ?? 0,
-      inserting: body.inserting ?? 0,
-      stamping: body.stamping ?? 0,
-      printing: body.printing ?? 0,
+      items: body.items ?? [],
       notes: body.notes ?? null,
     })
     .select()

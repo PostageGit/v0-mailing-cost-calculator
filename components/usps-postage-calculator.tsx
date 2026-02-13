@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useQuote } from "@/lib/quote-context"
+import { useMailing } from "@/lib/mailing-context"
 import { formatCurrency } from "@/lib/pricing"
 import {
   calculateUSPSPostage,
@@ -94,6 +95,21 @@ export function USPSPostageCalculator() {
 
   const result = useMemo(() => calculateUSPSPostage(inputs), [inputs])
   const quote = useQuote()
+  const mailing = useMailing()
+
+  // Sync qty/shape/class to shared mailing context for the Labor tab
+  useEffect(() => {
+    const totalQty = inputs.quantity + (inputs.saturationQty || 0)
+    mailing.setQuantity(totalQty)
+    mailing.setShape(inputs.shape)
+    // Map USPS shape to settings class name
+    const classMap: Record<string, string> = {
+      POSTCARD: "Postcard",
+      LETTER: "Letter",
+      FLAT: "Flat",
+    }
+    mailing.setClassName(classMap[inputs.shape] || inputs.shape)
+  }, [inputs.quantity, inputs.saturationQty, inputs.shape, mailing])
 
   const update = useCallback((partial: Partial<USPSInputs>) => {
     setInputs((prev) => {

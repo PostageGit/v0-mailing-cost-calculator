@@ -11,12 +11,7 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {}
   if (body.class_name !== undefined) updates.class_name = body.class_name
-  if (body.addressing !== undefined) updates.addressing = body.addressing
-  if (body.computer_work !== undefined) updates.computer_work = body.computer_work
-  if (body.cass !== undefined) updates.cass = body.cass
-  if (body.inserting !== undefined) updates.inserting = body.inserting
-  if (body.stamping !== undefined) updates.stamping = body.stamping
-  if (body.printing !== undefined) updates.printing = body.printing
+  if (body.items !== undefined) updates.items = body.items
   if (body.notes !== undefined) updates.notes = body.notes
 
   const { data, error } = await supabase

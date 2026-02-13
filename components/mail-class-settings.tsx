@@ -7,6 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import {
   Settings,
@@ -19,31 +27,39 @@ import {
   ChevronUp,
   DollarSign,
   AlertTriangle,
+  GripVertical,
+  Lock,
 } from "lucide-react"
 
 // ---------- types ----------
-interface MailClassSetting {
+export interface LaborItem {
+  name: string
+  rate: number
+  per_unit: "per_piece" | "per_1000" | "per_500" | "per_job" | string
+  required: boolean
+  enabled: boolean
+  note: string
+}
+
+export interface MailClassSetting {
   id: string
   class_name: string
-  addressing: number
-  computer_work: number
-  cass: number
-  inserting: number
-  stamping: number
-  printing: number
+  items: LaborItem[]
   notes: string | null
   created_at: string
   updated_at: string
 }
 
-const LABOR_FIELDS: { key: keyof MailClassSetting; label: string }[] = [
-  { key: "addressing", label: "Addressing" },
-  { key: "computer_work", label: "Computer Work" },
-  { key: "cass", label: "CASS / 2nd" },
-  { key: "inserting", label: "Inserting" },
-  { key: "stamping", label: "Stamping" },
-  { key: "printing", label: "Printing" },
+const PER_UNIT_OPTIONS: { value: string; label: string }[] = [
+  { value: "per_piece", label: "Per Piece" },
+  { value: "per_1000", label: "Per 1,000" },
+  { value: "per_500", label: "Per 500" },
+  { value: "per_job", label: "Per Job (Flat)" },
 ]
+
+export function perUnitLabel(pu: string): string {
+  return PER_UNIT_OPTIONS.find((o) => o.value === pu)?.label ?? pu
+}
 
 const SWR_KEY = "/api/mail-class-settings"
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -55,8 +71,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[8vh] overflow-y-auto"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[6vh] overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
       <Card className="w-full max-w-3xl border-border shadow-lg">
         <CardHeader className="pb-3">
@@ -66,19 +84,25 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Settings className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <CardTitle className="text-lg">USPS Mail Class Labor Settings</CardTitle>
+                <CardTitle className="text-lg">Mail Class Labor Settings</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5 text-pretty">
-                  Configure labor and list work costs per USPS mail class. These can be added to quotes for flat mail jobs.
+                  Configure labor and list costs per USPS mail class. Each item
+                  can be required or optional, with flexible per-unit pricing.
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close settings">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              aria-label="Close settings"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
           {isLoading && (
             <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -90,24 +114,25 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
               <DollarSign className="h-8 w-8 opacity-40" />
               <p className="text-sm">No mail class settings yet.</p>
-              <p className="text-xs">Add a USPS mail class to configure its labor costs.</p>
+              <p className="text-xs">
+                Add a USPS mail class to configure its labor costs.
+              </p>
             </div>
           )}
 
-          {/* Existing classes */}
-          {settings?.map((setting) => (
-            <MailClassCard key={setting.id} setting={setting} />
+          {settings?.map((s) => (
+            <MailClassCard key={s.id} setting={s} />
           ))}
 
-          {/* Add new form */}
           {adding && (
             <AddMailClassForm
               onDone={() => setAdding(false)}
-              existingNames={settings?.map((s) => s.class_name.toLowerCase()) || []}
+              existingNames={
+                settings?.map((s) => s.class_name.toLowerCase()) || []
+              }
             />
           )}
 
-          {/* Add button */}
           {!adding && (
             <Button
               variant="outline"
@@ -124,18 +149,19 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ---------- individual class card ----------
+// ---------- single class card ----------
 function MailClassCard({ setting }: { setting: MailClassSetting }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [draft, setDraft] = useState({ ...setting })
+  const [draftItems, setDraftItems] = useState<LaborItem[]>(setting.items)
+  const [draftName, setDraftName] = useState(setting.class_name)
+  const [draftNotes, setDraftNotes] = useState(setting.notes || "")
 
-  const laborTotal = LABOR_FIELDS.reduce(
-    (sum, f) => sum + (Number(setting[f.key]) || 0),
-    0
-  )
+  const enabledItems = setting.items.filter((i) => i.enabled)
+  const requiredCount = setting.items.filter((i) => i.required).length
+  const optionalCount = setting.items.length - requiredCount
 
   const handleSave = useCallback(async () => {
     setSaving(true)
@@ -144,14 +170,9 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          class_name: draft.class_name,
-          addressing: draft.addressing,
-          computer_work: draft.computer_work,
-          cass: draft.cass,
-          inserting: draft.inserting,
-          stamping: draft.stamping,
-          printing: draft.printing,
-          notes: draft.notes,
+          class_name: draftName,
+          items: draftItems,
+          notes: draftNotes || null,
         }),
       })
       globalMutate(SWR_KEY)
@@ -159,12 +180,36 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
     } finally {
       setSaving(false)
     }
-  }, [draft, setting.id])
+  }, [draftName, draftItems, draftNotes, setting.id])
 
   const handleDelete = useCallback(async () => {
     await fetch(`/api/mail-class-settings/${setting.id}`, { method: "DELETE" })
     globalMutate(SWR_KEY)
   }, [setting.id])
+
+  const updateDraftItem = (idx: number, updates: Partial<LaborItem>) => {
+    setDraftItems((prev) =>
+      prev.map((item, i) => (i === idx ? { ...item, ...updates } : item))
+    )
+  }
+
+  const removeDraftItem = (idx: number) => {
+    setDraftItems((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const addDraftItem = () => {
+    setDraftItems((prev) => [
+      ...prev,
+      {
+        name: "",
+        rate: 0,
+        per_unit: "per_1000",
+        required: false,
+        enabled: true,
+        note: "",
+      },
+    ])
+  }
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -174,16 +219,21 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2.5">
-          <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-0.5">
+          <Badge
+            variant="secondary"
+            className="text-xs font-semibold px-2.5 py-0.5"
+          >
             {setting.class_name}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            {LABOR_FIELDS.filter((f) => Number(setting[f.key]) > 0).length} labor items
+            {enabledItems.length} active
+            {requiredCount > 0 && ` / ${requiredCount} required`}
+            {optionalCount > 0 && ` / ${optionalCount} optional`}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-mono font-semibold tabular-nums text-foreground">
-            {formatCurrency(laborTotal)}
+          <span className="text-xs text-muted-foreground font-mono">
+            {setting.items.length} items
           </span>
           {expanded ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -193,60 +243,203 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
         </div>
       </button>
 
-      {/* Expanded details */}
+      {/* Expanded detail */}
       {expanded && (
         <div className="px-4 pb-4 pt-2 bg-card border-t border-border flex flex-col gap-3">
-          {/* Labor fields */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {LABOR_FIELDS.map((field) => (
-              <div key={field.key} className="flex flex-col gap-1">
-                <label
-                  htmlFor={`${setting.id}-${field.key}`}
-                  className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide"
-                >
-                  {field.label}
-                </label>
+          {/* Class name edit */}
+          {editing && (
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                Class Name
+              </label>
+              <Input
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                className="h-8 text-sm w-56"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          )}
+
+          {/* Items table */}
+          <div className="flex flex-col gap-2">
+            {/* Header */}
+            <div className="grid grid-cols-[1fr_90px_130px_70px_70px_28px] gap-2 items-center px-1">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Item Name
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Rate
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Per Unit
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide text-center">
+                Required
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide text-center">
+                Active
+              </span>
+              <span />
+            </div>
+
+            {/* Items */}
+            {(editing ? draftItems : setting.items).map((item, idx) => (
+              <div
+                key={idx}
+                className={`grid grid-cols-[1fr_90px_130px_70px_70px_28px] gap-2 items-center px-1 py-1.5 rounded-md ${
+                  !item.enabled ? "opacity-50" : ""
+                } ${item.required && item.enabled ? "bg-primary/5" : "bg-muted/30"}`}
+              >
                 {editing ? (
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                      $
-                    </span>
+                  <>
                     <Input
-                      id={`${setting.id}-${field.key}`}
-                      type="number"
-                      inputMode="decimal"
-                      step="0.01"
-                      min={0}
-                      autoComplete="off"
-                      value={Number(draft[field.key]) || ""}
+                      value={item.name}
                       onChange={(e) =>
-                        setDraft({ ...draft, [field.key]: parseFloat(e.target.value) || 0 })
+                        updateDraftItem(idx, { name: e.target.value })
                       }
-                      className="h-8 text-sm font-mono pl-5 tabular-nums"
+                      placeholder="Item name..."
+                      className="h-7 text-xs"
+                      autoComplete="off"
+                      spellCheck={false}
                     />
-                  </div>
+                    <div className="relative">
+                      <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                        $
+                      </span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min={0}
+                        value={item.rate || ""}
+                        onChange={(e) =>
+                          updateDraftItem(idx, {
+                            rate: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="h-7 text-xs font-mono pl-4 tabular-nums"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <Select
+                      value={item.per_unit}
+                      onValueChange={(v) =>
+                        updateDraftItem(idx, { per_unit: v })
+                      }
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PER_UNIT_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={item.required}
+                        onCheckedChange={(v) =>
+                          updateDraftItem(idx, { required: v })
+                        }
+                        className="scale-75"
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={item.enabled}
+                        onCheckedChange={(v) =>
+                          updateDraftItem(idx, { enabled: v })
+                        }
+                        className="scale-75"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeDraftItem(idx)}
+                      className="p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label={`Remove ${item.name}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
                 ) : (
-                  <span className="text-sm font-mono tabular-nums text-foreground h-8 flex items-center">
-                    {formatCurrency(Number(setting[field.key]) || 0)}
-                  </span>
+                  <>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {item.required && (
+                        <Lock className="h-3 w-3 text-primary flex-shrink-0" />
+                      )}
+                      <span className="text-xs font-medium text-foreground truncate">
+                        {item.name}
+                      </span>
+                      {item.note && (
+                        <span className="text-[9px] text-muted-foreground truncate hidden sm:inline">
+                          ({item.note})
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-mono tabular-nums text-foreground">
+                      {formatCurrency(item.rate)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {perUnitLabel(item.per_unit)}
+                    </span>
+                    <div className="flex justify-center">
+                      {item.required ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary"
+                        >
+                          Req
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] px-1.5 py-0"
+                        >
+                          Opt
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex justify-center">
+                      {item.enabled ? (
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                      )}
+                    </div>
+                    <span />
+                  </>
                 )}
               </div>
             ))}
+
+            {/* Add item button (edit mode) */}
+            {editing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1 w-fit text-muted-foreground"
+                onClick={addDraftItem}
+              >
+                <Plus className="h-3 w-3" />
+                Add Labor Item
+              </Button>
+            )}
           </div>
 
           {/* Notes */}
           {editing ? (
             <div className="flex flex-col gap-1">
-              <label
-                htmlFor={`${setting.id}-notes`}
-                className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide"
-              >
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                 Notes
               </label>
               <textarea
-                id={`${setting.id}-notes`}
-                value={draft.notes || ""}
-                onChange={(e) => setDraft({ ...draft, notes: e.target.value || null })}
+                value={draftNotes}
+                onChange={(e) => setDraftNotes(e.target.value)}
                 placeholder="Optional notes..."
                 rows={2}
                 className="w-full text-sm bg-card border border-border rounded-md p-2 resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
@@ -254,7 +447,9 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
             </div>
           ) : (
             setting.notes && (
-              <p className="text-xs text-muted-foreground italic">{setting.notes}</p>
+              <p className="text-xs text-muted-foreground italic">
+                {setting.notes}
+              </p>
             )
           )}
 
@@ -264,7 +459,12 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
           <div className="flex items-center gap-2">
             {editing ? (
               <>
-                <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handleSave} disabled={saving}>
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
                   <Save className="h-3.5 w-3.5" />
                   {saving ? "Saving..." : "Save"}
                 </Button>
@@ -273,7 +473,9 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
                   size="sm"
                   className="h-8 text-xs"
                   onClick={() => {
-                    setDraft({ ...setting })
+                    setDraftItems(setting.items)
+                    setDraftName(setting.class_name)
+                    setDraftNotes(setting.notes || "")
                     setEditing(false)
                   }}
                 >
@@ -287,7 +489,9 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
                   size="sm"
                   className="h-8 text-xs"
                   onClick={() => {
-                    setDraft({ ...setting })
+                    setDraftItems(setting.items)
+                    setDraftName(setting.class_name)
+                    setDraftNotes(setting.notes || "")
                     setEditing(true)
                   }}
                 >
@@ -302,7 +506,7 @@ function MailClassCard({ setting }: { setting: MailClassSetting }) {
                       onClick={handleDelete}
                     >
                       <AlertTriangle className="h-3 w-3" />
-                      Confirm Delete
+                      Confirm
                     </Button>
                     <Button
                       variant="ghost"
@@ -341,17 +545,57 @@ function AddMailClassForm({
   existingNames: string[]
 }) {
   const [name, setName] = useState("")
-  const [values, setValues] = useState({
-    addressing: 0,
-    computer_work: 0,
-    cass: 0,
-    inserting: 0,
-    stamping: 0,
-    printing: 0,
-  })
+  const [items, setItems] = useState<LaborItem[]>([
+    {
+      name: "Addressing",
+      rate: 125,
+      per_unit: "per_job",
+      required: true,
+      enabled: true,
+      note: "",
+    },
+    {
+      name: "Computer Work",
+      rate: 125,
+      per_unit: "per_job",
+      required: true,
+      enabled: true,
+      note: "",
+    },
+    {
+      name: "CASS / 2nd",
+      rate: 10,
+      per_unit: "per_1000",
+      required: true,
+      enabled: true,
+      note: "",
+    },
+  ])
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+
+  const updateItem = (idx: number, updates: Partial<LaborItem>) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === idx ? { ...item, ...updates } : item))
+    )
+  }
+  const removeItem = (idx: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== idx))
+  }
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        name: "",
+        rate: 0,
+        per_unit: "per_1000",
+        required: false,
+        enabled: true,
+        note: "",
+      },
+    ])
+  }
 
   const handleAdd = useCallback(async () => {
     if (!name.trim()) {
@@ -362,6 +606,11 @@ function AddMailClassForm({
       setError("This class name already exists")
       return
     }
+    const validItems = items.filter((i) => i.name.trim())
+    if (validItems.length === 0) {
+      setError("Add at least one labor item")
+      return
+    }
     setError("")
     setSaving(true)
     try {
@@ -370,7 +619,7 @@ function AddMailClassForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           class_name: name.trim(),
-          ...values,
+          items: validItems,
           notes: notes || null,
         }),
       })
@@ -379,20 +628,29 @@ function AddMailClassForm({
     } finally {
       setSaving(false)
     }
-  }, [name, values, notes, existingNames, onDone])
+  }, [name, items, notes, existingNames, onDone])
 
   return (
     <div className="border border-primary/30 border-dashed rounded-lg p-4 bg-primary/5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">New USPS Mail Class</span>
-        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onDone}>
+        <span className="text-sm font-semibold text-foreground">
+          New Mail Class
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={onDone}
+        >
           Cancel
         </Button>
       </div>
 
-      {/* Class name */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="new-class-name" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+        <label
+          htmlFor="new-class-name"
+          className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide"
+        >
           Class Name
         </label>
         <Input
@@ -402,48 +660,118 @@ function AddMailClassForm({
           placeholder="e.g. Flat, Parcel, BPM..."
           autoComplete="off"
           spellCheck={false}
-          className="h-9"
+          className="h-9 w-56"
         />
         {error && <span className="text-xs text-destructive">{error}</span>}
       </div>
 
-      {/* Labor costs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-        {LABOR_FIELDS.map((field) => (
-          <div key={field.key} className="flex flex-col gap-1">
-            <label
-              htmlFor={`new-${field.key}`}
-              className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide"
-            >
-              {field.label}
-            </label>
+      {/* Items */}
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-[1fr_90px_130px_70px_70px_28px] gap-2 items-center px-1">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Item Name
+          </span>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Rate
+          </span>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Per Unit
+          </span>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide text-center">
+            Required
+          </span>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide text-center">
+            Active
+          </span>
+          <span />
+        </div>
+
+        {items.map((item, idx) => (
+          <div
+            key={idx}
+            className="grid grid-cols-[1fr_90px_130px_70px_70px_28px] gap-2 items-center px-1"
+          >
+            <Input
+              value={item.name}
+              onChange={(e) => updateItem(idx, { name: e.target.value })}
+              placeholder="Item name..."
+              className="h-7 text-xs"
+              autoComplete="off"
+              spellCheck={false}
+            />
             <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+                $
+              </span>
               <Input
-                id={`new-${field.key}`}
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min={0}
-                autoComplete="off"
-                value={values[field.key as keyof typeof values] || ""}
+                value={item.rate || ""}
                 onChange={(e) =>
-                  setValues({ ...values, [field.key]: parseFloat(e.target.value) || 0 })
+                  updateItem(idx, { rate: parseFloat(e.target.value) || 0 })
                 }
-                className="h-8 text-sm font-mono pl-5 tabular-nums"
+                className="h-7 text-xs font-mono pl-4 tabular-nums"
+                autoComplete="off"
               />
             </div>
+            <Select
+              value={item.per_unit}
+              onValueChange={(v) => updateItem(idx, { per_unit: v })}
+            >
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PER_UNIT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-center">
+              <Switch
+                checked={item.required}
+                onCheckedChange={(v) => updateItem(idx, { required: v })}
+                className="scale-75"
+              />
+            </div>
+            <div className="flex justify-center">
+              <Switch
+                checked={item.enabled}
+                onCheckedChange={(v) => updateItem(idx, { enabled: v })}
+                className="scale-75"
+              />
+            </div>
+            <button
+              onClick={() => removeItem(idx)}
+              className="p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
+              aria-label={`Remove ${item.name}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         ))}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs gap-1 w-fit text-muted-foreground"
+          onClick={addItem}
+        >
+          <Plus className="h-3 w-3" />
+          Add Labor Item
+        </Button>
       </div>
 
       {/* Notes */}
       <div className="flex flex-col gap-1">
-        <label htmlFor="new-notes" className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+        <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
           Notes
         </label>
         <textarea
-          id="new-notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Optional notes..."
@@ -452,7 +780,12 @@ function AddMailClassForm({
         />
       </div>
 
-      <Button size="sm" className="gap-1.5 h-9 w-fit" onClick={handleAdd} disabled={saving}>
+      <Button
+        size="sm"
+        className="gap-1.5 h-9 w-fit"
+        onClick={handleAdd}
+        disabled={saving}
+      >
         <Plus className="h-3.5 w-3.5" />
         {saving ? "Adding..." : "Add Mail Class"}
       </Button>

@@ -2,17 +2,18 @@
 
 import { useState, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MailingCalculator } from "@/components/mailing-calculator"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
+import { LaborCalculator } from "@/components/labor-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
+import { MailingProvider } from "@/lib/mailing-context"
 import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Mail, Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp } from "lucide-react"
+import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench } from "lucide-react"
 
 function AppContent() {
   const [view, setView] = useState<"calculators" | "dashboard">("calculators")
@@ -75,11 +76,15 @@ function AppContent() {
         /* Calculator View */
         <div className="w-full max-w-[120rem] mx-auto px-4 lg:px-6 pt-5 pb-8 flex flex-1 gap-6">
           <div className="flex-1 min-w-0">
-            <Tabs defaultValue="mailing" className="w-full flex flex-col">
-              <TabsList className="mb-5 bg-muted/60 h-10 p-1 w-fit">
-                <TabsTrigger value="mailing" aria-label="Mailing Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  <Mail className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Mailing</span>
+            <Tabs defaultValue="usps" className="w-full flex flex-col">
+              <TabsList className="mb-5 bg-muted/60 h-10 p-1 w-fit flex-wrap">
+                <TabsTrigger value="usps" aria-label="USPS Postage Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Stamp className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">USPS Postage</span>
+                </TabsTrigger>
+                <TabsTrigger value="labor" aria-label="Labor & List Work Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Wrench className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Labor</span>
                 </TabsTrigger>
                 <TabsTrigger value="printing" aria-label="Flat Printing Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
                   <Printer className="h-4 w-4" aria-hidden="true" />
@@ -89,14 +94,14 @@ function AppContent() {
                   <BookOpen className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Fold & Staple</span>
                 </TabsTrigger>
-                <TabsTrigger value="usps" aria-label="USPS Postage Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  <Stamp className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">USPS Postage</span>
-                </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="mailing">
-                <MailingCalculator />
+              <TabsContent value="usps">
+                <USPSPostageCalculator />
+              </TabsContent>
+
+              <TabsContent value="labor">
+                <LaborCalculator />
               </TabsContent>
 
               <TabsContent value="printing">
@@ -105,10 +110,6 @@ function AppContent() {
 
               <TabsContent value="booklet">
                 <BookletCalculator />
-              </TabsContent>
-
-              <TabsContent value="usps">
-                <USPSPostageCalculator />
               </TabsContent>
             </Tabs>
           </div>
@@ -142,7 +143,9 @@ function AppContent() {
 export default function Page() {
   return (
     <QuoteProvider>
-      <AppContent />
+      <MailingProvider>
+        <AppContent />
+      </MailingProvider>
     </QuoteProvider>
   )
 }
