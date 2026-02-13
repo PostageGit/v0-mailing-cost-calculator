@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { formatCurrency } from "@/lib/pricing"
-import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
+import { getCategoryLabel, getCategoryColor, type QuoteCategory } from "@/lib/quote-types"
+import { Input } from "@/components/ui/input"
 import {
   FileText,
   Trash2,
@@ -17,6 +18,10 @@ import {
   Pencil,
   Clock,
   Loader2,
+  X,
+  Save,
+  ClipboardCopy,
+  Check,
 } from "lucide-react"
 
 interface QuoteItem {
@@ -184,73 +189,310 @@ function QuoteCard({
   )
 }
 
-// Expanded quote detail view
-function QuoteDetail({ quote, onClose }: { quote: Quote; onClose: () => void }) {
-  // Group items by category
-  const categories = Array.from(new Set(quote.items?.map((i) => i.category) || []))
+// Full edit + copy modal for a saved quote
+function QuoteEditModal({
+  quote,
+  onClose,
+  onSaved,
+  onLoadIntoCalculator,
+}: {
+  quote: Quote
+  onClose: () => void
+  onSaved: () => void
+  onLoadIntoCalculator: (id: string) => void
+}) {
+  const [name, setName] = useState(quote.project_name)
+  const [editItems, setEditItems] = useState<QuoteItem[]>(quote.items || [])
+  const [notes, setNotes] = useState(quote.notes || "")
+  const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [showPlainText, setShowPlainText] = useState(false)
+
+  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet"]
+  const OTHER_CATS: QuoteCategory[] = ["postage", "listwork"]
+  const ALL_CATS: QuoteCategory[] = ["flat", "booklet", "postage", "listwork"]
+
+  const total = editItems.reduce((s, i) => s + i.amount, 0)
+  const catTotal = (cat: QuoteCategory) =>
+    editItems.filter((i) => i.category === cat).reduce((s, i) => s + i.amount, 0)
+
+  const removeItem = (id: number) => setEditItems((prev) => prev.filter((i) => i.id !== id))
+
+  const updateAmount = (id: number, amount: number) =>
+    setEditItems((prev) => prev.map((i) => (i.id === id ? { ...i, amount } : i)))
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await fetch(`/api/quotes/${quote.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_name: name,
+          items: editItems,
+          total,
+          notes: notes || null,
+        }),
+      })
+      onSaved()
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const buildPlainText = () => {
+    const lines: string[] = []
+    const divider = "------------------------------"
+    lines.push(`Quote: ${name || "Untitled Quote"}`)
+    lines.push(divider)
+    lines.push("")
+
+    const renderCat = (cat: QuoteCategory, indent = "") => {
+      const catItems = editItems.filter((i) => i.category === cat)
+      if (catItems.length === 0) return false
+      const ct = catTotal(cat)
+      lines.push(`${indent}${getCategoryLabel(cat)}`)
+      catItems.forEach((item, idx) => {
+        const prefix = catItems.length > 1 ? `#${idx + 1} ` : ""
+        lines.push(`${indent}  ${prefix}${item.label}`)
+        if (item.description) lines.push(`${indent}    ${item.description}`)
+        lines.push(`${indent}    ${formatCurrency(item.amount)}`)
+        lines.push("")
+      })
+      lines.push(`${indent}  Subtotal: ${formatCurrency(ct)}`)
+      lines.push("")
+      return true
+    }
+
+    const hasPrinting = PRINT_CATS.some(
+      (c) => editItems.filter((i) => i.category === c).length > 0
+    )
+    if (hasPrinting) {
+      const pt = PRINT_CATS.reduce((s, c) => s + catTotal(c), 0)
+      lines.push("PRINTING")
+      lines.push("")
+      for (const c of PRINT_CATS) renderCat(c, "  ")
+      lines.push(`  Printing Total: ${formatCurrency(pt)}`)
+      lines.push("")
+      lines.push(divider)
+      lines.push("")
+    }
+
+    for (const c of OTHER_CATS) {
+      if (renderCat(c)) {
+        lines.push(divider)
+        lines.push("")
+      }
+    }
+
+    lines.push(`TOTAL: ${formatCurrency(total)}`)
+    if (notes) {
+      lines.push("")
+      lines.push(`Notes: ${notes}`)
+    }
+    lines.push("")
+    return lines.join("\n")
+  }
+
+  const handleCopy = async () => {
+    const text = buildPlainText()
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const ta = document.createElement("textarea")
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand("copy")
+      document.body.removeChild(ta)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg max-h-[80vh] overflow-y-auto border-border shadow-lg">
+    <div
+      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[10vh] overflow-y-auto"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <Card className="w-full max-w-2xl border-border shadow-lg">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">{quote.project_name}</CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 text-xs">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="text-lg font-bold text-foreground bg-transparent border-none outline-none w-full placeholder:text-muted-foreground focus:ring-0"
+                placeholder="Project / Client Name..."
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <div className="flex items-center gap-2 mt-1.5">
+                <Badge variant="secondary" className="text-xs capitalize">
+                  {quote.status}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  Updated {formatDate(quote.updated_at)}
+                </span>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-8 text-xs flex-shrink-0">
               Close
             </Button>
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <Badge variant="secondary" className="text-xs capitalize">
-              {quote.status}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              Updated {formatDate(quote.updated_at)}
-            </span>
-          </div>
         </CardHeader>
+
         <CardContent className="flex flex-col gap-4">
-          {categories.map((cat) => {
-            const catItems = quote.items.filter((i) => i.category === cat)
-            const catTotal = catItems.reduce((s, i) => s + i.amount, 0)
+          {/* Items by category */}
+          {ALL_CATS.map((cat) => {
+            const catItems = editItems.filter((i) => i.category === cat)
+            if (catItems.length === 0) return null
+            const ct = catTotal(cat)
+
             return (
               <div key={cat}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-foreground">
+                  <Badge
+                    variant="secondary"
+                    className={`text-[11px] px-2 py-0.5 font-semibold ${getCategoryColor(cat)}`}
+                  >
                     {getCategoryLabel(cat)}
-                  </span>
+                  </Badge>
                   <span className="text-sm font-mono font-semibold tabular-nums">
-                    {formatCurrency(catTotal)}
+                    {formatCurrency(ct)}
                   </span>
                 </div>
-                {catItems.map((item, idx) => (
-                  <div key={idx} className="flex items-start justify-between py-1.5 px-2 bg-muted/40 rounded-md mb-1">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground truncate">
-                        {catItems.length > 1 && (
-                          <span className="text-muted-foreground font-mono mr-1">#{idx + 1}</span>
+                <div className="flex flex-col gap-1.5">
+                  {catItems.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="flex items-start justify-between gap-2 py-2 px-3 bg-muted/40 rounded-lg"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {catItems.length > 1 && (
+                            <span className="text-muted-foreground font-mono mr-1.5">#{idx + 1}</span>
+                          )}
+                          {item.label}
+                        </p>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                            {item.description}
+                          </p>
                         )}
-                        {item.label}
-                      </p>
-                      {item.description && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{item.description}</p>
-                      )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            value={item.amount || ""}
+                            onChange={(e) => updateAmount(item.id, parseFloat(e.target.value) || 0)}
+                            className="w-24 h-8 text-right text-sm font-mono tabular-nums bg-card border border-border rounded-md pl-5 pr-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                          />
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="p-1 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-colors"
+                          aria-label={`Remove ${item.label}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-xs font-mono font-semibold tabular-nums ml-2">
-                      {formatCurrency(item.amount)}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )
           })}
 
+          {/* Combined printing total */}
+          {catTotal("flat") > 0 && catTotal("booklet") > 0 && (
+            <div className="flex items-center justify-between px-1 pt-1 border-t border-dashed border-border">
+              <span className="text-xs font-medium text-foreground">All Printing</span>
+              <span className="text-xs font-mono font-medium text-foreground tabular-nums">
+                {formatCurrency(catTotal("flat") + catTotal("booklet"))}
+              </span>
+            </div>
+          )}
+
           <Separator />
+
+          {/* Grand total */}
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-foreground">Total</span>
-            <span className="text-lg font-bold font-mono text-primary tabular-nums">
-              {formatCurrency(quote.total)}
+            <span className="text-base font-semibold text-foreground">Project Total</span>
+            <span className="text-xl font-bold font-mono text-primary tabular-nums">
+              {formatCurrency(total)}
             </span>
           </div>
+
+          {/* Notes */}
+          <div>
+            <label htmlFor="quote-notes" className="text-sm font-medium text-foreground mb-1.5 block">
+              Notes
+            </label>
+            <textarea
+              id="quote-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add any notes for this quote..."
+              rows={3}
+              className="w-full text-sm bg-card border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+            />
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              className="gap-1.5 text-xs h-9"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button
+              variant={copied ? "default" : "outline"}
+              size="sm"
+              className="gap-1.5 text-xs h-9"
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <><Check className="h-3.5 w-3.5" />Copied</>
+              ) : (
+                <><ClipboardCopy className="h-3.5 w-3.5" />Copy for Email</>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-9"
+              onClick={() => setShowPlainText(!showPlainText)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {showPlainText ? "Hide Text" : "View as Text"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-9"
+              onClick={() => onLoadIntoCalculator(quote.id)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit in Calculator
+            </Button>
+          </div>
+
+          {/* Plain text preview */}
+          {showPlainText && (
+            <pre className="bg-muted rounded-lg p-3 text-[11px] font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto border border-border select-all">
+              {buildPlainText()}
+            </pre>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -346,11 +588,16 @@ export function KanbanBoard({
         })}
       </div>
 
-      {/* Detail modal */}
+      {/* Edit modal */}
       {detailQuote && (
-        <QuoteDetail
+        <QuoteEditModal
           quote={detailQuote}
           onClose={() => setDetailQuote(null)}
+          onSaved={() => globalMutate("/api/quotes")}
+          onLoadIntoCalculator={(id) => {
+            setDetailQuote(null)
+            onLoadQuote(id)
+          }}
         />
       )}
     </>
