@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
 
@@ -53,8 +52,6 @@ export function PrintingForm({
   }
 
   return (
-    <Card className="border-border">
-      <CardContent className="pt-6">
         <form onSubmit={handleSubmit}>
           {/* Row 1: Qty, Width, Height */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -227,7 +224,5 @@ export function PrintingForm({
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
   )
 }

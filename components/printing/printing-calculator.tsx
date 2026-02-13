@@ -196,9 +196,7 @@ export function PrintingCalculator() {
       {/* Main Calculator Column */}
       <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
         <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex flex-col">
-          <h1 className="text-2xl font-bold text-foreground text-center mb-6">
-            Flat Printing Calculator
-          </h1>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Flat Printing Calculator</h2>
 
           <PrintingForm
             inputs={inputs}
