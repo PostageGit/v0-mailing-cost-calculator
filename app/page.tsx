@@ -8,11 +8,14 @@ import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
 import { KanbanBoard } from "@/components/kanban-board"
+import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { Button } from "@/components/ui/button"
-import { Mail, Printer, BookOpen, Calculator, LayoutDashboard } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Mail, Printer, BookOpen, Calculator, LayoutDashboard, Settings } from "lucide-react"
 
 function AppContent() {
   const [view, setView] = useState<"calculators" | "dashboard">("calculators")
+  const [showSettings, setShowSettings] = useState(false)
   const { loadQuote } = useQuote()
 
   const handleLoadQuote = useCallback(
@@ -52,6 +55,16 @@ function AppContent() {
             >
               <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">Dashboard</span>
+            </Button>
+            <Separator orientation="vertical" className="h-5 mx-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setShowSettings(true)}
+              aria-label="Mail class labor settings"
+            >
+              <Settings className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -107,6 +120,11 @@ function AppContent() {
           </div>
           <KanbanBoard onLoadQuote={handleLoadQuote} />
         </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <MailClassSettingsPanel onClose={() => setShowSettings(false)} />
       )}
     </div>
   )
