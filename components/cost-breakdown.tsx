@@ -9,6 +9,7 @@ import {
   Truck,
   Mail,
   Printer,
+  Bookmark,
 } from "lucide-react"
 
 interface CostBreakdownProps {
@@ -64,7 +65,27 @@ export function CostBreakdownTable({ costs, includePrinting }: CostBreakdownProp
         )
       })}
 
-      {/* Printing/Stamping */}
+      {/* Stamping - auto-calculated for small jobs */}
+      {costs.stamping > 0 && (
+        <div
+          className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-muted/50 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-chart-4/10 text-chart-4 group-hover:bg-chart-4/15 transition-colors">
+              <Bookmark className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">Stamping</span>
+              <span className="text-xs text-muted-foreground">Applying physical stamps (small qty)</span>
+            </div>
+          </div>
+          <span className="text-sm font-mono font-semibold text-foreground tabular-nums">
+            {formatCurrency(costs.stamping)}
+          </span>
+        </div>
+      )}
+
+      {/* Printing - optional, checkbox-controlled */}
       <div
         className={`flex items-center justify-between py-3 px-3 rounded-lg transition-colors group ${
           includePrinting ? "hover:bg-muted/50" : "opacity-40"
@@ -77,14 +98,14 @@ export function CostBreakdownTable({ costs, includePrinting }: CostBreakdownProp
             <Printer className="h-4 w-4" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-foreground">Printing / Stamping</span>
+            <span className="text-sm font-medium text-foreground">Printing</span>
             <span className="text-xs text-muted-foreground">
-              {includePrinting ? "Per piece stamping" : "Not included"}
+              {includePrinting ? "Printing mail pieces" : "Not included (toggle in options)"}
             </span>
           </div>
         </div>
         <span className="text-sm font-mono font-semibold text-foreground tabular-nums">
-          {formatCurrency(costs.stamping)}
+          {formatCurrency(costs.printing)}
         </span>
       </div>
     </div>

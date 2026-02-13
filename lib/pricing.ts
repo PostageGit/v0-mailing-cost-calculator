@@ -17,7 +17,8 @@ export interface CostBreakdown {
   inserting: number
   ndc: number
   postage: number
-  stamping: number
+  stamping: number       // Auto-calculated: physically putting stamps on (small jobs only)
+  printing: number       // Optional: printing the mail pieces (checkbox-controlled)
   totalForEntireJob: number
   totalForEachMailing: number
   totalPerPiece: number
@@ -91,6 +92,7 @@ export function calculateCosts(inputs: MailingInputs): CostBreakdown {
       ndc: 0,
       postage: 0,
       stamping: 0,
+      printing: 0,
       totalForEntireJob: 0,
       totalForEachMailing: 0,
       totalPerPiece: 0,
@@ -143,16 +145,20 @@ export function calculateCosts(inputs: MailingInputs): CostBreakdown {
   // G8 - Postage
   // Complex formula with thresholds for single-piece vs bulk
   let postage: number
+  let stamping = 0 // Physically putting stamps on - only for small jobs
   const isSmallFirstClass = qty < 500 && mailingClass === "1st Class"
   const isSmallOther = qty < 200 && mailingClass !== "1st Class"
 
   if (isSmallFirstClass || isSmallOther) {
-    // Single piece rates: (K9+K10)*J2 for postcard, (M9+K10)*J2 for letter
+    // Single piece rates: K9*J2 for postcard, M9*J2 for letter
+    // Plus stamping (K10*J2) shown as separate line
     if (mailPiece === "Postcard") {
-      postage = (PRICING.postage.singlePiecePostcard + PRICING.postage.stampingRate) * qty
+      postage = PRICING.postage.singlePiecePostcard * qty
     } else {
-      postage = (PRICING.postage.singlePieceEnv + PRICING.postage.stampingRate) * qty
+      postage = PRICING.postage.singlePieceEnv * qty
     }
+    // Stamping is the physical stamp application fee
+    stamping = PRICING.postage.stampingRate * qty
   } else {
     if (mailingClass === "1st Class") {
       if (mailPiece === "Postcard") {
@@ -168,12 +174,14 @@ export function calculateCosts(inputs: MailingInputs): CostBreakdown {
     }
   }
 
-  // G9 - Stamping/Printing
-  const stamping = includePrinting ? PRICING.stamping.perPiece * qty : 0
+  // G9 - Printing (optional, checkbox-controlled)
+  const printing = includePrinting ? PRICING.stamping.perPiece * qty : 0
 
   // G13 - Total for entire job
   // =SUM(G3:G8)+IF(E9=TRUE,G9,0)
-  const totalForEntireJob = addressing + computerWork + cass2nd + inserting + ndc + postage + stamping
+  // Stamping is part of the base cost (postage-related for small jobs)
+  // Printing is optional (checkbox)
+  const totalForEntireJob = addressing + computerWork + cass2nd + inserting + ndc + postage + stamping + printing
 
   // G12 - Total for each mailing
   // =if(Value(C7)<1, G12, G12*C7) -- when splitMailingInto > 0, multiply
@@ -198,6 +206,7 @@ export function calculateCosts(inputs: MailingInputs): CostBreakdown {
     ndc,
     postage,
     stamping,
+    printing,
     totalForEntireJob,
     totalForEachMailing,
     totalPerPiece,

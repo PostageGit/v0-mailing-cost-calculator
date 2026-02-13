@@ -126,7 +126,7 @@ export function CalculatorForm({ inputs, onInputChange }: CalculatorFormProps) {
             className="flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer"
           >
             <Printer className="h-4 w-4 text-muted-foreground" />
-            Include Printing / Stamping
+            Include Printing
           </Label>
         </div>
       </div>
