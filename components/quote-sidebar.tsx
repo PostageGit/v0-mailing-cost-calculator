@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, X, FileText, ChevronDown, ChevronUp } from "lucide-react"
-import { useState } from "react"
+import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check } from "lucide-react"
+import { useState, useCallback } from "react"
 import { formatCurrency } from "@/lib/pricing"
 
 const CATEGORIES: QuoteCategory[] = ["printing", "postage", "listwork"]
@@ -41,6 +41,70 @@ export function QuoteSidebar() {
 
   const total = getTotal()
   const hasItems = items.length > 0
+
+  const [copied, setCopied] = useState(false)
+  const [showPlainText, setShowPlainText] = useState(false)
+
+  const buildPlainText = useCallback(() => {
+    const lines: string[] = []
+    const divider = "------------------------------"
+
+    if (projectName) {
+      lines.push(`Quote: ${projectName}`)
+    } else {
+      lines.push("Quote Summary")
+    }
+    lines.push(divider)
+    lines.push("")
+
+    for (const cat of CATEGORIES) {
+      const catItems = items.filter((i) => i.category === cat)
+      if (catItems.length === 0) continue
+
+      const catTotal = getCategoryTotal(cat)
+      lines.push(getCategoryLabel(cat).toUpperCase())
+      lines.push("")
+
+      for (const item of catItems) {
+        const amtStr = formatCurrency(item.amount)
+        lines.push(`  ${item.label}`)
+        if (item.description) {
+          lines.push(`    ${item.description}`)
+        }
+        lines.push(`    ${amtStr}`)
+        lines.push("")
+      }
+
+      lines.push(`  Subtotal: ${formatCurrency(catTotal)}`)
+      lines.push("")
+      lines.push(divider)
+      lines.push("")
+    }
+
+    lines.push(`TOTAL: ${formatCurrency(total)}`)
+    lines.push("")
+
+    return lines.join("\n")
+  }, [items, projectName, total, getCategoryTotal])
+
+  const handleCopy = useCallback(async () => {
+    const text = buildPlainText()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea")
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand("copy")
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }, [buildPlainText])
 
   return (
     <Card className="border-border bg-card shadow-sm h-full flex flex-col">
@@ -159,15 +223,14 @@ export function QuoteSidebar() {
         )}
       </CardContent>
 
-      {/* Footer: Grand Total */}
+      {/* Footer: Grand Total + Copy */}
       {hasItems && (
-        <div className="flex-shrink-0 border-t border-border p-4">
-          <Separator className="mb-3 bg-transparent" />
+        <div className="flex-shrink-0 border-t border-border p-4 flex flex-col gap-3">
           {CATEGORIES.map((cat) => {
             const catTotal = getCategoryTotal(cat)
             if (catTotal === 0) return null
             return (
-              <div key={cat} className="flex items-center justify-between mb-1.5">
+              <div key={cat} className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">{getCategoryLabel(cat)}</span>
                 <span className="text-xs font-mono text-muted-foreground tabular-nums">
                   {formatCurrency(catTotal)}
@@ -175,13 +238,51 @@ export function QuoteSidebar() {
               </div>
             )
           })}
-          <Separator className="my-2" />
+          <Separator />
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-foreground">Project Total</span>
             <span className="text-lg font-bold font-mono text-primary tabular-nums">
               {formatCurrency(total)}
             </span>
           </div>
+
+          {/* Plain Text Toggle + Copy */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs h-8"
+              onClick={() => setShowPlainText(!showPlainText)}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              {showPlainText ? "Hide Text" : "View as Text"}
+            </Button>
+            <Button
+              variant={copied ? "default" : "outline"}
+              size="sm"
+              className="flex-1 gap-1.5 text-xs h-8"
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <ClipboardCopy className="h-3.5 w-3.5" />
+                  Copy for Email
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Plain text preview */}
+          {showPlainText && (
+            <pre className="bg-muted rounded-lg p-3 text-[11px] font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto border border-border select-all">
+              {buildPlainText()}
+            </pre>
+          )}
         </div>
       )}
     </Card>
