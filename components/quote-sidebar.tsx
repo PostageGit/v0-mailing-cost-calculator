@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check, Save, FilePlus } from "lucide-react"
 import { useState, useCallback } from "react"
 import { formatCurrency } from "@/lib/pricing"
+import { buildQuoteText } from "@/lib/build-quote-text"
 
 const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork"]
 
@@ -50,76 +51,9 @@ export function QuoteSidebar() {
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
 
-  // Group printing categories together for a cleaner email layout
-  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet"]
-  const OTHER_CATS: QuoteCategory[] = ["postage", "listwork"]
-
   const buildPlainText = useCallback(() => {
-    const lines: string[] = []
-    const divider = "------------------------------"
-
-    if (projectName) {
-      lines.push(`Quote: ${projectName}`)
-    } else {
-      lines.push("Quote Summary")
-    }
-    lines.push(divider)
-    lines.push("")
-
-    // Helper to render a category section
-    const renderCat = (cat: QuoteCategory, indent = "") => {
-      const catItems = items.filter((i) => i.category === cat)
-      if (catItems.length === 0) return false
-
-      const catTotal = getCategoryTotal(cat)
-      lines.push(`${indent}${getCategoryLabel(cat)}`)
-
-      catItems.forEach((item, idx) => {
-        const prefix = catItems.length > 1 ? `#${idx + 1} ` : ""
-        lines.push(`${indent}  ${prefix}${item.label}`)
-        if (item.description) {
-          lines.push(`${indent}    ${item.description}`)
-        }
-        lines.push(`${indent}    ${formatCurrency(item.amount)}`)
-        lines.push("")
-      })
-
-      lines.push(`${indent}  Subtotal: ${formatCurrency(catTotal)}`)
-      lines.push("")
-      return true
-    }
-
-    // Printing super-group (flat + booklet)
-    const hasPrinting = PRINT_CATS.some(
-      (cat) => items.filter((i) => i.category === cat).length > 0
-    )
-    if (hasPrinting) {
-      const printTotal = PRINT_CATS.reduce((s, c) => s + getCategoryTotal(c), 0)
-      lines.push("PRINTING")
-      lines.push("")
-      for (const cat of PRINT_CATS) {
-        renderCat(cat, "  ")
-      }
-      lines.push(`  Printing Total: ${formatCurrency(printTotal)}`)
-      lines.push("")
-      lines.push(divider)
-      lines.push("")
-    }
-
-    // Other categories
-    for (const cat of OTHER_CATS) {
-      const rendered = renderCat(cat)
-      if (rendered) {
-        lines.push(divider)
-        lines.push("")
-      }
-    }
-
-    lines.push(`TOTAL: ${formatCurrency(total)}`)
-    lines.push("")
-
-    return lines.join("\n")
-  }, [items, projectName, total, getCategoryTotal])
+    return buildQuoteText(items, projectName || undefined)
+  }, [items, projectName])
 
   const handleCopy = useCallback(async () => {
     const text = buildPlainText()

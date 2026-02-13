@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, getCategoryColor, type QuoteCategory } from "@/lib/quote-types"
+import { buildQuoteText } from "@/lib/build-quote-text"
 import { Input } from "@/components/ui/input"
 import {
   FileText,
@@ -208,8 +209,6 @@ function QuoteEditModal({
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
 
-  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet"]
-  const OTHER_CATS: QuoteCategory[] = ["postage", "listwork"]
   const ALL_CATS: QuoteCategory[] = ["flat", "booklet", "postage", "listwork"]
 
   const total = editItems.reduce((s, i) => s + i.amount, 0)
@@ -242,57 +241,7 @@ function QuoteEditModal({
   }
 
   const buildPlainText = () => {
-    const lines: string[] = []
-    const divider = "------------------------------"
-    lines.push(`Quote: ${name || "Untitled Quote"}`)
-    lines.push(divider)
-    lines.push("")
-
-    const renderCat = (cat: QuoteCategory, indent = "") => {
-      const catItems = editItems.filter((i) => i.category === cat)
-      if (catItems.length === 0) return false
-      const ct = catTotal(cat)
-      lines.push(`${indent}${getCategoryLabel(cat)}`)
-      catItems.forEach((item, idx) => {
-        const prefix = catItems.length > 1 ? `#${idx + 1} ` : ""
-        lines.push(`${indent}  ${prefix}${item.label}`)
-        if (item.description) lines.push(`${indent}    ${item.description}`)
-        lines.push(`${indent}    ${formatCurrency(item.amount)}`)
-        lines.push("")
-      })
-      lines.push(`${indent}  Subtotal: ${formatCurrency(ct)}`)
-      lines.push("")
-      return true
-    }
-
-    const hasPrinting = PRINT_CATS.some(
-      (c) => editItems.filter((i) => i.category === c).length > 0
-    )
-    if (hasPrinting) {
-      const pt = PRINT_CATS.reduce((s, c) => s + catTotal(c), 0)
-      lines.push("PRINTING")
-      lines.push("")
-      for (const c of PRINT_CATS) renderCat(c, "  ")
-      lines.push(`  Printing Total: ${formatCurrency(pt)}`)
-      lines.push("")
-      lines.push(divider)
-      lines.push("")
-    }
-
-    for (const c of OTHER_CATS) {
-      if (renderCat(c)) {
-        lines.push(divider)
-        lines.push("")
-      }
-    }
-
-    lines.push(`TOTAL: ${formatCurrency(total)}`)
-    if (notes) {
-      lines.push("")
-      lines.push(`Notes: ${notes}`)
-    }
-    lines.push("")
-    return lines.join("\n")
+    return buildQuoteText(editItems, name || undefined, notes || undefined)
   }
 
   const handleCopy = async () => {
