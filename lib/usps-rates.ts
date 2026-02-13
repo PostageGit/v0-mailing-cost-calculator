@@ -211,15 +211,19 @@ function getRateForLevel(
     const table = service === "MKT_COMM" ? RATES.MKT_COMM : RATES.MKT_NP
 
     if (isPlastic) {
-      // Non-machinable -- no saturation rate
-      return table.NONMACH[3] ?? 0 // use best available
+      // Non-machinable -- no SAT rate exists (SAT key absent from NONMACH table)
+      const nmKey = isSat ? "SAT" : String(level)
+      let price = (table.NONMACH as Record<string, number>)[nmKey] ?? 0
+      // DSCF discount applies to all marketing letters
+      if (entry === "DSCF") price -= 0.007
+      return price
     }
 
     const priceKey = isSat ? "SAT" : String(level)
     let price = table.LETTER[priceKey] ?? 0
 
-    // DSCF discount for letters: -$0.007
-    if (entry === "DSCF" && !isSat) price -= 0.007
+    // DSCF discount for ALL marketing letters (including saturation)
+    if (entry === "DSCF") price -= 0.007
 
     return price
   }

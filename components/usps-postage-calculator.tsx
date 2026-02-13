@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import {
   Select,
@@ -23,9 +22,9 @@ import {
   SORT_LABELS,
   ENTRY_LABELS,
   SERVICE_LABELS,
+  SHAPE_LABELS,
   SPECS,
   type USPSInputs,
-  type USPSServiceType,
   type USPSEntry,
   type SortLevel,
   type USPSShape,
