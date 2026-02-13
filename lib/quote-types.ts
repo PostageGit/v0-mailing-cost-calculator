@@ -1,0 +1,38 @@
+// Types for the unified Quote Builder
+
+export type QuoteCategory = "printing" | "postage" | "listwork"
+
+export interface QuoteLineItem {
+  id: number
+  category: QuoteCategory
+  label: string            // e.g. "19,880 - 4x6 Flat Prints" or "Postage - 1st Class"
+  description: string      // additional details lines
+  amount: number           // the dollar total for this line
+}
+
+export interface QuoteState {
+  items: QuoteLineItem[]
+  projectName: string
+}
+
+export function getCategoryLabel(cat: QuoteCategory): string {
+  switch (cat) {
+    case "printing":
+      return "Printing"
+    case "postage":
+      return "Postage / USPS"
+    case "listwork":
+      return "List Work & Mailing Labor"
+  }
+}
+
+export function getCategoryColor(cat: QuoteCategory): string {
+  switch (cat) {
+    case "printing":
+      return "bg-primary/10 text-primary"
+    case "postage":
+      return "bg-chart-2/10 text-chart-2"
+    case "listwork":
+      return "bg-chart-4/10 text-chart-4"
+  }
+}

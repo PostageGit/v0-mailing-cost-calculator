@@ -4,11 +4,13 @@ import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { CalculatorForm } from "@/components/calculator-form"
 import { CostBreakdownTable } from "@/components/cost-breakdown"
 import { TotalsDisplay } from "@/components/totals-display"
-import { calculateCosts, type MailingInputs } from "@/lib/pricing"
-import { Info } from "lucide-react"
+import { calculateCosts, formatCurrency, type MailingInputs } from "@/lib/pricing"
+import { useQuote } from "@/lib/quote-context"
+import { Info, Plus } from "lucide-react"
 
 export function MailingCalculator() {
   const [inputs, setInputs] = useState<MailingInputs>({
@@ -21,9 +23,45 @@ export function MailingCalculator() {
   })
 
   const costs = useMemo(() => calculateCosts(inputs), [inputs])
+  const quote = useQuote()
 
   const handleInputChange = (partial: Partial<MailingInputs>) => {
     setInputs((prev) => ({ ...prev, ...partial }))
+  }
+
+  // Compute the split totals for the quote
+  const listWorkTotal = costs.isValid
+    ? costs.addressing + costs.computerWork + costs.cass2nd + costs.inserting + costs.ndc + costs.stamping + costs.printing
+    : 0
+  const postageTotal = costs.isValid ? costs.postage : 0
+
+  const handleAddListWork = () => {
+    if (!costs.isValid) return
+    const parts: string[] = []
+    if (costs.addressing > 0) parts.push(`Addressing: ${formatCurrency(costs.addressing)}`)
+    if (costs.computerWork > 0) parts.push(`Computer Work: ${formatCurrency(costs.computerWork)}`)
+    if (costs.cass2nd > 0) parts.push(`CASS 2nd: ${formatCurrency(costs.cass2nd)}`)
+    if (costs.inserting > 0) parts.push(`Inserting: ${formatCurrency(costs.inserting)}`)
+    if (costs.ndc > 0) parts.push(`NDC: ${formatCurrency(costs.ndc)}`)
+    if (costs.stamping > 0) parts.push(`Stamping: ${formatCurrency(costs.stamping)}`)
+    if (costs.printing > 0) parts.push(`Printing: ${formatCurrency(costs.printing)}`)
+
+    quote.addItem({
+      category: "listwork",
+      label: `${inputs.quantity.toLocaleString()} pc ${inputs.mailPiece} - ${inputs.mailingClass}`,
+      description: parts.join(", "),
+      amount: listWorkTotal,
+    })
+  }
+
+  const handleAddPostage = () => {
+    if (!costs.isValid) return
+    quote.addItem({
+      category: "postage",
+      label: `Postage - ${inputs.mailingClass} (${inputs.quantity.toLocaleString()} pc)`,
+      description: `${inputs.mailPiece}, ${formatCurrency(costs.postage / inputs.quantity)}/pc`,
+      amount: postageTotal,
+    })
   }
 
   return (
@@ -134,6 +172,37 @@ export function MailingCalculator() {
                     {inputs.includePrinting && (
                       <Badge variant="outline" className="text-xs">Printing</Badge>
                     )}
+                  </div>
+
+                  <Separator className="bg-border" />
+
+                  {/* Add to Quote buttons */}
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Add to Quote</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="justify-between h-9 text-xs"
+                      onClick={handleAddListWork}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="h-3 w-3" />
+                        List Work & Labor
+                      </span>
+                      <span className="font-mono tabular-nums">{formatCurrency(listWorkTotal)}</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="justify-between h-9 text-xs"
+                      onClick={handleAddPostage}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="h-3 w-3" />
+                        Postage / USPS
+                      </span>
+                      <span className="font-mono tabular-nums">{formatCurrency(postageTotal)}</span>
+                    </Button>
                   </div>
                 </>
               ) : (

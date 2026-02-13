@@ -6,6 +6,7 @@ import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
 import { PriceBreakdown } from "./price-breakdown"
 import { OrderSummary } from "./order-summary"
+import { Button } from "@/components/ui/button"
 import {
   calculateAllSheetOptions,
   buildFullResult,
@@ -16,6 +17,9 @@ import type {
   FullPrintingResult,
   OrderItem,
 } from "@/lib/printing-types"
+import { useQuote } from "@/lib/quote-context"
+import { formatCurrency } from "@/lib/pricing"
+import { Plus } from "lucide-react"
 
 const EMPTY_INPUTS: PrintingInputs = {
   qty: 0,
@@ -29,6 +33,8 @@ const EMPTY_INPUTS: PrintingInputs = {
 }
 
 export function PrintingCalculator() {
+  const quote = useQuote()
+
   // Form state
   const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
 
@@ -191,6 +197,17 @@ export function PrintingCalculator() {
     setShowResults(false)
   }
 
+  const handleAddToQuote = useCallback(() => {
+    if (!fullResult) return
+    const desc = `${inputs.paperName}, ${inputs.sidesValue}, ${fullResult.result.sheetSize}${inputs.hasBleed ? " +Bleed" : ""}`
+    quote.addItem({
+      category: "printing",
+      label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
+      description: desc,
+      amount: fullResult.grandTotal,
+    })
+  }, [fullResult, inputs, quote])
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 min-h-0 flex-grow">
       {/* Main Calculator Column */}
@@ -227,7 +244,17 @@ export function PrintingCalculator() {
                   pageWidth={inputs.width}
                   pageHeight={inputs.height}
                 />
-                <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} />
+                <div className="flex flex-col gap-4">
+                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} />
+                  <Button
+                    onClick={handleAddToQuote}
+                    className="w-full gap-2"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add to Quote - {formatCurrency(fullResult.grandTotal)}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

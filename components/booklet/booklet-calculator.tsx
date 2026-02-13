@@ -2,13 +2,16 @@
 
 import { useState, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { BookletForm } from "./booklet-form"
 import { BookletLayoutSvg } from "./booklet-layout-svg"
 import { BookletDetails } from "./booklet-details"
 import { BookletOrderSummary } from "./booklet-order-summary"
 import { calculateBooklet } from "@/lib/booklet-pricing"
 import type { BookletInputs, BookletCalcResult, BookletOrderItem } from "@/lib/booklet-types"
-import { AlertTriangle } from "lucide-react"
+import { useQuote } from "@/lib/quote-context"
+import { formatCurrency } from "@/lib/pricing"
+import { AlertTriangle, Plus } from "lucide-react"
 
 const EMPTY_INPUTS: BookletInputs = {
   bookQty: 0,
@@ -30,6 +33,7 @@ const EMPTY_INPUTS: BookletInputs = {
 }
 
 export function BookletCalculator() {
+  const quote = useQuote()
   const [inputs, setInputs] = useState<BookletInputs>(EMPTY_INPUTS)
   const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -155,6 +159,18 @@ export function BookletCalculator() {
     setValidationError(null)
   }
 
+  const handleAddToQuote = useCallback(() => {
+    if (!calcResult || !calcResult.isValid) return
+    const coverDesc = inputs.separateCover ? `w/ ${calcResult.coverResult.paper} Cover` : "Self-Cover"
+    const desc = `${inputs.insidePaper}, ${calcResult.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
+    quote.addItem({
+      category: "printing",
+      label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
+      description: desc,
+      amount: calcResult.grandTotal,
+    })
+  }, [calcResult, inputs, quote])
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 min-h-0 flex-grow">
       {/* Main Calculator Column */}
@@ -218,10 +234,20 @@ export function BookletCalculator() {
                 </div>
 
                 {/* Price Details */}
-                <BookletDetails
-                  result={calcResult}
-                  bookQty={inputs.bookQty}
-                />
+                <div className="flex flex-col gap-4">
+                  <BookletDetails
+                    result={calcResult}
+                    bookQty={inputs.bookQty}
+                  />
+                  <Button
+                    onClick={handleAddToQuote}
+                    className="w-full gap-2"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add to Quote - {formatCurrency(calcResult.grandTotal)}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
