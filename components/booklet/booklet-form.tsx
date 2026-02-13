@@ -73,9 +73,11 @@ export function BookletForm({
               <Input
                 id="book-qty"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 required
-                placeholder="e.g., 50"
+                autoComplete="off"
+                placeholder="e.g. 50..."
                 value={inputs.bookQty || ""}
                 onChange={(e) => updateInputs({ bookQty: parseInt(e.target.value) || 0 })}
               />
@@ -85,11 +87,13 @@ export function BookletForm({
               <Input
                 id="pages-per-book"
                 type="number"
+                inputMode="numeric"
                 min={8}
                 max={172}
                 step={4}
                 required
-                placeholder="e.g., 16"
+                autoComplete="off"
+                placeholder="e.g. 16..."
                 value={inputs.pagesPerBook || ""}
                 onChange={(e) => updateInputs({ pagesPerBook: parseInt(e.target.value) || 0 })}
                 className={pagesError ? "border-destructive" : ""}
@@ -101,10 +105,12 @@ export function BookletForm({
               <Input
                 id="page-width"
                 type="number"
+                inputMode="decimal"
                 step={0.01}
                 min={2.5}
                 required
-                placeholder="e.g., 5.5"
+                autoComplete="off"
+                placeholder="e.g. 5.5..."
                 value={inputs.pageWidth || ""}
                 onChange={(e) => updateInputs({ pageWidth: parseFloat(e.target.value) || 0 })}
               />
@@ -114,10 +120,12 @@ export function BookletForm({
               <Input
                 id="page-height"
                 type="number"
+                inputMode="decimal"
                 step={0.01}
                 min={2.5}
                 required
-                placeholder="e.g., 8.5"
+                autoComplete="off"
+                placeholder="e.g. 8.5..."
                 value={inputs.pageHeight || ""}
                 onChange={(e) => updateInputs({ pageHeight: parseFloat(e.target.value) || 0 })}
               />

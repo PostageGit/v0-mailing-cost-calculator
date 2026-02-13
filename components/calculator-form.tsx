@@ -33,7 +33,7 @@ export function CalculatorForm({ inputs, onInputChange }: CalculatorFormProps) {
             onValueChange={(value: string) => onInputChange({ mailPiece: value as MailPiece })}
           >
             <SelectTrigger id="mailPiece" className="h-11 bg-card text-card-foreground border-border">
-              <SelectValue placeholder="Select mail piece type" />
+              <SelectValue placeholder="Select mail piece..." />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Postcard">Postcard</SelectItem>
@@ -51,8 +51,11 @@ export function CalculatorForm({ inputs, onInputChange }: CalculatorFormProps) {
           <Input
             id="quantity"
             type="number"
-            placeholder="Enter quantity"
+            inputMode="numeric"
+            placeholder="Enter quantity..."
             min={1}
+            autoComplete="off"
+            spellCheck={false}
             className="h-11 bg-card text-card-foreground border-border font-mono"
             value={inputs.quantity || ""}
             onChange={(e) => onInputChange({ quantity: parseInt(e.target.value) || 0 })}
@@ -70,7 +73,7 @@ export function CalculatorForm({ inputs, onInputChange }: CalculatorFormProps) {
             onValueChange={(value: string) => onInputChange({ mailingClass: value as MailingClass })}
           >
             <SelectTrigger id="mailingClass" className="h-11 bg-card text-card-foreground border-border">
-              <SelectValue placeholder="Select mailing class" />
+              <SelectValue placeholder="Select class..." />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="1st Class">1st Class</SelectItem>
@@ -89,8 +92,11 @@ export function CalculatorForm({ inputs, onInputChange }: CalculatorFormProps) {
           <Input
             id="splitMailing"
             type="number"
-            placeholder="Number of splits (optional)"
+            inputMode="numeric"
+            placeholder="Number of splits..."
             min={0}
+            autoComplete="off"
+            spellCheck={false}
             className="h-11 bg-card text-card-foreground border-border font-mono"
             value={inputs.splitMailingInto || ""}
             onChange={(e) => onInputChange({ splitMailingInto: parseInt(e.target.value) || 0 })}

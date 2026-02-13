@@ -29,6 +29,7 @@ export function QuoteSidebar() {
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const toggleCategory = (cat: QuoteCategory) => {
     setCollapsedCats((prev) => {
@@ -144,25 +145,48 @@ export function QuoteSidebar() {
             Quote Builder
           </CardTitle>
           {hasItems && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs text-muted-foreground hover:text-destructive"
-              onClick={clearAll}
-            >
-              Clear All
-            </Button>
+            confirmClear ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => { clearAll(); setConfirmClear(false) }}
+                >
+                  Confirm
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setConfirmClear(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => setConfirmClear(true)}
+              >
+                Clear All
+              </Button>
+            )
           )}
         </div>
         <Input
-          placeholder="Project / Client Name"
+          placeholder="Project / Client Name..."
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
           className="h-8 text-sm mt-2"
         />
       </CardHeader>
 
-      <CardContent className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pt-0">
+      <CardContent className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pt-0" style={{ overscrollBehavior: "contain" }}>
         {!hasItems ? (
           <div className="flex flex-col items-center justify-center py-12 text-center flex-1">
             <div className="rounded-full bg-muted p-3 mb-3">
@@ -238,8 +262,8 @@ export function QuoteSidebar() {
                             </span>
                             <button
                               onClick={() => removeItem(item.id)}
-                              className="opacity-0 group-hover/item:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 hover:text-destructive"
-                              aria-label="Remove item"
+                              className="p-1 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-colors"
+                              aria-label={`Remove ${item.label}`}
                             >
                               <X className="h-3 w-3" />
                             </button>

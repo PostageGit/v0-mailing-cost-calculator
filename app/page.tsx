@@ -19,7 +19,7 @@ export default function Page() {
               <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary text-primary-foreground">
                 <Calculator className="h-4 w-4" />
               </div>
-              <span className="text-base font-bold tracking-tight text-foreground">MailCost Pro</span>
+              <span className="text-base font-bold tracking-tight text-foreground text-balance">MailCost Pro</span>
             </div>
           </div>
         </header>
@@ -30,16 +30,16 @@ export default function Page() {
           <div className="flex-1 min-w-0">
             <Tabs defaultValue="mailing" className="w-full flex flex-col">
               <TabsList className="mb-5 bg-muted/60 h-10 p-1 w-fit">
-                <TabsTrigger value="mailing" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  <Mail className="h-4 w-4" />
+                <TabsTrigger value="mailing" aria-label="Mailing Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Mail className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Mailing</span>
                 </TabsTrigger>
-                <TabsTrigger value="printing" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  <Printer className="h-4 w-4" />
+                <TabsTrigger value="printing" aria-label="Flat Printing Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Printer className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Flat Printing</span>
                 </TabsTrigger>
-                <TabsTrigger value="booklet" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  <BookOpen className="h-4 w-4" />
+                <TabsTrigger value="booklet" aria-label="Fold and Staple Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <BookOpen className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Fold & Staple</span>
                 </TabsTrigger>
               </TabsList>

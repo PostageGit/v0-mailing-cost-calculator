@@ -62,9 +62,12 @@ export function PrintingForm({
               <Input
                 id="print-qty"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 required
-                placeholder="e.g., 500"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="e.g. 500..."
                 value={inputs.qty || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, qty: parseInt(e.target.value) || 0 })
@@ -78,10 +81,12 @@ export function PrintingForm({
               <Input
                 id="print-width"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min={0}
                 required
-                placeholder="e.g., 4"
+                autoComplete="off"
+                placeholder="e.g. 4..."
                 value={inputs.width || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, width: parseFloat(e.target.value) || 0 })
@@ -95,10 +100,12 @@ export function PrintingForm({
               <Input
                 id="print-height"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min={0}
                 required
-                placeholder="e.g., 6"
+                autoComplete="off"
+                placeholder="e.g. 6..."
                 value={inputs.height || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, height: parseFloat(e.target.value) || 0 })
@@ -110,9 +117,9 @@ export function PrintingForm({
           {/* Row 2: Paper Type, Sides, Bleed */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Paper Type</label>
+              <label htmlFor="print-paper" className="text-sm font-medium text-foreground">Paper Type</label>
               <Select value={inputs.paperName} onValueChange={handlePaperChange}>
-                <SelectTrigger>
+                <SelectTrigger id="print-paper">
                   <SelectValue placeholder="Select Paper" />
                 </SelectTrigger>
                 <SelectContent>
@@ -125,13 +132,13 @@ export function PrintingForm({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Sides</label>
+              <label htmlFor="print-sides" className="text-sm font-medium text-foreground">Sides</label>
               <Select
                 value={inputs.sidesValue}
                 onValueChange={(v) => onInputsChange({ ...inputs, sidesValue: v })}
                 disabled={!inputs.paperName}
               >
-                <SelectTrigger>
+                <SelectTrigger id="print-sides">
                   <SelectValue placeholder="Select Sides" />
                 </SelectTrigger>
                 <SelectContent>
@@ -144,7 +151,7 @@ export function PrintingForm({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Bleed</label>
+              <label htmlFor="bleed-checkbox" className="text-sm font-medium text-foreground">Bleed</label>
               <div className="flex items-center gap-2 h-9">
                 <Checkbox
                   id="bleed-checkbox"
@@ -171,7 +178,8 @@ export function PrintingForm({
                 type="number"
                 step="0.01"
                 min={0}
-                placeholder="e.g., 10.00"
+                autoComplete="off"
+                placeholder="e.g. 10.00..."
                 value={inputs.addOnCharge || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, addOnCharge: parseFloat(e.target.value) || 0 })
@@ -185,7 +193,7 @@ export function PrintingForm({
               <Input
                 id="add-on-desc"
                 type="text"
-                placeholder="e.g., Graphic Design"
+                placeholder="e.g. Graphic Design..."
                 value={inputs.addOnDescription}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, addOnDescription: e.target.value })

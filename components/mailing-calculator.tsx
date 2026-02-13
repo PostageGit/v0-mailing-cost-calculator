@@ -72,7 +72,7 @@ export function MailingCalculator() {
               <span className="flex items-center justify-center h-6 w-6 rounded-md bg-primary/10 text-primary text-xs font-bold">1</span>
               Job Configuration
             </CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
+            <CardDescription className="text-sm text-muted-foreground text-pretty">
               Select your mail piece type, quantity, and mailing class to calculate costs.
             </CardDescription>
           </CardHeader>
@@ -117,7 +117,7 @@ export function MailingCalculator() {
                   <div className="rounded-xl bg-primary p-6 text-center">
                     <p className="text-xs font-medium uppercase tracking-wider text-primary-foreground/70 mb-1">Total Per Piece</p>
                     <p className="text-4xl font-bold font-mono text-primary-foreground tabular-nums">
-                      {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(costs.totalPerPiece)}
+                      {formatCurrency(costs.totalPerPiece)}
                     </p>
                   </div>
 
@@ -128,13 +128,13 @@ export function MailingCalculator() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Entire Job</span>
                       <span className="text-sm font-mono font-semibold text-foreground tabular-nums">
-                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(costs.totalForEntireJob)}
+                        {formatCurrency(costs.totalForEntireJob)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-muted-foreground">Each Mailing</span>
                       <span className="text-sm font-mono font-semibold text-foreground tabular-nums">
-                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(costs.totalForEachMailing)}
+                        {formatCurrency(costs.totalForEachMailing)}
                       </span>
                     </div>
                     {inputs.quantity > 0 && (
