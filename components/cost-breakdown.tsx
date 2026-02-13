@@ -4,10 +4,10 @@ import { formatCurrency, type CostBreakdown } from "@/lib/pricing"
 import {
   MapPin,
   Monitor,
-  ShieldCheck,
-  PackageOpen,
+  Shield,
+  Package,
   Truck,
-  Stamp,
+  Mail,
   Printer,
 } from "lucide-react"
 
@@ -19,10 +19,10 @@ interface CostBreakdownProps {
 const lineItems = [
   { key: "addressing" as const, label: "Addressing", icon: MapPin, description: "Address formatting & application" },
   { key: "computerWork" as const, label: "Computer Work", icon: Monitor, description: "Data processing & setup" },
-  { key: "cass2nd" as const, label: "CASS 2nd", icon: ShieldCheck, description: "Address verification" },
-  { key: "inserting" as const, label: "Inserting", icon: PackageOpen, description: "Envelope stuffing & assembly" },
+  { key: "cass2nd" as const, label: "CASS 2nd", icon: Shield, description: "Address verification" },
+  { key: "inserting" as const, label: "Inserting", icon: Package, description: "Envelope stuffing & assembly" },
   { key: "ndc" as const, label: "NDC", icon: Truck, description: "Network Distribution Center" },
-  { key: "postage" as const, label: "Postage", icon: Stamp, description: "USPS mailing costs" },
+  { key: "postage" as const, label: "Postage", icon: Mail, description: "USPS mailing costs" },
 ]
 
 export function CostBreakdownTable({ costs, includePrinting }: CostBreakdownProps) {

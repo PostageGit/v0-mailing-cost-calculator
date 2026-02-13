@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Mail, Hash, Layers, Users, SplitSquareVertical, Printer } from "lucide-react"
+import { Mail, Hash, Layers, Users, Copy, Printer } from "lucide-react"
 import type { MailPiece, MailingClass, MailingInputs } from "@/lib/pricing"
 
 interface CalculatorFormProps {
@@ -83,7 +83,7 @@ export function CalculatorForm({ inputs, onInputChange }: CalculatorFormProps) {
         {/* Split Mailing */}
         <div className="flex flex-col gap-2">
           <Label htmlFor="splitMailing" className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <SplitSquareVertical className="h-4 w-4 text-primary" />
+            <Copy className="h-4 w-4 text-primary" />
             Split Mailing Into
           </Label>
           <Input

@@ -1,7 +1,7 @@
 "use client"
 
 import { formatCurrency, type CostBreakdown } from "@/lib/pricing"
-import { DollarSign, Receipt, CircleDollarSign } from "lucide-react"
+import { DollarSign, Receipt, Banknote } from "lucide-react"
 
 interface TotalsDisplayProps {
   costs: CostBreakdown
@@ -26,7 +26,7 @@ export function TotalsDisplay({ costs }: TotalsDisplayProps) {
       {/* Total for each mailing */}
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-5">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <CircleDollarSign className="h-4 w-4" />
+          <Banknote className="h-4 w-4" />
           <span className="text-xs font-medium uppercase tracking-wider">Each Mailing</span>
         </div>
         <span className="text-2xl font-semibold font-mono text-foreground tabular-nums">

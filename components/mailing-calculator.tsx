@@ -8,7 +8,7 @@ import { CalculatorForm } from "@/components/calculator-form"
 import { CostBreakdownTable } from "@/components/cost-breakdown"
 import { TotalsDisplay } from "@/components/totals-display"
 import { calculateCosts, type MailingInputs } from "@/lib/pricing"
-import { Calculator, FileSpreadsheet, Info } from "lucide-react"
+import { Calculator, LayoutGrid, Info } from "lucide-react"
 
 export function MailingCalculator() {
   const [inputs, setInputs] = useState<MailingInputs>({
@@ -41,7 +41,7 @@ export function MailingCalculator() {
             </div>
           </div>
           <Badge variant="secondary" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5">
-            <FileSpreadsheet className="h-3.5 w-3.5" />
+            <LayoutGrid className="h-3.5 w-3.5" />
             <span className="text-xs">Calculator</span>
           </Badge>
         </div>
