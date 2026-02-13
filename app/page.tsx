@@ -3,7 +3,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MailingCalculator } from "@/components/mailing-calculator"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
-import { Mail, Printer } from "lucide-react"
+import { BookletCalculator } from "@/components/booklet/booklet-calculator"
+import { Mail, Printer, BookOpen } from "lucide-react"
 
 export default function Page() {
   return (
@@ -26,6 +27,10 @@ export default function Page() {
               <Printer className="h-4 w-4" />
               Flat Printing
             </TabsTrigger>
+            <TabsTrigger value="booklet" className="gap-2 data-[state=active]:bg-card">
+              <BookOpen className="h-4 w-4" />
+              Fold & Staple
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="mailing">
@@ -34,6 +39,10 @@ export default function Page() {
 
           <TabsContent value="printing">
             <PrintingCalculator />
+          </TabsContent>
+
+          <TabsContent value="booklet">
+            <BookletCalculator />
           </TabsContent>
         </Tabs>
       </div>
