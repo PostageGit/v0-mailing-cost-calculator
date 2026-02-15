@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import {
   Select,
@@ -22,61 +20,51 @@ import {
   formatPostageRate,
   SORT_LABELS,
   ENTRY_LABELS,
-  SERVICE_LABELS,
   SHAPE_LABELS,
   SPECS,
   type USPSInputs,
   type USPSEntry,
   type SortLevel,
-  type USPSShape,
 } from "@/lib/usps-rates"
-import {
-  Plus,
-  Info,
-  AlertTriangle,
-  AlertCircle,
-  Zap,
-  Mail,
-  FileText,
-  CreditCard,
-  Hash,
-  Scale,
-} from "lucide-react"
+import { Plus, AlertTriangle, AlertCircle, Info } from "lucide-react"
 
-// --- Toggle button ---
-function ToggleBtn({
+/* ── Compact pill toggle ── */
+function Pill({
   active,
   disabled,
   onClick,
-  icon,
   label,
   sub,
-  className = "",
 }: {
   active: boolean
   disabled?: boolean
   onClick: () => void
-  icon: React.ReactNode
   label: string
   sub?: string
-  className?: string
 }) {
   return (
     <button
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`flex flex-col items-center justify-center gap-1 rounded-xl border p-3 text-center transition-all ${
+      className={`px-3 py-1.5 rounded-lg text-left transition-all text-xs font-medium border ${
         disabled
-          ? "opacity-30 cursor-not-allowed border-border bg-secondary"
+          ? "opacity-25 cursor-not-allowed border-border bg-secondary"
           : active
-            ? "border-foreground bg-foreground text-background shadow-sm"
+            ? "border-foreground bg-foreground text-background"
             : "border-border bg-card hover:border-foreground/20 cursor-pointer"
-      } ${className}`}
+      }`}
     >
-      <span className={`text-base ${active && !disabled ? "text-background" : ""}`}>{icon}</span>
-      <span className={`text-xs font-semibold ${active && !disabled ? "text-background" : "text-foreground"}`}>{label}</span>
-      {sub && <span className={`text-[10px] leading-tight ${active && !disabled ? "text-background/60" : "text-muted-foreground"}`}>{sub}</span>}
+      <span className="block leading-tight">{label}</span>
+      {sub && (
+        <span
+          className={`block text-[10px] leading-tight mt-0.5 ${
+            active && !disabled ? "text-background/60" : "text-muted-foreground"
+          }`}
+        >
+          {sub}
+        </span>
+      )}
     </button>
   )
 }
@@ -97,12 +85,10 @@ export function USPSPostageCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
 
-  // Sync qty/shape/class to shared mailing context for the Labor tab
   useEffect(() => {
     const totalQty = inputs.quantity + (inputs.saturationQty || 0)
     mailing.setQuantity(totalQty)
     mailing.setShape(inputs.shape)
-    // Map USPS shape to settings class name
     const classMap: Record<string, string> = {
       POSTCARD: "Postcard",
       LETTER: "Letter",
@@ -114,11 +100,12 @@ export function USPSPostageCalculator() {
   const update = useCallback((partial: Partial<USPSInputs>) => {
     setInputs((prev) => {
       const next = { ...prev, ...partial }
-      // Rule: If switching to Marketing and shape is Postcard, force Letter
-      if ((next.service === "MKT_COMM" || next.service === "MKT_NP") && next.shape === "POSTCARD") {
+      if (
+        (next.service === "MKT_COMM" || next.service === "MKT_NP") &&
+        next.shape === "POSTCARD"
+      ) {
         next.shape = "LETTER"
       }
-      // Rule: Retail has no saturation
       if (next.service === "FCM_RETAIL") {
         next.saturationQty = 0
       }
@@ -131,7 +118,6 @@ export function USPSPostageCalculator() {
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
-
     quote.addItem({
       category: "postage",
       label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
@@ -140,165 +126,148 @@ export function USPSPostageCalculator() {
     })
   }, [result, inputs, quote])
 
-  // Shape eligibility from mailer dimensions
   const hasDimensions = !!(mailing.mailerWidth && mailing.mailerHeight)
   const suggestedShapes = mailing.suggestedShapes
   const [shapeOverride, setShapeOverride] = useState(false)
 
   const isMkt = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
   const isRetail = inputs.service === "FCM_RETAIL"
-  // A shape is disabled if: marketing blocks postcard OR (dimensions entered + not in suggested list + override not on)
   const isShapeDisabled = (shape: string) => {
     if (shape === "POSTCARD" && isMkt) return true
-    if (hasDimensions && !shapeOverride && !suggestedShapes.includes(shape as "POSTCARD" | "LETTER" | "FLAT")) return true
+    if (
+      hasDimensions &&
+      !shapeOverride &&
+      !suggestedShapes.includes(shape as "POSTCARD" | "LETTER" | "FLAT")
+    )
+      return true
     return false
   }
   const postcardDisabled = isShapeDisabled("POSTCARD")
   const showSaturation = isMkt
   const showEntryPoint = isMkt
   const showSortSlider = !isRetail
-  const remainingQty = inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
+  const remainingQty =
+    inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
   const spec = SPECS[inputs.shape]
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Step 1: Mail Service */}
+    <div className="flex flex-col gap-4">
+      {/* ── Single card: all inputs ── */}
       <Card className="border-border rounded-2xl overflow-hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold text-foreground">Mail Service</CardTitle>
-          <CardDescription className="text-sm text-muted-foreground text-pretty">
-            Exact USPS rates from Notice 123 (Jan 2026).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <ToggleBtn
-              active={inputs.service === "FCM_COMM"}
-              onClick={() => update({ service: "FCM_COMM" })}
-              icon={<Zap className="h-4 w-4" />}
-              label="First-Class Presort"
-              sub="500+ Pc / Fast"
-            />
-            <ToggleBtn
-              active={inputs.service === "FCM_RETAIL"}
-              onClick={() => update({ service: "FCM_RETAIL" })}
-              icon={<Mail className="h-4 w-4" />}
-              label="First-Class Retail"
-              sub="Single Piece / Stamps"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <ToggleBtn
-              active={inputs.service === "MKT_COMM"}
-              onClick={() => update({ service: "MKT_COMM" })}
-              icon={<FileText className="h-4 w-4" />}
-              label="Marketing"
-              sub="Commercial"
-            />
-            <ToggleBtn
-              active={inputs.service === "MKT_NP"}
-              onClick={() => update({ service: "MKT_NP" })}
-              icon={<CreditCard className="h-4 w-4" />}
-              label="Nonprofit"
-              sub="Auth Req."
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Step 2: Physical Specs */}
-      <Card className="border-border rounded-2xl overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-foreground">Physical Specs</CardTitle>
-            <SpecsTooltip shape={inputs.shape} />
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          {/* Shape: Card / Letter / Flat (no Parcel) */}
+        <CardContent className="p-5 flex flex-col gap-5">
+          {/* Row 1: Service */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Mail Shape
-              </Label>
-              {hasDimensions && (
-                <button
-                  type="button"
-                  onClick={() => setShapeOverride(!shapeOverride)}
-                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                    shapeOverride
-                      ? "bg-primary/10 text-primary border-primary/30"
-                      : "bg-muted text-muted-foreground border-border hover:border-primary/30"
-                  }`}
-                >
-                  {shapeOverride ? "Override ON" : "Override specs"}
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <ToggleBtn
-                active={inputs.shape === "POSTCARD"}
-                disabled={isShapeDisabled("POSTCARD")}
-                onClick={() => update({ shape: "POSTCARD" })}
-                icon={<CreditCard className="h-4 w-4" />}
-                label="Postcard"
-                sub={postcardDisabled ? (isMkt ? "First-Class only" : "Size mismatch") : undefined}
-              />
-              <ToggleBtn
-                active={inputs.shape === "LETTER"}
-                disabled={isShapeDisabled("LETTER")}
-                onClick={() => update({ shape: "LETTER" })}
-                icon={<Mail className="h-4 w-4" />}
-                label="Letter"
-                sub={isShapeDisabled("LETTER") ? "Size mismatch" : undefined}
-              />
-              <ToggleBtn
-                active={inputs.shape === "FLAT"}
-                disabled={isShapeDisabled("FLAT")}
-                onClick={() => update({ shape: "FLAT" })}
-                icon={<FileText className="h-4 w-4" />}
-                label="Flat"
-                sub={isShapeDisabled("FLAT") ? "Size mismatch" : "USPS Flat shape"}
-              />
-            </div>
-          </div>
-
-          {/* Packaging: Envelope / Folded / Plastic */}
-          <div>
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-              Format / Packaging
+            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Mail Service
             </Label>
-            <div className="grid grid-cols-3 gap-3">
-              <ToggleBtn
-                active={inputs.pack === "ENV"}
-                onClick={() => update({ pack: "ENV" })}
-                icon={<Mail className="h-3.5 w-3.5" />}
-                label="Envelope"
-                sub="Standard"
+            <div className="grid grid-cols-4 gap-2">
+              <Pill
+                active={inputs.service === "FCM_COMM"}
+                onClick={() => update({ service: "FCM_COMM" })}
+                label="FC Presort"
+                sub="500+ pc"
               />
-              <ToggleBtn
-                active={inputs.pack === "FOLD"}
-                onClick={() => update({ pack: "FOLD" })}
-                icon={<FileText className="h-3.5 w-3.5" />}
-                label="Folded"
-                sub="Self-Mailer"
+              <Pill
+                active={inputs.service === "FCM_RETAIL"}
+                onClick={() => update({ service: "FCM_RETAIL" })}
+                label="FC Retail"
+                sub="Stamps"
               />
-              <ToggleBtn
-                active={inputs.pack === "PLAS"}
-                onClick={() => update({ pack: "PLAS" })}
-                icon={<CreditCard className="h-3.5 w-3.5" />}
-                label="Plastic"
-                sub="Poly Bag"
+              <Pill
+                active={inputs.service === "MKT_COMM"}
+                onClick={() => update({ service: "MKT_COMM" })}
+                label="Marketing"
+                sub="Commercial"
+              />
+              <Pill
+                active={inputs.service === "MKT_NP"}
+                onClick={() => update({ service: "MKT_NP" })}
+                label="Nonprofit"
+                sub="Auth req."
               />
             </div>
           </div>
 
-          {/* Quantity + Weight */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="usps-qty" className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Hash className="h-4 w-4 text-primary" />
-                Total Quantity
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Row 2: Shape + Format side by side */}
+          <div className="grid grid-cols-2 gap-5">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Shape
+                </Label>
+                {hasDimensions && (
+                  <button
+                    type="button"
+                    onClick={() => setShapeOverride(!shapeOverride)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      shapeOverride
+                        ? "bg-foreground/10 text-foreground border-foreground/30"
+                        : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
+                    }`}
+                  >
+                    {shapeOverride ? "Override ON" : "Override"}
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <Pill
+                  active={inputs.shape === "POSTCARD"}
+                  disabled={postcardDisabled}
+                  onClick={() => update({ shape: "POSTCARD" })}
+                  label="Postcard"
+                />
+                <Pill
+                  active={inputs.shape === "LETTER"}
+                  disabled={isShapeDisabled("LETTER")}
+                  onClick={() => update({ shape: "LETTER" })}
+                  label="Letter"
+                />
+                <Pill
+                  active={inputs.shape === "FLAT"}
+                  disabled={isShapeDisabled("FLAT")}
+                  onClick={() => update({ shape: "FLAT" })}
+                  label="Flat"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
+                Format
+              </Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                <Pill
+                  active={inputs.pack === "ENV"}
+                  onClick={() => update({ pack: "ENV" })}
+                  label="Envelope"
+                />
+                <Pill
+                  active={inputs.pack === "FOLD"}
+                  onClick={() => update({ pack: "FOLD" })}
+                  label="Folded"
+                />
+                <Pill
+                  active={inputs.pack === "PLAS"}
+                  onClick={() => update({ pack: "PLAS" })}
+                  label="Plastic"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Row 3: Qty + Weight + (optional Saturation) inline */}
+          <div className={`grid gap-3 ${showSaturation ? "grid-cols-3" : "grid-cols-2"}`}>
+            <div>
+              <Label
+                htmlFor="usps-qty"
+                className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
+              >
+                Quantity
               </Label>
               <Input
                 id="usps-qty"
@@ -307,15 +276,19 @@ export function USPSPostageCalculator() {
                 min={1}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="e.g. 5000..."
-                className="h-11 font-mono"
+                placeholder="5000"
+                className="h-9 font-mono text-sm"
                 value={inputs.quantity || ""}
-                onChange={(e) => update({ quantity: parseInt(e.target.value) || 0 })}
+                onChange={(e) =>
+                  update({ quantity: parseInt(e.target.value) || 0 })
+                }
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="usps-weight" className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Scale className="h-4 w-4 text-primary" />
+            <div>
+              <Label
+                htmlFor="usps-weight"
+                className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
+              >
                 Weight (oz)
               </Label>
               <Input
@@ -326,178 +299,204 @@ export function USPSPostageCalculator() {
                 min={0}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="e.g. 1..."
-                className="h-11 font-mono"
+                placeholder="1.0"
+                className="h-9 font-mono text-sm"
                 value={inputs.weight || ""}
-                onChange={(e) => update({ weight: parseFloat(e.target.value) || 0 })}
+                onChange={(e) =>
+                  update({ weight: parseFloat(e.target.value) || 0 })
+                }
               />
             </div>
+            {showSaturation && (
+              <div>
+                <Label
+                  htmlFor="usps-sat-qty"
+                  className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
+                >
+                  Saturation Qty
+                </Label>
+                <Input
+                  id="usps-sat-qty"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={inputs.quantity}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="0"
+                  className="h-9 font-mono text-sm"
+                  value={inputs.saturationQty || ""}
+                  onChange={(e) =>
+                    update({
+                      saturationQty: parseInt(e.target.value) || 0,
+                    })
+                  }
+                />
+                {result.satRate > 0 && (
+                  <span className="text-[10px] text-muted-foreground mt-1 block font-mono">
+                    Sat rate: {formatPostageRate(result.satRate)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Saturation Quantity (Marketing only) */}
-          {showSaturation && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="usps-sat-qty" className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                  Saturation Quantity
-                </Label>
-                <span className="text-xs font-bold bg-background px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-700 tabular-nums font-mono text-emerald-700 dark:text-emerald-400">
-                  Rate: {result.satRate > 0 ? formatPostageRate(result.satRate) : "N/A"}
-                </span>
+          {/* Row 4: Sort + Entry (conditional) */}
+          {showSortSlider && (
+            <>
+              <div className="border-t border-border" />
+              <div className={`grid gap-5 ${showEntryPoint ? "grid-cols-[1fr_200px]" : "grid-cols-1"}`}>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Sort Level
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Remaining:{" "}
+                      <strong className="font-mono text-foreground">
+                        {remainingQty.toLocaleString()}
+                      </strong>
+                    </span>
+                  </div>
+                  <Slider
+                    value={[inputs.sortLevel]}
+                    onValueChange={([v]) =>
+                      update({ sortLevel: v as SortLevel })
+                    }
+                    min={1}
+                    max={3}
+                    step={1}
+                    className="mb-2"
+                  />
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    {([1, 2, 3] as SortLevel[]).map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => update({ sortLevel: level })}
+                        className={`text-[10px] font-mono font-bold py-1 rounded-md transition-colors ${
+                          inputs.sortLevel === level
+                            ? "bg-foreground text-background"
+                            : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        {result.rateAtLevel[level] > 0
+                          ? formatPostageRate(result.rateAtLevel[level])
+                          : "---"}
+                        <span className="block text-[9px] font-sans font-medium opacity-70">
+                          {SORT_LABELS[level].split(" (")[0]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {showEntryPoint && (
+                  <div>
+                    <Label
+                      htmlFor="usps-entry"
+                      className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
+                    >
+                      Entry Point
+                    </Label>
+                    <Select
+                      value={inputs.entry}
+                      onValueChange={(v) => update({ entry: v as USPSEntry })}
+                    >
+                      <SelectTrigger id="usps-entry" className="h-9 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ORIGIN">
+                          {ENTRY_LABELS.ORIGIN}
+                        </SelectItem>
+                        <SelectItem value="DSCF">
+                          {ENTRY_LABELS.DSCF}
+                        </SelectItem>
+                        <SelectItem value="DDU">
+                          {ENTRY_LABELS.DDU}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
-              <Input
-                id="usps-sat-qty"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={inputs.quantity}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="0"
-                className="h-11 font-mono border-emerald-200 dark:border-emerald-700"
-                value={inputs.saturationQty || ""}
-                onChange={(e) => update({ saturationQty: parseInt(e.target.value) || 0 })}
-              />
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-2 font-medium leading-relaxed">
-                Pieces qualifying for max discount (90% residential density).
-              </p>
-            </div>
+            </>
           )}
+
+          {/* Spec reference: inline compact */}
+          <div className="border-t border-border pt-3 flex items-center gap-4 text-[10px] text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {SHAPE_LABELS[inputs.shape]}
+            </span>
+            <span>
+              Min: <strong className="font-mono">{spec.min}</strong>
+            </span>
+            <span>
+              Max: <strong className="font-mono">{spec.max}</strong>
+            </span>
+            <span>
+              Weight: <strong className="font-mono">{spec.weight}</strong>
+            </span>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Step 3: Sort & Entry */}
-      {showSortSlider && (
-        <Card className="border-border rounded-2xl overflow-hidden">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base font-semibold text-foreground">
-              Sort Level{showSaturation && " & Entry"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            {/* Sort level slider */}
-            <div className="bg-muted/40 border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <Label className="text-sm font-medium text-foreground">
-                  Remaining Qty: <span className="text-primary font-bold font-mono tabular-nums">{remainingQty.toLocaleString()}</span>
-                </Label>
-                <span className="text-[11px] text-muted-foreground font-medium">Sort level for non-saturation pieces</span>
-              </div>
-              <Slider
-                value={[inputs.sortLevel]}
-                onValueChange={([v]) => update({ sortLevel: v as SortLevel })}
-                min={1}
-                max={3}
-                step={1}
-                className="mb-4"
-              />
-              {/* Rate labels under slider */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {([1, 2, 3] as SortLevel[]).map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => update({ sortLevel: level })}
-                    className="flex flex-col items-center gap-1"
-                  >
-                    <span className={`text-[11px] font-bold ${inputs.sortLevel === level ? "text-primary" : "text-muted-foreground"}`}>
-                      {SORT_LABELS[level].split(" (")[0]}
-                    </span>
-                    <span className={`text-xs font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-md min-w-[60px] ${
-                      inputs.sortLevel === level
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted text-muted-foreground"
-                    }`}>
-                      {result.rateAtLevel[level] > 0 ? formatPostageRate(result.rateAtLevel[level]) : "---"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              {/* Min/Max row */}
-              <div className="flex justify-between mt-3 text-[11px] text-muted-foreground">
-                <span>Min: <strong className="text-foreground font-mono tabular-nums">{result.rateAtLevel[3] > 0 ? formatPostageRate(result.rateAtLevel[3]) : "---"}</strong></span>
-                <span>Max: <strong className="text-foreground font-mono tabular-nums">{result.rateAtLevel[1] > 0 ? formatPostageRate(result.rateAtLevel[1]) : "---"}</strong></span>
-              </div>
-            </div>
-
-            {/* Entry Point (Marketing only) */}
-            {showEntryPoint && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="usps-entry" className="text-sm font-medium text-foreground">
-                  Entry Point (Drop Ship)
-                </Label>
-                <Select
-                  value={inputs.entry}
-                  onValueChange={(v) => update({ entry: v as USPSEntry })}
-                >
-                  <SelectTrigger id="usps-entry" className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ORIGIN">{ENTRY_LABELS.ORIGIN}</SelectItem>
-                    <SelectItem value="DSCF">{ENTRY_LABELS.DSCF}</SelectItem>
-                    <SelectItem value="DDU">{ENTRY_LABELS.DDU}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Alerts */}
       {result.alerts.length > 0 && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {result.alerts.map((alert, idx) => (
             <div
               key={idx}
-              className={`flex items-start gap-2.5 rounded-lg border p-3 text-sm font-medium leading-relaxed ${
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium ${
                 alert.type === "error"
-                  ? "bg-destructive/5 border-destructive/20 text-destructive"
+                  ? "bg-destructive/10 text-destructive"
                   : alert.type === "warning"
-                    ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300"
-                    : "bg-primary/5 border-primary/20 text-primary"
+                    ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
+                    : "bg-muted text-muted-foreground"
               }`}
             >
               {alert.type === "error" ? (
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               ) : alert.type === "warning" ? (
-                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               ) : (
-                <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <Info className="h-3.5 w-3.5 shrink-0" />
               )}
-              <span>{alert.message}</span>
+              {alert.message}
             </div>
           ))}
         </div>
       )}
 
-      {/* Sticky Results Bar */}
+      {/* ── Sticky results bar ── */}
       <div className="sticky bottom-4 z-20">
-        <div className="bg-foreground text-background rounded-2xl shadow-2xl p-5">
-          <div className="flex items-end justify-between gap-4 pb-4 border-b border-background/10">
+        <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-baseline gap-6">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-background/50 mb-1">Per Piece</p>
-              <p className="text-3xl font-bold font-mono tabular-nums leading-none">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-background/40 block mb-0.5">
+                Per Piece
+              </span>
+              <span className="text-2xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatPostageRate(result.avgPerPiece) : "---"}
-              </p>
+              </span>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-background/50 mb-1">Total Postage</p>
-              <p className="text-2xl font-bold font-mono tabular-nums leading-none">
+            <div>
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-background/40 block mb-0.5">
+                Total
+              </span>
+              <span className="text-lg font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatCurrency(result.total) : "$0.00"}
-              </p>
-              <p className="text-xs text-background/60 font-medium mt-1.5 truncate max-w-[260px]">
-                {result.description || "Configure above"}
-              </p>
+              </span>
             </div>
           </div>
-          <div className="flex items-center justify-between pt-3">
-            <span className="text-xs font-medium text-background/70">{result.className || "---"}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-background/50 max-w-[140px] truncate hidden sm:block">
+              {result.description || ""}
+            </span>
             <button
               onClick={handleAddToQuote}
               disabled={!result.isValid}
-              className="flex items-center gap-1.5 bg-background text-foreground text-xs font-semibold px-4 py-2 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all"
+              className="flex items-center gap-1.5 bg-background text-foreground text-xs font-semibold px-4 py-2 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
             >
               <Plus className="h-3.5 w-3.5" />
               Add to Quote
@@ -505,78 +504,6 @@ export function USPSPostageCalculator() {
           </div>
         </div>
       </div>
-
-      {/* Size specs reference */}
-      <div className="rounded-lg bg-muted/40 border border-border p-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2 mb-2">
-          <Info className="h-3.5 w-3.5" />
-          <span className="font-semibold text-foreground">{SHAPE_LABELS[inputs.shape]} Specs</span>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <span className="font-bold text-muted-foreground">Min Size</span>
-            <p className="font-mono mt-0.5">{spec.min}</p>
-          </div>
-          <div>
-            <span className="font-bold text-muted-foreground">Max Size</span>
-            <p className="font-mono mt-0.5">{spec.max}</p>
-          </div>
-          <div>
-            <span className="font-bold text-muted-foreground">Max Weight</span>
-            <p className="font-mono mt-0.5">{spec.weight}</p>
-          </div>
-        </div>
-      </div>
     </div>
-  )
-}
-
-// --- Specs tooltip button ---
-function SpecsTooltip({ shape }: { shape: USPSShape }) {
-  const [open, setOpen] = useState(false)
-  const spec = SPECS[shape]
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 text-[10px] gap-1 font-bold"
-        onClick={() => setOpen(true)}
-      >
-        <Info className="h-3 w-3" />
-        Specs & Limits
-      </Button>
-      {open && (
-        <div
-          className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setOpen(false)}
-        >
-          <Card className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Specs & Limitations</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex justify-between border-b border-border pb-2 text-sm">
-                <span className="text-muted-foreground font-bold">Shape</span>
-                <span className="font-extrabold">{SHAPE_LABELS[shape]}</span>
-              </div>
-              <div className="flex justify-between border-b border-border pb-2 text-sm">
-                <span className="text-muted-foreground font-bold">Min Size</span>
-                <span className="font-extrabold font-mono text-xs">{spec.min}</span>
-              </div>
-              <div className="flex justify-between border-b border-border pb-2 text-sm">
-                <span className="text-muted-foreground font-bold">Max Size</span>
-                <span className="font-extrabold font-mono text-xs">{spec.max}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground font-bold">Max Weight</span>
-                <span className="font-extrabold font-mono text-xs">{spec.weight}</span>
-              </div>
-              <Button className="mt-3 w-full" onClick={() => setOpen(false)}>Close</Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </>
   )
 }
