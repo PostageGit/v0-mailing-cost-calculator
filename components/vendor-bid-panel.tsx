@@ -11,13 +11,33 @@ import {
 } from "@/components/ui/select"
 import {
   X, Plus, Loader2, Trophy, Send, Factory, ChevronDown, ChevronUp,
-  Check, ShoppingCart, Truck, Printer, BookOpen, Mail, Package,
+  Check, ShoppingCart, Truck, Printer, BookOpen, Mail, Package, Zap,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 import { useQuote } from "@/lib/quote-context"
+import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+/** Build a human-readable description from a planner piece */
+function describePiece(piece: MailPiece, qty: number): { label: string; desc: string; category: string } {
+  const meta = PIECE_TYPE_META[piece.type]
+  const flat = getFlatSize(piece)
+  const sizeStr = piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : ""
+  const flatStr = flat.w && flat.h && (flat.w !== piece.width || flat.h !== piece.height)
+    ? ` (flat: ${flat.w}" x ${flat.h}")` : ""
+
+  const label = `${qty.toLocaleString()} - ${sizeStr} ${meta.label}${flatStr}`
+
+  const parts: string[] = []
+  if (piece.foldType && piece.foldType !== "none") parts.push(`Fold: ${piece.foldType}`)
+  if (piece.envelopeKind) parts.push(`Kind: ${piece.envelopeKind}`)
+  if (piece.envelopeId && piece.envelopeId !== "custom") parts.push(`Size: ${piece.envelopeId}`)
+
+  const category = meta.calc === "booklet" ? "booklet" : meta.calc === "envelope" ? "envelope" : "flat"
+  return { label, desc: parts.join(" | "), category }
+}
 
 // Type tag icons + colors
 const TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
@@ -39,6 +59,15 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     `/api/vendor-bids?quote_id=${quoteId}`, fetcher
   )
   const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
+  const mailing = useMailing()
+
+  // OHP pieces from planner
+  const ohpPieces = mailing.pieces.filter(
+    (p) => p.production === "ohp" || p.production === "both"
+  )
+
+  // Track which planner pieces already have bids (match by label prefix)
+  const existingBidLabels = new Set(bids?.map((b) => b.item_label) ?? [])
 
   // New bid form
   const [showNew, setShowNew] = useState(false)
@@ -46,23 +75,33 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   const [newDesc, setNewDesc] = useState("")
   const [newType, setNewType] = useState("flat")
   const [creating, setCreating] = useState(false)
+  const [creatingPieceId, setCreatingPieceId] = useState<string | null>(null)
 
-  const createBid = async () => {
-    if (!newLabel.trim()) return
+  const createBid = async (label?: string, desc?: string, category?: string) => {
+    const finalLabel = label || newLabel.trim()
+    if (!finalLabel) return
     setCreating(true)
     await fetch("/api/vendor-bids", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         quote_id: quoteId,
-        item_label: newLabel.trim(),
-        item_description: newDesc.trim() || null,
-        item_category: newType,
+        item_label: finalLabel,
+        item_description: desc || newDesc.trim() || null,
+        item_category: category || newType,
       }),
     })
     setNewLabel(""); setNewDesc(""); setShowNew(false)
     mutateBids()
     setCreating(false)
+    setCreatingPieceId(null)
+  }
+
+  // Quick-create a bid from a planner piece
+  const createBidFromPiece = async (piece: MailPiece) => {
+    setCreatingPieceId(piece.id)
+    const { label, desc, category } = describePiece(piece, mailing.quantity)
+    await createBid(label, desc, category)
   }
 
   const content = (
@@ -77,22 +116,76 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
             <BidCard key={bid.id} bid={bid} vendors={vendors ?? []} onUpdate={() => mutateBids()} />
           ))}
 
-          {(!bids || bids.length === 0) && !showNew && (
+          {/* ── Auto-detect from planner ── */}
+          {ohpPieces.length > 0 && (
+            <div className="rounded-2xl border border-border bg-secondary/20 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="h-7 w-7 rounded-lg bg-foreground/5 flex items-center justify-center">
+                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-foreground">OHP Pieces from Planner</p>
+                  <p className="text-[10px] text-muted-foreground">Click to create a bid with specs pre-filled</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                {ohpPieces.map((piece) => {
+                  const meta = PIECE_TYPE_META[piece.type]
+                  const { label, desc } = describePiece(piece, mailing.quantity)
+                  const alreadyCreated = existingBidLabels.has(label)
+                  const isCreating = creatingPieceId === piece.id
+                  return (
+                    <button
+                      key={piece.id}
+                      type="button"
+                      disabled={alreadyCreated || isCreating}
+                      onClick={() => createBidFromPiece(piece)}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                        alreadyCreated
+                          ? "border-border bg-secondary/30 opacity-50 cursor-default"
+                          : "border-border bg-card hover:border-foreground/30 hover:shadow-sm cursor-pointer"
+                      }`}
+                    >
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${meta.color}`}>{meta.short}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{label}</p>
+                        {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
+                      </div>
+                      {alreadyCreated ? (
+                        <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                          <Check className="h-3 w-3" /> Created
+                        </span>
+                      ) : isCreating ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <span className="text-[10px] font-semibold text-foreground bg-foreground/5 px-2.5 py-1 rounded-lg">
+                          Create Bid
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {(!bids || bids.length === 0) && ohpPieces.length === 0 && !showNew && (
             <div className="flex flex-col items-center py-10 text-center">
               <div className="rounded-2xl bg-secondary p-4 mb-4">
                 <Send className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-foreground">No bid requests yet</p>
-              <p className="text-xs text-muted-foreground mt-1">Create a bid to start comparing vendor prices.</p>
+              <p className="text-sm font-medium text-foreground">No OHP pieces defined</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                Mark pieces as "OHP" or "Both" in the Planner to auto-generate bid requests, or create one manually below.
+              </p>
             </div>
           )}
 
-          {/* New bid form */}
+          {/* Manual new bid form (for "Other" type items) */}
           {showNew && (
             <div className="rounded-2xl border border-border bg-secondary/30 p-5 flex flex-col gap-4">
-              <h4 className="text-sm font-semibold text-foreground">New Bid Request</h4>
+              <h4 className="text-sm font-semibold text-foreground">Manual Bid Request</h4>
 
-              {/* Type selector -- big pill buttons */}
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-2 block">Job Type</label>
                 <div className="flex flex-wrap gap-2">
@@ -116,46 +209,30 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
               <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label className="text-xs font-medium text-foreground mb-1 block">Job Description *</label>
-                  <Input
-                    value={newLabel}
-                    onChange={(e) => setNewLabel(e.target.value)}
-                    placeholder='e.g. 8.5x11 Tri-Fold Brochure, 5000 qty'
-                    className="h-10 text-sm rounded-xl"
-                    autoFocus
-                  />
+                  <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+                    placeholder='e.g. 8.5x11 Tri-Fold Brochure, 5000 qty' className="h-10 text-sm rounded-xl" autoFocus />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-foreground mb-1 block">Details / Specs</label>
-                  <Input
-                    value={newDesc}
-                    onChange={(e) => setNewDesc(e.target.value)}
-                    placeholder="Paper stock, colors, finishing, etc."
-                    className="h-10 text-sm rounded-xl"
-                  />
+                  <Input value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
+                    placeholder="Paper stock, colors, finishing, etc." className="h-10 text-sm rounded-xl" />
                 </div>
               </div>
 
               <div className="flex gap-2 pt-1">
-                <Button
-                  onClick={createBid}
-                  disabled={creating || !newLabel.trim()}
-                  className="gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                >
+                <Button onClick={() => createBid()} disabled={creating || !newLabel.trim()}
+                  className="gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90">
                   <Plus className="h-4 w-4" /> {creating ? "Creating..." : "Create Bid"}
                 </Button>
-                <Button variant="ghost" onClick={() => setShowNew(false)} className="rounded-full">
-                  Cancel
-                </Button>
+                <Button variant="ghost" onClick={() => setShowNew(false)} className="rounded-full">Cancel</Button>
               </div>
             </div>
           )}
 
           {!showNew && (
-            <button
-              onClick={() => setShowNew(true)}
-              className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border-2 border-dashed border-border text-sm font-medium text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all"
-            >
-              <Plus className="h-4 w-4" /> New Bid Request
+            <button onClick={() => setShowNew(true)}
+              className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border-2 border-dashed border-border text-sm font-medium text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all">
+              <Plus className="h-4 w-4" /> Manual Bid Request
             </button>
           )}
         </>
