@@ -23,8 +23,15 @@ import {
   Receipt,
   Users,
   Smartphone,
+  Truck,
+  Clock,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Copy,
 } from "lucide-react"
-import type { Customer, CustomerContact, DepartmentColors, EMPTY_CUSTOMER, EMPTY_CONTACT } from "@/lib/customer-types"
+import type { Customer, CustomerContact, DeliveryAddress, SpecialDay, DepartmentColors } from "@/lib/customer-types"
+import { EMPTY_DELIVERY } from "@/lib/customer-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -88,6 +95,17 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
     custom_fields: {} as Record<string, string>,
   })
   const [savingContact, setSavingContact] = useState(false)
+
+  // Delivery addresses
+  const { data: deliveries, mutate: mutateDeliveries } = useSWR<DeliveryAddress[]>(
+    customerId ? `/api/customers/${customerId}/deliveries` : null,
+    fetcher
+  )
+  const [expandedDelivery, setExpandedDelivery] = useState<string | null>(null)
+  const [newDelivery, setNewDelivery] = useState(false)
+  const [deliveryForm, setDeliveryForm] = useState({ ...EMPTY_DELIVERY })
+  const [editingDeliveryId, setEditingDeliveryId] = useState<string | null>(null)
+  const [savingDelivery, setSavingDelivery] = useState(false)
 
   // Load existing
   useEffect(() => {
@@ -239,6 +257,100 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
   }
 
   const allDepartments = Object.keys(deptColors)
+
+  // Delivery helpers
+  const resetDeliveryForm = (prefill?: Partial<typeof EMPTY_DELIVERY>) => {
+    setDeliveryForm({
+      ...EMPTY_DELIVERY,
+      company_name: form.company_name || null,
+      ...prefill,
+    })
+  }
+
+  const openNewDelivery = () => {
+    setEditingDeliveryId(null)
+    resetDeliveryForm()
+    setNewDelivery(true)
+  }
+
+  const openEditDelivery = (d: DeliveryAddress) => {
+    setNewDelivery(false)
+    setEditingDeliveryId(d.id)
+    setDeliveryForm({
+      label: d.label,
+      company_name: d.company_name,
+      street: d.street,
+      city: d.city,
+      state: d.state,
+      postal_code: d.postal_code,
+      delivery_contact: d.delivery_contact,
+      delivery_phone: d.delivery_phone,
+      after_hours_ok: d.after_hours_ok,
+      is_24_hours: d.is_24_hours,
+      delivery_window_from: d.delivery_window_from,
+      delivery_window_to: d.delivery_window_to,
+      special_days: d.special_days || [],
+      notes: d.notes,
+    })
+  }
+
+  const saveDelivery = async () => {
+    if (!deliveryForm.street?.trim()) return
+    setSavingDelivery(true)
+    try {
+      const payload = {
+        label: deliveryForm.label || null,
+        company_name: deliveryForm.company_name || null,
+        street: deliveryForm.street,
+        city: deliveryForm.city || null,
+        state: deliveryForm.state || null,
+        postal_code: deliveryForm.postal_code || null,
+        delivery_contact: deliveryForm.delivery_contact || null,
+        delivery_phone: deliveryForm.delivery_phone || null,
+        after_hours_ok: deliveryForm.after_hours_ok,
+        is_24_hours: deliveryForm.is_24_hours,
+        delivery_window_from: deliveryForm.is_24_hours ? null : (deliveryForm.delivery_window_from || null),
+        delivery_window_to: deliveryForm.is_24_hours ? null : (deliveryForm.delivery_window_to || null),
+        special_days: deliveryForm.special_days.filter((sd) => sd.enabled),
+        notes: deliveryForm.notes || null,
+      }
+
+      if (editingDeliveryId) {
+        await fetch(`/api/deliveries/${editingDeliveryId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      } else if (customerId) {
+        await fetch(`/api/customers/${customerId}/deliveries`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+      }
+      setEditingDeliveryId(null)
+      setNewDelivery(false)
+      mutateDeliveries()
+    } finally {
+      setSavingDelivery(false)
+    }
+  }
+
+  const deleteDelivery = async (id: string) => {
+    await fetch(`/api/deliveries/${id}`, { method: "DELETE" })
+    mutateDeliveries()
+  }
+
+  const copyFromCompanyAddress = () => {
+    setDeliveryForm((p) => ({
+      ...p,
+      company_name: form.company_name || null,
+      street: form.street || "",
+      city: form.city || null,
+      state: form.state || null,
+      postal_code: form.postal_code || null,
+    }))
+  }
 
   return (
     <div
@@ -525,6 +637,137 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
                   </div>
                 )}
               </section>
+
+              {/* Delivery Addresses Section */}
+              <Separator />
+              <section className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5" /> Delivery Addresses ({deliveries?.length ?? 0})
+                  </h3>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={openNewDelivery}>
+                    <Plus className="h-3 w-3" /> Add Address
+                  </Button>
+                </div>
+
+                {/* Existing delivery cards */}
+                <div className="flex flex-col gap-2">
+                  {deliveries?.map((d) => {
+                    const isEditing = editingDeliveryId === d.id
+                    const isExpanded = expandedDelivery === d.id
+                    return (
+                      <div key={d.id} className="rounded-lg border border-border bg-muted/30">
+                        {isEditing ? (
+                          <div className="p-3">
+                            <DeliveryForm
+                              form={deliveryForm}
+                              setForm={setDeliveryForm}
+                              saving={savingDelivery}
+                              onSave={saveDelivery}
+                              onCancel={() => setEditingDeliveryId(null)}
+                              onCopyAddress={copyFromCompanyAddress}
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <button
+                              className="w-full flex items-start justify-between gap-3 p-3 text-left"
+                              onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-semibold text-foreground">
+                                    {d.label || d.company_name || "Delivery Address"}
+                                  </span>
+                                  {d.after_hours_ok && (
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                                      After Hours OK
+                                    </Badge>
+                                  )}
+                                  {d.is_24_hours && (
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
+                                      24 Hours
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {[d.street, d.city, d.state, d.postal_code].filter(Boolean).join(", ")}
+                                </div>
+                              </div>
+                              {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground mt-0.5" /> : <ChevronDown className="h-4 w-4 text-muted-foreground mt-0.5" />}
+                            </button>
+                            {isExpanded && (
+                              <div className="px-3 pb-3 flex flex-col gap-2 border-t border-border pt-2">
+                                {d.company_name && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Building2 className="h-3 w-3" /> {d.company_name}
+                                  </div>
+                                )}
+                                {d.delivery_contact && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <User className="h-3 w-3" /> {d.delivery_contact}
+                                  </div>
+                                )}
+                                {d.delivery_phone && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Phone className="h-3 w-3" /> {d.delivery_phone}
+                                  </div>
+                                )}
+                                {!d.is_24_hours && d.delivery_window_from && d.delivery_window_to && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" /> {d.delivery_window_from} - {d.delivery_window_to}
+                                  </div>
+                                )}
+                                {d.special_days && d.special_days.filter((sd: SpecialDay) => sd.enabled).length > 0 && (
+                                  <div className="flex flex-col gap-0.5">
+                                    {d.special_days.filter((sd: SpecialDay) => sd.enabled).map((sd: SpecialDay) => (
+                                      <div key={sd.day} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <Calendar className="h-3 w-3" />
+                                        <span className="capitalize font-medium">{sd.day}:</span>
+                                        {sd.is_24_hours ? "24 Hours" : `${sd.from} - ${sd.to}`}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {d.notes && (
+                                  <p className="text-xs text-muted-foreground italic">{d.notes}</p>
+                                )}
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => openEditDelivery(d)}>
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                                    onClick={() => deleteDelivery(d.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* New delivery form */}
+                {newDelivery && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                    <DeliveryForm
+                      form={deliveryForm}
+                      setForm={setDeliveryForm}
+                      saving={savingDelivery}
+                      onSave={saveDelivery}
+                      onCancel={() => setNewDelivery(false)}
+                      onCopyAddress={copyFromCompanyAddress}
+                    />
+                  </div>
+                )}
+              </section>
             </>
           )}
 
@@ -683,6 +926,268 @@ function ContactForm({
         <Button size="sm" className="h-7 text-xs gap-1" onClick={onSave} disabled={saving || !form.name.trim()}>
           <Save className="h-3 w-3" />
           {saving ? "Saving..." : "Save Contact"}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/* ---- Delivery Address Inline Form ---- */
+const DAYS: Array<{ key: "friday" | "saturday" | "sunday"; label: string }> = [
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+]
+
+function DeliveryForm({
+  form,
+  setForm,
+  saving,
+  onSave,
+  onCancel,
+  onCopyAddress,
+}: {
+  form: typeof EMPTY_DELIVERY
+  setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_DELIVERY>>
+  saving: boolean
+  onSave: () => void
+  onCancel: () => void
+  onCopyAddress: () => void
+}) {
+  const updateField = (key: string, value: string | boolean | null) =>
+    setForm((p) => ({ ...p, [key]: value }))
+
+  const toggleSpecialDay = (day: "friday" | "saturday" | "sunday") => {
+    setForm((p) => {
+      const existing = p.special_days.find((sd) => sd.day === day)
+      if (existing) {
+        return {
+          ...p,
+          special_days: p.special_days.map((sd) =>
+            sd.day === day ? { ...sd, enabled: !sd.enabled } : sd
+          ),
+        }
+      }
+      return {
+        ...p,
+        special_days: [
+          ...p.special_days,
+          { day, enabled: true, from: "08:00", to: "17:00", is_24_hours: false },
+        ],
+      }
+    })
+  }
+
+  const updateSpecialDay = (day: string, key: string, value: string | boolean) => {
+    setForm((p) => ({
+      ...p,
+      special_days: p.special_days.map((sd) =>
+        sd.day === day ? { ...sd, [key]: value } : sd
+      ),
+    }))
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Label and copy button */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <label className="text-xs font-medium text-foreground mb-1 block">Label</label>
+          <Input
+            value={form.label || ""}
+            onChange={(e) => updateField("label", e.target.value)}
+            placeholder="e.g. Main Office, Warehouse..."
+            className="h-8 text-sm"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs gap-1 mt-5"
+          onClick={onCopyAddress}
+        >
+          <Copy className="h-3 w-3" /> Copy Company Address
+        </Button>
+      </div>
+
+      {/* Address fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-foreground mb-1 block">Company Name</label>
+          <Input
+            value={form.company_name || ""}
+            onChange={(e) => updateField("company_name", e.target.value)}
+            placeholder="Delivery company name"
+            className="h-8 text-sm"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-foreground mb-1 block">Street *</label>
+          <Input
+            value={form.street}
+            onChange={(e) => updateField("street", e.target.value)}
+            placeholder="Street address"
+            className="h-8 text-sm"
+          />
+        </div>
+        <Input value={form.city || ""} onChange={(e) => updateField("city", e.target.value)} placeholder="City" className="h-8 text-sm" />
+        <div className="grid grid-cols-2 gap-2.5">
+          <Input value={form.state || ""} onChange={(e) => updateField("state", e.target.value)} placeholder="State" className="h-8 text-sm" />
+          <Input value={form.postal_code || ""} onChange={(e) => updateField("postal_code", e.target.value)} placeholder="ZIP" className="h-8 text-sm" />
+        </div>
+      </div>
+
+      {/* Contact fields */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label className="text-xs font-medium text-foreground mb-1 block">Delivery Contact</label>
+          <Input
+            value={form.delivery_contact || ""}
+            onChange={(e) => updateField("delivery_contact", e.target.value)}
+            placeholder="Contact name"
+            className="h-8 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-foreground mb-1 block">Delivery Phone</label>
+          <Input
+            value={form.delivery_phone || ""}
+            onChange={(e) => updateField("delivery_phone", e.target.value)}
+            placeholder="(555) 123-4567"
+            className="h-8 text-sm"
+          />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Delivery hours */}
+      <div className="flex flex-col gap-2.5">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Clock className="h-3 w-3" /> Delivery Hours
+        </h4>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={form.after_hours_ok}
+              onCheckedChange={(v) => updateField("after_hours_ok", v)}
+            />
+            <span className="text-xs text-foreground">After business hours OK</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={form.is_24_hours}
+              onCheckedChange={(v) => updateField("is_24_hours", v)}
+            />
+            <span className="text-xs text-foreground">24 Hours</span>
+          </div>
+        </div>
+
+        {!form.is_24_hours && (
+          <div className="flex items-center gap-2">
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">From</label>
+              <Input
+                type="time"
+                value={form.delivery_window_from || "08:00"}
+                onChange={(e) => updateField("delivery_window_from", e.target.value)}
+                className="h-8 text-sm w-32"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground mt-4">to</span>
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">To</label>
+              <Input
+                type="time"
+                value={form.delivery_window_to || "17:00"}
+                onChange={(e) => updateField("delivery_window_to", e.target.value)}
+                className="h-8 text-sm w-32"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Special days (Fri/Sat/Sun) */}
+      <div className="flex flex-col gap-2.5">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Calendar className="h-3 w-3" /> Special Day Hours
+        </h4>
+        <p className="text-[11px] text-muted-foreground">
+          Set different delivery hours for Friday, Saturday, or Sunday if they differ from the standard window.
+        </p>
+
+        <div className="flex flex-col gap-2">
+          {DAYS.map(({ key, label }) => {
+            const sd = form.special_days.find((s) => s.day === key)
+            const enabled = sd?.enabled ?? false
+            return (
+              <div key={key} className="rounded-lg border border-border bg-card/50 px-3 py-2">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={() => toggleSpecialDay(key)}
+                  />
+                  <span className="text-xs font-medium text-foreground w-16">{label}</span>
+
+                  {enabled && sd && (
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={sd.is_24_hours}
+                          onCheckedChange={(v) => updateSpecialDay(key, "is_24_hours", v)}
+                        />
+                        <span className="text-[11px] text-muted-foreground">24hr</span>
+                      </div>
+                      {!sd.is_24_hours && (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="time"
+                            value={sd.from}
+                            onChange={(e) => updateSpecialDay(key, "from", e.target.value)}
+                            className="h-7 text-xs w-28"
+                          />
+                          <span className="text-[11px] text-muted-foreground">-</span>
+                          <Input
+                            type="time"
+                            value={sd.to}
+                            onChange={(e) => updateSpecialDay(key, "to", e.target.value)}
+                            className="h-7 text-xs w-28"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="text-xs font-medium text-foreground mb-1 block">Notes</label>
+        <textarea
+          value={form.notes || ""}
+          onChange={(e) => updateField("notes", e.target.value)}
+          placeholder="Delivery instructions, dock info, gate codes..."
+          rows={2}
+          className="w-full text-sm bg-card border border-border rounded-lg p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={onSave} disabled={saving || !form.street?.trim()}>
+          <Save className="h-3 w-3" />
+          {saving ? "Saving..." : "Save Address"}
         </Button>
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
           Cancel
