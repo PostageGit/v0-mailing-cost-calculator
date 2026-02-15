@@ -28,24 +28,25 @@ export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; 
 // ─── Production routing ──────────────────────────────────
 export type ProductionRoute = "inhouse" | "ohp" | "both"
 
-// ─── Fold types ──────────────────────────────────────────
-// Width/height entered = FINISHED size (fits in envelope).
-// Fold multiplier computes the FLAT print sheet size.
-export type FoldType = "none" | "half_w" | "half_h" | "tri" | "z" | "gate" | "quarter" | "accordion"
-export const FOLD_TYPES: { id: FoldType; label: string; desc: string; multW: number; multH: number }[] = [
-  { id: "none",      label: "No fold",       desc: "Flat / unfolded",                      multW: 1, multH: 1 },
-  { id: "half_w",    label: "Half fold",     desc: "Folds along width (like a greeting card)", multW: 2, multH: 1 },
-  { id: "half_h",    label: "Half fold",    desc: "Folds along height (landscape open)",    multW: 1, multH: 2 },
-  { id: "tri",       label: "Tri-fold",      desc: "Letter fold, 3 panels wide",            multW: 3, multH: 1 },
-  { id: "z",         label: "Z-fold",        desc: "Accordion Z, 3 panels",                 multW: 3, multH: 1 },
-  { id: "gate",      label: "Gate fold",     desc: "Opens from center, 2x wide",            multW: 2, multH: 1 },
-  { id: "quarter",   label: "Quarter fold",  desc: "Folds both ways, 4 panels",             multW: 2, multH: 2 },
-  { id: "accordion", label: "Accordion 4",   desc: "4 panels wide",                         multW: 4, multH: 1 },
+// ─── Fold types (simplified) ─────────────────────────────
+// Finished size = what fits in the envelope (after folding)
+// Fold multiplier computes the FLAT print sheet size
+export type FoldType = "none" | "x2w" | "x2h" | "x3w" | "x3h" | "custom"
+export const FOLD_OPTIONS: { id: FoldType; label: string; desc: string; multW: number; multH: number }[] = [
+  { id: "none", label: "Flat",    desc: "No fold",                                   multW: 1, multH: 1 },
+  { id: "x2w",  label: "x2 (W)", desc: "Half fold along width (greeting card style)", multW: 2, multH: 1 },
+  { id: "x2h",  label: "x2 (H)", desc: "Half fold along height (landscape open)",     multW: 1, multH: 2 },
+  { id: "x3w",  label: "x3 (W)", desc: "Tri-fold / Z-fold along width",               multW: 3, multH: 1 },
+  { id: "x3h",  label: "x3 (H)", desc: "Tri-fold / Z-fold along height",              multW: 1, multH: 3 },
+  { id: "custom", label: "Custom", desc: "Enter flat size manually",                   multW: 1, multH: 1 },
 ]
 
 /** Compute the flat (print) sheet size from finished size + fold type */
 export function getFlatSize(piece: MailPiece): { w: number | null; h: number | null } {
-  const fold = FOLD_TYPES.find((f) => f.id === piece.foldType) || FOLD_TYPES[0]
+  if (piece.foldType === "custom") {
+    return { w: piece.flatWidth ?? null, h: piece.flatHeight ?? null }
+  }
+  const fold = FOLD_OPTIONS.find((f) => f.id === piece.foldType) || FOLD_OPTIONS[0]
   return {
     w: piece.width  ? Math.round(piece.width  * fold.multW * 1000) / 1000 : null,
     h: piece.height ? Math.round(piece.height * fold.multH * 1000) / 1000 : null,
@@ -61,6 +62,8 @@ export interface MailPiece {
   width: number | null       // FINISHED size (after folding / as mailed)
   height: number | null
   foldType: FoldType         // fold style -- determines flat print size
+  flatWidth?: number | null  // only used when foldType === "custom"
+  flatHeight?: number | null // only used when foldType === "custom"
   production: ProductionRoute // how this piece will be produced
   envelopeId?: string        // if type=envelope, which standard size
   envelopeKind?: "paper" | "plastic" | ""
@@ -151,7 +154,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
         if (sugH && sugH < 1) sugH = null
       }
       // Default fold: folded_card and self_mailer start with half fold, others none
-      const defaultFold: FoldType = (type === "folded_card" || type === "self_mailer") ? "half_w" : "none"
+      const defaultFold: FoldType = (type === "folded_card" || type === "self_mailer") ? "x2w" : "none"
       return [...prev, {
         id: `p-${_counter}`, position: pos, type,
         label: PIECE_TYPE_META[type].label,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, FOLD_TYPES, getFlatSize, type PieceType, type ProductionRoute, type FoldType } from "@/lib/mailing-context"
+import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, FOLD_OPTIONS, getFlatSize, type PieceType, type ProductionRoute, type FoldType } from "@/lib/mailing-context"
 import { useQuote } from "@/lib/quote-context"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -174,9 +174,13 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             const isOuter = piece.position === 1
             const outerW = m.mailerWidth
             const outerH = m.mailerHeight
-            const tooWide = !isOuter && piece.width && outerW && piece.width >= outerW
-            const tooTall = !isOuter && piece.height && outerH && piece.height >= outerH
+            // Inner pieces must be at least 0.5" smaller per side (1" total) than outer
+            const minClearance = 1 // 0.5" per side = 1" total
+            const tooWide = !isOuter && piece.width && outerW && piece.width > (outerW - minClearance)
+            const tooTall = !isOuter && piece.height && outerH && piece.height > (outerH - minClearance)
             const sizeWarn = tooWide || tooTall
+            const maxInnerW = outerW ? outerW - minClearance : null
+            const maxInnerH = outerH ? outerH - minClearance : null
 
             return (
               <div key={piece.id} className={`rounded-xl border p-4 transition-all ${
@@ -239,23 +243,21 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                       </div>
                     )}
 
-                    {/* Fold type selector -- for folded_card, self_mailer, booklet */}
+                    {/* Fold type selector -- simplified: Flat, x2, x3, Custom */}
                     {["folded_card", "self_mailer"].includes(piece.type) && (
                       <div className="mb-3">
-                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Fold Type</label>
-                        <div className="flex flex-wrap gap-1">
-                          {FOLD_TYPES.map((f) => (
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Fold</label>
+                        <div className="flex gap-1">
+                          {FOLD_OPTIONS.map((f) => (
                             <button key={f.id} type="button"
                               onClick={() => m.updatePiece(piece.id, { foldType: f.id })}
-                              className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                                 piece.foldType === f.id
                                   ? "bg-foreground text-background"
                                   : "bg-secondary text-muted-foreground hover:text-foreground"
                               }`}
                               title={f.desc}>
                               {f.label}
-                              {f.id === "half_w" && <span className="text-[9px] opacity-60 ml-0.5">(W)</span>}
-                              {f.id === "half_h" && <span className="text-[9px] opacity-60 ml-0.5">(H)</span>}
                             </button>
                           ))}
                         </div>
@@ -266,16 +268,19 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     {piece._suggested && piece.width && piece.height && (
                       <div className="flex items-center gap-3 mb-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 px-4 py-3">
                         <div className="flex-1">
-                          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">Suggested size: {piece.width}" x {piece.height}"</p>
+                          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+                            Suggested: <span className="font-mono">{piece.width}" x {piece.height}"</span>
+                          </p>
                           <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
-                            Based on piece above minus 0.5" per side. Verify or adjust.
+                            0.5" clearance per side from piece above.{" "}
+                            {maxInnerW && maxInnerH && <span className="font-mono">Max allowed: {maxInnerW}" x {maxInnerH}"</span>}
                           </p>
                         </div>
                         <button
                           onClick={() => m.updatePiece(piece.id, { _suggested: undefined })}
                           className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
                         >
-                          <Check className="h-3 w-3 inline mr-1" />Confirm
+                          <Check className="h-3 w-3 inline mr-1" />OK
                         </button>
                       </div>
                     )}
@@ -319,27 +324,44 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                             )}
                           </div>
                           {/* Flat print size callout */}
-                          {hasFlat && (
+                          {hasFlat && piece.foldType !== "custom" && (
                             <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-3 py-2">
                               <Printer className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                               <span className="text-xs text-amber-800 dark:text-amber-300">
                                 <strong>Flat print size:</strong>{" "}
                                 <span className="font-mono font-bold">{flat.w}" x {flat.h}"</span>
                                 <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-1.5">
-                                  ({FOLD_TYPES.find(f => f.id === piece.foldType)?.label})
+                                  ({FOLD_OPTIONS.find(f => f.id === piece.foldType)?.label})
                                 </span>
                               </span>
+                            </div>
+                          )}
+                          {/* Custom fold: manual flat size inputs */}
+                          {isFolded && piece.foldType === "custom" && (
+                            <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-3 py-2.5">
+                              <Printer className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 mr-1">Flat:</span>
+                              <Input type="number" step="0.125" min="0" placeholder="W"
+                                value={piece.flatWidth ?? ""}
+                                onChange={(e) => m.updatePiece(piece.id, { flatWidth: e.target.value ? parseFloat(e.target.value) : null })}
+                                className="h-7 w-16 text-xs font-mono bg-background border-amber-300 rounded-md" />
+                              <span className="text-xs text-amber-600">x</span>
+                              <Input type="number" step="0.125" min="0" placeholder="H"
+                                value={piece.flatHeight ?? ""}
+                                onChange={(e) => m.updatePiece(piece.id, { flatHeight: e.target.value ? parseFloat(e.target.value) : null })}
+                                className="h-7 w-16 text-xs font-mono bg-background border-amber-300 rounded-md" />
                             </div>
                           )}
                         </div>
                       )
                     })()}
 
-                    {/* Size warning */}
+                    {/* Size warning -- must be 0.5" smaller per side than outer */}
                     {sizeWarn && (
                       <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium mb-3">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                        Too big for outer piece ({outerW}" x {outerH}")
+                        Must be 0.5" smaller per side than outer.{" "}
+                        {maxInnerW && maxInnerH && <span className="font-mono font-bold">Max: {maxInnerW}" x {maxInnerH}"</span>}
                       </div>
                     )}
 
