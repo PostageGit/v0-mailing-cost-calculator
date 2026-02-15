@@ -25,6 +25,9 @@ export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; 
   other:       { label: "Other",        short: "OTH",  calc: "ohp",      color: "bg-secondary text-foreground" },
 }
 
+// ─── Production routing ──────────────────────────────────
+export type ProductionRoute = "inhouse" | "ohp" | "both"
+
 // ─── Mail piece (one per physical piece) ─────────────────
 export interface MailPiece {
   id: string
@@ -33,6 +36,7 @@ export interface MailPiece {
   label: string              // user-editable short label
   width: number | null
   height: number | null
+  production: ProductionRoute // how this piece will be produced
   envelopeId?: string        // if type=envelope, which standard size
   envelopeKind?: "paper" | "plastic" | ""
 }
@@ -79,6 +83,7 @@ interface MailingState {
   needsEnvelope: boolean
   needsPrinting: boolean
   needsBooklet: boolean
+  needsOHP: boolean
   /** For backward compat */
   outerWidth: number | null; outerHeight: number | null
   setOuterWidth: (w: number | null) => void; setOuterHeight: (h: number | null) => void
@@ -109,7 +114,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
     _counter++
     setPieces((prev) => {
       const pos = prev.length + 1
-      return [...prev, { id: `p-${_counter}`, position: pos, type, label: PIECE_TYPE_META[type].label, width: null, height: null }]
+      return [...prev, { id: `p-${_counter}`, position: pos, type, label: PIECE_TYPE_META[type].label, width: null, height: null, production: "inhouse" }]
     })
   }, [])
 
@@ -136,14 +141,14 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const mailerHeight = outerPiece?.height || null
   const suggestedShapes = useMemo(() => computeSuggestedShapes(mailerWidth, mailerHeight), [mailerWidth, mailerHeight])
 
-  // Derived step visibility
-  const hasEnvelope = pieces.some((p) => p.type === "envelope")
-  const hasBooklet = pieces.some((p) => p.type === "booklet")
-  const hasPrintable = pieces.some((p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
+  // Derived step visibility based on piece types AND production routing
+  const inhouseOrBoth = pieces.filter((p) => p.production === "inhouse" || p.production === "both")
+  const ohpOrBoth = pieces.filter((p) => p.production === "ohp" || p.production === "both")
 
-  const needsEnvelope = hasEnvelope
-  const needsPrinting = !customerProvidesPrinting && (hasPrintable || hasBooklet)
-  const needsBooklet = hasBooklet
+  const needsEnvelope = inhouseOrBoth.some((p) => p.type === "envelope")
+  const needsPrinting = !customerProvidesPrinting && inhouseOrBoth.some((p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet"].includes(p.type))
+  const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
+  const needsOHP = ohpOrBoth.length > 0
 
   // Backward compat setters for outer dims
   const setOuterWidth = useCallback((w: number | null) => {
@@ -159,7 +164,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
       pieces, setPieces, addPiece, removePiece, updatePiece,
       customerProvidesPrinting, setCustomerProvidesPrinting,
       outerPiece, mailerWidth, mailerHeight,
-      needsEnvelope, needsPrinting, needsBooklet,
+      needsEnvelope, needsPrinting, needsBooklet, needsOHP,
       outerWidth: mailerWidth, outerHeight: mailerHeight, setOuterWidth, setOuterHeight,
     }}>
       {children}

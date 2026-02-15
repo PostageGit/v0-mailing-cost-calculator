@@ -59,9 +59,10 @@ function AppContent() {
       if (step.id === "envelope" && !mailing.needsEnvelope) return false
       if (step.id === "printing" && !mailing.needsPrinting) return false
       if (step.id === "booklet" && !mailing.needsBooklet) return false
+      if (step.id === "ohp" && !mailing.needsOHP) return false
       return true
     })
-  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet])
+  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsOHP])
 
   // If current step becomes hidden, jump to first visible
   useEffect(() => {

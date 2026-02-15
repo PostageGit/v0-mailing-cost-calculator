@@ -219,9 +219,29 @@ export function JobInfoSidebar({ collapsed, onToggle }: { collapsed: boolean; on
                     </div>
                   )}
 
+                  {/* Production routing: In-House / OHP / Both */}
+                  <div className="flex items-center gap-0.5 pt-0.5">
+                    {(["inhouse", "ohp", "both"] as const).map((r) => (
+                      <button key={r} type="button"
+                        onClick={() => m.updatePiece(piece.id, { production: r })}
+                        className={`flex-1 px-1 py-0.5 text-[8px] font-bold rounded transition-all ${
+                          piece.production === r
+                            ? r === "inhouse" ? "bg-chart-2/15 text-chart-2"
+                              : r === "ohp" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                              : "bg-primary/10 text-primary"
+                            : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+                        }`}>
+                        {r === "inhouse" ? "In-House" : r === "ohp" ? "OHP" : "Both"}
+                      </button>
+                    ))}
+                  </div>
                   {/* Calculator routing indicator */}
                   <span className="text-[8px] text-muted-foreground">
-                    Calculator: <strong className="text-foreground">{meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "envelope" ? "Envelope" : "OHP"}</strong>
+                    {piece.production !== "ohp" && <>
+                      <strong className="text-foreground">{meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "envelope" ? "Envelope" : "OHP"}</strong>
+                    </>}
+                    {piece.production === "ohp" && <strong className="text-amber-600">Vendor bid required</strong>}
+                    {piece.production === "both" && <> + <strong className="text-amber-600">OHP bid</strong></>}
                   </span>
                 </div>
               )
