@@ -25,10 +25,12 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface Props {
   quoteId: string
-  onClose: () => void
+  onClose?: () => void
+  /** When true, renders inline (no overlay / no close button) */
+  inline?: boolean
 }
 
-export function VendorBidPanel({ quoteId, onClose }: Props) {
+export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   const { data: bids, isLoading, mutate: mutateBids } = useSWR<VendorBid[]>(
     `/api/vendor-bids?quote_id=${quoteId}`,
     fetcher
@@ -60,32 +62,9 @@ export function VendorBidPanel({ quoteId, onClose }: Props) {
     setCreating(false)
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[4vh] overflow-y-auto"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <Card className="w-full max-w-3xl border-border shadow-lg">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-                <Send className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Vendor Bids</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Send items to vendors and compare prices
-                </p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+  const content = (
+    <>
+      <CardContent className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -145,6 +124,55 @@ export function VendorBidPanel({ quoteId, onClose }: Props) {
             </>
           )}
         </CardContent>
+    </>
+  )
+
+  if (inline) {
+    return (
+      <Card className="w-full border-border shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+              <Send className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Vendor Bids</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Send items to vendors and compare prices
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        {content}
+      </Card>
+    )
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[4vh] overflow-y-auto"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+    >
+      <Card className="w-full max-w-3xl border-border shadow-lg">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
+                <Send className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Vendor Bids</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Send items to vendors and compare prices
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        {content}
       </Card>
     </div>
   )
