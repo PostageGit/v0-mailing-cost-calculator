@@ -36,6 +36,8 @@ export async function PATCH(
   if (body.items !== undefined) updates.items = body.items
   if (body.total !== undefined) updates.total = body.total
   if (body.notes !== undefined) updates.notes = body.notes
+  if (body.customer_id !== undefined) updates.customer_id = body.customer_id
+  if (body.reference_number !== undefined) updates.reference_number = body.reference_number
 
   const { data, error } = await supabase
     .from("quotes")

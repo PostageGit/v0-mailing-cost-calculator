@@ -119,9 +119,9 @@ function AppContent() {
                   <BookOpen className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Fold & Staple</span>
                 </TabsTrigger>
-                <TabsTrigger value="vendor-bids" aria-label="Vendor Bids" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <TabsTrigger value="vendor-bids" aria-label="Out of House Production" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
                   <Send className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Vendor Bids</span>
+                  <span className="hidden sm:inline">OHP</span>
                 </TabsTrigger>
                 <TabsTrigger value="items" aria-label="Items and Supplies" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
                   <Package className="h-4 w-4" aria-hidden="true" />

@@ -28,6 +28,8 @@ export async function POST(request: Request) {
       items: body.items || [],
       total: body.total || 0,
       notes: body.notes || null,
+      customer_id: body.customer_id || null,
+      reference_number: body.reference_number || "",
     })
     .select()
     .single()
