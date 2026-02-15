@@ -85,6 +85,7 @@ export function USPSPostageCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
 
+  // Sync USPS inputs back to mailing context
   useEffect(() => {
     const totalQty = inputs.quantity + (inputs.saturationQty || 0)
     mailing.setQuantity(totalQty)
@@ -96,6 +97,47 @@ export function USPSPostageCalculator() {
     }
     mailing.setClassName(classMap[inputs.shape] || inputs.shape)
   }, [inputs.quantity, inputs.saturationQty, inputs.shape, mailing])
+
+  // Auto-detect shape + format from planner's outer piece
+  useEffect(() => {
+    const outer = mailing.outerPiece
+    if (!outer) return
+
+    const patch: Partial<USPSInputs> = {}
+
+    // Auto-set quantity from planner if it has one
+    if (mailing.quantity && mailing.quantity !== inputs.quantity) {
+      patch.quantity = mailing.quantity
+    }
+
+    // Determine format from outer piece type
+    if (outer.type === "envelope") {
+      patch.pack = outer.envelopeKind === "plastic" ? "PLAS" : "ENV"
+    } else if (outer.type === "folded_card" || outer.type === "self_mailer") {
+      patch.pack = "FOLD"
+    } else {
+      // Booklet, postcard, flat card mailed standalone -- no envelope
+      patch.pack = "FOLD" // folded/self-contained for standalone pieces
+    }
+
+    // Determine shape from outer piece dimensions
+    if (outer.width && outer.height) {
+      const s = Math.min(outer.width, outer.height)
+      const l = Math.max(outer.width, outer.height)
+      if (outer.type === "postcard" && s >= 3.5 && s <= 6 && l >= 5 && l <= 9) {
+        patch.shape = "POSTCARD"
+      } else if (s >= 3.5 && s <= 6.125 && l >= 5 && l <= 11.5) {
+        patch.shape = "LETTER"
+      } else if (s > 6.125 || l > 11.5) {
+        patch.shape = "FLAT"
+      }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      setInputs((prev) => ({ ...prev, ...patch }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mailing.outerPiece?.id, mailing.outerPiece?.type, mailing.outerPiece?.width, mailing.outerPiece?.height, mailing.outerPiece?.envelopeKind, mailing.quantity])
 
   const update = useCallback((partial: Partial<USPSInputs>) => {
     setInputs((prev) => {
@@ -167,6 +209,33 @@ export function USPSPostageCalculator() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Planner detection banner */}
+      {mailing.outerPiece && (
+        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3 flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-foreground/5 flex items-center justify-center">
+            <Info className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-foreground">
+              Auto-detected from planner
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Outer piece: <strong>{mailing.outerPiece.label}</strong>
+              {mailing.outerPiece.width && mailing.outerPiece.height && (
+                <span className="font-mono ml-1">{mailing.outerPiece.width}" x {mailing.outerPiece.height}"</span>
+              )}
+              {mailing.outerPiece.type === "envelope" && mailing.outerPiece.envelopeKind && (
+                <span className="ml-1">({mailing.outerPiece.envelopeKind})</span>
+              )}
+              <span className="mx-1.5 text-border">|</span>
+              Shape: <strong>{SHAPE_LABELS[inputs.shape]}</strong>
+              <span className="mx-1.5 text-border">|</span>
+              Format: <strong>{inputs.pack === "ENV" ? "Envelope" : inputs.pack === "FOLD" ? "Folded/Flat" : "Plastic"}</strong>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Single card: all inputs ── */}
       <Card className="border-border rounded-2xl overflow-hidden">
         <CardContent className="p-5 flex flex-col gap-5">
