@@ -11,7 +11,8 @@ import { calculateBooklet } from "@/lib/booklet-pricing"
 import type { BookletInputs, BookletCalcResult, BookletOrderItem } from "@/lib/booklet-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
-import { AlertTriangle, Plus } from "lucide-react"
+import { AlertTriangle, Plus, ArrowDown } from "lucide-react"
+import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 const EMPTY_INPUTS: BookletInputs = {
   bookQty: 0,
@@ -34,6 +35,24 @@ const EMPTY_INPUTS: BookletInputs = {
 
 export function BookletCalculator() {
   const quote = useQuote()
+  const mailing = useMailing()
+
+  // Booklet pieces from planner that need in-house production
+  const bookletPieces = mailing.pieces.filter(
+    (p) => p.type === "booklet" && (p.production === "inhouse" || p.production === "both")
+  )
+
+  const loadPiece = useCallback((piece: MailPiece) => {
+    setInputs((prev) => ({
+      ...prev,
+      bookQty: mailing.quantity || prev.bookQty,
+      pageWidth: piece.width || prev.pageWidth,
+      pageHeight: piece.height || prev.pageHeight,
+    }))
+    setCalcResult(null)
+    setValidationError(null)
+  }, [mailing.quantity])
+
   const [inputs, setInputs] = useState<BookletInputs>(EMPTY_INPUTS)
   const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -176,7 +195,38 @@ export function BookletCalculator() {
       {/* Main Calculator Column */}
       <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
         <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
-          <h2 className="text-base font-semibold text-foreground mb-4">Saddle Stitch Booklet Calculator</h2>
+          <h2 className="text-base font-semibold text-foreground mb-2">Saddle Stitch Booklet Calculator</h2>
+
+          {/* Piece selector -- auto-fill from planner */}
+          {bookletPieces.length > 0 && (
+            <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-3">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Load from planner
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {bookletPieces.map((piece) => {
+                  const meta = PIECE_TYPE_META[piece.type]
+                  return (
+                    <button
+                      key={piece.id}
+                      type="button"
+                      onClick={() => loadPiece(piece)}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-card hover:border-foreground/30 hover:shadow-sm px-3 py-2 text-left transition-all group"
+                    >
+                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold text-foreground">{piece.label}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {piece.width && piece.height ? `${piece.width}" x ${piece.height}" closed` : "No size"}
+                        </span>
+                      </div>
+                      <ArrowDown className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors ml-1" />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <BookletForm
             inputs={inputs}
