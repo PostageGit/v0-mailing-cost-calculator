@@ -130,6 +130,21 @@ export function USPSPostageCalculator() {
   const suggestedShapes = mailing.suggestedShapes
   const [shapeOverride, setShapeOverride] = useState(false)
 
+  // Auto-switch shape when current selection is disqualified by dimensions
+  useEffect(() => {
+    if (!hasDimensions || shapeOverride) return
+    if (suggestedShapes.length > 0 && !suggestedShapes.includes(inputs.shape as any)) {
+      // Current shape is invalid -- switch to first valid one
+      const isMktService = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
+      const validShapes = isMktService
+        ? suggestedShapes.filter((s) => s !== "POSTCARD")
+        : suggestedShapes
+      if (validShapes.length > 0) {
+        update({ shape: validShapes[0] })
+      }
+    }
+  }, [hasDimensions, shapeOverride, suggestedShapes, inputs.shape, inputs.service, update])
+
   const isMkt = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
   const isRetail = inputs.service === "FCM_RETAIL"
   const isShapeDisabled = (shape: string) => {
@@ -423,20 +438,34 @@ export function USPSPostageCalculator() {
             </>
           )}
 
-          {/* Spec reference: inline compact */}
-          <div className="border-t border-border pt-3 flex items-center gap-4 text-[10px] text-muted-foreground">
-            <span className="font-semibold text-foreground">
-              {SHAPE_LABELS[inputs.shape]}
-            </span>
-            <span>
-              Min: <strong className="font-mono">{spec.min}</strong>
-            </span>
-            <span>
-              Max: <strong className="font-mono">{spec.max}</strong>
-            </span>
-            <span>
-              Weight: <strong className="font-mono">{spec.weight}</strong>
-            </span>
+          {/* Spec reference + dimension warning */}
+          <div className="border-t border-border pt-3 flex flex-col gap-2">
+            <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {SHAPE_LABELS[inputs.shape]}
+              </span>
+              <span>
+                Min: <strong className="font-mono">{spec.min}</strong>
+              </span>
+              <span>
+                Max: <strong className="font-mono">{spec.max}</strong>
+              </span>
+              <span>
+                Weight: <strong className="font-mono">{spec.weight}</strong>
+              </span>
+            </div>
+            {hasDimensions && suggestedShapes.length === 0 && (
+              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {mailing.mailerWidth}" x {mailing.mailerHeight}" is too small for any USPS mail shape. Check dimensions.
+              </div>
+            )}
+            {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as any) && (
+              <div className="flex items-center gap-2 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2 text-xs font-medium">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {mailing.mailerWidth}" x {mailing.mailerHeight}" does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -495,11 +524,11 @@ export function USPSPostageCalculator() {
             </span>
             <button
               onClick={handleAddToQuote}
-              disabled={!result.isValid}
+              disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
               className="flex items-center gap-1.5 bg-background text-foreground text-xs font-semibold px-4 py-2 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add to Quote
+              {hasDimensions && suggestedShapes.length === 0 && !shapeOverride ? "Size Error" : "Add to Quote"}
             </button>
           </div>
         </div>

@@ -193,7 +193,10 @@ export function JobInfoSidebar({ collapsed, onToggle }: { collapsed: boolean; on
                 {shapes.includes("POSTCARD") && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full border-0 bg-chart-2/10 text-chart-2 font-medium">Postcard</Badge>}
                 {shapes.includes("LETTER") && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full border-0 bg-primary/10 text-primary font-medium">Letter</Badge>}
                 {shapes.includes("FLAT") && <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 rounded-full border-0 bg-chart-4/10 text-chart-4 font-medium">Flat</Badge>}
-                {shapes.length === 0 && <span className="text-[10px] text-destructive font-medium">Out of range</span>}
+                {shapes.length === 0 && <span className="text-[10px] text-destructive font-semibold flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+                  Size out of range
+                </span>}
               </div>
             )}
           </Section>

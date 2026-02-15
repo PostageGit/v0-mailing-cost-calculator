@@ -62,8 +62,8 @@ function computeSuggestedShapes(w: number | null, h: number | null): USPSShape[]
     }
   }
 
-  // If nothing matches (too small or too big), return all as selectable with override
-  return shapes.length > 0 ? shapes : ["POSTCARD", "LETTER", "FLAT"]
+  // If nothing matches (too small or too big), return empty -- no shapes qualify
+  return shapes
 }
 
 export function MailingProvider({ children }: { children: ReactNode }) {
