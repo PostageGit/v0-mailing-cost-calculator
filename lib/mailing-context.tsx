@@ -28,14 +28,39 @@ export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; 
 // ─── Production routing ──────────────────────────────────
 export type ProductionRoute = "inhouse" | "ohp" | "both"
 
+// ─── Fold types ──────────────────────────────────────────
+// Width/height entered = FINISHED size (fits in envelope).
+// Fold multiplier computes the FLAT print sheet size.
+export type FoldType = "none" | "half_w" | "half_h" | "tri" | "z" | "gate" | "quarter" | "accordion"
+export const FOLD_TYPES: { id: FoldType; label: string; desc: string; multW: number; multH: number }[] = [
+  { id: "none",      label: "No fold",       desc: "Flat / unfolded",                      multW: 1, multH: 1 },
+  { id: "half_w",    label: "Half fold",     desc: "Folds along width (like a greeting card)", multW: 2, multH: 1 },
+  { id: "half_h",    label: "Half fold",    desc: "Folds along height (landscape open)",    multW: 1, multH: 2 },
+  { id: "tri",       label: "Tri-fold",      desc: "Letter fold, 3 panels wide",            multW: 3, multH: 1 },
+  { id: "z",         label: "Z-fold",        desc: "Accordion Z, 3 panels",                 multW: 3, multH: 1 },
+  { id: "gate",      label: "Gate fold",     desc: "Opens from center, 2x wide",            multW: 2, multH: 1 },
+  { id: "quarter",   label: "Quarter fold",  desc: "Folds both ways, 4 panels",             multW: 2, multH: 2 },
+  { id: "accordion", label: "Accordion 4",   desc: "4 panels wide",                         multW: 4, multH: 1 },
+]
+
+/** Compute the flat (print) sheet size from finished size + fold type */
+export function getFlatSize(piece: MailPiece): { w: number | null; h: number | null } {
+  const fold = FOLD_TYPES.find((f) => f.id === piece.foldType) || FOLD_TYPES[0]
+  return {
+    w: piece.width  ? Math.round(piece.width  * fold.multW * 1000) / 1000 : null,
+    h: piece.height ? Math.round(piece.height * fold.multH * 1000) / 1000 : null,
+  }
+}
+
 // ─── Mail piece (one per physical piece) ─────────────────
 export interface MailPiece {
   id: string
   position: number           // 1 = outermost, 2+ = inner
   type: PieceType
   label: string              // user-editable short label
-  width: number | null
+  width: number | null       // FINISHED size (after folding / as mailed)
   height: number | null
+  foldType: FoldType         // fold style -- determines flat print size
   production: ProductionRoute // how this piece will be produced
   envelopeId?: string        // if type=envelope, which standard size
   envelopeKind?: "paper" | "plastic" | ""
@@ -125,12 +150,15 @@ export function MailingProvider({ children }: { children: ReactNode }) {
         if (sugW && sugW < 1) sugW = null
         if (sugH && sugH < 1) sugH = null
       }
+      // Default fold: folded_card and self_mailer start with half fold, others none
+      const defaultFold: FoldType = (type === "folded_card" || type === "self_mailer") ? "half_w" : "none"
       return [...prev, {
         id: `p-${_counter}`, position: pos, type,
         label: PIECE_TYPE_META[type].label,
         width: sugW, height: sugH,
+        foldType: defaultFold,
         production: "inhouse",
-        _suggested: sugW && sugH ? true : undefined, // flag to trigger verify prompt
+        _suggested: sugW && sugH ? true : undefined,
       } as MailPiece]
     })
   }, [])

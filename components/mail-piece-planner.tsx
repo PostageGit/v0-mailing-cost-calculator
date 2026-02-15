@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, type PieceType, type ProductionRoute } from "@/lib/mailing-context"
+import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, FOLD_TYPES, getFlatSize, type PieceType, type ProductionRoute, type FoldType } from "@/lib/mailing-context"
 import { useQuote } from "@/lib/quote-context"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -239,6 +239,29 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                       </div>
                     )}
 
+                    {/* Fold type selector -- for folded_card, self_mailer, booklet */}
+                    {["folded_card", "self_mailer"].includes(piece.type) && (
+                      <div className="mb-3">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Fold Type</label>
+                        <div className="flex flex-wrap gap-1">
+                          {FOLD_TYPES.map((f) => (
+                            <button key={f.id} type="button"
+                              onClick={() => m.updatePiece(piece.id, { foldType: f.id })}
+                              className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+                                piece.foldType === f.id
+                                  ? "bg-foreground text-background"
+                                  : "bg-secondary text-muted-foreground hover:text-foreground"
+                              }`}
+                              title={f.desc}>
+                              {f.label}
+                              {f.id === "half_w" && <span className="text-[9px] opacity-60 ml-0.5">(W)</span>}
+                              {f.id === "half_h" && <span className="text-[9px] opacity-60 ml-0.5">(H)</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Suggested size verify banner */}
                     {piece._suggested && piece.width && piece.height && (
                       <div className="flex items-center gap-3 mb-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 px-4 py-3">
@@ -258,32 +281,59 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     )}
 
                     {/* Dimensions row */}
-                    <div className="flex items-center gap-3 mb-3">
-                      {(piece.type !== "envelope" || piece.envelopeId === "custom" || !piece.envelopeId) ? (
-                        <>
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-xs text-muted-foreground">W</label>
-                            <Input type="number" step="0.125" min="0" placeholder={'0"'}
-                              value={piece.width ?? ""}
-                              onChange={(e) => m.updatePiece(piece.id, { width: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
-                              className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
-                          </div>
-                          <span className="text-muted-foreground text-xs">x</span>
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-xs text-muted-foreground">H</label>
-                            <Input type="number" step="0.125" min="0" placeholder={'0"'}
-                              value={piece.height ?? ""}
-                              onChange={(e) => m.updatePiece(piece.id, { height: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
-                              className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
-                          </div>
-                          {piece.width && piece.height && !piece._suggested && (
-                            <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
+                    {(() => {
+                      const isFolded = piece.foldType !== "none" && ["folded_card", "self_mailer"].includes(piece.type)
+                      const flat = getFlatSize(piece)
+                      const hasFlat = isFolded && flat.w && flat.h
+                      return (
+                        <div className="mb-3">
+                          {isFolded && (
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                              Finished Size <span className="normal-case font-normal">(as mailed / folded)</span>
+                            </label>
                           )}
-                        </>
-                      ) : (
-                        <span className="text-sm font-mono text-foreground font-semibold">{piece.width}" x {piece.height}"</span>
-                      )}
-                    </div>
+                          <div className="flex items-center gap-3">
+                            {(piece.type !== "envelope" || piece.envelopeId === "custom" || !piece.envelopeId) ? (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <label className="text-xs text-muted-foreground">W</label>
+                                  <Input type="number" step="0.125" min="0" placeholder={'0"'}
+                                    value={piece.width ?? ""}
+                                    onChange={(e) => m.updatePiece(piece.id, { width: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
+                                    className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
+                                </div>
+                                <span className="text-muted-foreground text-xs">x</span>
+                                <div className="flex items-center gap-1.5">
+                                  <label className="text-xs text-muted-foreground">H</label>
+                                  <Input type="number" step="0.125" min="0" placeholder={'0"'}
+                                    value={piece.height ?? ""}
+                                    onChange={(e) => m.updatePiece(piece.id, { height: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
+                                    className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
+                                </div>
+                                {piece.width && piece.height && !piece._suggested && !isFolded && (
+                                  <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-sm font-mono text-foreground font-semibold">{piece.width}" x {piece.height}"</span>
+                            )}
+                          </div>
+                          {/* Flat print size callout */}
+                          {hasFlat && (
+                            <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-3 py-2">
+                              <Printer className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="text-xs text-amber-800 dark:text-amber-300">
+                                <strong>Flat print size:</strong>{" "}
+                                <span className="font-mono font-bold">{flat.w}" x {flat.h}"</span>
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-1.5">
+                                  ({FOLD_TYPES.find(f => f.id === piece.foldType)?.label})
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* Size warning */}
                     {sizeWarn && (
