@@ -32,6 +32,8 @@ const EMPTY_INPUTS: PrintingInputs = {
   addOnDescription: "",
   finishingIds: [],
   isBroker: false,
+  scoreFoldOperation: "",
+  scoreFoldType: "",
 }
 
 export function PrintingCalculator() {

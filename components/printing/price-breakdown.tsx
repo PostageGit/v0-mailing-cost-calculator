@@ -20,7 +20,7 @@ function DetailRow({ label, value, bold }: { label: string; value: string; bold?
 }
 
 export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
-  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, finishingCosts, totalFinishing, subtotal, grandTotal } = data
+  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, finishingCosts, totalFinishing, scoreFoldCost, subtotal, grandTotal } = data
   const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
   const pricePerPage = subtotal > 0 && inputs.qty > 0 ? subtotal / inputs.qty : 0
 
@@ -102,6 +102,20 @@ export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
                 value={formatCurrency(fc.cost)}
               />
             ))}
+            {scoreFoldCost && (
+              <DetailRow
+                label={`${scoreFoldCost.operation} (${scoreFoldCost.foldType}):`}
+                value={
+                  formatCurrency(scoreFoldCost.cost) +
+                  (scoreFoldCost.isMinApplied ? " (min.)" : "")
+                }
+              />
+            )}
+            {scoreFoldCost?.suggestion && (
+              <div className="col-span-2 text-[10px] text-amber-600 dark:text-amber-400 italic py-0.5">
+                {scoreFoldCost.suggestion}
+              </div>
+            )}
             <DetailRow
               label={addOnDescription ? `${addOnDescription}:` : "Add on:"}
               value={formatCurrency(addOnCharge)}

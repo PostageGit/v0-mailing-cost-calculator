@@ -33,9 +33,12 @@ export interface PrintingInputs {
   hasBleed: boolean
   addOnCharge: number
   addOnDescription: string
-  /** IDs of finishing options to apply (e.g. ["gloss_lamination"]) */
+  /** IDs of sheet finishing options to apply (e.g. ["gloss_lamination"]) */
   finishingIds?: string[]
   isBroker?: boolean
+  /** Score & fold settings (per-piece finishing) */
+  scoreFoldOperation?: "folding" | "scoring" | ""
+  scoreFoldType?: "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold" | ""
 }
 
 export interface PrintingCalcResult {
@@ -71,6 +74,14 @@ export interface FinishingCostLine {
   cost: number
 }
 
+export interface ScoreFoldCostLine {
+  operation: string
+  foldType: string
+  cost: number
+  isMinApplied: boolean
+  suggestion?: string
+}
+
 export interface FullPrintingResult {
   printingCost: number
   printingCostPlus10: number
@@ -79,6 +90,7 @@ export interface FullPrintingResult {
   cuttingCost: number
   finishingCosts: FinishingCostLine[]
   totalFinishing: number
+  scoreFoldCost: ScoreFoldCostLine | null
   subtotal: number
   grandTotal: number
   result: PrintingCalcResult

@@ -155,6 +155,187 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
   },
 ]
 
+// ==================== SCORE & FOLD (per-piece finishing) ====================
+
+export interface ScoreFoldEntry {
+  setup: string   // "Level 1" - "Level 5", "N/A", or "hand fold"
+  runtime: number // minutes per 100 pieces
+}
+
+export interface ScoreFoldConfig {
+  setupLevels: Record<string, number>  // level name -> minutes
+  setupCostPerHour: number
+  machineChargePerHour: number
+  runtimeCostPerHour: number
+  markupPercent: number
+  minimumJobPrice: number
+  brokerDiscountPercent: number
+  /** operation -> paperType -> size -> foldType -> entry */
+  data: Record<string, Record<string, Record<string, Record<string, ScoreFoldEntry>>>>
+}
+
+export const DEFAULT_SCORE_FOLD_CONFIG: ScoreFoldConfig = {
+  setupLevels: { "Level 1": 15, "Level 2": 17, "Level 3": 20, "Level 4": 22, "Level 5": 25 },
+  setupCostPerHour: 60,
+  machineChargePerHour: 5,
+  runtimeCostPerHour: 30,
+  markupPercent: 250,
+  minimumJobPrice: 50,
+  brokerDiscountPercent: 30,
+  data: {
+    folding: {
+      "80text": {
+        "11x17":   { foldInHalf: { setup: "Level 3", runtime: 40/60 }, foldIn3: { setup: "Level 3", runtime: 45/60 }, foldIn4: { setup: "Level 5", runtime: 120/60 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x11":  { foldInHalf: { setup: "Level 3", runtime: 30/60 }, foldIn3: { setup: "Level 3", runtime: 35/60 }, foldIn4: { setup: "Level 5", runtime: 0 },      gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x5.5": { foldInHalf: { setup: "Level 3", runtime: 25/60 }, foldIn3: { setup: "Level 4", runtime: 0 },     foldIn4: { setup: "hand fold", runtime: 0 },    gateFold: { setup: "Level 5", runtime: 0 } },
+      },
+      "100text": {
+        "11x17":   { foldInHalf: { setup: "Level 2", runtime: 40/60 }, foldIn3: { setup: "Level 3", runtime: 45/60 }, foldIn4: { setup: "Level 5", runtime: 120/60 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x11":  { foldInHalf: { setup: "Level 2", runtime: 30/60 }, foldIn3: { setup: "Level 3", runtime: 35/60 }, foldIn4: { setup: "Level 5", runtime: 0 },      gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x5.5": { foldInHalf: { setup: "Level 2", runtime: 25/60 }, foldIn3: { setup: "Level 4", runtime: 0 },     foldIn4: { setup: "hand fold", runtime: 0 },    gateFold: { setup: "Level 5", runtime: 0 } },
+      },
+      cardstock: {
+        "11x17":   { foldInHalf: { setup: "N/A", runtime: 0 }, foldIn3: { setup: "N/A", runtime: 0 }, foldIn4: { setup: "N/A", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x11":  { foldInHalf: { setup: "N/A", runtime: 0 }, foldIn3: { setup: "N/A", runtime: 0 }, foldIn4: { setup: "N/A", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x5.5": { foldInHalf: { setup: "N/A", runtime: 0 }, foldIn3: { setup: "N/A", runtime: 0 }, foldIn4: { setup: "N/A", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+      },
+    },
+    scoring: {
+      "80text": {
+        "11x17":   { foldInHalf: { setup: "N/A", runtime: 0 }, foldIn3: { setup: "N/A", runtime: 0 }, foldIn4: { setup: "N/A", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x11":  { foldInHalf: { setup: "N/A", runtime: 0 }, foldIn3: { setup: "N/A", runtime: 0 }, foldIn4: { setup: "N/A", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x5.5": { foldInHalf: { setup: "N/A", runtime: 0 }, foldIn3: { setup: "N/A", runtime: 0 }, foldIn4: { setup: "N/A", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+      },
+      "100text": {
+        "11x17":   { foldInHalf: { setup: "Level 2", runtime: 215/60 }, foldIn3: { setup: "Level 3", runtime: 225/60 }, foldIn4: { setup: "hand fold", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x11":  { foldInHalf: { setup: "Level 2", runtime: 260/60 }, foldIn3: { setup: "Level 3", runtime: 260/60 }, foldIn4: { setup: "hand fold", runtime: 0 }, gateFold: { setup: "N/A", runtime: 0 } },
+        "8.5x5.5": { foldInHalf: { setup: "Level 3", runtime: 120/60 }, foldIn3: { setup: "Level 4", runtime: 140/60 }, foldIn4: { setup: "hand fold", runtime: 0 }, gateFold: { setup: "Level 5", runtime: 0 } },
+      },
+      cardstock: {
+        "11x17":   { foldInHalf: { setup: "Level 1", runtime: 155/60 }, foldIn3: { setup: "Level 2", runtime: 225/60 }, foldIn4: { setup: "hand fold", runtime: 0 }, gateFold: { setup: "Level 4", runtime: 240/60 } },
+        "8.5x11":  { foldInHalf: { setup: "Level 1", runtime: 140/60 }, foldIn3: { setup: "Level 4", runtime: 200/60 }, foldIn4: { setup: "Level 4", runtime: 0 },    gateFold: { setup: "Level 4", runtime: 0 } },
+        "8.5x5.5": { foldInHalf: { setup: "Level 2", runtime: 120/60 }, foldIn3: { setup: "Level 3", runtime: 0 },      foldIn4: { setup: "hand fold", runtime: 0 }, gateFold: { setup: "Level 4", runtime: 0 } },
+      },
+    },
+  },
+}
+
+/** Map flat printing paper names to score-fold paper categories */
+export function mapPaperToScoreFoldCategory(paperName: string): string | null {
+  const lower = paperName.toLowerCase()
+  // 80 text / 60lb offset
+  if (lower.includes("80lb text") || lower.includes("80 text") || lower.includes("60lb") || lower.includes("20lb")) return "80text"
+  if (lower.includes("100lb text") || lower.includes("100 text")) return "100text"
+  // Everything with "cover", "pt", "card" is cardstock
+  if (lower.includes("cover") || lower.includes("pt") || lower.includes("card") || lower.includes("sticker")) return "cardstock"
+  return null
+}
+
+/** Map the user's cut-piece dimensions (width x height) to a standard fold size */
+export function mapDimensionsToFoldSize(w: number, h: number): string | null {
+  const [short, long] = w < h ? [w, h] : [h, w]
+  // Check with 0.25" tolerance for bleed
+  const t = 0.25
+  if (Math.abs(short - 11) <= t && Math.abs(long - 17) <= t) return "11x17"
+  if (Math.abs(short - 8.5) <= t && Math.abs(long - 11) <= t) return "8.5x11"
+  if (Math.abs(short - 5.5) <= t && Math.abs(long - 8.5) <= t) return "8.5x5.5"
+  return null
+}
+
+export type ScoreFoldValidation =
+  | { valid: true }
+  | { valid: false; reason: "no_paper_match" | "no_size_match" | "not_available" | "hand_fold" | "zero_runtime"; message: string }
+
+/** Validate whether a score-fold combo is possible */
+export function validateScoreFold(
+  operation: string,
+  paperName: string,
+  width: number,
+  height: number,
+  foldType: string,
+): ScoreFoldValidation {
+  const paperCat = mapPaperToScoreFoldCategory(paperName)
+  if (!paperCat) return { valid: false, reason: "no_paper_match", message: `Paper "${paperName}" doesn't map to a foldable category.` }
+
+  const foldSize = mapDimensionsToFoldSize(width, height)
+  if (!foldSize) return { valid: false, reason: "no_size_match", message: `Size ${width}" x ${height}" doesn't match a standard fold size (11x17, 8.5x11, or 8.5x5.5).` }
+
+  const cfg = getActiveConfig().scoreFold
+  const entry = cfg.data[operation]?.[paperCat]?.[foldSize]?.[foldType]
+  if (!entry || entry.setup === "N/A") {
+    if (operation === "folding" && paperCat === "cardstock") {
+      return { valid: false, reason: "not_available", message: "Cardstock cannot be folded directly. Use Score and Fold instead." }
+    }
+    if (operation === "scoring" && paperCat === "80text") {
+      return { valid: false, reason: "not_available", message: "80 Text doesn't need scoring -- it's thin enough to fold directly. Switch to Folding." }
+    }
+    return { valid: false, reason: "not_available", message: `${operation === "folding" ? "Folding" : "Score & Fold"} is not available for ${paperCat} at ${foldSize} with this fold type.` }
+  }
+  if (entry.setup === "hand fold") {
+    return { valid: false, reason: "hand_fold", message: "This combination requires hand folding (no machine support). Contact for manual quote." }
+  }
+  if (entry.runtime === 0) {
+    return { valid: false, reason: "zero_runtime", message: "Machine runtime is zero for this combination. It may not be fully supported." }
+  }
+  return { valid: true }
+}
+
+/** Calculate score-fold cost for a given piece quantity */
+export function calculateScoreFoldCost(
+  operation: string,
+  foldType: string,
+  paperName: string,
+  width: number,
+  height: number,
+  quantity: number,
+  isBroker: boolean,
+): { cost: number; isMinApplied: boolean; suggestion?: string } | null {
+  const paperCat = mapPaperToScoreFoldCategory(paperName)
+  const foldSize = mapDimensionsToFoldSize(width, height)
+  if (!paperCat || !foldSize) return null
+
+  const cfg = getActiveConfig().scoreFold
+  const entry = cfg.data[operation]?.[paperCat]?.[foldSize]?.[foldType]
+  if (!entry || entry.setup === "N/A" || entry.setup === "hand fold") return null
+
+  const setupTime = cfg.setupLevels[entry.setup] || 20
+  const setupCost = (setupTime / 60) * cfg.setupCostPerHour
+  const baseRuntime = (quantity / 100) * entry.runtime
+  const totalRuntime = baseRuntime + 5
+  const runtimeCost = (totalRuntime / 60) * cfg.runtimeCostPerHour
+  const machineCharge = (totalRuntime / 60) * cfg.machineChargePerHour
+  const totalBeforeMarkup = setupCost + runtimeCost + machineCharge
+  let finalCost = totalBeforeMarkup * (1 + cfg.markupPercent / 100)
+
+  if (isBroker) finalCost *= (1 - cfg.brokerDiscountPercent / 100)
+
+  const isMinApplied = finalCost < cfg.minimumJobPrice
+  finalCost = Math.max(finalCost, cfg.minimumJobPrice)
+
+  // Check if the alternative operation would be cheaper
+  let suggestion: string | undefined
+  const altOp = operation === "folding" ? "scoring" : "folding"
+  const altPaper = operation === "folding" ? "100text" : "80text"
+  const altEntry = cfg.data[altOp]?.[altPaper]?.[foldSize]?.[foldType]
+  if (altEntry && altEntry.setup !== "N/A" && altEntry.setup !== "hand fold" && altEntry.runtime > 0) {
+    const altSetup = cfg.setupLevels[altEntry.setup] || 20
+    const altSetupCost = (altSetup / 60) * cfg.setupCostPerHour
+    const altBaseRt = (quantity / 100) * altEntry.runtime
+    const altTotalRt = altBaseRt + 5
+    const altRuntimeCost = (altTotalRt / 60) * cfg.runtimeCostPerHour
+    const altMachine = (altTotalRt / 60) * cfg.machineChargePerHour
+    let altFinal = (altSetupCost + altRuntimeCost + altMachine) * (1 + cfg.markupPercent / 100)
+    if (isBroker) altFinal *= (1 - cfg.brokerDiscountPercent / 100)
+    altFinal = Math.max(altFinal, cfg.minimumJobPrice)
+    if (altFinal < finalCost) {
+      const label = altOp === "folding" ? "Folding with 80 Text" : "Score & Fold with 100 Text"
+      suggestion = `${label} would be cheaper at $${altFinal.toFixed(2)}.`
+    }
+  }
+
+  return { cost: finalCost, isMinApplied, suggestion }
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -163,6 +344,7 @@ export interface PricingConfig {
   bookletPaperPrices: Record<string, Record<string, number>>
   markups: Record<string, Record<number, number>>
   finishings: FinishingOption[]
+  scoreFold: ScoreFoldConfig
 }
 
 /** The active runtime config. Starts as defaults, gets merged with DB overrides. */
@@ -172,6 +354,7 @@ let _activeConfig: PricingConfig = {
   bookletPaperPrices: deepClonePrices(DEFAULT_BOOKLET_PAPER_PRICES),
   markups: deepCloneMarkups(DEFAULT_MARKUPS),
   finishings: structuredClone(DEFAULT_FINISHING_OPTIONS),
+  scoreFold: structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -188,6 +371,7 @@ export function applyOverrides(overrides: Partial<{
   pricing_booklet_paper_prices: Record<string, Record<string, number>>
   pricing_markups: Record<string, Record<number, number>>
   pricing_finishings: FinishingOption[]
+  pricing_score_fold: ScoreFoldConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -205,6 +389,9 @@ export function applyOverrides(overrides: Partial<{
     finishings: overrides.pricing_finishings
       ? structuredClone(overrides.pricing_finishings)
       : structuredClone(DEFAULT_FINISHING_OPTIONS),
+    scoreFold: overrides.pricing_score_fold
+      ? structuredClone(overrides.pricing_score_fold)
+      : structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
   }
 }
 

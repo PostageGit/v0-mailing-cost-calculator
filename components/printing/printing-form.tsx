@@ -12,8 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
-import { getActiveConfig } from "@/lib/pricing-config"
+import { getActiveConfig, validateScoreFold, mapDimensionsToFoldSize, mapPaperToScoreFoldCategory } from "@/lib/pricing-config"
 import type { PrintingInputs } from "@/lib/printing-types"
+import { AlertTriangle, Info } from "lucide-react"
 
 interface PrintingFormProps {
   inputs: PrintingInputs
@@ -169,43 +170,122 @@ export function PrintingForm({
             </div>
           </div>
 
-          {/* Row 3: Finishings */}
-          <div className="mb-4">
-            <label className="text-sm font-medium text-foreground mb-1.5 block">
-              Finishings
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {getActiveConfig().finishings.map((f) => {
-                const selected = (inputs.finishingIds || []).includes(f.id)
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => {
-                      const current = inputs.finishingIds || []
-                      const updated = selected
-                        ? current.filter((id) => id !== f.id)
-                        : [...current, f.id]
-                      onInputsChange({ ...inputs, finishingIds: updated })
-                    }}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      selected
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                    }`}
-                  >
-                    {f.name}
-                    {selected && (
-                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">
-                        ON
-                      </Badge>
-                    )}
-                  </button>
-                )
-              })}
-              {getActiveConfig().finishings.length === 0 && (
-                <span className="text-xs text-muted-foreground">No finishings configured. Add them in Settings.</span>
-              )}
+          {/* Finishings Section */}
+          <div className="mb-5 rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-4">
+            <h3 className="text-sm font-semibold text-foreground">Add Finishings</h3>
+
+            {/* Sheet Finishings (per parent sheet) */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Sheet Finishings
+                </label>
+                <span className="text-[10px] text-muted-foreground">(applied per printer sheet)</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {getActiveConfig().finishings.map((f) => {
+                  const selected = (inputs.finishingIds || []).includes(f.id)
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        const current = inputs.finishingIds || []
+                        const updated = selected
+                          ? current.filter((id) => id !== f.id)
+                          : [...current, f.id]
+                        onInputsChange({ ...inputs, finishingIds: updated })
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {f.name}
+                      {selected && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">
+                          ON
+                        </Badge>
+                      )}
+                    </button>
+                  )
+                })}
+                {getActiveConfig().finishings.length === 0 && (
+                  <span className="text-xs text-muted-foreground">No sheet finishings configured.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-border" />
+
+            {/* Piece Finishings (per cut piece) */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Piece Finishings
+                </label>
+                <span className="text-[10px] text-muted-foreground">(applied per cut piece)</span>
+              </div>
+
+              {/* Score & Fold */}
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-foreground">Operation</label>
+                    <Select
+                      value={inputs.scoreFoldOperation || "none"}
+                      onValueChange={(v) =>
+                        onInputsChange({
+                          ...inputs,
+                          scoreFoldOperation: v === "none" ? "" : (v as "folding" | "scoring"),
+                          scoreFoldType: v === "none" ? "" : (inputs.scoreFoldType || ""),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="folding">Folding</SelectItem>
+                        <SelectItem value="scoring">Score & Fold</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-foreground">Fold Type</label>
+                    <Select
+                      value={inputs.scoreFoldType || "none"}
+                      onValueChange={(v) =>
+                        onInputsChange({ ...inputs, scoreFoldType: v === "none" ? "" : (v as "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold") })
+                      }
+                      disabled={!inputs.scoreFoldOperation}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Select fold" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="foldInHalf">Fold in Half</SelectItem>
+                        <SelectItem value="foldIn3">Fold in 3</SelectItem>
+                        <SelectItem value="foldIn4">Fold in 4</SelectItem>
+                        <SelectItem value="gateFold">Gate Fold</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Validation / Info messages */}
+                <ScoreFoldValidationMessage
+                  operation={inputs.scoreFoldOperation || ""}
+                  paperName={inputs.paperName}
+                  width={inputs.width}
+                  height={inputs.height}
+                  foldType={inputs.scoreFoldType || ""}
+                />
+              </div>
             </div>
           </div>
 
@@ -274,5 +354,65 @@ export function PrintingForm({
             </Button>
           </div>
         </form>
+  )
+}
+
+// Validation message for Score & Fold
+function ScoreFoldValidationMessage({
+  operation,
+  paperName,
+  width,
+  height,
+  foldType,
+}: {
+  operation: string
+  paperName: string
+  width: number
+  height: number
+  foldType: string
+}) {
+  // Nothing selected yet
+  if (!operation) return null
+
+  // Show detected size info
+  const foldSize = width > 0 && height > 0 ? mapDimensionsToFoldSize(width, height) : null
+  const paperCat = paperName ? mapPaperToScoreFoldCategory(paperName) : null
+
+  // If fold type not yet chosen, show helpful info
+  if (!foldType) {
+    const infoParts: string[] = []
+    if (paperCat) infoParts.push(`Paper: ${paperCat}`)
+    if (foldSize) infoParts.push(`Detected size: ${foldSize}`)
+    else if (width > 0 && height > 0) infoParts.push(`Size ${width}" x ${height}" is non-standard`)
+
+    if (infoParts.length > 0) {
+      return (
+        <div className="flex items-start gap-2 rounded-md bg-muted/50 border border-border px-3 py-2">
+          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+          <span className="text-[11px] text-muted-foreground">{infoParts.join(" | ")} -- select a fold type to continue.</span>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Full validation
+  const validation = validateScoreFold(operation, paperName, width, height, foldType)
+  if (validation.valid) {
+    return (
+      <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+        <Info className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+        <span className="text-[11px] text-emerald-700 dark:text-emerald-300">
+          {operation === "folding" ? "Folding" : "Score & Fold"} is available for {paperCat} at {foldSize}.
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+      <span className="text-[11px] text-amber-700 dark:text-amber-300">{validation.message}</span>
+    </div>
   )
 }

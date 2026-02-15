@@ -8,8 +8,8 @@ import type {
   SheetOptionRow,
   FullPrintingResult,
 } from "./printing-types"
-import { getActiveConfig, calculateFinishingCost } from "./pricing-config"
-import type { FinishingCostLine } from "./printing-types"
+import { getActiveConfig, calculateFinishingCost, calculateScoreFoldCost } from "./pricing-config"
+import type { FinishingCostLine, ScoreFoldCostLine } from "./printing-types"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -298,6 +298,22 @@ function getFinishingCosts(inputs: PrintingInputs, parentSheets: number): { line
   return { lines, total }
 }
 
+function getScoreFoldCost(inputs: PrintingInputs): ScoreFoldCostLine | null {
+  const op = inputs.scoreFoldOperation
+  const ft = inputs.scoreFoldType
+  if (!op || !ft) return null
+  const result = calculateScoreFoldCost(op, ft, inputs.paperName, inputs.width, inputs.height, inputs.qty, inputs.isBroker || false)
+  if (!result) return null
+  const foldLabels: Record<string, string> = { foldInHalf: "Fold in Half", foldIn3: "Fold in 3", foldIn4: "Fold in 4", gateFold: "Gate Fold" }
+  return {
+    operation: op === "folding" ? "Folding" : "Score & Fold",
+    foldType: foldLabels[ft] || ft,
+    cost: result.cost,
+    isMinApplied: result.isMinApplied,
+    suggestion: result.suggestion,
+  }
+}
+
 export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow[] {
   const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
   if (!paper) return []
@@ -310,7 +326,8 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     const printingCost = result.cost
     const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
-    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal
+    const sfCost = getScoreFoldCost(inputs)
+    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + (sfCost?.cost || 0)
     const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
 
     results.push({
@@ -330,7 +347,8 @@ export function buildFullResult(inputs: PrintingInputs, result: PrintingCalcResu
   const printingCost = result.cost
   const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
-  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing
+  const scoreFoldCost = getScoreFoldCost(inputs)
+  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0)
   const grandTotal = subtotal
 
   return {
@@ -341,6 +359,7 @@ export function buildFullResult(inputs: PrintingInputs, result: PrintingCalcResu
     cuttingCost: result.cuttingCost,
     finishingCosts,
     totalFinishing,
+    scoreFoldCost,
     subtotal,
     grandTotal,
     result,
