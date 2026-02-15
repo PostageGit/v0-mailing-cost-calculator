@@ -39,6 +39,8 @@ export interface PrintingInputs {
   /** Score & fold settings (per-piece finishing) */
   scoreFoldOperation?: "folding" | "scoring" | ""
   scoreFoldType?: "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold" | ""
+  /** IDs of custom finishing calculators to apply */
+  finishingCalcIds?: string[]
 }
 
 export interface PrintingCalcResult {
@@ -91,6 +93,9 @@ export interface FullPrintingResult {
   finishingCosts: FinishingCostLine[]
   totalFinishing: number
   scoreFoldCost: ScoreFoldCostLine | null
+  /** Costs from custom finishing calculators */
+  finishingCalcCosts: { id: string; name: string; cost: number }[]
+  totalFinishingCalcCost: number
   subtotal: number
   grandTotal: number
   result: PrintingCalcResult

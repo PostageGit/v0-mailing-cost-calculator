@@ -20,7 +20,7 @@ function DetailRow({ label, value, bold }: { label: string; value: string; bold?
 }
 
 export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
-  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, finishingCosts, totalFinishing, scoreFoldCost, subtotal, grandTotal } = data
+  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, finishingCosts, totalFinishing, scoreFoldCost, finishingCalcCosts, totalFinishingCalcCost, subtotal, grandTotal } = data
   const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
   const pricePerPage = subtotal > 0 && inputs.qty > 0 ? subtotal / inputs.qty : 0
 
@@ -127,6 +127,17 @@ export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
                 {scoreFoldCost.suggestion}
               </div>
             )}
+            {finishingCalcCosts && finishingCalcCosts.length > 0 && finishingCalcCosts.map((fc) => (
+              <div key={fc.id} className="col-span-2 flex justify-between items-center py-0.5">
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-chart-4 shrink-0" />
+                  {fc.name}:
+                </span>
+                <span className="font-semibold text-chart-4 text-xs font-mono">
+                  +{formatCurrency(fc.cost)}
+                </span>
+              </div>
+            ))}
             <DetailRow
               label={addOnDescription ? `${addOnDescription}:` : "Add on:"}
               value={formatCurrency(addOnCharge)}

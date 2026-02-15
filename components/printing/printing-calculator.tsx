@@ -20,6 +20,11 @@ import type {
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { Plus } from "lucide-react"
+import useSWR from "swr"
+import type { FinishingCalculator, FinishingGlobalRates } from "@/lib/finishing-calculator-types"
+import { computeFinishingCalcTotals } from "@/components/finishing-add-ons"
+
+const swrFetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const EMPTY_INPUTS: PrintingInputs = {
   qty: 0,
@@ -31,6 +36,7 @@ const EMPTY_INPUTS: PrintingInputs = {
   addOnCharge: 0,
   addOnDescription: "",
   finishingIds: [],
+  finishingCalcIds: [],
   isBroker: false,
   scoreFoldOperation: "",
   scoreFoldType: "",
@@ -38,6 +44,10 @@ const EMPTY_INPUTS: PrintingInputs = {
 
 export function PrintingCalculator() {
   const quote = useQuote()
+
+  // Finishing calculators from DB
+  const { data: finCalcs } = useSWR<FinishingCalculator[]>("/api/finishing-calculators", swrFetcher)
+  const { data: finRates } = useSWR<FinishingGlobalRates>("/api/finishing-global-rates", swrFetcher)
 
   // Form state
   const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
@@ -53,6 +63,20 @@ export function PrintingCalculator() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [editingItemId, setEditingItemId] = useState<number | null>(null)
   const [preEditInputs, setPreEditInputs] = useState<PrintingInputs | null>(null)
+
+  // Helper to compute finishing calculator costs
+  const getFinCalcCosts = useCallback(
+    (qty: number, sheets: number, broker: boolean) => {
+      const ids = inputs.finishingCalcIds || []
+      if (!finCalcs || !finRates || ids.length === 0) return []
+      return computeFinishingCalcTotals(finCalcs, finRates, ids, qty, sheets, broker).map((c) => ({
+        id: c.id,
+        name: c.name,
+        cost: c.total,
+      }))
+    },
+    [finCalcs, finRates, inputs.finishingCalcIds],
+  )
 
   // Validation
   const isFormValid =
@@ -80,11 +104,13 @@ export function PrintingCalculator() {
   // (e.g. user toggles lamination or score/fold after picking a sheet)
   useEffect(() => {
     if (selectedOption && showResults) {
-      const result = buildFullResult(inputs, selectedOption.result)
+      const fcCosts = getFinCalcCosts(inputs.qty, selectedOption.result.sheets, inputs.isBroker || false)
+      const result = buildFullResult(inputs, selectedOption.result, fcCosts)
       setFullResult(result)
     }
   }, [
     inputs.finishingIds?.join(","),
+    inputs.finishingCalcIds?.join(","),
     inputs.scoreFoldOperation,
     inputs.scoreFoldType,
     inputs.addOnCharge,
@@ -92,17 +118,19 @@ export function PrintingCalculator() {
     inputs.isBroker,
     selectedOption,
     showResults,
+    getFinCalcCosts,
   ])
 
   // Select a sheet size from the table
   const handleSelectSheet = useCallback(
     (option: SheetOptionRow) => {
       setSelectedOption(option)
-      const result = buildFullResult(inputs, option.result)
+      const fcCosts = getFinCalcCosts(inputs.qty, option.result.sheets, inputs.isBroker || false)
+      const result = buildFullResult(inputs, option.result, fcCosts)
       setFullResult(result)
       setShowResults(true)
     },
-    [inputs]
+    [inputs, getFinCalcCosts]
   )
 
   // Change sheet size (go back to table)

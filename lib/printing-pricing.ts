@@ -343,12 +343,18 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
   return results.sort((a, b) => a.price - b.price)
 }
 
-export function buildFullResult(inputs: PrintingInputs, result: PrintingCalcResult): FullPrintingResult {
+export function buildFullResult(
+  inputs: PrintingInputs,
+  result: PrintingCalcResult,
+  finishingCalcCosts?: { id: string; name: string; cost: number }[],
+): FullPrintingResult {
   const printingCost = result.cost
   const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
   const scoreFoldCost = getScoreFoldCost(inputs)
-  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0)
+  const fcCosts = finishingCalcCosts || []
+  const totalFinishingCalcCost = fcCosts.reduce((sum, c) => sum + c.cost, 0)
+  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost
   const grandTotal = subtotal
 
   return {
@@ -360,6 +366,8 @@ export function buildFullResult(inputs: PrintingInputs, result: PrintingCalcResu
     finishingCosts,
     totalFinishing,
     scoreFoldCost,
+    finishingCalcCosts: fcCosts,
+    totalFinishingCalcCost,
     subtotal,
     grandTotal,
     result,

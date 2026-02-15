@@ -16,6 +16,7 @@ import { getActiveConfig, validateScoreFold, mapDimensionsToFoldSize, mapPaperTo
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 import { formatCurrency } from "@/lib/printing-pricing"
 import { AlertTriangle, Info, Check } from "lucide-react"
+import { FinishingAddOns } from "@/components/finishing-add-ons"
 
 interface PrintingFormProps {
   inputs: PrintingInputs
@@ -405,6 +406,21 @@ function FinishingsSection({
           foldType={inputs.scoreFoldType || ""}
         />
       </div>
+
+      {/* Divider */}
+      <div className="border-t border-border" />
+
+      {/* Custom Finishing Calculators (from Settings) */}
+      <FinishingAddOns
+        target="flat"
+        cutItems={inputs.qty}
+        parentSheets={currentResult?.result.sheets ?? 0}
+        isBroker={inputs.isBroker || false}
+        selectedIds={inputs.finishingCalcIds || []}
+        onSelectionChange={(ids) =>
+          onInputsChange({ ...inputs, finishingCalcIds: ids })
+        }
+      />
     </div>
   )
 }

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
+import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -46,6 +47,7 @@ import {
   Wrench,
   CreditCard,
   Activity,
+  Calculator,
   Database,
   KeyRound,
   CheckCircle2,
@@ -151,6 +153,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Wrench className="h-3.5 w-3.5" />
                 Finishings
               </TabsTrigger>
+              <TabsTrigger value="finishing-calcs" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Calculator className="h-3.5 w-3.5" />
+                Finishing Calcs
+              </TabsTrigger>
               <TabsTrigger value="pricing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <DollarSign className="h-3.5 w-3.5" />
                 Pricing
@@ -178,6 +184,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="finishings">
               <FinishingsSettingsTab />
+            </TabsContent>
+            <TabsContent value="finishing-calcs">
+              <FinishingCalculatorsSettingsTab />
             </TabsContent>
             <TabsContent value="pricing">
               <PricingSettingsTab />
