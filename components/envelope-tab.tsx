@@ -96,8 +96,8 @@ export function EnvelopeTab() {
   useEffect(() => {
     if (!selected || selected.id === "custom") return
     // Set mailer dims to the envelope size so USPS calc picks it up
-    mailing.setMailerWidth(selected.w)
-    mailing.setMailerHeight(selected.h)
+    mailing.setOuterWidth(selected.w)
+    mailing.setOuterHeight(selected.h)
   }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAdd = () => {

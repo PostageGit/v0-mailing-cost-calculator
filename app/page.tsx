@@ -56,12 +56,12 @@ function AppContent() {
   // Dynamic steps based on mail piece configuration
   const visibleSteps = useMemo(() => {
     return ALL_STEPS.filter((step) => {
-      if (step.id === "envelope" && !mailing.needsEnvelope && mailing.pieceType !== "" && mailing.pieceType !== "envelope") return false
+      if (step.id === "envelope" && !mailing.needsEnvelope) return false
       if (step.id === "printing" && !mailing.needsPrinting) return false
       if (step.id === "booklet" && !mailing.needsBooklet) return false
       return true
     })
-  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.pieceType])
+  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet])
 
   // If current step becomes hidden, jump to first visible
   useEffect(() => {
