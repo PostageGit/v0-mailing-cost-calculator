@@ -15,9 +15,11 @@ import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
+import { JobSetupHeader } from "@/components/job-setup-header"
+import { EnvelopeTab } from "@/components/envelope-tab"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench, Users, Factory, Send, Package } from "lucide-react"
+import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench, Users, Factory, Send, Package, Mail } from "lucide-react"
 import { usePricingConfig } from "@/lib/use-pricing-config"
 
 function AppContent() {
@@ -100,9 +102,16 @@ function AppContent() {
       {view === "calculators" ? (
         /* Calculator View */
         <div className="w-full max-w-[120rem] mx-auto px-4 lg:px-6 pt-5 pb-8 flex flex-1 gap-6">
-          <div className="flex-1 min-w-0">
-            <Tabs defaultValue="usps" className="w-full flex flex-col">
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
+            {/* Job Setup Header -- always visible */}
+            <JobSetupHeader />
+
+            <Tabs defaultValue="envelope" className="w-full flex flex-col">
               <TabsList className="mb-5 bg-muted/60 h-10 p-1 w-fit flex-wrap">
+                <TabsTrigger value="envelope" aria-label="Envelope Pricing" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Mail className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Envelope</span>
+                </TabsTrigger>
                 <TabsTrigger value="usps" aria-label="USPS Postage Calculator" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
                   <Stamp className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">USPS Postage</span>
@@ -128,6 +137,10 @@ function AppContent() {
                   <span className="hidden sm:inline">Items</span>
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="envelope">
+                <EnvelopeTab />
+              </TabsContent>
 
               <TabsContent value="usps">
                 <USPSPostageCalculator />

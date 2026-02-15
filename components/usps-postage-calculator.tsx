@@ -140,9 +140,20 @@ export function USPSPostageCalculator() {
     })
   }, [result, inputs, quote])
 
+  // Shape eligibility from mailer dimensions
+  const hasDimensions = !!(mailing.mailerWidth && mailing.mailerHeight)
+  const suggestedShapes = mailing.suggestedShapes
+  const [shapeOverride, setShapeOverride] = useState(false)
+
   const isMkt = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
   const isRetail = inputs.service === "FCM_RETAIL"
-  const postcardDisabled = isMkt
+  // A shape is disabled if: marketing blocks postcard OR (dimensions entered + not in suggested list + override not on)
+  const isShapeDisabled = (shape: string) => {
+    if (shape === "POSTCARD" && isMkt) return true
+    if (hasDimensions && !shapeOverride && !suggestedShapes.includes(shape as "POSTCARD" | "LETTER" | "FLAT")) return true
+    return false
+  }
+  const postcardDisabled = isShapeDisabled("POSTCARD")
   const showSaturation = isMkt
   const showEntryPoint = isMkt
   const showSortSlider = !isRetail
@@ -212,30 +223,48 @@ export function USPSPostageCalculator() {
         <CardContent className="flex flex-col gap-5">
           {/* Shape: Card / Letter / Flat (no Parcel) */}
           <div>
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-              Mail Shape
-            </Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Mail Shape
+              </Label>
+              {hasDimensions && (
+                <button
+                  type="button"
+                  onClick={() => setShapeOverride(!shapeOverride)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                    shapeOverride
+                      ? "bg-primary/10 text-primary border-primary/30"
+                      : "bg-muted text-muted-foreground border-border hover:border-primary/30"
+                  }`}
+                >
+                  {shapeOverride ? "Override ON" : "Override specs"}
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <ToggleBtn
                 active={inputs.shape === "POSTCARD"}
-                disabled={postcardDisabled}
+                disabled={isShapeDisabled("POSTCARD")}
                 onClick={() => update({ shape: "POSTCARD" })}
                 icon={<CreditCard className="h-4 w-4" />}
                 label="Postcard"
-                sub={postcardDisabled ? "First-Class only" : undefined}
+                sub={postcardDisabled ? (isMkt ? "First-Class only" : "Size mismatch") : undefined}
               />
               <ToggleBtn
                 active={inputs.shape === "LETTER"}
+                disabled={isShapeDisabled("LETTER")}
                 onClick={() => update({ shape: "LETTER" })}
                 icon={<Mail className="h-4 w-4" />}
                 label="Letter"
+                sub={isShapeDisabled("LETTER") ? "Size mismatch" : undefined}
               />
               <ToggleBtn
                 active={inputs.shape === "FLAT"}
+                disabled={isShapeDisabled("FLAT")}
                 onClick={() => update({ shape: "FLAT" })}
                 icon={<FileText className="h-4 w-4" />}
                 label="Flat"
-                sub="USPS Flat shape"
+                sub={isShapeDisabled("FLAT") ? "Size mismatch" : "USPS Flat shape"}
               />
             </div>
           </div>

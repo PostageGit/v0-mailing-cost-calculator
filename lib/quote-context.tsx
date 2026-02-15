@@ -8,12 +8,14 @@ interface QuoteContextValue {
   items: QuoteLineItem[]
   projectName: string
   customerId: string | null
+  contactName: string
   referenceNumber: string
   savedId: string | null
   isSaving: boolean
   lastSavedAt: number | null
   setProjectName: (name: string) => void
   setCustomerId: (id: string | null) => void
+  setContactName: (name: string) => void
   setReferenceNumber: (ref: string) => void
   addItem: (item: Omit<QuoteLineItem, "id">) => void
   removeItem: (id: number) => void
@@ -36,6 +38,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<QuoteLineItem[]>([])
   const [projectName, setProjectNameRaw] = useState("")
   const [customerId, setCustomerIdRaw] = useState<string | null>(null)
+  const [contactName, setContactNameRaw] = useState("")
   const [referenceNumber, setReferenceNumberRaw] = useState("")
   const [savedId, setSavedId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -65,6 +68,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         items: currentItems,
         total,
         customer_id: customerIdRef.current || null,
+        contact_name: contactNameRef.current || "",
         reference_number: referenceNumberRef.current || "",
       }
 
@@ -103,11 +107,13 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const itemsRef = useRef(items)
   const projectNameRef = useRef(projectName)
   const customerIdRef = useRef(customerId)
+  const contactNameRef = useRef(contactName)
   const referenceNumberRef = useRef(referenceNumber)
 
   useEffect(() => { itemsRef.current = items }, [items])
   useEffect(() => { projectNameRef.current = projectName }, [projectName])
   useEffect(() => { customerIdRef.current = customerId }, [customerId])
+  useEffect(() => { contactNameRef.current = contactName }, [contactName])
   useEffect(() => { referenceNumberRef.current = referenceNumber }, [referenceNumber])
 
   // Schedule auto-save
@@ -127,6 +133,11 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
 
   const setCustomerId = useCallback((id: string | null) => {
     setCustomerIdRaw(id)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const setContactName = useCallback((name: string) => {
+    setContactNameRaw(name)
     scheduleSave()
   }, [scheduleSave])
 
@@ -188,6 +199,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setSavedId(data.id)
       setProjectNameRaw(data.project_name || "")
       setCustomerIdRaw(data.customer_id || null)
+      setContactNameRaw(data.contact_name || "")
       setReferenceNumberRaw(data.reference_number || "")
       setItems(data.items || [])
       dirtyRef.current = false
@@ -200,6 +212,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setSavedId(null)
     setProjectNameRaw("")
     setCustomerIdRaw(null)
+    setContactNameRaw("")
     setReferenceNumberRaw("")
     setItems([])
     dirtyRef.current = false
@@ -212,12 +225,14 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         items,
         projectName,
         customerId,
+        contactName,
         referenceNumber,
         savedId,
         isSaving,
         lastSavedAt,
         setProjectName,
         setCustomerId,
+        setContactName,
         setReferenceNumber,
         addItem,
         removeItem,

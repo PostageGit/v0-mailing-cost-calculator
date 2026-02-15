@@ -49,6 +49,7 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
     email: "",
     quoting_contacts: [] as QuotingContact[],
     cc_all_quoting: false,
+    pickup_cost: 0,
     website: "",
     notes: "",
   })
@@ -80,6 +81,7 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
         email: existing.email || "",
         quoting_contacts: existing.quoting_contacts || [],
         cc_all_quoting: existing.cc_all_quoting || false,
+        pickup_cost: existing.pickup_cost ?? 0,
         website: existing.website || "",
         notes: existing.notes || "",
       })
@@ -124,6 +126,7 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
         office_phone: form.office_phone || null,
         cell_phone: form.cell_phone || null,
         email: form.email || null,
+        pickup_cost: parseFloat(String(form.pickup_cost)) || 0,
         website: form.website || null,
         notes: form.notes || null,
       }
@@ -363,7 +366,7 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
 function CompanyTab({
   form, updateField, addQuotingContact, removeQuotingContact, updateQuotingContact, paymentTerms, hideQuoting,
 }: {
-  form: { company_name: string; terms: string; contact_name: string; office_phone: string; cell_phone: string; email: string; quoting_contacts: QuotingContact[]; cc_all_quoting: boolean; website: string; notes: string }
+  form: { company_name: string; terms: string; contact_name: string; office_phone: string; cell_phone: string; email: string; quoting_contacts: QuotingContact[]; cc_all_quoting: boolean; pickup_cost: number; website: string; notes: string }
   updateField: (key: string, value: string | boolean | QuotingContact[]) => void
   addQuotingContact: () => void
   removeQuotingContact: (i: number) => void
@@ -396,6 +399,10 @@ function CompanyTab({
           <div>
             <label className="text-xs font-medium text-foreground mb-1 block">Website</label>
             <Input value={form.website} onChange={(e) => updateField("website", e.target.value)} placeholder="https://..." className="h-8 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground mb-1 block">Pickup Cost ($)</label>
+            <Input type="number" step="1" min="0" value={form.pickup_cost || ""} onChange={(e) => updateField("pickup_cost", e.target.value)} placeholder="0" className="h-8 text-sm" />
           </div>
         </div>
       </section>

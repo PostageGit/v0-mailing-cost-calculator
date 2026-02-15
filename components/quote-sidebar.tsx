@@ -8,10 +8,8 @@ import {
 } from "@/lib/quote-types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check, FilePlus, Cloud, Loader2, Users } from "lucide-react"
 import { useState, useCallback } from "react"
 import useSWR from "swr"
@@ -21,7 +19,7 @@ import type { Customer } from "@/lib/customer-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork", "item"]
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork", "item", "ohp"]
 
 export function QuoteSidebar() {
   const {
@@ -135,48 +133,22 @@ export function QuoteSidebar() {
           </div>
         </div>
 
-        {/* Job header: customer, project name, reference */}
-        <div className="flex flex-col gap-2 mt-2">
-          {/* Customer picker */}
-          <div className="flex items-center gap-2">
-            <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <Select
-              value={customerId || "none"}
-              onValueChange={(v) => setCustomerId(v === "none" ? null : v)}
-            >
-              <SelectTrigger className="h-7 text-xs flex-1">
-                <SelectValue placeholder="Select customer..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No customer</SelectItem>
-                {(customers || []).map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.company_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Job info summary (fields are in the header now) */}
+        {(projectName || customerId) && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            {projectName && (
+              <Badge variant="secondary" className="text-[10px]">
+                <FileText className="h-2.5 w-2.5 mr-1" />{projectName}
+              </Badge>
+            )}
+            {customerId && customers && (
+              <Badge variant="outline" className="text-[10px]">
+                <Users className="h-2.5 w-2.5 mr-1" />
+                {customers.find((c) => c.id === customerId)?.company_name || "Customer"}
+              </Badge>
+            )}
           </div>
-          {/* Project name + Reference */}
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              placeholder="Job name..."
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              className="h-7 text-xs"
-            />
-            <Input
-              placeholder="PO / Ref #..."
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              className="h-7 text-xs"
-            />
-          </div>
-        </div>
+        )}
       </CardHeader>
 
       <CardContent className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pt-0" style={{ overscrollBehavior: "contain" }}>

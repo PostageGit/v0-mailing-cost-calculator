@@ -15,6 +15,7 @@ export interface Vendor {
   email: string | null
   quoting_contacts: QuotingContact[]
   cc_all_quoting: boolean
+  pickup_cost: number
   website: string | null
   notes: string | null
   custom_fields: Record<string, string>

@@ -16,9 +16,10 @@ import {
 } from "@/components/ui/select"
 import {
   X, Plus, Loader2, Trophy, DollarSign, Send, Factory, ChevronDown, ChevronUp,
-  Check, Clock, AlertCircle,
+  Check, Clock, AlertCircle, ShoppingCart, Percent, Truck,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
+import { useQuote } from "@/lib/quote-context"
 import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -136,9 +137,9 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
               <Send className="h-4 w-4 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Vendor Bids</CardTitle>
+              <CardTitle className="text-lg">Out of House Production</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Send items to vendors and compare prices
+                Compare vendor prices, add markup, and push to quote
               </p>
             </div>
           </div>
@@ -161,9 +162,9 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
                 <Send className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Vendor Bids</CardTitle>
+                <CardTitle className="text-lg">Out of House Production</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Send items to vendors and compare prices
+                  Compare vendor prices, add markup, and push to quote
                 </p>
               </div>
             </div>
@@ -178,8 +179,9 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   )
 }
 
-/* ==== Individual Bid Card with Price Comparison ==== */
+/* ==== Individual Bid Card with Price Comparison + Push to Quote ==== */
 function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]; onUpdate: () => void }) {
+  const quote = useQuote()
   const { data: prices, mutate: mutatePrices } = useSWR<VendorBidPrice[]>(
     `/api/vendor-bids/${bid.id}/prices`,
     fetcher
@@ -188,6 +190,8 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
   const [addingVendor, setAddingVendor] = useState(false)
   const [selectedVendorId, setSelectedVendorId] = useState("")
   const [saving, setSaving] = useState(false)
+  const [markupPct, setMarkupPct] = useState(20) // default 20% markup
+  const [pushed, setPushed] = useState(false)
 
   const existingVendorIds = new Set(prices?.map((p) => p.vendor_id) ?? [])
   const availableVendors = vendors.filter((v) => !existingVendorIds.has(v.id))
@@ -242,9 +246,44 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
     onUpdate()
   }
 
+  // Push awarded bid to quote
+  const handlePushToQuote = useCallback(() => {
+    if (bid.winning_price == null || !bid.winning_vendor_id) return
+
+    const winningVendor = vendors.find((v) => v.id === bid.winning_vendor_id)
+    const vendorName = winningVendor?.company_name ?? "Vendor"
+    const pickupCost = winningVendor?.pickup_cost ?? 0
+    const basePrice = Number(bid.winning_price)
+    const markedUpPrice = basePrice * (1 + markupPct / 100)
+    // Pickup cost passes through at cost (no markup)
+    const customerTotal = markedUpPrice + pickupCost
+
+    // Build description that shows the customer price but NOT vendor details
+    const descParts = [`${formatCurrency(customerTotal)} total`]
+    if (bid.item_description) descParts.push(bid.item_description)
+
+    quote.addItem({
+      category: "ohp",
+      label: `OHP: ${bid.item_label}`,
+      // Customer only sees the final price -- vendor info is internal
+      description: descParts.join(" | "),
+      amount: customerTotal,
+    })
+
+    setPushed(true)
+    setTimeout(() => setPushed(false), 2000)
+  }, [bid, vendors, markupPct, quote])
+
   // Find cheapest price
   const receivedPrices = prices?.filter((p) => p.status === "received" && p.price != null) ?? []
   const cheapestPrice = receivedPrices.length > 0 ? Math.min(...receivedPrices.map((p) => Number(p.price))) : null
+
+  // Awarded bid calculation
+  const winningVendor = bid.winning_vendor_id ? vendors.find((v) => v.id === bid.winning_vendor_id) : null
+  const pickupCost = winningVendor?.pickup_cost ?? 0
+  const basePrice = bid.winning_price != null ? Number(bid.winning_price) : 0
+  const markedUpPrice = basePrice * (1 + markupPct / 100)
+  const customerTotal = markedUpPrice + pickupCost
 
   const statusColor = bid.status === "awarded" ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30" :
     bid.status === "open" ? "text-blue-600 bg-blue-500/10 border-blue-500/30" :
@@ -263,7 +302,10 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
           {bid.winning_price != null && (
             <div className="flex items-center gap-1.5 mt-1">
               <Trophy className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-xs font-semibold text-foreground">Awarded: {formatCurrency(Number(bid.winning_price))}</span>
+              <span className="text-xs font-semibold text-foreground">
+                Awarded: {formatCurrency(basePrice)} (vendor)
+                {pickupCost > 0 && <span className="text-muted-foreground font-normal"> + {formatCurrency(pickupCost)} pickup</span>}
+              </span>
             </div>
           )}
         </div>
@@ -283,18 +325,21 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
                   <tr className="bg-muted/50 border-b border-border">
                     <th className="text-left font-medium text-muted-foreground px-3 py-2">Vendor</th>
                     <th className="text-left font-medium text-muted-foreground px-3 py-2">Status</th>
+                    <th className="text-left font-medium text-muted-foreground px-3 py-2">Pickup</th>
                     <th className="text-right font-medium text-muted-foreground px-3 py-2">Price</th>
                     <th className="text-right font-medium text-muted-foreground px-3 py-2 w-24">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {prices.map((p) => {
+                    const vendor = vendors.find((v) => v.id === p.vendor_id)
                     const isCheapest = p.status === "received" && p.price != null && Number(p.price) === cheapestPrice
                     const isWinner = bid.winning_vendor_id === p.vendor_id
                     return (
                       <PriceRow
                         key={p.id}
                         entry={p}
+                        vendor={vendor}
                         isCheapest={isCheapest}
                         isWinner={isWinner}
                         bidStatus={bid.status}
@@ -309,6 +354,60 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
             </div>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-3">No vendors added to this bid yet.</p>
+          )}
+
+          {/* Markup + Push to Quote (only when awarded) */}
+          {bid.status === "awarded" && bid.winning_price != null && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
+                <ShoppingCart className="h-3.5 w-3.5" />
+                Push to Customer Quote
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground">Vendor Price</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">{formatCurrency(basePrice)}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Percent className="h-2.5 w-2.5" /> Markup</span>
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={markupPct}
+                    onChange={(e) => setMarkupPct(parseFloat(e.target.value) || 0)}
+                    className="h-7 text-xs w-20"
+                  />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Truck className="h-2.5 w-2.5" /> Pickup (at cost)</span>
+                  <span className="font-mono font-semibold text-foreground tabular-nums">{formatCurrency(pickupCost)}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Customer Sees</span>
+                  <span className="font-mono font-bold text-primary tabular-nums text-sm">{formatCurrency(customerTotal)}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1.5"
+                  onClick={handlePushToQuote}
+                  disabled={pushed}
+                >
+                  {pushed ? (
+                    <><Check className="h-3.5 w-3.5" /> Added to Quote</>
+                  ) : (
+                    <><ShoppingCart className="h-3.5 w-3.5" /> Push to Quote</>
+                  )}
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatCurrency(basePrice)} + {markupPct}% = {formatCurrency(markedUpPrice)}
+                  {pickupCost > 0 && ` + ${formatCurrency(pickupCost)} pickup`}
+                </span>
+              </div>
+            </div>
           )}
 
           {/* Add vendor */}
@@ -348,9 +447,10 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
 
 /* ==== Price Row with inline editing ==== */
 function PriceRow({
-  entry, isCheapest, isWinner, bidStatus, onUpdatePrice, onAward, onRemove,
+  entry, vendor, isCheapest, isWinner, bidStatus, onUpdatePrice, onAward, onRemove,
 }: {
   entry: VendorBidPrice
+  vendor?: Vendor
   isCheapest: boolean
   isWinner: boolean
   bidStatus: string
@@ -369,7 +469,8 @@ function PriceRow({
     setSaving(false)
   }
 
-  const vendorName = entry.vendors?.company_name ?? "Unknown Vendor"
+  const vendorName = vendor?.company_name ?? entry.vendors?.company_name ?? "Unknown Vendor"
+  const pickupCost = vendor?.pickup_cost ?? 0
 
   return (
     <tr className={`border-b border-border last:border-0 transition-colors ${
@@ -390,6 +491,9 @@ function PriceRow({
         ) : (
           <span className="flex items-center gap-1 text-muted-foreground"><Clock className="h-3 w-3" /> Pending</span>
         )}
+      </td>
+      <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums font-mono">
+        {pickupCost > 0 ? formatCurrency(pickupCost) : "--"}
       </td>
       <td className="px-3 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
