@@ -12,6 +12,7 @@ import { useMailing } from "@/lib/mailing-context"
 import { formatCurrency } from "@/lib/pricing"
 import type { LaborItem, MailClassSetting } from "@/components/mail-class-settings"
 import { perUnitLabel } from "@/components/mail-class-settings"
+import { Input } from "@/components/ui/input"
 import {
   Plus,
   AlertCircle,
@@ -21,6 +22,8 @@ import {
   Hash,
   DollarSign,
   Check,
+  Package,
+  ShoppingCart,
 } from "lucide-react"
 
 const SWR_KEY = "/api/mail-class-settings"
@@ -112,6 +115,50 @@ export function LaborCalculator() {
     setAddedToQuote(true)
     setTimeout(() => setAddedToQuote(false), 2000)
   }, [classSetting, breakdown, totalLabor, mailing, quote])
+
+  // ---------- Related items for this labor class ----------
+  interface DbItem {
+    id: string; name: string; description: string; sku: string
+    unit_cost: number; unit_label: string; category: string; labor_class_id: string | null
+  }
+  const classId = classSetting?.id
+  const { data: relatedItems } = useSWR<DbItem[]>(
+    classId ? `/api/items?labor_class_id=${classId}` : null,
+    fetcher
+  )
+  const [itemQtys, setItemQtys] = useState<Record<string, number>>({})
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set())
+
+  const getItemQty = (id: string) => itemQtys[id] ?? 1
+  const setItemQty = (id: string, v: number) => setItemQtys((prev) => ({ ...prev, [id]: Math.max(1, v) }))
+
+  const computeItemCost = (item: DbItem, qty: number) => {
+    const cost = Number(item.unit_cost)
+    switch (item.unit_label) {
+      case "per 1000": return cost * (qty / 1000)
+      case "per 500": return cost * (qty / 500)
+      case "flat": return cost
+      default: return cost * qty
+    }
+  }
+
+  const handleAddItem = useCallback((item: DbItem) => {
+    const qty = itemQtys[item.id] ?? 1
+    const amount = computeItemCost(item, qty)
+    const qtyLabel = item.unit_label === "flat" ? "" : ` x ${qty.toLocaleString()}`
+    quote.addItem({
+      category: "item",
+      label: `${item.name}${qtyLabel}`,
+      description: [
+        item.sku ? `SKU: ${item.sku}` : "",
+        `${formatCurrency(Number(item.unit_cost))} / ${item.unit_label}`,
+        item.description || "",
+      ].filter(Boolean).join(" | "),
+      amount,
+    })
+    setAddedItems((prev) => new Set(prev).add(item.id))
+    setTimeout(() => setAddedItems((prev) => { const n = new Set(prev); n.delete(item.id); return n }), 1500)
+  }, [itemQtys, quote])
 
   // All available classes for the badge list
   const availableClasses = allSettings?.map((s) => s.class_name) ?? []
@@ -317,6 +364,73 @@ export function LaborCalculator() {
                 </>
               )}
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Related Items for this labor class */}
+      {relatedItems && relatedItems.length > 0 && (
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Package className="h-4 w-4 text-chart-5" />
+              Related Items
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Items linked to the {classSetting?.class_name} labor class. Add them individually to your quote.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1.5">
+            {relatedItems.map((item) => {
+              const qty = getItemQty(item.id)
+              const total = computeItemCost(item, qty)
+              const wasAdded = addedItems.has(item.id)
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
+                      <Badge variant="outline" className="text-[9px] shrink-0">{item.category}</Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {formatCurrency(Number(item.unit_cost))} / {item.unit_label}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {item.unit_label !== "flat" && (
+                      <Input
+                        type="number"
+                        min="1"
+                        value={qty}
+                        onChange={(e) => setItemQty(item.id, parseInt(e.target.value) || 1)}
+                        className="h-7 text-xs w-20 text-right"
+                      />
+                    )}
+                    <span className="text-xs font-semibold text-foreground w-16 text-right">
+                      {formatCurrency(total)}
+                    </span>
+                    <Button
+                      size="sm"
+                      className={`h-7 text-xs gap-1 min-w-[60px] transition-colors ${
+                        wasAdded
+                          ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+                          : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                      }`}
+                      onClick={() => handleAddItem(item)}
+                    >
+                      {wasAdded ? (
+                        <><Check className="h-3 w-3" /> Added</>
+                      ) : (
+                        <><ShoppingCart className="h-3 w-3" /> Add</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
           </CardContent>
         </Card>
       )}

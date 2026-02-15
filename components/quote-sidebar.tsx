@@ -17,7 +17,7 @@ import { VendorBidPanel } from "./vendor-bid-panel"
 import { formatCurrency } from "@/lib/pricing"
 import { buildQuoteText } from "@/lib/build-quote-text"
 
-const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork"]
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork", "item"]
 
 export function QuoteSidebar() {
   const {

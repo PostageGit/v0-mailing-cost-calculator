@@ -54,6 +54,7 @@ import {
   HardDrive,
   ShieldAlert,
   Info,
+  Package,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -142,6 +143,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <CreditCard className="h-3.5 w-3.5" />
                 Payment Terms
               </TabsTrigger>
+              <TabsTrigger value="items" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Package className="h-3.5 w-3.5" />
+                Items
+              </TabsTrigger>
               <TabsTrigger value="finishings" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Wrench className="h-3.5 w-3.5" />
                 Finishings
@@ -167,6 +172,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="terms">
               <PaymentTermsTab />
+            </TabsContent>
+            <TabsContent value="items">
+              <ItemsSettingsTab />
             </TabsContent>
             <TabsContent value="finishings">
               <FinishingsSettingsTab />
@@ -1785,6 +1793,261 @@ function PaperPriceEditor({
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ---------- ITEMS DATABASE TAB ----------
+
+interface DbItem {
+  id: string
+  name: string
+  description: string
+  sku: string
+  unit_cost: number
+  unit_label: string
+  category: string
+  labor_class_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+const ITEM_CATEGORIES = ["General", "Envelopes", "Paper Stock", "Ink / Toner", "Packaging", "Postage Supplies", "Labels", "Hardware", "Services"]
+
+function ItemsSettingsTab() {
+  const { data: items, isLoading, mutate: mutateItems } = useSWR<DbItem[]>("/api/items", fetcher)
+  const { data: laborClasses } = useSWR<MailClassSetting[]>(SWR_KEY, fetcher)
+  const [saving, setSaving] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [filterCategory, setFilterCategory] = useState<string>("all")
+
+  const filtered = (items || []).filter((i) => filterCategory === "all" || i.category === filterCategory)
+  const categories = Array.from(new Set((items || []).map((i) => i.category))).sort()
+
+  const addItem = async () => {
+    setSaving("new")
+    try {
+      const res = await fetch("/api/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "New Item", category: filterCategory !== "all" ? filterCategory : "General" }),
+      })
+      const newItem = await res.json()
+      mutateItems()
+      setExpandedId(newItem.id)
+    } finally { setSaving(null) }
+  }
+
+  const updateItem = async (id: string, updates: Partial<DbItem>) => {
+    setSaving(id)
+    try {
+      await fetch(`/api/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+      mutateItems()
+    } finally { setSaving(null) }
+  }
+
+  const deleteItem = async (id: string) => {
+    await fetch(`/api/items/${id}`, { method: "DELETE" })
+    mutateItems()
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Item Database</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Build a reusable catalog of items (envelopes, paper, supplies). Link items to labor classes so they auto-import, or add them individually to any quote.
+        </p>
+      </div>
+
+      {/* Actions bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={addItem} disabled={saving === "new"}>
+          <Plus className="h-3 w-3" /> {saving === "new" ? "Adding..." : "Add Item"}
+        </Button>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="h-7 text-xs w-[140px]">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {[...new Set([...ITEM_CATEGORIES, ...categories])].sort().map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-[10px] text-muted-foreground ml-auto">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading items...</span>
+        </div>
+      )}
+
+      {/* Items list */}
+      <div className="flex flex-col gap-1.5">
+        {filtered.map((item) => {
+          const isExpanded = expandedId === item.id
+          const isSaving = saving === item.id
+          const linkedClass = laborClasses?.find((c) => c.id === item.labor_class_id)
+          return (
+            <div key={item.id} className="rounded-lg border border-border">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => setExpandedId(isExpanded ? null : item.id)}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
+                  <Badge variant="outline" className="text-[9px] shrink-0">{item.category}</Badge>
+                  {linkedClass && <Badge variant="secondary" className="text-[9px] shrink-0">{linkedClass.class_name}</Badge>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    ${Number(item.unit_cost).toFixed(2)} / {item.unit_label}
+                  </span>
+                  {isExpanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <ItemEditForm
+                  item={item}
+                  laborClasses={laborClasses || []}
+                  isSaving={isSaving}
+                  onSave={(updates) => updateItem(item.id, updates)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              )}
+            </div>
+          )
+        })}
+
+        {!isLoading && filtered.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <Package className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm font-medium">No items yet</p>
+            <p className="text-xs mt-1">Click "Add Item" to create your first catalog item.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Inline edit form for a single item */
+function ItemEditForm({
+  item,
+  laborClasses,
+  isSaving,
+  onSave,
+  onDelete,
+}: {
+  item: DbItem
+  laborClasses: MailClassSetting[]
+  isSaving: boolean
+  onSave: (updates: Partial<DbItem>) => void
+  onDelete: () => void
+}) {
+  const [name, setName] = useState(item.name)
+  const [description, setDescription] = useState(item.description)
+  const [sku, setSku] = useState(item.sku)
+  const [unitCost, setUnitCost] = useState(String(item.unit_cost))
+  const [unitLabel, setUnitLabel] = useState(item.unit_label)
+  const [category, setCategory] = useState(item.category)
+  const [laborClassId, setLaborClassId] = useState(item.labor_class_id || "none")
+
+  const handleSave = () => {
+    onSave({
+      name,
+      description,
+      sku,
+      unit_cost: parseFloat(unitCost) || 0,
+      unit_label: unitLabel,
+      category,
+      labor_class_id: laborClassId === "none" ? null : laborClassId,
+    })
+  }
+
+  return (
+    <div className="px-3 pb-3 border-t border-border pt-3 flex flex-col gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="flex flex-col gap-1 col-span-2">
+          <label className="text-[10px] font-medium text-muted-foreground">Name</label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} className="h-7 text-xs" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-medium text-muted-foreground">SKU</label>
+          <Input value={sku} onChange={(e) => setSku(e.target.value)} className="h-7 text-xs" placeholder="Optional" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-medium text-muted-foreground">Category</label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {ITEM_CATEGORIES.map((cat) => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-medium text-muted-foreground">Unit Cost ($)</label>
+          <Input type="number" step="0.01" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} className="h-7 text-xs" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-medium text-muted-foreground">Unit Label</label>
+          <Select value={unitLabel} onValueChange={setUnitLabel}>
+            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="each">Each</SelectItem>
+              <SelectItem value="per 1000">Per 1,000</SelectItem>
+              <SelectItem value="per 500">Per 500</SelectItem>
+              <SelectItem value="box">Box</SelectItem>
+              <SelectItem value="roll">Roll</SelectItem>
+              <SelectItem value="ream">Ream</SelectItem>
+              <SelectItem value="sheet">Sheet</SelectItem>
+              <SelectItem value="sqft">Sq Ft</SelectItem>
+              <SelectItem value="flat">Flat (per job)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1 col-span-2">
+          <label className="text-[10px] font-medium text-muted-foreground">Linked Labor Class</label>
+          <Select value={laborClassId} onValueChange={setLaborClassId}>
+            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="None" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None (General)</SelectItem>
+              {laborClasses.map((lc) => (
+                <SelectItem key={lc.id} value={lc.id}>{lc.class_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-medium text-muted-foreground">Description</label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} className="h-7 text-xs" placeholder="Optional notes about this item" />
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <Button variant="destructive" size="sm" className="h-7 text-xs gap-1" onClick={onDelete}>
+          <Trash2 className="h-3 w-3" /> Delete
+        </Button>
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={handleSave} disabled={isSaving}>
+          <Save className="h-3 w-3" /> {isSaving ? "Saving..." : "Save Item"}
+        </Button>
       </div>
     </div>
   )

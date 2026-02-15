@@ -14,9 +14,10 @@ import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
+import { ItemsTab } from "@/components/items-tab"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench, Users, Factory, Send } from "lucide-react"
+import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench, Users, Factory, Send, Package } from "lucide-react"
 import { usePricingConfig } from "@/lib/use-pricing-config"
 
 function AppContent() {
@@ -122,6 +123,10 @@ function AppContent() {
                   <Send className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Vendor Bids</span>
                 </TabsTrigger>
+                <TabsTrigger value="items" aria-label="Items and Supplies" className="gap-2 px-4 data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Package className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Items</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="usps">
@@ -142,6 +147,10 @@ function AppContent() {
 
               <TabsContent value="vendor-bids">
                 <VendorBidTab />
+              </TabsContent>
+
+              <TabsContent value="items">
+                <ItemsTab />
               </TabsContent>
             </Tabs>
           </div>
