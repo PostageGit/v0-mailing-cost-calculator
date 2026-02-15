@@ -1,0 +1,396 @@
+"use client"
+
+import { useState } from "react"
+import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, type PieceType, type ProductionRoute } from "@/lib/mailing-context"
+import { useQuote } from "@/lib/quote-context"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import useSWR from "swr"
+import type { Customer } from "@/lib/customer-types"
+import {
+  Plus, X, Mail, ArrowRight, User, Package, AlertCircle,
+  ChevronDown, Check, Printer, Send, Layers,
+} from "lucide-react"
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
+interface Contact { id: string; name: string; email?: string; phone?: string }
+
+const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "self_mailer", "letter", "other"]
+
+export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
+  const m = useMailing()
+  const q = useQuote()
+  const { data: customers } = useSWR<Customer[]>("/api/customers", fetcher)
+  const { data: contacts } = useSWR<Contact[]>(
+    q.customerId ? `/api/customers/${q.customerId}/contacts` : null, fetcher,
+  )
+  const [showAddMenu, setShowAddMenu] = useState(false)
+
+  const hasDims = !!(m.mailerWidth && m.mailerHeight)
+  const shapes = m.suggestedShapes
+  const canContinue = m.pieces.length > 0 && m.quantity > 0
+
+  // Summary of what steps will be shown
+  const stepSummary: string[] = []
+  if (m.needsEnvelope) stepSummary.push("Envelope")
+  stepSummary.push("Postage", "Labor")
+  if (m.needsPrinting) stepSummary.push("Printing")
+  if (m.needsBooklet) stepSummary.push("Booklet")
+  if (m.needsOHP) stepSummary.push("OHP")
+  stepSummary.push("Items")
+
+  return (
+    <div className="max-w-4xl mx-auto w-full">
+      {/* ─── Header ─── */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Mail Piece Planner</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Define what you are mailing. Each piece drives the quoting process.
+        </p>
+      </div>
+
+      {/* ─── Top row: Customer + Job basics ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Customer Card */}
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
+              <User className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">Customer</span>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Company</label>
+              <Select value={q.customerId || "none"} onValueChange={(v) => { q.setCustomerId(v === "none" ? null : v); if (v === "none") q.setContactName("") }}>
+                <SelectTrigger className="h-9 text-sm border-border bg-background rounded-xl"><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                <SelectContent>{(customers || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {q.customerId && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Contact</label>
+                {contacts && contacts.length > 0 ? (
+                  <Select value={q.contactName || "none"} onValueChange={(v) => q.setContactName(v === "none" ? "" : v)}>
+                    <SelectTrigger className="h-9 text-sm border-border bg-background rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="none">None</SelectItem>{contacts.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                ) : (
+                  <Input placeholder="Contact name" value={q.contactName} onChange={(e) => q.setContactName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Job Card */}
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <span className="text-sm font-semibold text-foreground">Job Details</span>
+          </div>
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Job Name</label>
+              <Input placeholder="Spring Mailer 2026" value={q.projectName} onChange={(e) => q.setProjectName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
+                <Input type="number" min="1" placeholder="5,000" value={m.quantity || ""} onChange={(e) => m.setQuantity(parseInt(e.target.value) || 0)} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>
+                <Input placeholder="Optional" value={q.referenceNumber} onChange={(e) => q.setReferenceNumber(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════
+          MAIL PIECES -- the heart of the planner
+         ═══════════════════════════════════════════════════════ */}
+      <div className="rounded-2xl border-2 border-foreground/10 bg-card p-6 mb-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-foreground flex items-center justify-center">
+              <Layers className="h-4.5 w-4.5 text-background" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">Mail Pieces</h2>
+              <p className="text-xs text-muted-foreground">
+                {m.pieces.length === 0 ? "Add each physical piece in the mailing" : `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""} defined`}
+              </p>
+            </div>
+          </div>
+
+          {/* Add piece button */}
+          <div className="relative">
+            <button
+              onClick={() => setShowAddMenu(!showAddMenu)}
+              className="flex items-center gap-1.5 h-9 px-4 bg-foreground text-background text-xs font-semibold rounded-full hover:bg-foreground/90 transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Piece <ChevronDown className="h-3 w-3 opacity-60" />
+            </button>
+            {showAddMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 bg-card rounded-2xl border border-border shadow-2xl p-2 min-w-[200px]">
+                  {ADDABLE_TYPES.map((type) => {
+                    const meta = PIECE_TYPE_META[type]
+                    return (
+                      <button key={type} onClick={() => { m.addPiece(type); setShowAddMenu(false) }}
+                        className="w-full flex items-center gap-3 text-left text-sm font-medium px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${meta.color}`}>{meta.short}</span>
+                        {meta.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Empty state */}
+        {m.pieces.length === 0 && (
+          <div className="text-center py-12 border-2 border-dashed border-border/60 rounded-2xl">
+            <Mail className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-sm font-semibold text-foreground">No pieces yet</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
+              Click "Add Piece" to define what is being mailed -- start with the outermost piece (envelope, postcard, booklet), then add any inserts inside it.
+            </p>
+          </div>
+        )}
+
+        {/* ─── Piece Cards ─── */}
+        <div className="flex flex-col gap-3">
+          {m.pieces.map((piece) => {
+            const meta = PIECE_TYPE_META[piece.type]
+            const isOuter = piece.position === 1
+            const outerW = m.mailerWidth
+            const outerH = m.mailerHeight
+            const tooWide = !isOuter && piece.width && outerW && piece.width >= outerW
+            const tooTall = !isOuter && piece.height && outerH && piece.height >= outerH
+            const sizeWarn = tooWide || tooTall
+
+            return (
+              <div key={piece.id} className={`rounded-xl border p-4 transition-all ${
+                isOuter ? "border-foreground/20 bg-secondary/30" : "border-border bg-background"
+              }`}>
+                {/* Row 1: Position, type badge, label, size, remove */}
+                <div className="flex items-start gap-3">
+                  {/* Position number */}
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold ${
+                    isOuter ? "bg-foreground text-background" : "bg-secondary text-muted-foreground"
+                  }`}>
+                    {piece.position}
+                  </div>
+
+                  {/* Main content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Type badge + label */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${meta.color}`}>{meta.short}</span>
+                      <Input
+                        value={piece.label}
+                        onChange={(e) => m.updatePiece(piece.id, { label: e.target.value })}
+                        className="h-7 text-sm font-semibold border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                        placeholder={meta.label}
+                      />
+                      {isOuter && (
+                        <Badge variant="outline" className="text-[9px] font-bold border-foreground/20 text-foreground shrink-0">
+                          OUTER
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Envelope-specific: kind + standard size */}
+                    {piece.type === "envelope" && (
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <div className="flex gap-1">
+                          {(["paper", "plastic"] as const).map((k) => (
+                            <button key={k} type="button"
+                              onClick={() => m.updatePiece(piece.id, { envelopeKind: piece.envelopeKind === k ? "" : k })}
+                              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                                piece.envelopeKind === k ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
+                              }`}>
+                              {k === "paper" ? "Paper" : "Plastic"}
+                            </button>
+                          ))}
+                        </div>
+                        <Select value={piece.envelopeId || "none"} onValueChange={(v) => { if (v !== "none") m.updatePiece(piece.id, { envelopeId: v }) }}>
+                          <SelectTrigger className="h-8 text-xs border-border bg-background rounded-lg w-[180px]">
+                            <SelectValue placeholder="Standard size..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Pick size...</SelectItem>
+                            {STANDARD_ENVELOPES.map((env) => (
+                              <SelectItem key={env.id} value={env.id}>
+                                {env.name} {env.id !== "custom" ? `(${env.width}" x ${env.height}")` : ""} 
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Dimensions row */}
+                    <div className="flex items-center gap-3 mb-3">
+                      {(piece.type !== "envelope" || piece.envelopeId === "custom" || !piece.envelopeId) ? (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-muted-foreground">W</label>
+                            <Input type="number" step="0.125" min="0" placeholder={'0"'}
+                              value={piece.width ?? ""}
+                              onChange={(e) => m.updatePiece(piece.id, { width: e.target.value ? parseFloat(e.target.value) : null })}
+                              className="h-8 w-20 text-xs border-border bg-background rounded-lg font-mono" />
+                          </div>
+                          <span className="text-muted-foreground text-xs">x</span>
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs text-muted-foreground">H</label>
+                            <Input type="number" step="0.125" min="0" placeholder={'0"'}
+                              value={piece.height ?? ""}
+                              onChange={(e) => m.updatePiece(piece.id, { height: e.target.value ? parseFloat(e.target.value) : null })}
+                              className="h-8 w-20 text-xs border-border bg-background rounded-lg font-mono" />
+                          </div>
+                          {piece.width && piece.height && (
+                            <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm font-mono text-foreground font-semibold">{piece.width}" x {piece.height}"</span>
+                      )}
+                    </div>
+
+                    {/* Size warning */}
+                    {sizeWarn && (
+                      <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium mb-3">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        Too big for outer piece ({outerW}" x {outerH}")
+                      </div>
+                    )}
+
+                    {/* Production routing */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground shrink-0">Production:</span>
+                      <div className="flex gap-1">
+                        {(["inhouse", "ohp", "both"] as const).map((r) => (
+                          <button key={r} type="button"
+                            onClick={() => m.updatePiece(piece.id, { production: r })}
+                            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                              piece.production === r
+                                ? r === "inhouse" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                  : r === "ohp" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                  : "bg-primary/10 text-primary"
+                                : "bg-secondary text-muted-foreground hover:text-foreground"
+                            }`}>
+                            {r === "inhouse" ? "In-House" : r === "ohp" ? "OHP" : "Both"}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {piece.production !== "ohp" && (
+                          <span className="flex items-center gap-1">
+                            <Printer className="h-3 w-3" />
+                            {meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "envelope" ? "Envelope" : "OHP"}
+                          </span>
+                        )}
+                        {piece.production === "ohp" && <span className="flex items-center gap-1"><Send className="h-3 w-3" />Vendor bid</span>}
+                        {piece.production === "both" && <span className="flex items-center gap-1 ml-1">+ <Send className="h-3 w-3" />OHP</span>}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Remove button */}
+                  <button onClick={() => m.removePiece(piece.id)}
+                    className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Customer provides printing checkbox */}
+        {m.pieces.length > 0 && (
+          <label className="flex items-center gap-3 cursor-pointer mt-4 pt-4 border-t border-border/60">
+            <input type="checkbox" checked={m.customerProvidesPrinting} onChange={(e) => m.setCustomerProvidesPrinting(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-foreground cursor-pointer" />
+            <span className="text-sm text-muted-foreground">Customer provides printing (skip printing step)</span>
+          </label>
+        )}
+      </div>
+
+      {/* ─── USPS Shape Qualification ─── */}
+      {hasDims && m.pieces.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-3">USPS Shape Qualification</h3>
+          <div className="flex flex-wrap gap-2">
+            {shapes.includes("POSTCARD") && (
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 px-4 py-2.5">
+                <Check className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Postcard</span>
+              </div>
+            )}
+            {shapes.includes("LETTER") && (
+              <div className="flex items-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 px-4 py-2.5">
+                <Check className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">Letter</span>
+              </div>
+            )}
+            {shapes.includes("FLAT") && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-2.5">
+                <Check className="h-4 w-4 text-amber-600" />
+                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Flat</span>
+              </div>
+            )}
+            {shapes.length === 0 && (
+              <div className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-2.5">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <span className="text-sm font-semibold text-destructive">
+                  {m.mailerWidth}" x {m.mailerHeight}" does not fit any USPS shape
+                </span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Based on outer piece dimensions ({m.mailerWidth}" x {m.mailerHeight}")</p>
+        </div>
+      )}
+
+      {/* ─── Workflow Preview ─── */}
+      {m.pieces.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Quoting Steps</h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            Based on your pieces, these calculator steps will be available:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {stepSummary.map((s) => (
+              <div key={s} className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-foreground">
+                <Check className="h-3 w-3 text-emerald-600" />
+                {s}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Continue Button ─── */}
+      <div className="flex justify-end">
+        <button
+          onClick={onContinue}
+          disabled={!canContinue}
+          className="flex items-center gap-2 h-12 px-8 bg-foreground text-background text-sm font-semibold rounded-full hover:bg-foreground/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
+        >
+          Continue to Pricing <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
+}

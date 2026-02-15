@@ -6,9 +6,9 @@ import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
 import { LaborCalculator } from "@/components/labor-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
-import { JobInfoSidebar } from "@/components/job-info-sidebar"
+import { MailPiecePlanner } from "@/components/mail-piece-planner"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
-import { MailingProvider, useMailing } from "@/lib/mailing-context"
+import { MailingProvider, useMailing, PIECE_TYPE_META } from "@/lib/mailing-context"
 import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
@@ -20,12 +20,12 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
 import {
-  Plus, LayoutDashboard, Settings, Users, Factory,
-  Mail, Stamp, Wrench, Printer, BookOpen, Send, Package,
-  Check, ChevronRight, FileText, PanelRightOpen, X,
+  Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen,
+  Send, Package, Check, ChevronRight, FileText,
+  PanelRightOpen, X, Layers, ArrowLeft, PenLine,
 } from "lucide-react"
 
-// ─── Steps ───────────────────────────────────────────────
+// ─── Calculator Steps (after planner) ─────────────────────
 type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "ohp" | "items"
 const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
@@ -42,12 +42,13 @@ const STEP_CATS: Record<StepId, string[]> = {
 }
 
 type View = "home" | "job" | "dashboard" | "customers" | "vendors"
+type JobPhase = "planner" | "pricing"
 
 function AppContent() {
   const [view, setView] = useState<View>("home")
   const [showSettings, setShowSettings] = useState(false)
-  const [currentStep, setCurrentStep] = useState<StepId>("envelope")
-  const [leftOpen, setLeftOpen] = useState(true)
+  const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
+  const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
   const { loadQuote, items, newQuote } = useQuote()
   const mailing = useMailing()
@@ -66,18 +67,23 @@ function AppContent() {
 
   // If current step becomes hidden, jump to first visible
   useEffect(() => {
-    if (!visibleSteps.find((s) => s.id === currentStep)) {
+    if (jobPhase === "pricing" && !visibleSteps.find((s) => s.id === currentStep)) {
       setCurrentStep(visibleSteps[0]?.id || "usps")
     }
-  }, [visibleSteps, currentStep])
+  }, [visibleSteps, currentStep, jobPhase])
 
   const handleLoadQuote = useCallback(
-    (quoteId: string) => { loadQuote(quoteId); setView("job") },
+    (quoteId: string) => { loadQuote(quoteId); setJobPhase("pricing"); setView("job") },
     [loadQuote],
   )
   const handleNewJob = useCallback(() => {
-    newQuote(); setCurrentStep("envelope"); setView("job")
+    newQuote(); setJobPhase("planner"); setView("job")
   }, [newQuote])
+
+  const handleContinueToPricing = useCallback(() => {
+    setJobPhase("pricing")
+    setCurrentStep(visibleSteps[0]?.id || "usps")
+  }, [visibleSteps])
 
   const completedSteps = useMemo(() => {
     const done = new Set<StepId>()
@@ -112,23 +118,16 @@ function AppContent() {
               { v: "customers" as View, label: "Customers" },
               { v: "vendors" as View, label: "Vendors" },
             ]).map((n) => (
-              <button
-                key={n.v}
-                onClick={() => setView(n.v)}
+              <button key={n.v} onClick={() => setView(n.v)}
                 className={cn(
                   "px-3 py-1 text-xs font-medium rounded-lg transition-colors",
                   view === n.v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
+                )}>
                 {n.label}
               </button>
             ))}
             <div className="w-px h-4 bg-border mx-1" />
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Settings"
-            >
+            <button onClick={() => setShowSettings(true)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors" aria-label="Settings">
               <Settings className="h-4 w-4" />
             </button>
           </nav>
@@ -143,10 +142,8 @@ function AppContent() {
             <p className="mt-3 text-base text-muted-foreground text-pretty leading-relaxed">
               Start a new job to build your mailing and printing estimate.
             </p>
-            <Button
-              onClick={handleNewJob}
-              className="mt-8 h-12 px-8 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90 gap-2 shadow-lg"
-            >
+            <Button onClick={handleNewJob}
+              className="mt-8 h-12 px-8 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90 gap-2 shadow-lg">
               <Plus className="h-5 w-5" /> New Job
             </Button>
             <button onClick={() => setView("dashboard")}
@@ -157,29 +154,38 @@ function AppContent() {
         </div>
       )}
 
-      {/* ─── JOB VIEW: 3-panel layout ─── */}
-      {view === "job" && (
+      {/* ─── JOB VIEW ─── */}
+      {view === "job" && jobPhase === "planner" && (
+        <div className="flex-1 px-6 pt-8 pb-12">
+          <MailPiecePlanner onContinue={handleContinueToPricing} />
+        </div>
+      )}
+
+      {view === "job" && jobPhase === "pricing" && (
         <div className="flex-1 flex flex-col">
-          {/* Step Pills Bar */}
+          {/* Step Pills Bar + Back to Planner */}
           <div className="sticky top-11 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40">
             <div className="max-w-[100rem] mx-auto px-4">
               <div className="flex items-center gap-1 py-1.5 overflow-x-auto no-scrollbar">
+                {/* Back to planner */}
+                <button onClick={() => setJobPhase("planner")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1">
+                  <Layers className="h-3.5 w-3.5" /> Planner
+                </button>
+                <div className="w-px h-4 bg-border shrink-0" />
+
+                {/* Calculator steps */}
                 {visibleSteps.map((step) => {
                   const active = step.id === currentStep
                   const done = completedSteps.has(step.id)
                   return (
-                    <button
-                      key={step.id}
-                      onClick={() => setCurrentStep(step.id)}
+                    <button key={step.id} onClick={() => setCurrentStep(step.id)}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0",
-                        active
-                          ? "bg-foreground text-background shadow-sm"
-                          : done
-                          ? "bg-secondary text-foreground hover:bg-secondary/80"
+                        active ? "bg-foreground text-background shadow-sm"
+                          : done ? "bg-secondary text-foreground hover:bg-secondary/80"
                           : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      )}
-                    >
+                      )}>
                       {done && !active ? <Check className="h-3 w-3" /> : step.icon}
                       {step.label}
                     </button>
@@ -189,10 +195,8 @@ function AppContent() {
                   const idx = visibleSteps.findIndex((s) => s.id === currentStep)
                   if (idx < visibleSteps.length - 1) {
                     return (
-                      <button
-                        onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
-                        className="ml-auto flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      >
+                      <button onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
+                        className="ml-auto flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0">
                         Next <ChevronRight className="h-3 w-3" />
                       </button>
                     )
@@ -203,37 +207,49 @@ function AppContent() {
             </div>
           </div>
 
-          {/* ─── 3-Panel Body ─── */}
-          <div className="max-w-[100rem] mx-auto w-full px-4 pt-3 pb-8 flex gap-3 flex-1 min-h-0">
-            {/* LEFT: Job Info */}
-            <div className="hidden lg:block sticky top-[5.5rem] h-[calc(100vh-6.5rem)]">
-              <JobInfoSidebar collapsed={!leftOpen} onToggle={() => setLeftOpen((p) => !p)} />
+          {/* ─── Job Summary Bar (compact, shows what was defined in planner) ─── */}
+          <div className="bg-secondary/30 border-b border-border/40">
+            <div className="max-w-[100rem] mx-auto px-4 py-2 flex items-center gap-4 text-xs overflow-x-auto no-scrollbar">
+              <button onClick={() => setJobPhase("planner")} className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold shrink-0 transition-colors">
+                <PenLine className="h-3 w-3" /> Edit
+              </button>
+              {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
+              <div className="w-px h-3 bg-border shrink-0" />
+              {mailing.pieces.map((p) => {
+                const meta = PIECE_TYPE_META[p.type]
+                return (
+                  <span key={p.id} className="flex items-center gap-1.5 shrink-0">
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
+                    <span className="text-foreground font-medium">{p.label}</span>
+                    {p.width && p.height && <span className="font-mono text-muted-foreground">{p.width}x{p.height}</span>}
+                    <span className={`text-[8px] font-bold ${p.production === "inhouse" ? "text-emerald-600" : p.production === "ohp" ? "text-amber-600" : "text-primary"}`}>
+                      {p.production === "inhouse" ? "IH" : p.production === "ohp" ? "OHP" : "BOTH"}
+                    </span>
+                  </span>
+                )
+              })}
             </div>
+          </div>
 
-            {/* CENTER: Calculator */}
+          {/* ─── Content + Quote Sidebar ─── */}
+          <div className="max-w-[100rem] mx-auto w-full px-4 pt-4 pb-8 flex gap-4 flex-1 min-h-0">
             <main key={currentStep} className="flex-1 min-w-0 step-enter">
               {renderStep()}
             </main>
-
-            {/* RIGHT: Quote */}
             {rightOpen ? (
-              <aside className="hidden lg:block w-72 shrink-0 sticky top-[5.5rem] h-[calc(100vh-6.5rem)]">
+              <aside className="hidden lg:block w-72 shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
                 <QuoteSidebar />
               </aside>
             ) : (
-              <aside className="hidden lg:flex flex-col items-center pt-1 shrink-0 sticky top-[5.5rem] h-[calc(100vh-6.5rem)]">
-                <button
-                  onClick={() => setRightOpen(true)}
-                  className="h-8 w-8 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:shadow-sm transition-all"
-                  aria-label="Open quote"
-                >
+              <aside className="hidden lg:flex flex-col items-center pt-1 shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
+                <button onClick={() => setRightOpen(true)}
+                  className="h-8 w-8 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:shadow-sm transition-all">
                   <PanelRightOpen className="h-3.5 w-3.5" />
                 </button>
               </aside>
             )}
           </div>
 
-          {/* Mobile bar */}
           <MobileBar />
         </div>
       )}
@@ -255,20 +271,17 @@ function AppContent() {
       )}
       {view === "customers" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><CustomerList /></div>}
       {view === "vendors" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><VendorList /></div>}
-
       {showSettings && <MailClassSettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   )
 }
 
-// ─── Mobile ───────────────────────────────────────────────
 function MobileBar() {
   const [open, setOpen] = useState(false)
   const { items, getTotal } = useQuote()
   const total = getTotal()
   const count = items.length
   if (count === 0 && !open) return null
-
   return (
     <>
       {open && (
