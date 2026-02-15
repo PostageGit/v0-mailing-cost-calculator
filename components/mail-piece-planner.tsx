@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, FOLD_OPTIONS, getFlatSize, type PieceType, type ProductionRoute, type FoldType } from "@/lib/mailing-context"
-import { MailPieceDiagram } from "./mail-piece-diagram"
 import { useQuote } from "@/lib/quote-context"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -417,13 +416,6 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
           </label>
         )}
       </div>
-
-      {/* ─── Visual Diagram ─── */}
-      {m.pieces.length > 0 && (
-        <div className="mb-6">
-          <MailPieceDiagram />
-        </div>
-      )}
 
       {/* ─── USPS Shape Qualification ─── */}
       {hasDims && m.pieces.length > 0 && (

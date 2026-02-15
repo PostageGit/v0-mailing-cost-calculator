@@ -109,14 +109,20 @@ function AppContent() {
   }, [items, visibleSteps])
 
   const renderStep = () => {
-    switch (currentStep) {
-      case "envelope": return <EnvelopeTab />
-      case "usps":     return <USPSPostageCalculator />
-      case "labor":    return <LaborCalculator />
-      case "printing": return <PrintingCalculator />
-      case "booklet":  return <BookletCalculator />
-      case "ohp":      return <VendorBidTab />
-      case "items":    return <ItemsTab />
+    console.log("[v0] renderStep called, currentStep:", currentStep, "visibleSteps:", visibleSteps.map(s => s.id))
+    try {
+      switch (currentStep) {
+        case "envelope": return <EnvelopeTab />
+        case "usps":     return <USPSPostageCalculator />
+        case "labor":    return <LaborCalculator />
+        case "printing": return <PrintingCalculator />
+        case "booklet":  return <BookletCalculator />
+        case "ohp":      return <VendorBidTab />
+        case "items":    return <ItemsTab />
+      }
+    } catch (e) {
+      console.error("[v0] renderStep crashed:", e)
+      return <div className="p-8 text-destructive">Render error: {String(e)}</div>
     }
   }
 
