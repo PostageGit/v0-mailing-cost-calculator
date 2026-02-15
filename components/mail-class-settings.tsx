@@ -18,6 +18,12 @@ import {
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import {
+  DEFAULT_CLICK_COSTS,
+  DEFAULT_PAPER_PRICES,
+  DEFAULT_BOOKLET_PAPER_PRICES,
+  DEFAULT_MARKUPS,
+} from "@/lib/pricing-config"
+import {
   Settings,
   X,
   Plus,
@@ -131,6 +137,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <CreditCard className="h-3.5 w-3.5" />
                 Payment Terms
               </TabsTrigger>
+              <TabsTrigger value="pricing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <DollarSign className="h-3.5 w-3.5" />
+                Pricing
+              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Activity className="h-3.5 w-3.5" />
                 System
@@ -148,6 +158,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="terms">
               <PaymentTermsTab />
+            </TabsContent>
+            <TabsContent value="pricing">
+              <PricingSettingsTab />
             </TabsContent>
             <TabsContent value="system">
               <SystemDashboardTab />
@@ -1303,7 +1316,7 @@ function SystemDashboardTab() {
         <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
           <span className="text-xs text-emerald-700 dark:text-emerald-300">
-            All systems healthy. No warnings.
+            All systems healthy. No warnings detected.
           </span>
         </div>
       )}
@@ -1430,6 +1443,337 @@ function SystemDashboardTab() {
           </table>
         </div>
       </section>
+    </div>
+  )
+}
+
+// ---------- PRICING SETTINGS TAB ----------
+const LEVEL_LABELS = [
+  { level: 1, label: "1 (1+)" },
+  { level: 2, label: "2 (10+)" },
+  { level: 3, label: "3 (100+)" },
+  { level: 4, label: "4 (250+)" },
+  { level: 5, label: "5 (1K+)" },
+  { level: 6, label: "6 (2K+)" },
+  { level: 7, label: "7 (3.5K+)" },
+  { level: 8, label: "8 (5K+)" },
+  { level: 9, label: "9 (100K+)" },
+  { level: 10, label: "10 (1M+)" },
+]
+
+type PricingSection = "click" | "flat" | "booklet" | "markups"
+
+function PricingSettingsTab() {
+  const { data: settings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [section, setSection] = useState<PricingSection>("click")
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+
+  // Click costs state
+  const dbClickCosts = (settings?.pricing_click_costs ?? null) as Record<string, { regular: number; machine: number }> | null
+  const [clickCosts, setClickCosts] = useState<Record<string, { regular: number; machine: number }>>({ ...DEFAULT_CLICK_COSTS })
+
+  // Paper prices state
+  const dbPaperPrices = (settings?.pricing_paper_prices ?? null) as Record<string, Record<string, number>> | null
+  const [flatPrices, setFlatPrices] = useState<Record<string, Record<string, number>>>(structuredClone(DEFAULT_PAPER_PRICES))
+
+  // Booklet paper prices state
+  const dbBookletPrices = (settings?.pricing_booklet_paper_prices ?? null) as Record<string, Record<string, number>> | null
+  const [bookletPrices, setBookletPrices] = useState<Record<string, Record<string, number>>>(structuredClone(DEFAULT_BOOKLET_PAPER_PRICES))
+
+  // Markup percentages state
+  const dbMarkups = (settings?.pricing_markups ?? null) as Record<string, Record<string, number>> | null
+  const [markups, setMarkups] = useState<Record<string, Record<number, number>>>(structuredClone(DEFAULT_MARKUPS))
+
+  // Load from DB when settings arrive
+  const [loaded, setLoaded] = useState(false)
+  if (settings && !loaded) {
+    if (dbClickCosts) setClickCosts({ BW: { ...DEFAULT_CLICK_COSTS.BW, ...dbClickCosts.BW }, Color: { ...DEFAULT_CLICK_COSTS.Color, ...dbClickCosts.Color } })
+    if (dbPaperPrices) {
+      const merged = structuredClone(DEFAULT_PAPER_PRICES)
+      for (const [paper, sizes] of Object.entries(dbPaperPrices)) {
+        if (merged[paper]) merged[paper] = { ...merged[paper], ...sizes }
+      }
+      setFlatPrices(merged)
+    }
+    if (dbBookletPrices) {
+      const merged = structuredClone(DEFAULT_BOOKLET_PAPER_PRICES)
+      for (const [paper, sizes] of Object.entries(dbBookletPrices)) {
+        if (merged[paper]) merged[paper] = { ...merged[paper], ...sizes }
+      }
+      setBookletPrices(merged)
+    }
+    if (dbMarkups) {
+      const merged = structuredClone(DEFAULT_MARKUPS)
+      for (const [cat, levels] of Object.entries(dbMarkups)) {
+        if (merged[cat]) {
+          for (const [lvl, val] of Object.entries(levels)) {
+            merged[cat][parseInt(lvl)] = val as number
+          }
+        }
+      }
+      setMarkups(merged)
+    }
+    setLoaded(true)
+  }
+
+  const saveSection = async () => {
+    setSaving(true)
+    try {
+      const payload: Record<string, unknown> = {}
+      if (section === "click") payload.pricing_click_costs = clickCosts
+      if (section === "flat") payload.pricing_paper_prices = flatPrices
+      if (section === "booklet") payload.pricing_booklet_paper_prices = bookletPrices
+      if (section === "markups") payload.pricing_markups = markups
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      setDirty(false)
+      mutate()
+      globalMutate("/api/app-settings")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resetSection = () => {
+    if (section === "click") setClickCosts({ ...DEFAULT_CLICK_COSTS })
+    if (section === "flat") setFlatPrices(structuredClone(DEFAULT_PAPER_PRICES))
+    if (section === "booklet") setBookletPrices(structuredClone(DEFAULT_BOOKLET_PAPER_PRICES))
+    if (section === "markups") setMarkups(structuredClone(DEFAULT_MARKUPS))
+    setDirty(true)
+  }
+
+  const sections: { key: PricingSection; label: string }[] = [
+    { key: "click", label: "Click Costs" },
+    { key: "flat", label: "Flat Paper Prices" },
+    { key: "booklet", label: "Booklet Paper Prices" },
+    { key: "markups", label: "Markup Levels" },
+  ]
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Pricing Configuration</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Edit click costs, paper prices, and markup levels. Changes apply to both Flat and Saddle Stitch calculators.
+        </p>
+      </div>
+
+      {/* Section picker */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {sections.map((s) => (
+          <Button
+            key={s.key}
+            variant={section === s.key ? "secondary" : "ghost"}
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => { setSection(s.key); setDirty(false) }}
+          >
+            {s.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Save / Reset bar */}
+      <div className="flex items-center gap-2">
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={saveSection} disabled={saving}>
+          <Save className="h-3 w-3" />
+          {saving ? "Saving..." : "Save Changes"}
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSection}>
+          Reset to Defaults
+        </Button>
+        {dirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved changes</span>}
+      </div>
+
+      <Separator />
+
+      {/* Click Costs */}
+      {section === "click" && (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Cost per click for B&W and Color printing. "Regular" is the toner/ink cost, "Machine" is the machine wear cost.
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="text-left font-medium text-muted-foreground px-3 py-2">Type</th>
+                  <th className="text-right font-medium text-muted-foreground px-3 py-2">Regular</th>
+                  <th className="text-right font-medium text-muted-foreground px-3 py-2">Machine</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(clickCosts).map(([type, costs]) => (
+                  <tr key={type} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2 font-medium text-foreground">{type}</td>
+                    <td className="px-3 py-1.5 text-right">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        value={costs.regular}
+                        onChange={(e) => {
+                          setClickCosts((p) => ({ ...p, [type]: { ...p[type], regular: parseFloat(e.target.value) || 0 } }))
+                          setDirty(true)
+                        }}
+                        className="h-7 text-xs w-24 ml-auto text-right"
+                      />
+                    </td>
+                    <td className="px-3 py-1.5 text-right">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        value={costs.machine}
+                        onChange={(e) => {
+                          setClickCosts((p) => ({ ...p, [type]: { ...p[type], machine: parseFloat(e.target.value) || 0 } }))
+                          setDirty(true)
+                        }}
+                        className="h-7 text-xs w-24 ml-auto text-right"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Flat Paper Prices */}
+      {section === "flat" && (
+        <PaperPriceEditor
+          prices={flatPrices}
+          onChange={(updated) => { setFlatPrices(updated); setDirty(true) }}
+          label="Flat Printing"
+        />
+      )}
+
+      {/* Booklet Paper Prices */}
+      {section === "booklet" && (
+        <PaperPriceEditor
+          prices={bookletPrices}
+          onChange={(updated) => { setBookletPrices(updated); setDirty(true) }}
+          label="Saddle Stitch / Booklet"
+        />
+      )}
+
+      {/* Markup Levels */}
+      {section === "markups" && (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Markup multipliers per quantity level. These apply to both Flat and Saddle Stitch calculators.
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">
+            <table className="w-full text-xs min-w-[600px]">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="text-left font-medium text-muted-foreground px-3 py-2 sticky left-0 bg-muted/50">Category</th>
+                  {LEVEL_LABELS.map((l) => (
+                    <th key={l.level} className="text-center font-medium text-muted-foreground px-1.5 py-2 whitespace-nowrap">
+                      {l.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(markups).map(([category, levels]) => (
+                  <tr key={category} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">{category}</td>
+                    {LEVEL_LABELS.map((l) => (
+                      <td key={l.level} className="px-1 py-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={levels[l.level] ?? 0}
+                          onChange={(e) => {
+                            setMarkups((p) => {
+                              const updated = structuredClone(p)
+                              updated[category][l.level] = parseFloat(e.target.value) || 0
+                              return updated
+                            })
+                            setDirty(true)
+                          }}
+                          className="h-6 text-[10px] w-14 text-center px-1"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Reusable paper price editor for flat and booklet
+function PaperPriceEditor({
+  prices,
+  onChange,
+  label,
+}: {
+  prices: Record<string, Record<string, number>>
+  onChange: (updated: Record<string, Record<string, number>>) => void
+  label: string
+}) {
+  const [expandedPaper, setExpandedPaper] = useState<string | null>(null)
+
+  // Collect all unique sizes across all papers
+  const allSizes = Array.from(
+    new Set(Object.values(prices).flatMap((sizes) => Object.keys(sizes)))
+  ).sort()
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-muted-foreground">
+        Per-sheet paper costs for {label}. Click a paper type to expand and edit prices per size.
+      </p>
+      <div className="flex flex-col gap-1">
+        {Object.entries(prices).map(([paper, sizes]) => {
+          const isExpanded = expandedPaper === paper
+          return (
+            <div key={paper} className="rounded-lg border border-border">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => setExpandedPaper(isExpanded ? null : paper)}
+              >
+                <span className="text-xs font-medium text-foreground">{paper}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">{Object.keys(sizes).length} sizes</span>
+                  {isExpanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </div>
+              </button>
+              {isExpanded && (
+                <div className="px-3 pb-2 border-t border-border pt-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {Object.entries(sizes).map(([size, price]) => (
+                      <div key={size} className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{size}</span>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          value={price}
+                          onChange={(e) => {
+                            const updated = structuredClone(prices)
+                            updated[paper][size] = parseFloat(e.target.value) || 0
+                            onChange(updated)
+                          }}
+                          className="h-6 text-[10px] w-20 text-right px-1.5"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -16,11 +16,14 @@ import { VendorList } from "@/components/vendor-list"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench, Users, Factory } from "lucide-react"
+import { usePricingConfig } from "@/lib/use-pricing-config"
 
 function AppContent() {
   const [view, setView] = useState<"calculators" | "dashboard" | "customers" | "vendors">("calculators")
   const [showSettings, setShowSettings] = useState(false)
   const { loadQuote } = useQuote()
+  // Load pricing overrides from DB and apply to shared config
+  usePricingConfig()
 
   const handleLoadQuote = useCallback(
     (quoteId: string) => {

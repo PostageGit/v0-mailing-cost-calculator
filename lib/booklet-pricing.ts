@@ -4,6 +4,7 @@ import type {
   PartCalcResult,
   BookletCalcResult,
 } from "./booklet-types"
+import { getActiveConfig } from "./pricing-config"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -88,7 +89,8 @@ function getMarkup(level: number, sidesValue: string, isCardstock: boolean): num
   const rule = SIDES_RULES[sidesValue]
   if (!rule) return 1
   const category = rule.clickType === "BW" ? "BW" : isCardstock ? "Color Card" : "Color Paper"
-  return MARKUP_PERCENTAGES[category]?.[level] || 1
+  const markups = getActiveConfig().markups
+  return markups[category]?.[level] || MARKUP_PERCENTAGES[category]?.[level] || 1
 }
 
 export function parseSheetSize(sizeString: string): { w: number; h: number } {
@@ -193,7 +195,8 @@ function calculatePartCost(
   const sidesRule = SIDES_RULES[sidesValue]
   if (!sidesRule) return emptyPartResult(partName, `Printing rule for '${sidesValue}' not found.`)
 
-  const clickCostData = CLICK_COSTS[sidesRule.clickType]
+  const cfg = getActiveConfig()
+  const clickCostData = cfg.clickCosts[sidesRule.clickType] || CLICK_COSTS[sidesRule.clickType]
 
   const calcForSize = (sizeString: string) => {
     const sheet = parseSheetSize(sizeString)
@@ -201,7 +204,7 @@ function calculatePartCost(
     if (layout.maxUps === 0) return null
 
     const totalSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
-    const paperCost = BOOKLET_PAPER_PRICES[paperName]?.[sizeString] ?? 0
+    const paperCost = cfg.bookletPaperPrices[paperName]?.[sizeString] ?? BOOKLET_PAPER_PRICES[paperName]?.[sizeString] ?? 0
     if (paperCost === 0) return null
 
     const clickCost = sidesRule.clickAmount * clickCostData.regular + sidesRule.machineClickAmount * clickCostData.machine

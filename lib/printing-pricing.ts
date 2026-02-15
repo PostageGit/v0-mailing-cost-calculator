@@ -8,6 +8,7 @@ import type {
   SheetOptionRow,
   FullPrintingResult,
 } from "./printing-types"
+import { getActiveConfig } from "./pricing-config"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -104,7 +105,8 @@ function getMarkup(level: number, sidesValue: string, isCardstock: boolean): num
   const sidesRule = SIDES_RULES[sidesValue]
   if (!sidesRule) return 1
   const category = sidesRule.clickType === "BW" ? "BW" : isCardstock ? "Color Card" : "Color Paper"
-  return MARKUP_PERCENTAGES[category]?.[level] || 1
+  const markups = getActiveConfig().markups
+  return markups[category]?.[level] || MARKUP_PERCENTAGES[category]?.[level] || 1
 }
 
 export function parseSheetSize(sizeString: string): SheetDimensions {
@@ -211,7 +213,8 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
   const sidesRule = SIDES_RULES[sidesValue]
   if (!sidesRule) return null
 
-  const clickCostData = CLICK_COSTS[sidesRule.clickType]
+  const cfg = getActiveConfig()
+  const clickCostData = cfg.clickCosts[sidesRule.clickType] || CLICK_COSTS[sidesRule.clickType]
   const sheet = parseSheetSize(size)
   const layout = calculateLayout(sheet.w, sheet.h, width, height, hasBleed)
   const maxUps = layout.cols * layout.rows
@@ -219,7 +222,7 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
   if (maxUps === 0) return null
 
   const totalParentSheets = Math.ceil(qty / maxUps)
-  const paperCostPerSheet = PAPER_PRICES[paperName]?.[size] ?? 0
+  const paperCostPerSheet = cfg.paperPrices[paperName]?.[size] ?? PAPER_PRICES[paperName]?.[size] ?? 0
   if (paperCostPerSheet === 0) return null
 
   const clickCostPerSheet =
