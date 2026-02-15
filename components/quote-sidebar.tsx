@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check, Save, FilePlus } from "lucide-react"
+import { X, FileText, ChevronDown, ChevronUp, ClipboardCopy, Check, Save, FilePlus, Send } from "lucide-react"
 import { useState, useCallback } from "react"
+import { VendorBidPanel } from "./vendor-bid-panel"
 import { formatCurrency } from "@/lib/pricing"
 import { buildQuoteText } from "@/lib/build-quote-text"
 
@@ -50,6 +51,7 @@ export function QuoteSidebar() {
 
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
+  const [showBids, setShowBids] = useState(false)
 
   const buildPlainText = useCallback(() => {
     return buildQuoteText(items, projectName || undefined)
@@ -75,6 +77,7 @@ export function QuoteSidebar() {
   }, [buildPlainText])
 
   return (
+    <>
     <Card className="border-border bg-card shadow-sm h-full flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -302,6 +305,19 @@ export function QuoteSidebar() {
             </Button>
           </div>
 
+          {/* Vendor Bids */}
+          {savedId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+              onClick={() => setShowBids(true)}
+            >
+              <Send className="h-3.5 w-3.5" />
+              Vendor Bids
+            </Button>
+          )}
+
           {/* Plain text preview */}
           {showPlainText && (
             <pre className="bg-muted rounded-lg p-3 text-[11px] font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto border border-border select-all">
@@ -311,5 +327,10 @@ export function QuoteSidebar() {
         </div>
       )}
     </Card>
+
+    {showBids && savedId && (
+      <VendorBidPanel quoteId={savedId} onClose={() => setShowBids(false)} />
+    )}
+    </>
   )
 }
