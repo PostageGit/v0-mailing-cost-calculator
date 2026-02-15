@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -29,6 +30,9 @@ import {
   AlertTriangle,
   GripVertical,
   Lock,
+  Palette,
+  ListPlus,
+  Wrench,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -66,9 +70,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- main panel ----------
 export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
-  const { data: settings, isLoading } = useSWR<MailClassSetting[]>(SWR_KEY, fetcher)
-  const [adding, setAdding] = useState(false)
-
   return (
     <div
       className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[6vh] overflow-y-auto"
@@ -84,10 +85,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Settings className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <CardTitle className="text-lg">Mail Class Labor Settings</CardTitle>
+                <CardTitle className="text-lg">Settings</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5 text-pretty">
-                  Configure labor and list costs per USPS mail class. Each item
-                  can be required or optional, with flexible per-unit pricing.
+                  Configure labor rates, department colors, and custom fields.
                 </p>
               </div>
             </div>
@@ -102,49 +102,336 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
-          {isLoading && (
-            <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Loading settings...</span>
-            </div>
-          )}
+        <CardContent className="max-h-[75vh] overflow-y-auto">
+          <Tabs defaultValue="labor" className="w-full">
+            <TabsList className="mb-4 bg-muted/60 h-9 p-1 w-fit">
+              <TabsTrigger value="labor" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Wrench className="h-3.5 w-3.5" />
+                Labor Rates
+              </TabsTrigger>
+              <TabsTrigger value="departments" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Palette className="h-3.5 w-3.5" />
+                Departments
+              </TabsTrigger>
+              <TabsTrigger value="fields" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <ListPlus className="h-3.5 w-3.5" />
+                Custom Fields
+              </TabsTrigger>
+            </TabsList>
 
-          {!isLoading && settings && settings.length === 0 && !adding && (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
-              <DollarSign className="h-8 w-8 opacity-40" />
-              <p className="text-sm">No mail class settings yet.</p>
-              <p className="text-xs">
-                Add a USPS mail class to configure its labor costs.
-              </p>
-            </div>
-          )}
-
-          {settings?.map((s) => (
-            <MailClassCard key={s.id} setting={s} />
-          ))}
-
-          {adding && (
-            <AddMailClassForm
-              onDone={() => setAdding(false)}
-              existingNames={
-                settings?.map((s) => s.class_name.toLowerCase()) || []
-              }
-            />
-          )}
-
-          {!adding && (
-            <Button
-              variant="outline"
-              className="gap-2 h-10 border-dashed"
-              onClick={() => setAdding(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Add USPS Mail Class
-            </Button>
-          )}
+            <TabsContent value="labor">
+              <LaborRatesTab />
+            </TabsContent>
+            <TabsContent value="departments">
+              <DepartmentsTab />
+            </TabsContent>
+            <TabsContent value="fields">
+              <CustomFieldsTab />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// ---------- LABOR RATES TAB ----------
+function LaborRatesTab() {
+  const { data: settings, isLoading } = useSWR<MailClassSetting[]>(SWR_KEY, fetcher)
+  const [adding, setAdding] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-4">
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading settings...</span>
+        </div>
+      )}
+
+      {!isLoading && settings && settings.length === 0 && !adding && (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
+          <DollarSign className="h-8 w-8 opacity-40" />
+          <p className="text-sm">No mail class settings yet.</p>
+          <p className="text-xs">Add a USPS mail class to configure its labor costs.</p>
+        </div>
+      )}
+
+      {settings?.map((s) => (
+        <MailClassCard key={s.id} setting={s} />
+      ))}
+
+      {adding && (
+        <AddMailClassForm
+          onDone={() => setAdding(false)}
+          existingNames={settings?.map((s) => s.class_name.toLowerCase()) || []}
+        />
+      )}
+
+      {!adding && (
+        <Button variant="outline" className="gap-2 h-10 border-dashed" onClick={() => setAdding(true)}>
+          <Plus className="h-4 w-4" />
+          Add USPS Mail Class
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// ---------- DEPARTMENTS TAB ----------
+const PRESET_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899",
+  "#6366f1", "#ef4444", "#14b8a6", "#f97316", "#06b6d4",
+]
+
+function DepartmentsTab() {
+  const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [depts, setDepts] = useState<Record<string, string>>({})
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [newDept, setNewDept] = useState("")
+
+  // Load from server
+  if (appSettings && !loaded) {
+    setDepts((appSettings.department_colors ?? {}) as Record<string, string>)
+    setLoaded(true)
+  }
+
+  const saveDepts = async () => {
+    setSaving(true)
+    await fetch("/api/app-settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ department_colors: depts }),
+    })
+    globalMutate("/api/app-settings")
+    setSaving(false)
+  }
+
+  const addDept = () => {
+    if (!newDept.trim() || depts[newDept.trim()]) return
+    const usedColors = Object.values(depts)
+    const nextColor = PRESET_COLORS.find((c) => !usedColors.includes(c)) || PRESET_COLORS[0]
+    setDepts((p) => ({ ...p, [newDept.trim()]: nextColor }))
+    setNewDept("")
+  }
+
+  const removeDept = (name: string) => {
+    setDepts((p) => {
+      const copy = { ...p }
+      delete copy[name]
+      return copy
+    })
+  }
+
+  const updateColor = (name: string, color: string) => {
+    setDepts((p) => ({ ...p, [name]: color }))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Loading...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-muted-foreground text-pretty">
+        Departments are used as color-coded tags on customer contacts. Add, rename, or change colors below.
+      </p>
+
+      <div className="flex flex-col gap-2">
+        {Object.entries(depts).map(([name, color]) => (
+          <div key={name} className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <div className="flex gap-1">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => updateColor(name, c)}
+                  className="h-5 w-5 rounded-full border-2 transition-transform"
+                  style={{
+                    backgroundColor: c,
+                    borderColor: c === color ? "var(--foreground)" : "transparent",
+                    transform: c === color ? "scale(1.15)" : "scale(1)",
+                  }}
+                  aria-label={`Set color to ${c}`}
+                />
+              ))}
+            </div>
+            <Badge
+              variant="secondary"
+              className="text-xs font-medium px-2 py-0.5 ml-1"
+              style={{ backgroundColor: color + "20", color, borderColor: color + "40" }}
+            >
+              {name}
+            </Badge>
+            <div className="flex-1" />
+            <button
+              onClick={() => removeDept(name)}
+              className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              aria-label={`Remove ${name}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          value={newDept}
+          onChange={(e) => setNewDept(e.target.value)}
+          placeholder="New department name..."
+          className="h-8 text-sm flex-1"
+          onKeyDown={(e) => e.key === "Enter" && addDept()}
+        />
+        <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={addDept} disabled={!newDept.trim()}>
+          <Plus className="h-3.5 w-3.5" /> Add
+        </Button>
+      </div>
+
+      <Button size="sm" className="gap-1.5 text-xs h-9 w-fit" onClick={saveDepts} disabled={saving}>
+        <Save className="h-3.5 w-3.5" />
+        {saving ? "Saving..." : "Save Departments"}
+      </Button>
+    </div>
+  )
+}
+
+// ---------- CUSTOM FIELDS TAB ----------
+function CustomFieldsTab() {
+  const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [custFields, setCustFields] = useState<{ name: string }[]>([])
+  const [contFields, setContFields] = useState<{ name: string }[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [newCustField, setNewCustField] = useState("")
+  const [newContField, setNewContField] = useState("")
+
+  if (appSettings && !loaded) {
+    setCustFields((appSettings.customer_custom_fields ?? []) as { name: string }[])
+    setContFields((appSettings.contact_custom_fields ?? []) as { name: string }[])
+    setLoaded(true)
+  }
+
+  const saveFields = async () => {
+    setSaving(true)
+    await fetch("/api/app-settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        customer_custom_fields: custFields,
+        contact_custom_fields: contFields,
+      }),
+    })
+    globalMutate("/api/app-settings")
+    setSaving(false)
+  }
+
+  const addCustField = () => {
+    if (!newCustField.trim()) return
+    if (custFields.some((f) => f.name.toLowerCase() === newCustField.trim().toLowerCase())) return
+    setCustFields((p) => [...p, { name: newCustField.trim() }])
+    setNewCustField("")
+  }
+
+  const addContField = () => {
+    if (!newContField.trim()) return
+    if (contFields.some((f) => f.name.toLowerCase() === newContField.trim().toLowerCase())) return
+    setContFields((p) => [...p, { name: newContField.trim() }])
+    setNewContField("")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Loading...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-xs text-muted-foreground text-pretty">
+        Add custom fields that appear on customer and contact forms. These fields are also included in CSV exports.
+      </p>
+
+      {/* Customer fields */}
+      <section className="flex flex-col gap-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer Fields</h4>
+        <div className="flex flex-wrap gap-1.5">
+          {custFields.map((f) => (
+            <Badge key={f.name} variant="secondary" className="text-xs gap-1 pr-1">
+              {f.name}
+              <button
+                onClick={() => setCustFields((p) => p.filter((x) => x.name !== f.name))}
+                className="ml-0.5 p-0.5 rounded hover:bg-destructive/20 hover:text-destructive transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {custFields.length === 0 && (
+            <span className="text-xs text-muted-foreground">No custom customer fields</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={newCustField}
+            onChange={(e) => setNewCustField(e.target.value)}
+            placeholder="Field name..."
+            className="h-8 text-sm flex-1 max-w-xs"
+            onKeyDown={(e) => e.key === "Enter" && addCustField()}
+          />
+          <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={addCustField} disabled={!newCustField.trim()}>
+            <Plus className="h-3.5 w-3.5" /> Add
+          </Button>
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Contact fields */}
+      <section className="flex flex-col gap-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact Fields</h4>
+        <div className="flex flex-wrap gap-1.5">
+          {contFields.map((f) => (
+            <Badge key={f.name} variant="secondary" className="text-xs gap-1 pr-1">
+              {f.name}
+              <button
+                onClick={() => setContFields((p) => p.filter((x) => x.name !== f.name))}
+                className="ml-0.5 p-0.5 rounded hover:bg-destructive/20 hover:text-destructive transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {contFields.length === 0 && (
+            <span className="text-xs text-muted-foreground">No custom contact fields</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={newContField}
+            onChange={(e) => setNewContField(e.target.value)}
+            placeholder="Field name..."
+            className="h-8 text-sm flex-1 max-w-xs"
+            onKeyDown={(e) => e.key === "Enter" && addContField()}
+          />
+          <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={addContField} disabled={!newContField.trim()}>
+            <Plus className="h-3.5 w-3.5" /> Add
+          </Button>
+        </div>
+      </section>
+
+      <Button size="sm" className="gap-1.5 text-xs h-9 w-fit" onClick={saveFields} disabled={saving}>
+        <Save className="h-3.5 w-3.5" />
+        {saving ? "Saving..." : "Save Custom Fields"}
+      </Button>
     </div>
   )
 }

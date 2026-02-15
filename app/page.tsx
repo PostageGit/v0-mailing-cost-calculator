@@ -11,12 +11,13 @@ import { QuoteProvider, useQuote } from "@/lib/quote-context"
 import { MailingProvider } from "@/lib/mailing-context"
 import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
+import { CustomerList } from "@/components/customer-list"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench } from "lucide-react"
+import { Printer, BookOpen, Calculator, LayoutDashboard, Settings, Stamp, Wrench, Users } from "lucide-react"
 
 function AppContent() {
-  const [view, setView] = useState<"calculators" | "dashboard">("calculators")
+  const [view, setView] = useState<"calculators" | "dashboard" | "customers">("calculators")
   const [showSettings, setShowSettings] = useState(false)
   const { loadQuote } = useQuote()
 
@@ -57,6 +58,15 @@ function AppContent() {
             >
               <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">Dashboard</span>
+            </Button>
+            <Button
+              variant={view === "customers" ? "secondary" : "ghost"}
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+              onClick={() => setView("customers")}
+            >
+              <Users className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Customers</span>
             </Button>
             <Separator orientation="vertical" className="h-5 mx-1" />
             <Button
@@ -119,7 +129,7 @@ function AppContent() {
             <QuoteSidebar />
           </aside>
         </div>
-      ) : (
+      ) : view === "dashboard" ? (
         /* Dashboard / Kanban View */
         <div className="w-full max-w-[120rem] mx-auto px-4 lg:px-6 pt-5 pb-8">
           <div className="mb-5">
@@ -129,6 +139,11 @@ function AppContent() {
             </p>
           </div>
           <KanbanBoard onLoadQuote={handleLoadQuote} />
+        </div>
+      ) : (
+        /* Customers View */
+        <div className="w-full max-w-[120rem] mx-auto px-4 lg:px-6 pt-5 pb-8">
+          <CustomerList />
         </div>
       )}
 
