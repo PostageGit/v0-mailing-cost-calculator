@@ -153,15 +153,15 @@ function AppContent() {
       {/* ─── JOB VIEW: stepper + calculators ─── */}
       {view === "job" && (
         <div className="flex-1 flex flex-col">
-          {/* Job Setup */}
-          <div className="max-w-[90rem] mx-auto w-full px-6 pt-5">
+          {/* Job Setup -- collapsible, sits between nav and step pills */}
+          <div className="max-w-[90rem] mx-auto w-full px-6 pt-3 pb-2">
             <JobSetupHeader />
           </div>
 
           {/* Step Pills */}
           <div className="sticky top-12 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40">
             <div className="max-w-[90rem] mx-auto px-6">
-              <div className="flex items-center gap-1 py-2.5 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1 py-2 overflow-x-auto no-scrollbar">
                 {STEPS.map((step) => {
                   const active = step.id === currentStep
                   const done = completedSteps.has(step.id)
@@ -204,7 +204,7 @@ function AppContent() {
           </div>
 
           {/* Content + Sidebar */}
-          <div className="max-w-[90rem] mx-auto w-full px-6 pt-5 pb-10 flex gap-6 flex-1">
+          <div className="max-w-[90rem] mx-auto w-full px-6 pt-4 pb-10 flex gap-5 flex-1">
             {/* Calculator */}
             <main key={currentStep} className="flex-1 min-w-0 step-enter">
               {renderStep()}
