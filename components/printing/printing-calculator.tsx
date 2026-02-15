@@ -5,7 +5,7 @@ import { PrintingForm } from "./printing-form"
 import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
 import { PriceBreakdown } from "./price-breakdown"
-import { OrderSummary } from "./order-summary"
+
 import { Button } from "@/components/ui/button"
 import {
   calculateAllSheetOptions,
@@ -15,7 +15,7 @@ import type {
   PrintingInputs,
   SheetOptionRow,
   FullPrintingResult,
-  OrderItem,
+
 } from "@/lib/printing-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
@@ -85,9 +85,7 @@ export function PrintingCalculator() {
   const [showResults, setShowResults] = useState(false)
 
   // Order state
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([])
-  const [editingItemId, setEditingItemId] = useState<number | null>(null)
-  const [preEditInputs, setPreEditInputs] = useState<PrintingInputs | null>(null)
+  const [editingItemId] = useState<number | null>(null)
 
   // Helper to compute finishing calculator costs
   const getFinCalcCosts = useCallback(
@@ -166,105 +164,8 @@ export function PrintingCalculator() {
   }, [])
 
   // Add to order
-  const handleAddToOrder = useCallback(() => {
-    if (!fullResult) return
-
-    const description = `${inputs.qty} - ${inputs.width}x${inputs.height} Flat Prints`
-    const details: string[] = []
-    details.push(`${inputs.paperName} - ${fullResult.result.sheetSize}`)
-    const bleedText = inputs.hasBleed ? "+Bleed" : "No Bleed"
-    details.push(`${inputs.sidesValue}, ${bleedText}`)
-    if (inputs.addOnCharge > 0 && inputs.addOnDescription) {
-      details.push(`${inputs.addOnDescription}: $${inputs.addOnCharge.toFixed(2)}`)
-    }
-
-    const newItem: OrderItem = {
-      id: editingItemId || Date.now(),
-      summary: {
-        description,
-        details: details.join("\n"),
-        subtotal: fullResult.subtotal,
-        total: fullResult.grandTotal,
-      },
-      inputs: { ...inputs },
-      fullResult,
-    }
-
-    if (editingItemId) {
-      setOrderItems((prev) => prev.map((item) => (item.id === editingItemId ? newItem : item)))
-      setEditingItemId(null)
-      setPreEditInputs(null)
-    } else {
-      setOrderItems((prev) => [...prev, newItem])
-    }
-
-    // Reset form
-    resetForm()
-  }, [fullResult, inputs, editingItemId])
-
-  // Edit an order item
-  const handleEditItem = useCallback(
-    (id: number) => {
-      const item = orderItems.find((i) => i.id === id)
-      if (!item) return
-
-      setPreEditInputs({ ...inputs })
-      setEditingItemId(id)
-      setInputs({ ...item.inputs })
-
-      // Recalculate to show options
-      const options = calculateAllSheetOptions(item.inputs)
-      setSheetOptions(options)
-      setHasCalculated(true)
-
-      // Find and select the matching sheet
-      const matchingOption = options.find((o) => o.size === item.fullResult.result.sheetSize)
-      if (matchingOption) {
-        setSelectedOption(matchingOption)
-        setFullResult(item.fullResult)
-        setShowResults(true)
-      }
-    },
-    [orderItems, inputs]
-  )
-
-  // Duplicate an order item
-  const handleDuplicateItem = useCallback(
-    (id: number) => {
-      const item = orderItems.find((i) => i.id === id)
-      if (!item) return
-      const newItem: OrderItem = {
-        ...item,
-        id: Date.now(),
-      }
-      setOrderItems((prev) => [...prev, newItem])
-    },
-    [orderItems]
-  )
-
-  // Remove an order item
-  const handleRemoveItem = useCallback(
-    (id: number) => {
-      setOrderItems((prev) => prev.filter((item) => item.id !== id))
-      if (editingItemId === id) {
-        setEditingItemId(null)
-        setPreEditInputs(null)
-        resetForm()
-      }
-    },
-    [editingItemId]
-  )
-
-  // Reset form
   function resetForm() {
-    if (editingItemId && preEditInputs) {
-      // Cancel edit: restore previous state
-      setInputs(preEditInputs)
-      setEditingItemId(null)
-      setPreEditInputs(null)
-    } else {
-      setInputs(EMPTY_INPUTS)
-    }
+    setInputs(EMPTY_INPUTS)
     setSheetOptions([])
     setSelectedOption(null)
     setFullResult(null)
@@ -284,10 +185,8 @@ export function PrintingCalculator() {
   }, [fullResult, inputs, quote])
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 min-h-0 flex-grow">
-      {/* Main Calculator Column */}
-      <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
-        <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
+    <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
+      <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
           <h2 className="text-base font-semibold text-foreground mb-2">Flat Printing Calculator</h2>
 
           {/* Piece selector -- auto-fill from planner */}
@@ -326,7 +225,7 @@ export function PrintingCalculator() {
             inputs={inputs}
             onInputsChange={setInputs}
             onCalculate={handleCalculate}
-            onAddToOrder={handleAddToOrder}
+            onAddToOrder={handleAddToQuote}
             onReset={resetForm}
             isEditing={editingItemId !== null}
             canAddToOrder={fullResult !== null}
@@ -367,18 +266,6 @@ export function PrintingCalculator() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Order Summary Sidebar */}
-      <div className="lg:w-[26rem] flex-shrink-0">
-        <OrderSummary
-          items={orderItems}
-          editingItemId={editingItemId}
-          onEdit={handleEditItem}
-          onDuplicate={handleDuplicateItem}
-          onRemove={handleRemoveItem}
-        />
-      </div>
     </div>
   )
 }

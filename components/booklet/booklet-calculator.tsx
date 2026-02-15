@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button"
 import { BookletForm } from "./booklet-form"
 import { BookletLayoutSvg } from "./booklet-layout-svg"
 import { BookletDetails } from "./booklet-details"
-import { BookletOrderSummary } from "./booklet-order-summary"
 import { calculateBooklet } from "@/lib/booklet-pricing"
-import type { BookletInputs, BookletCalcResult, BookletOrderItem } from "@/lib/booklet-types"
+import type { BookletInputs, BookletCalcResult } from "@/lib/booklet-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { AlertTriangle, Plus, ArrowDown } from "lucide-react"
@@ -58,10 +57,7 @@ export function BookletCalculator() {
   const [validationError, setValidationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("cover")
 
-  // Order state
-  const [orderItems, setOrderItems] = useState<BookletOrderItem[]>([])
-  const [editingItemId, setEditingItemId] = useState<number | null>(null)
-  const [preEditInputs, setPreEditInputs] = useState<BookletInputs | null>(null)
+  const [editingItemId] = useState<number | null>(null)
 
   const isFormValid =
     inputs.bookQty > 0 &&
@@ -91,89 +87,8 @@ export function BookletCalculator() {
     setActiveTab(inputs.separateCover ? "cover" : "inside")
   }, [inputs, isFormValid])
 
-  const handleAddToOrder = useCallback(() => {
-    if (!calcResult || !calcResult.isValid) return
-
-    const coverDesc = inputs.separateCover ? `w/ ${calcResult.coverResult.paper} Cover` : "Self-Cover"
-    const details: Record<string, string> = {
-      line1: `${inputs.bookQty} - ${inputs.pagesPerBook}pg Saddle Stitch - ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
-      line2: `Pages: ${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${calcResult.insideResult.bleed ? " +Bleed" : ""}`,
-    }
-    if (inputs.separateCover) {
-      details.line3 = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides}${calcResult.coverResult.bleed ? " +Bleed" : ""}`
-    }
-    if (inputs.laminationType !== "none") {
-      details.line4 = `Lamination: ${inputs.laminationType.charAt(0).toUpperCase() + inputs.laminationType.slice(1)}`
-    }
-    if (inputs.isBroker) {
-      details.line5 = "Broker Discount Applied"
-    }
-
-    const newItem: BookletOrderItem = {
-      id: editingItemId || Date.now(),
-      summary: {
-        description: details.line1,
-        details,
-        subtotal: calcResult.subtotal,
-        total: calcResult.grandTotal,
-      },
-      inputs: { ...inputs },
-      result: calcResult,
-    }
-
-    if (editingItemId) {
-      setOrderItems((prev) => prev.map((item) => (item.id === editingItemId ? newItem : item)))
-      setEditingItemId(null)
-      setPreEditInputs(null)
-    } else {
-      setOrderItems((prev) => [...prev, newItem])
-    }
-
-    resetForm()
-  }, [calcResult, inputs, editingItemId])
-
-  const handleEditItem = useCallback(
-    (id: number) => {
-      const item = orderItems.find((i) => i.id === id)
-      if (!item) return
-      setPreEditInputs({ ...inputs })
-      setEditingItemId(id)
-      setInputs({ ...item.inputs })
-      setCalcResult(item.result)
-      setActiveTab(item.inputs.separateCover ? "cover" : "inside")
-    },
-    [orderItems, inputs]
-  )
-
-  const handleDuplicateItem = useCallback(
-    (id: number) => {
-      const item = orderItems.find((i) => i.id === id)
-      if (!item) return
-      setOrderItems((prev) => [...prev, { ...item, id: Date.now() }])
-    },
-    [orderItems]
-  )
-
-  const handleRemoveItem = useCallback(
-    (id: number) => {
-      setOrderItems((prev) => prev.filter((item) => item.id !== id))
-      if (editingItemId === id) {
-        setEditingItemId(null)
-        setPreEditInputs(null)
-        resetForm()
-      }
-    },
-    [editingItemId]
-  )
-
   function resetForm() {
-    if (editingItemId && preEditInputs) {
-      setInputs(preEditInputs)
-      setEditingItemId(null)
-      setPreEditInputs(null)
-    } else {
-      setInputs(EMPTY_INPUTS)
-    }
+    setInputs(EMPTY_INPUTS)
     setCalcResult(null)
     setValidationError(null)
   }
@@ -191,11 +106,9 @@ export function BookletCalculator() {
   }, [calcResult, inputs, quote])
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 min-h-0 flex-grow">
-      {/* Main Calculator Column */}
-      <div className="flex-1 flex flex-col gap-0 overflow-y-auto">
-        <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
-          <h2 className="text-base font-semibold text-foreground mb-2">Saddle Stitch Booklet Calculator</h2>
+    <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
+      <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
+        <h2 className="text-base font-semibold text-foreground mb-2">Saddle Stitch Booklet Calculator</h2>
 
           {/* Piece selector -- auto-fill from planner */}
           {bookletPieces.length > 0 && (
@@ -232,7 +145,7 @@ export function BookletCalculator() {
             inputs={inputs}
             onInputsChange={setInputs}
             onCalculate={handleCalculate}
-            onAddToOrder={handleAddToOrder}
+            onAddToOrder={handleAddToQuote}
             onReset={resetForm}
             isEditing={editingItemId !== null}
             canAddToOrder={calcResult !== null && calcResult.isValid}
@@ -302,17 +215,6 @@ export function BookletCalculator() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Order Summary Sidebar */}
-      <div className="lg:w-[26rem] flex-shrink-0">
-        <BookletOrderSummary
-          items={orderItems}
-          editingItemId={editingItemId}
-          onEdit={handleEditItem}
-          onDuplicate={handleDuplicateItem}
-          onRemove={handleRemoveItem}
-        />
       </div>
     </div>
   )

@@ -194,7 +194,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const ohpOrBoth = pieces.filter((p) => p.production === "ohp" || p.production === "both")
 
   const needsEnvelope = inhouseOrBoth.some((p) => p.type === "envelope")
-  const needsPrinting = !customerProvidesPrinting && inhouseOrBoth.some((p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet"].includes(p.type))
+  const needsPrinting = !customerProvidesPrinting && inhouseOrBoth.some((p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
   const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
   const needsOHP = ohpOrBoth.length > 0
 
