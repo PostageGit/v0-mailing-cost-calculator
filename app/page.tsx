@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
