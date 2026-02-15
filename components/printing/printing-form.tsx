@@ -12,9 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
-import { getActiveConfig, validateScoreFold, mapDimensionsToFoldSize, mapPaperToScoreFoldCategory } from "@/lib/pricing-config"
-import type { PrintingInputs } from "@/lib/printing-types"
-import { AlertTriangle, Info } from "lucide-react"
+import { getActiveConfig, validateScoreFold, mapDimensionsToFoldSize, mapPaperToScoreFoldCategory, calculateFinishingCost } from "@/lib/pricing-config"
+import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
+import { formatCurrency } from "@/lib/printing-pricing"
+import { AlertTriangle, Info, Check } from "lucide-react"
 
 interface PrintingFormProps {
   inputs: PrintingInputs
@@ -25,6 +26,8 @@ interface PrintingFormProps {
   isEditing: boolean
   canAddToOrder: boolean
   hasCalculated: boolean
+  /** Pass the current result so we can show real finishing prices */
+  currentResult?: FullPrintingResult | null
 }
 
 export function PrintingForm({
@@ -36,6 +39,7 @@ export function PrintingForm({
   isEditing,
   canAddToOrder,
   hasCalculated,
+  currentResult,
 }: PrintingFormProps) {
   const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
 
@@ -171,123 +175,11 @@ export function PrintingForm({
           </div>
 
           {/* Finishings Section */}
-          <div className="mb-5 rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-4">
-            <h3 className="text-sm font-semibold text-foreground">Add Finishings</h3>
-
-            {/* Sheet Finishings (per parent sheet) */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Sheet Finishings
-                </label>
-                <span className="text-[10px] text-muted-foreground">(applied per printer sheet)</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {getActiveConfig().finishings.map((f) => {
-                  const selected = (inputs.finishingIds || []).includes(f.id)
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => {
-                        const current = inputs.finishingIds || []
-                        const updated = selected
-                          ? current.filter((id) => id !== f.id)
-                          : [...current, f.id]
-                        onInputsChange({ ...inputs, finishingIds: updated })
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        selected
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                      }`}
-                    >
-                      {f.name}
-                      {selected && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">
-                          ON
-                        </Badge>
-                      )}
-                    </button>
-                  )
-                })}
-                {getActiveConfig().finishings.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No sheet finishings configured.</span>
-                )}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-border" />
-
-            {/* Piece Finishings (per cut piece) */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Piece Finishings
-                </label>
-                <span className="text-[10px] text-muted-foreground">(applied per cut piece)</span>
-              </div>
-
-              {/* Score & Fold */}
-              <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-medium text-foreground">Operation</label>
-                    <Select
-                      value={inputs.scoreFoldOperation || "none"}
-                      onValueChange={(v) =>
-                        onInputsChange({
-                          ...inputs,
-                          scoreFoldOperation: v === "none" ? "" : (v as "folding" | "scoring"),
-                          scoreFoldType: v === "none" ? "" : (inputs.scoreFoldType || ""),
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="folding">Folding</SelectItem>
-                        <SelectItem value="scoring">Score & Fold</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-medium text-foreground">Fold Type</label>
-                    <Select
-                      value={inputs.scoreFoldType || "none"}
-                      onValueChange={(v) =>
-                        onInputsChange({ ...inputs, scoreFoldType: v === "none" ? "" : (v as "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold") })
-                      }
-                      disabled={!inputs.scoreFoldOperation}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Select fold" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="foldInHalf">Fold in Half</SelectItem>
-                        <SelectItem value="foldIn3">Fold in 3</SelectItem>
-                        <SelectItem value="foldIn4">Fold in 4</SelectItem>
-                        <SelectItem value="gateFold">Gate Fold</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Validation / Info messages */}
-                <ScoreFoldValidationMessage
-                  operation={inputs.scoreFoldOperation || ""}
-                  paperName={inputs.paperName}
-                  width={inputs.width}
-                  height={inputs.height}
-                  foldType={inputs.scoreFoldType || ""}
-                />
-              </div>
-            </div>
-          </div>
+          <FinishingsSection
+            inputs={inputs}
+            onInputsChange={onInputsChange}
+            currentResult={currentResult}
+          />
 
           {/* Row 4: Add-on */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -354,6 +246,166 @@ export function PrintingForm({
             </Button>
           </div>
         </form>
+  )
+}
+
+// ---- Finishings section (extracted for clarity) ----
+function FinishingsSection({
+  inputs,
+  onInputsChange,
+  currentResult,
+}: {
+  inputs: PrintingInputs
+  onInputsChange: (i: PrintingInputs) => void
+  currentResult?: FullPrintingResult | null
+}) {
+  const config = getActiveConfig()
+  const allFinishings = config.finishings
+  const laminations = allFinishings.filter((f) => f.category === "lamination")
+
+  // Calculate prices for each lamination option
+  const parentSheets = currentResult?.result.sheets ?? 0
+  const isBroker = inputs.isBroker || false
+
+  function getFinishingPrice(f: typeof allFinishings[0]): string | null {
+    if (parentSheets <= 0) return `from ${formatCurrency(f.minimumJobPrice)}`
+    const cost = calculateFinishingCost(f, inputs.paperName, parentSheets, isBroker)
+    return formatCurrency(cost)
+  }
+
+  const selectedLamId = (inputs.finishingIds || []).find((id) =>
+    laminations.some((l) => l.id === id)
+  )
+
+  function handleLaminationSelect(id: string) {
+    const current = inputs.finishingIds || []
+    const lamIds = laminations.map((l) => l.id)
+    // Remove all lamination ids first, then add the new one (or none if toggling off)
+    const withoutLam = current.filter((cid) => !lamIds.includes(cid))
+    if (id === selectedLamId) {
+      // toggling off
+      onInputsChange({ ...inputs, finishingIds: withoutLam })
+    } else {
+      onInputsChange({ ...inputs, finishingIds: [...withoutLam, id] })
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-4">
+      <h3 className="text-sm font-semibold text-foreground">Finishings</h3>
+
+      {/* Lamination (radio -- pick one) */}
+      {laminations.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">
+            Lamination
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {laminations.map((f) => {
+              const selected = selectedLamId === f.id
+              const price = getFinishingPrice(f)
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => handleLaminationSelect(f.id)}
+                  className={`relative flex flex-col items-start rounded-lg border p-2.5 text-left transition-all ${
+                    selected
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
+                >
+                  {selected && (
+                    <div className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                    </div>
+                  )}
+                  <span className={`text-xs font-semibold ${selected ? "text-primary" : "text-foreground"}`}>
+                    {f.name.replace(" Lamination", "")}
+                  </span>
+                  {price && (
+                    <span className={`text-[10px] mt-0.5 ${selected ? "text-primary/70" : "text-muted-foreground"}`}>
+                      {price}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {selectedLamId && (
+            <button
+              type="button"
+              onClick={() => handleLaminationSelect(selectedLamId)}
+              className="text-[10px] text-muted-foreground hover:text-foreground self-start underline underline-offset-2"
+            >
+              Remove lamination
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="border-t border-border" />
+
+      {/* Score & Fold */}
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-medium text-muted-foreground">
+          Score & Fold
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium text-foreground">Operation</label>
+            <Select
+              value={inputs.scoreFoldOperation || "none"}
+              onValueChange={(v) =>
+                onInputsChange({
+                  ...inputs,
+                  scoreFoldOperation: v === "none" ? "" : (v as "folding" | "scoring"),
+                  scoreFoldType: v === "none" ? "" : (inputs.scoreFoldType || ""),
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="folding">Folding</SelectItem>
+                <SelectItem value="scoring">Score & Fold</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium text-foreground">Fold Type</label>
+            <Select
+              value={inputs.scoreFoldType || "none"}
+              onValueChange={(v) =>
+                onInputsChange({ ...inputs, scoreFoldType: v === "none" ? "" : (v as "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold") })
+              }
+              disabled={!inputs.scoreFoldOperation}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select fold" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="foldInHalf">Fold in Half</SelectItem>
+                <SelectItem value="foldIn3">Fold in 3</SelectItem>
+                <SelectItem value="foldIn4">Fold in 4</SelectItem>
+                <SelectItem value="gateFold">Gate Fold</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <ScoreFoldValidationMessage
+          operation={inputs.scoreFoldOperation || ""}
+          paperName={inputs.paperName}
+          width={inputs.width}
+          height={inputs.height}
+          foldType={inputs.scoreFoldType || ""}
+        />
+      </div>
+    </div>
   )
 }
 

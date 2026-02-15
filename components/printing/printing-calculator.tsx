@@ -228,6 +228,7 @@ export function PrintingCalculator() {
             isEditing={editingItemId !== null}
             canAddToOrder={fullResult !== null}
             hasCalculated={hasCalculated}
+            currentResult={fullResult}
           />
 
           {/* Sheet Options Table */}
