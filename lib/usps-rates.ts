@@ -11,7 +11,7 @@
 
 export type USPSServiceType = "FCM_COMM" | "FCM_RETAIL" | "MKT_COMM" | "MKT_NP"
 export type USPSShape = "POSTCARD" | "LETTER" | "FLAT"
-export type USPSPack = "ENV" | "FOLD" | "PLAS"
+export type USPSPack = "ENV" | "PLAS" | "SM_CARD" | "SM_FOLD" | "SM_BOOK"
 export type USPSEntry = "ORIGIN" | "DSCF" | "DDU"
 export type SortLevel = 1 | 2 | 3 // 1=Mixed, 2=ADC/AADC, 3=5-Digit
 
@@ -136,6 +136,7 @@ function getRateForLevel(
 ): number {
   const isSat = level === "SAT"
   const isPlastic = pack === "PLAS"
+  const isSelfMailer = pack === "SM_CARD" || pack === "SM_FOLD" || pack === "SM_BOOK"
 
   // --- FCM RETAIL: flat per-piece, no presort ---
   if (service === "FCM_RETAIL") {
@@ -279,8 +280,9 @@ export function calculateUSPSPostage(inputs: USPSInputs): USPSResult {
   }
 
   // --- Packaging warnings ---
-  if (pack === "FOLD") {
-    alerts.push({ type: "warning", message: "Folded Mail: Must use wafer seals (tabs). Unsealed edges jam machines and are rejected." })
+  const isSelfMailer = pack === "SM_CARD" || pack === "SM_FOLD" || pack === "SM_BOOK"
+  if (isSelfMailer) {
+    alerts.push({ type: "warning", message: `Self-Mailer (${pack === "SM_CARD" ? "Card" : pack === "SM_FOLD" ? "Folded" : "Booklet"}): Must use wafer seals / tabs per USPS DMM 201.3. Unsealed edges cause rejects.` })
   }
   if (pack === "PLAS" && shape === "LETTER") {
     alerts.push({ type: "warning", message: "Plastic: Letters in poly bags are Non-Machinable. Surcharge applied." })

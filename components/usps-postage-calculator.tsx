@@ -113,11 +113,14 @@ export function USPSPostageCalculator() {
     // Determine format from outer piece type
     if (outer.type === "envelope") {
       patch.pack = outer.envelopeKind === "plastic" ? "PLAS" : "ENV"
+    } else if (outer.type === "booklet") {
+      patch.pack = "SM_BOOK"
     } else if (outer.type === "folded_card" || outer.type === "self_mailer") {
-      patch.pack = "FOLD"
+      patch.pack = "SM_FOLD"
+    } else if (outer.type === "postcard" || outer.type === "flat_card" || outer.type === "letter") {
+      patch.pack = "SM_CARD"
     } else {
-      // Booklet, postcard, flat card mailed standalone -- no envelope
-      patch.pack = "FOLD" // folded/self-contained for standalone pieces
+      patch.pack = "SM_CARD"
     }
 
     // Determine shape from outer piece dimensions
@@ -230,7 +233,7 @@ export function USPSPostageCalculator() {
               <span className="mx-1.5 text-border">|</span>
               Shape: <strong>{SHAPE_LABELS[inputs.shape]}</strong>
               <span className="mx-1.5 text-border">|</span>
-              Format: <strong>{inputs.pack === "ENV" ? "Envelope" : inputs.pack === "FOLD" ? "Folded/Flat" : "Plastic"}</strong>
+              Format: <strong>{inputs.pack === "ENV" ? "Envelope (Paper)" : inputs.pack === "PLAS" ? "Envelope (Plastic)" : inputs.pack === "SM_CARD" ? "Self-Mailer Card" : inputs.pack === "SM_FOLD" ? "Self-Mailer Folded" : "Self-Mailer Booklet"}</strong>
             </p>
           </div>
         </div>
@@ -321,21 +324,36 @@ export function USPSPostageCalculator() {
               <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
                 Format
               </Label>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <Pill
                   active={inputs.pack === "ENV"}
                   onClick={() => update({ pack: "ENV" })}
                   label="Envelope"
-                />
-                <Pill
-                  active={inputs.pack === "FOLD"}
-                  onClick={() => update({ pack: "FOLD" })}
-                  label="Folded"
+                  sub="Paper"
                 />
                 <Pill
                   active={inputs.pack === "PLAS"}
                   onClick={() => update({ pack: "PLAS" })}
-                  label="Plastic"
+                  label="Envelope"
+                  sub="Plastic"
+                />
+                <Pill
+                  active={inputs.pack === "SM_CARD"}
+                  onClick={() => update({ pack: "SM_CARD" })}
+                  label="Self-Mailer"
+                  sub="Card"
+                />
+                <Pill
+                  active={inputs.pack === "SM_FOLD"}
+                  onClick={() => update({ pack: "SM_FOLD" })}
+                  label="Self-Mailer"
+                  sub="Folded"
+                />
+                <Pill
+                  active={inputs.pack === "SM_BOOK"}
+                  onClick={() => update({ pack: "SM_BOOK" })}
+                  label="Self-Mailer"
+                  sub="Booklet"
                 />
               </div>
             </div>
