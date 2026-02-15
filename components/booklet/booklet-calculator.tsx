@@ -215,7 +215,6 @@ export function BookletCalculator() {
             </div>
           )}
         </div>
-      </div>
     </div>
   )
 }
