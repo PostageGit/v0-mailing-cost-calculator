@@ -33,6 +33,7 @@ import {
   Palette,
   ListPlus,
   Wrench,
+  CreditCard,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -87,7 +88,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
               <div>
                 <CardTitle className="text-lg">Settings</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5 text-pretty">
-                  Configure labor rates, department colors, and custom fields.
+                  Configure labor rates, departments, custom fields, and payment terms.
                 </p>
               </div>
             </div>
@@ -117,6 +118,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <ListPlus className="h-3.5 w-3.5" />
                 Custom Fields
               </TabsTrigger>
+              <TabsTrigger value="terms" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <CreditCard className="h-3.5 w-3.5" />
+                Payment Terms
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="labor">
@@ -127,6 +132,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="fields">
               <CustomFieldsTab />
+            </TabsContent>
+            <TabsContent value="terms">
+              <PaymentTermsTab />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1076,6 +1084,92 @@ function AddMailClassForm({
         <Plus className="h-3.5 w-3.5" />
         {saving ? "Adding..." : "Add Mail Class"}
       </Button>
+    </div>
+  )
+}
+
+// ---------- PAYMENT TERMS TAB ----------
+const APP_SETTINGS_KEY = "/api/app-settings"
+
+function PaymentTermsTab() {
+  const { data: settings, mutate } = useSWR<Record<string, unknown>>(APP_SETTINGS_KEY, fetcher)
+  const terms = (settings?.payment_terms ?? []) as string[]
+  const [newTerm, setNewTerm] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  const saveterms = async (updated: string[]) => {
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_terms: updated }),
+      })
+      mutate()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addTerm = async () => {
+    const trimmed = newTerm.trim().toUpperCase()
+    if (!trimmed || terms.includes(trimmed)) return
+    await saveterms([...terms, trimmed])
+    setNewTerm("")
+  }
+
+  const removeTerm = async (term: string) => {
+    await saveterms(terms.filter((t) => t !== term))
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Payment Terms</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Manage payment terms options available when editing customers. Default is COD.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {terms.map((term) => (
+          <div
+            key={term}
+            className="group flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5"
+          >
+            <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">{term}</span>
+            {term !== "COD" && (
+              <button
+                onClick={() => removeTerm(term)}
+                className="ml-1 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                aria-label={`Remove ${term}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Input
+          value={newTerm}
+          onChange={(e) => setNewTerm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addTerm()}
+          placeholder="New term (e.g. NET 60)"
+          className="h-9 text-sm w-48"
+        />
+        <Button
+          size="sm"
+          className="h-9 gap-1.5 text-xs"
+          onClick={addTerm}
+          disabled={saving || !newTerm.trim()}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {saving ? "Adding..." : "Add Term"}
+        </Button>
+      </div>
     </div>
   )
 }

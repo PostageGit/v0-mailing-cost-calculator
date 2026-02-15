@@ -15,6 +15,7 @@ export interface Customer {
   state: string | null
   postal_code: string | null
   country: string | null
+  terms: string
   notes: string | null
   custom_fields: Record<string, string>
   created_at: string
@@ -105,6 +106,7 @@ export const EMPTY_CUSTOMER: Omit<Customer, "id" | "created_at" | "updated_at"> 
   state: null,
   postal_code: null,
   country: "US",
+  terms: "COD",
   notes: null,
   custom_fields: {},
 }

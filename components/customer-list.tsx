@@ -118,9 +118,16 @@ export function CustomerList() {
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">
-                    {c.company_name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {c.company_name}
+                    </p>
+                    {c.terms && (
+                      <Badge variant="outline" className="text-[9px] font-semibold tracking-wide px-1.5 py-0 shrink-0">
+                        {c.terms}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                     {c.contact_name && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
