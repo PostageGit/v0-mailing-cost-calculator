@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -96,18 +96,21 @@ export function USPSPostageCalculator() {
       FLAT: "Flat",
     }
     mailing.setClassName(classMap[inputs.shape] || inputs.shape)
-  }, [inputs.quantity, inputs.saturationQty, inputs.shape, mailing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs.quantity, inputs.saturationQty, inputs.shape])
 
-  // Auto-detect shape + format from planner's outer piece
+  // Auto-detect shape + format from planner's outer piece (runs when outer piece changes, NOT on quantity changes to avoid loop)
+  const seededQtyRef = useRef(false)
   useEffect(() => {
     const outer = mailing.outerPiece
     if (!outer) return
 
     const patch: Partial<USPSInputs> = {}
 
-    // Auto-set quantity from planner if it has one
-    if (mailing.quantity && mailing.quantity !== inputs.quantity) {
+    // Auto-set quantity from planner only on first mount
+    if (!seededQtyRef.current && mailing.quantity) {
       patch.quantity = mailing.quantity
+      seededQtyRef.current = true
     }
 
     // Determine format from outer piece type
@@ -140,7 +143,7 @@ export function USPSPostageCalculator() {
       setInputs((prev) => ({ ...prev, ...patch }))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mailing.outerPiece?.id, mailing.outerPiece?.type, mailing.outerPiece?.width, mailing.outerPiece?.height, mailing.outerPiece?.envelopeKind, mailing.quantity])
+  }, [mailing.outerPiece?.id, mailing.outerPiece?.type, mailing.outerPiece?.width, mailing.outerPiece?.height, mailing.outerPiece?.envelopeKind])
 
   const update = useCallback((partial: Partial<USPSInputs>) => {
     setInputs((prev) => {
