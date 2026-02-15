@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
+import { useState, useCallback, useMemo, useEffect, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
@@ -41,9 +41,23 @@ const STEP_CATS: Record<StepId, string[]> = {
   printing: ["flat"], booklet: ["booklet"], ohp: ["ohp"], items: ["item"],
 }
 
+class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error) { console.error("[v0] Step crash:", this.props.stepId, error) }
+  render() {
+    if (this.state.error) return (
+      <div className="p-8 rounded-2xl border border-destructive/30 bg-destructive/5">
+        <h3 className="text-sm font-bold text-destructive mb-2">Error in: {this.props.stepId}</h3>
+        <pre className="text-xs text-destructive/80 whitespace-pre-wrap">{this.state.error.message}{"\n"}{this.state.error.stack}</pre>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
 type View = "home" | "job" | "dashboard" | "customers" | "vendors"
 type JobPhase = "planner" | "pricing"
-// v2 - cleaned up calculators
 
 function AppContent() {
   const [view, setView] = useState<View>("home")
@@ -163,6 +177,7 @@ function AppContent() {
       )}
 
       {view === "job" && jobPhase === "pricing" && (
+        <StepErrorBoundary stepId="pricing-layout">
         <div className="flex-1 flex flex-col">
           {/* Step Pills Bar + Back to Planner */}
           <div className="sticky top-11 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40">
@@ -235,7 +250,9 @@ function AppContent() {
           {/* ─── Content + Quote Sidebar ─── */}
           <div className="max-w-[100rem] mx-auto w-full px-4 pt-4 pb-8 flex gap-4 flex-1 min-h-0">
             <main key={currentStep} className="flex-1 min-w-0 step-enter">
-              {renderStep()}
+              <StepErrorBoundary stepId={currentStep}>
+                {renderStep()}
+              </StepErrorBoundary>
             </main>
             {rightOpen ? (
               <aside className="hidden lg:block w-72 shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
@@ -253,6 +270,7 @@ function AppContent() {
 
           <MobileBar />
         </div>
+        </StepErrorBoundary>
       )}
 
       {/* ─── Other views ─── */}
