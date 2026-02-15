@@ -23,7 +23,10 @@ import {
   DEFAULT_BOOKLET_PAPER_PRICES,
   DEFAULT_MARKUPS,
   DEFAULT_FINISHING_OPTIONS,
+  DEFAULT_SCORE_FOLD_CONFIG,
   type FinishingOption,
+  type ScoreFoldConfig,
+  type ScoreFoldEntry,
 } from "@/lib/pricing-config"
 import {
   Settings,
@@ -1788,254 +1791,408 @@ function PaperPriceEditor({
 }
 
 // ---------- FINISHINGS SETTINGS TAB ----------
+
+const FOLD_TYPE_LABELS: Record<string, string> = { foldInHalf: "Half", foldIn3: "Tri", foldIn4: "Quad", gateFold: "Gate" }
+const PAPER_CATS = ["80text", "100text", "cardstock"] as const
+const FOLD_SIZES = ["11x17", "8.5x11", "8.5x5.5"] as const
+const FOLD_TYPES = ["foldInHalf", "foldIn3", "foldIn4", "gateFold"] as const
+const SETUP_OPTIONS = ["N/A", "hand fold", "Level 1", "Level 2", "Level 3", "Level 4", "Level 5"]
+
 function FinishingsSettingsTab() {
   const { data: settings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
   const [saving, setSaving] = useState(false)
 
+  // --- Sheet finishings state ---
   const dbFinishings = (settings?.pricing_finishings ?? null) as FinishingOption[] | null
   const [finishings, setFinishings] = useState<FinishingOption[]>(structuredClone(DEFAULT_FINISHING_OPTIONS))
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false)
+  const [sheetDirty, setSheetDirty] = useState(false)
+
+  // --- Score & Fold state ---
+  const dbScoreFold = (settings?.pricing_score_fold ?? null) as ScoreFoldConfig | null
+  const [scoreFold, setScoreFold] = useState<ScoreFoldConfig>(structuredClone(DEFAULT_SCORE_FOLD_CONFIG))
+  const [sfDirty, setSfDirty] = useState(false)
+  const [sfActiveOp, setSfActiveOp] = useState<"folding" | "scoring">("folding")
 
   const [loaded, setLoaded] = useState(false)
   if (settings && !loaded) {
-    if (dbFinishings && dbFinishings.length > 0) {
-      setFinishings(structuredClone(dbFinishings))
-    }
+    if (dbFinishings && dbFinishings.length > 0) setFinishings(structuredClone(dbFinishings))
+    if (dbScoreFold) setScoreFold(structuredClone(dbScoreFold))
     setLoaded(true)
   }
 
-  const saveFinishings = async (updated: FinishingOption[]) => {
+  // ---------- Sheet Finishing helpers ----------
+  const saveSheetFinishings = async (updated: FinishingOption[]) => {
     setSaving(true)
     try {
-      await fetch("/api/app-settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pricing_finishings: updated }),
-      })
-      setDirty(false)
+      await fetch("/api/app-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pricing_finishings: updated }) })
+      setSheetDirty(false)
       mutate()
       globalMutate("/api/app-settings")
-    } finally {
-      setSaving(false)
-    }
+    } finally { setSaving(false) }
   }
 
   const updateFinishing = (id: string, partial: Partial<FinishingOption>) => {
     setFinishings((prev) => prev.map((f) => (f.id === id ? { ...f, ...partial } : f)))
-    setDirty(true)
+    setSheetDirty(true)
   }
 
   const addFinishing = () => {
     const id = "custom_" + Date.now()
     const newF: FinishingOption = {
-      id,
-      name: "New Finishing",
-      category: "finishing",
-      setupCost: 10,
+      id, name: "New Finishing", category: "finishing", setupCost: 10,
       runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
-      rollCostPerSheet: 0,
-      rollChangeFee: 0,
-      wastePercent: 0.05,
-      minSheets: 5,
-      markupPercent: 225,
-      brokerDiscountPercent: 30,
-      minimumJobPrice: 45,
-      reducesSheetArea: false,
+      rollCostPerSheet: 0, rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
+      markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: false,
     }
     setFinishings((prev) => [...prev, newF])
     setExpandedId(id)
-    setDirty(true)
+    setSheetDirty(true)
   }
 
-  const removeFinishing = (id: string) => {
-    setFinishings((prev) => prev.filter((f) => f.id !== id))
-    setDirty(true)
+  const removeFinishing = (id: string) => { setFinishings((prev) => prev.filter((f) => f.id !== id)); setSheetDirty(true) }
+  const resetSheetDefaults = () => { setFinishings(structuredClone(DEFAULT_FINISHING_OPTIONS)); setSheetDirty(true) }
+
+  // ---------- Score & Fold helpers ----------
+  const saveScoreFold = async (updated: ScoreFoldConfig) => {
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pricing_score_fold: updated }) })
+      setSfDirty(false)
+      mutate()
+      globalMutate("/api/app-settings")
+    } finally { setSaving(false) }
   }
 
-  const resetDefaults = () => {
-    setFinishings(structuredClone(DEFAULT_FINISHING_OPTIONS))
-    setDirty(true)
+  const updateSfGlobal = (partial: Partial<ScoreFoldConfig>) => { setScoreFold((prev) => ({ ...prev, ...partial })); setSfDirty(true) }
+
+  const updateSfEntry = (op: string, paper: string, size: string, fold: string, partial: Partial<ScoreFoldEntry>) => {
+    setScoreFold((prev) => {
+      const clone = structuredClone(prev)
+      const entry = clone.data[op]?.[paper]?.[size]?.[fold]
+      if (entry) Object.assign(entry, partial)
+      return clone
+    })
+    setSfDirty(true)
   }
+
+  const updateSetupLevel = (level: string, minutes: number) => {
+    setScoreFold((prev) => {
+      const clone = structuredClone(prev)
+      clone.setupLevels[level] = minutes
+      return clone
+    })
+    setSfDirty(true)
+  }
+
+  const resetSfDefaults = () => { setScoreFold(structuredClone(DEFAULT_SCORE_FOLD_CONFIG)); setSfDirty(true) }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">Finishing Options</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Configure lamination and other finishing processes. These apply per parent sheet (the big printer sheet, not the cut piece).
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
 
-      {/* Actions bar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveFinishings(finishings)} disabled={saving}>
-          <Save className="h-3 w-3" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
-          <Plus className="h-3 w-3" /> Add Finishing
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetDefaults}>
-          Reset to Defaults
-        </Button>
-        {dirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved changes</span>}
-      </div>
+      {/* ========== SECTION 1: SHEET FINISHINGS ========== */}
+      <div className="rounded-lg border border-border">
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border rounded-t-lg">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Sheet Finishings</h3>
+            <p className="text-[11px] text-muted-foreground">
+              Lamination and coatings applied per parent sheet (the big printer sheet).
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[9px]">Per Sheet</Badge>
+        </div>
 
-      {/* Finishing cards */}
-      <div className="flex flex-col gap-2">
-        {finishings.map((f) => {
-          const isExpanded = expandedId === f.id
-          return (
-            <div key={f.id} className="rounded-lg border border-border">
-              <button
-                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
-                onClick={() => setExpandedId(isExpanded ? null : f.id)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground">{f.name}</span>
-                  <Badge variant="outline" className="text-[9px]">{f.category}</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">
-                    Setup: ${f.setupCost} | Markup: {f.markupPercent}% | Min: ${f.minimumJobPrice}
-                  </span>
-                  {isExpanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
-                </div>
-              </button>
+        <div className="p-4 flex flex-col gap-3">
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveSheetFinishings(finishings)} disabled={saving}>
+              <Save className="h-3 w-3" /> {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
+              <Plus className="h-3 w-3" /> Add
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSheetDefaults}>Reset Defaults</Button>
+            {sheetDirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved</span>}
+          </div>
 
-              {isExpanded && (
-                <div className="px-3 pb-3 border-t border-border pt-3 flex flex-col gap-3">
-                  {/* Name, Category */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Name</label>
-                      <Input value={f.name} onChange={(e) => updateFinishing(f.id, { name: e.target.value })} className="h-7 text-xs" />
+          {/* Cards */}
+          <div className="flex flex-col gap-2">
+            {finishings.map((f) => {
+              const isExpanded = expandedId === f.id
+              return (
+                <div key={f.id} className="rounded-lg border border-border">
+                  <button
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                    onClick={() => setExpandedId(isExpanded ? null : f.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-foreground">{f.name}</span>
+                      <Badge variant="outline" className="text-[9px]">{f.category}</Badge>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Category</label>
-                      <Select value={f.category} onValueChange={(v) => updateFinishing(f.id, { category: v as "lamination" | "finishing" })}>
-                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lamination">Lamination</SelectItem>
-                          <SelectItem value="finishing">Finishing</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground">
+                        Setup: ${f.setupCost} | Markup: {f.markupPercent}% | Min: ${f.minimumJobPrice}
+                      </span>
+                      {isExpanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Setup Cost ($)</label>
-                      <Input type="number" step="0.01" value={f.setupCost}
-                        onChange={(e) => updateFinishing(f.id, { setupCost: parseFloat(e.target.value) || 0 })}
-                        className="h-7 text-xs" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Min Job Price ($)</label>
-                      <Input type="number" step="0.01" value={f.minimumJobPrice}
-                        onChange={(e) => updateFinishing(f.id, { minimumJobPrice: parseFloat(e.target.value) || 0 })}
-                        className="h-7 text-xs" />
-                    </div>
-                  </div>
+                  </button>
 
-                  {/* Cost parameters */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Roll Cost / Sheet ($)</label>
-                      <Input type="number" step="0.0001" value={f.rollCostPerSheet}
-                        onChange={(e) => updateFinishing(f.id, { rollCostPerSheet: parseFloat(e.target.value) || 0 })}
-                        className="h-7 text-xs" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Roll Change Fee ($)</label>
-                      <Input type="number" step="0.01" value={f.rollChangeFee}
-                        onChange={(e) => updateFinishing(f.id, { rollChangeFee: parseFloat(e.target.value) || 0 })}
-                        className="h-7 text-xs" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Waste %</label>
-                      <Input type="number" step="0.01" value={(f.wastePercent * 100).toFixed(1)}
-                        onChange={(e) => updateFinishing(f.id, { wastePercent: (parseFloat(e.target.value) || 0) / 100 })}
-                        className="h-7 text-xs" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Min Sheets</label>
-                      <Input type="number" step="1" value={f.minSheets}
-                        onChange={(e) => updateFinishing(f.id, { minSheets: parseInt(e.target.value) || 1 })}
-                        className="h-7 text-xs" />
-                    </div>
-                  </div>
-
-                  {/* Markup and broker */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Markup %</label>
-                      <Input type="number" step="1" value={f.markupPercent}
-                        onChange={(e) => updateFinishing(f.id, { markupPercent: parseFloat(e.target.value) || 0 })}
-                        className="h-7 text-xs" />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-medium text-muted-foreground">Broker Discount %</label>
-                      <Input type="number" step="1" value={f.brokerDiscountPercent}
-                        onChange={(e) => updateFinishing(f.id, { brokerDiscountPercent: parseFloat(e.target.value) || 0 })}
-                        className="h-7 text-xs" />
-                    </div>
-                    <div className="flex items-end gap-2 col-span-2">
-                      <div className="flex items-center gap-2 h-7">
-                        <Switch
-                          checked={f.reducesSheetArea}
-                          onCheckedChange={(v) => updateFinishing(f.id, { reducesSheetArea: v })}
-                        />
-                        <span className="text-[10px] text-muted-foreground">Reduces printable area (0.15in margin)</span>
+                  {isExpanded && (
+                    <div className="px-3 pb-3 border-t border-border pt-3 flex flex-col gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Name</label>
+                          <Input value={f.name} onChange={(e) => updateFinishing(f.id, { name: e.target.value })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Category</label>
+                          <Select value={f.category} onValueChange={(v) => updateFinishing(f.id, { category: v as "lamination" | "finishing" })}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="lamination">Lamination</SelectItem>
+                              <SelectItem value="finishing">Finishing</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Setup Cost ($)</label>
+                          <Input type="number" step="0.01" value={f.setupCost} onChange={(e) => updateFinishing(f.id, { setupCost: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Min Job Price ($)</label>
+                          <Input type="number" step="0.01" value={f.minimumJobPrice} onChange={(e) => updateFinishing(f.id, { minimumJobPrice: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Roll Cost / Sheet ($)</label>
+                          <Input type="number" step="0.0001" value={f.rollCostPerSheet} onChange={(e) => updateFinishing(f.id, { rollCostPerSheet: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Roll Change Fee ($)</label>
+                          <Input type="number" step="0.01" value={f.rollChangeFee} onChange={(e) => updateFinishing(f.id, { rollChangeFee: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Waste %</label>
+                          <Input type="number" step="0.01" value={(f.wastePercent * 100).toFixed(1)} onChange={(e) => updateFinishing(f.id, { wastePercent: (parseFloat(e.target.value) || 0) / 100 })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Min Sheets</label>
+                          <Input type="number" step="1" value={f.minSheets} onChange={(e) => updateFinishing(f.id, { minSheets: parseInt(e.target.value) || 1 })} className="h-7 text-xs" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Markup %</label>
+                          <Input type="number" step="1" value={f.markupPercent} onChange={(e) => updateFinishing(f.id, { markupPercent: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Broker Discount %</label>
+                          <Input type="number" step="1" value={f.brokerDiscountPercent} onChange={(e) => updateFinishing(f.id, { brokerDiscountPercent: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex items-end gap-2 col-span-2">
+                          <div className="flex items-center gap-2 h-7">
+                            <Switch checked={f.reducesSheetArea} onCheckedChange={(v) => updateFinishing(f.id, { reducesSheetArea: v })} />
+                            <span className="text-[10px] text-muted-foreground">Reduces printable area (0.15in margin)</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Runtime Cost / Sheet</h4>
+                        <div className="rounded border border-border overflow-hidden">
+                          <table className="w-full text-xs">
+                            <thead><tr className="bg-muted/50 border-b border-border"><th className="text-left font-medium text-muted-foreground px-2 py-1.5">Category</th><th className="text-right font-medium text-muted-foreground px-2 py-1.5">Cost ($)</th></tr></thead>
+                            <tbody>
+                              {Object.entries(f.runtimeCosts).map(([cat, costs]) => (
+                                <tr key={cat} className="border-b border-border last:border-0">
+                                  <td className="px-2 py-1 font-medium text-foreground">{cat}</td>
+                                  <td className="px-2 py-1 text-right">
+                                    <Input type="number" step="0.0001" value={costs["default"] || Object.values(costs)[0] || 0}
+                                      onChange={(e) => { const val = parseFloat(e.target.value) || 0; updateFinishing(f.id, { runtimeCosts: { ...f.runtimeCosts, [cat]: { default: val } } }) }}
+                                      className="h-6 text-[10px] w-20 ml-auto text-right" />
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button variant="destructive" size="sm" className="h-7 text-xs gap-1" onClick={() => removeFinishing(f.id)}>
+                          <Trash2 className="h-3 w-3" /> Remove
+                        </Button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Runtime costs per paper category */}
-                  <div>
-                    <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                      Runtime Cost / Sheet by Paper Category
-                    </h4>
-                    <div className="rounded border border-border overflow-hidden">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-muted/50 border-b border-border">
-                            <th className="text-left font-medium text-muted-foreground px-2 py-1.5">Category</th>
-                            <th className="text-right font-medium text-muted-foreground px-2 py-1.5">Cost ($)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(f.runtimeCosts).map(([cat, costs]) => (
-                            <tr key={cat} className="border-b border-border last:border-0">
-                              <td className="px-2 py-1 font-medium text-foreground">{cat}</td>
-                              <td className="px-2 py-1 text-right">
-                                <Input
-                                  type="number" step="0.0001"
-                                  value={costs["default"] || Object.values(costs)[0] || 0}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0
-                                    const updated = { ...f.runtimeCosts, [cat]: { default: val } }
-                                    updateFinishing(f.id, { runtimeCosts: updated })
-                                  }}
-                                  className="h-6 text-[10px] w-20 ml-auto text-right"
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Delete */}
-                  <div className="flex justify-end">
-                    <Button variant="destructive" size="sm" className="h-7 text-xs gap-1" onClick={() => removeFinishing(f.id)}>
-                      <Trash2 className="h-3 w-3" /> Remove
-                    </Button>
-                  </div>
+                  )}
                 </div>
-              )}
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ========== SECTION 2: PIECE FINISHINGS (Score & Fold) ========== */}
+      <div className="rounded-lg border border-border">
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border rounded-t-lg">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Piece Finishings -- Score & Fold</h3>
+            <p className="text-[11px] text-muted-foreground">
+              Folding and scoring applied per cut piece. Setup levels, runtimes, and cost parameters.
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[9px]">Per Piece</Badge>
+        </div>
+
+        <div className="p-4 flex flex-col gap-4">
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveScoreFold(scoreFold)} disabled={saving}>
+              <Save className="h-3 w-3" /> {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSfDefaults}>Reset Defaults</Button>
+            {sfDirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved</span>}
+          </div>
+
+          {/* Global cost parameters */}
+          <div>
+            <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Cost Parameters</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Setup Cost / Hr ($)</label>
+                <Input type="number" step="1" value={scoreFold.setupCostPerHour} onChange={(e) => updateSfGlobal({ setupCostPerHour: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Runtime Cost / Hr ($)</label>
+                <Input type="number" step="1" value={scoreFold.runtimeCostPerHour} onChange={(e) => updateSfGlobal({ runtimeCostPerHour: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Machine Charge / Hr ($)</label>
+                <Input type="number" step="1" value={scoreFold.machineChargePerHour} onChange={(e) => updateSfGlobal({ machineChargePerHour: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Min Job Price ($)</label>
+                <Input type="number" step="1" value={scoreFold.minimumJobPrice} onChange={(e) => updateSfGlobal({ minimumJobPrice: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              </div>
             </div>
-          )
-        })}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Markup %</label>
+                <Input type="number" step="1" value={scoreFold.markupPercent} onChange={(e) => updateSfGlobal({ markupPercent: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Broker Discount %</label>
+                <Input type="number" step="1" value={scoreFold.brokerDiscountPercent} onChange={(e) => updateSfGlobal({ brokerDiscountPercent: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Setup levels */}
+          <div>
+            <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Setup Levels (minutes)</h4>
+            <div className="grid grid-cols-5 gap-2">
+              {Object.entries(scoreFold.setupLevels).map(([level, mins]) => (
+                <div key={level} className="flex flex-col gap-1">
+                  <label className="text-[10px] font-medium text-muted-foreground">{level}</label>
+                  <Input type="number" step="1" value={mins} onChange={(e) => updateSetupLevel(level, parseInt(e.target.value) || 0)} className="h-7 text-xs" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Data table -- toggle between folding / scoring */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Rate Table</h4>
+              <div className="flex rounded-md border border-border overflow-hidden ml-2">
+                <button
+                  className={`px-3 py-1 text-[10px] font-medium transition-colors ${sfActiveOp === "folding" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setSfActiveOp("folding")}
+                >
+                  Folding
+                </button>
+                <button
+                  className={`px-3 py-1 text-[10px] font-medium transition-colors border-l border-border ${sfActiveOp === "scoring" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setSfActiveOp("scoring")}
+                >
+                  Score & Fold
+                </button>
+              </div>
+            </div>
+
+            {/* One table per paper category */}
+            {PAPER_CATS.map((paper) => (
+              <div key={paper} className="mb-4">
+                <h5 className="text-[11px] font-semibold text-foreground mb-1.5 capitalize">
+                  {paper === "80text" ? "80 Text" : paper === "100text" ? "100 Text" : "Cardstock"}
+                </h5>
+                <div className="rounded border border-border overflow-x-auto">
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="bg-muted/50 border-b border-border">
+                        <th className="text-left font-medium text-muted-foreground px-2 py-1.5 w-20">Size</th>
+                        {FOLD_TYPES.map((ft) => (
+                          <th key={ft} className="text-center font-medium text-muted-foreground px-1 py-1.5" colSpan={2}>
+                            {FOLD_TYPE_LABELS[ft]}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr className="bg-muted/30 border-b border-border">
+                        <th />
+                        {FOLD_TYPES.map((ft) => (
+                          <><th key={ft + "-s"} className="text-center text-muted-foreground px-1 py-1 font-normal">Setup</th><th key={ft + "-r"} className="text-center text-muted-foreground px-1 py-1 font-normal">Rt/100</th></>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FOLD_SIZES.map((size) => {
+                        return (
+                          <tr key={size} className="border-b border-border last:border-0">
+                            <td className="px-2 py-1.5 font-medium text-foreground whitespace-nowrap">{size}</td>
+                            {FOLD_TYPES.map((ft) => {
+                              const entry = scoreFold.data[sfActiveOp]?.[paper]?.[size]?.[ft] || { setup: "N/A", runtime: 0 }
+                              const isNA = entry.setup === "N/A"
+                              return (
+                                <td key={ft + "-s"} colSpan={2} className="px-1 py-1">
+                                  <div className="flex items-center gap-1">
+                                    <Select
+                                      value={entry.setup}
+                                      onValueChange={(v) => updateSfEntry(sfActiveOp, paper, size, ft, { setup: v })}
+                                    >
+                                      <SelectTrigger className={`h-6 text-[10px] w-[70px] ${isNA ? "opacity-50" : ""}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {SETUP_OPTIONS.map((opt) => (
+                                          <SelectItem key={opt} value={opt} className="text-[10px]">{opt}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={Math.round(entry.runtime * 60 * 100) / 100}
+                                      onChange={(e) => updateSfEntry(sfActiveOp, paper, size, ft, { runtime: (parseFloat(e.target.value) || 0) / 60 })}
+                                      disabled={isNA || entry.setup === "hand fold"}
+                                      className={`h-6 text-[10px] w-14 text-right ${isNA || entry.setup === "hand fold" ? "opacity-30" : ""}`}
+                                    />
+                                  </div>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
