@@ -53,19 +53,12 @@ export function EnvelopeTab() {
   }
 
   return (
-    <Card className="border-border shadow-sm">
+    <Card className="border-border rounded-2xl overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-chart-2/10">
-            <Mail className="h-4 w-4 text-chart-2" />
-          </div>
-          <div>
-            <CardTitle className="text-lg">Envelope Pricing</CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Select an envelope size and enter your cost per unit to add to the quote.
-            </CardDescription>
-          </div>
-        </div>
+        <CardTitle className="text-base font-semibold text-foreground">Envelope Pricing</CardTitle>
+        <CardDescription className="text-sm text-muted-foreground">
+          Select an envelope size and enter your cost per unit.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {/* Size grid */}
@@ -79,24 +72,24 @@ export function EnvelopeTab() {
                   key={env.id}
                   type="button"
                   onClick={() => setSelectedSize(env.id)}
-                  className={`relative flex flex-col items-start rounded-lg border p-2.5 text-left transition-all ${
+                  className={`relative flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                     isSelected
-                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                      : "border-border bg-card hover:border-primary/40"
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card hover:border-foreground/20"
                   }`}
                 >
                   {isSelected && (
-                    <div className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                    <div className="absolute top-2 right-2 h-4 w-4 rounded-full bg-background flex items-center justify-center">
+                      <Check className="h-2.5 w-2.5 text-foreground" />
                     </div>
                   )}
-                  <span className={`text-xs font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
+                  <span className={`text-xs font-semibold ${isSelected ? "text-background" : "text-foreground"}`}>
                     {env.name}
                   </span>
-                  <span className={`text-[10px] mt-0.5 ${isSelected ? "text-primary/70" : "text-muted-foreground"}`}>
+                  <span className={`text-[10px] mt-0.5 ${isSelected ? "text-background/60" : "text-muted-foreground"}`}>
                     {env.id === "custom" ? "Enter dimensions" : `${env.width}" x ${env.height}"`}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">{env.description}</span>
+                  <span className={`text-[10px] ${isSelected ? "text-background/50" : "text-muted-foreground"}`}>{env.description}</span>
                 </button>
               )
             })}

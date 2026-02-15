@@ -130,19 +130,12 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
 
   if (inline) {
     return (
-      <Card className="w-full border-border shadow-sm">
+      <Card className="w-full border-border rounded-2xl overflow-hidden">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-              <Send className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">Out of House Production</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Compare vendor prices, add markup, and push to quote
-              </p>
-            </div>
-          </div>
+          <CardTitle className="text-base font-semibold text-foreground">Out of House Production</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Request vendor bids, compare prices, add markup, and push to your quote or keep as a bid.
+          </p>
         </CardHeader>
         {content}
       </Card>
@@ -154,23 +147,16 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
       className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[4vh] overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
     >
-      <Card className="w-full max-w-3xl border-border shadow-lg">
+      <Card className="w-full max-w-3xl border-border rounded-2xl overflow-hidden shadow-2xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10">
-                <Send className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Out of House Production</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Compare vendor prices, add markup, and push to quote
-                </p>
-              </div>
+            <div>
+              <CardTitle className="text-base font-semibold text-foreground">Out of House Production</CardTitle>
+              <p className="text-sm text-muted-foreground">Compare vendor prices and push to quote.</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
-              <X className="h-4 w-4" />
-            </Button>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary transition-colors" aria-label="Close">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
           </div>
         </CardHeader>
         {content}
@@ -358,8 +344,8 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
 
           {/* Markup + Push to Quote (only when awarded) */}
           {bid.status === "awarded" && bid.winning_price != null && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
+            <div className="rounded-xl border border-border bg-secondary/50 p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                 <ShoppingCart className="h-3.5 w-3.5" />
                 Push to Customer Quote
               </div>
@@ -386,20 +372,20 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] text-muted-foreground font-semibold">Customer Sees</span>
-                  <span className="font-mono font-bold text-primary tabular-nums text-sm">{formatCurrency(customerTotal)}</span>
+                  <span className="font-mono font-bold text-foreground tabular-nums text-sm">{formatCurrency(customerTotal)}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
-                  className="h-8 text-xs gap-1.5"
+                  className="h-9 text-xs gap-1.5 rounded-full bg-foreground text-background hover:bg-foreground/90"
                   onClick={handlePushToQuote}
                   disabled={pushed}
                 >
                   {pushed ? (
                     <><Check className="h-3.5 w-3.5" /> Added to Quote</>
                   ) : (
-                    <><ShoppingCart className="h-3.5 w-3.5" /> Push to Quote</>
+                    <><ShoppingCart className="h-3.5 w-3.5" /> Add to Quote</>
                   )}
                 </Button>
                 <span className="text-[10px] text-muted-foreground">

@@ -66,17 +66,17 @@ function ToggleBtn({
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`flex flex-col items-center justify-center gap-1 rounded-lg border-2 p-3 text-center transition-all ${
+      className={`flex flex-col items-center justify-center gap-1 rounded-xl border p-3 text-center transition-all ${
         disabled
-          ? "opacity-40 cursor-not-allowed border-border bg-muted grayscale"
+          ? "opacity-30 cursor-not-allowed border-border bg-secondary"
           : active
-            ? "border-primary bg-primary/5 shadow-sm"
-            : "border-border bg-card hover:border-muted-foreground/30 cursor-pointer"
+            ? "border-foreground bg-foreground text-background shadow-sm"
+            : "border-border bg-card hover:border-foreground/20 cursor-pointer"
       } ${className}`}
     >
-      <span className="text-base">{icon}</span>
-      <span className="text-xs font-semibold text-foreground">{label}</span>
-      {sub && <span className="text-[10px] text-muted-foreground leading-tight">{sub}</span>}
+      <span className={`text-base ${active && !disabled ? "text-background" : ""}`}>{icon}</span>
+      <span className={`text-xs font-semibold ${active && !disabled ? "text-background" : "text-foreground"}`}>{label}</span>
+      {sub && <span className={`text-[10px] leading-tight ${active && !disabled ? "text-background/60" : "text-muted-foreground"}`}>{sub}</span>}
     </button>
   )
 }
@@ -161,16 +161,13 @@ export function USPSPostageCalculator() {
   const spec = SPECS[inputs.shape]
 
   return (
-    <div className="mx-auto max-w-5xl flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {/* Step 1: Mail Service */}
-      <Card className="border-border bg-card shadow-sm">
+      <Card className="border-border rounded-2xl overflow-hidden">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-            <span className="flex items-center justify-center h-6 w-6 rounded-md bg-primary/10 text-primary text-xs font-bold">1</span>
-            Mail Service
-          </CardTitle>
+          <CardTitle className="text-base font-semibold text-foreground">Mail Service</CardTitle>
           <CardDescription className="text-sm text-muted-foreground text-pretty">
-            Exact USPS rates from Notice 123 (Jan 2026). No parcels.
+            Exact USPS rates from Notice 123 (Jan 2026).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -210,13 +207,10 @@ export function USPSPostageCalculator() {
       </Card>
 
       {/* Step 2: Physical Specs */}
-      <Card className="border-border bg-card shadow-sm">
+      <Card className="border-border rounded-2xl overflow-hidden">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              <span className="flex items-center justify-center h-6 w-6 rounded-md bg-primary/10 text-primary text-xs font-bold">2</span>
-              Physical Specs
-            </CardTitle>
+            <CardTitle className="text-base font-semibold text-foreground">Physical Specs</CardTitle>
             <SpecsTooltip shape={inputs.shape} />
           </div>
         </CardHeader>
@@ -374,10 +368,9 @@ export function USPSPostageCalculator() {
 
       {/* Step 3: Sort & Entry */}
       {showSortSlider && (
-        <Card className="border-border bg-card shadow-sm">
+        <Card className="border-border rounded-2xl overflow-hidden">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              <span className="flex items-center justify-center h-6 w-6 rounded-md bg-primary/10 text-primary text-xs font-bold">3</span>
+            <CardTitle className="text-base font-semibold text-foreground">
               Sort Level{showSaturation && " & Entry"}
             </CardTitle>
           </CardHeader>
@@ -480,53 +473,38 @@ export function USPSPostageCalculator() {
       )}
 
       {/* Sticky Results Bar */}
-      <Card className="border-border bg-foreground text-background shadow-lg sticky bottom-5 z-20">
-        <CardContent className="p-5">
+      <div className="sticky bottom-4 z-20">
+        <div className="bg-foreground text-background rounded-2xl shadow-2xl p-5">
           <div className="flex items-end justify-between gap-4 pb-4 border-b border-background/10">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-background/50 mb-1">
-                Per Piece (Avg)
-              </p>
-              <p className="text-4xl font-extrabold font-mono tabular-nums leading-none">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-background/50 mb-1">Per Piece</p>
+              <p className="text-3xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatPostageRate(result.avgPerPiece) : "---"}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-background/50 mb-1">
-                Total Postage
-              </p>
-              <p className="text-2xl font-bold font-mono tabular-nums text-emerald-400">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-background/50 mb-1">Total Postage</p>
+              <p className="text-2xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatCurrency(result.total) : "$0.00"}
               </p>
-              <p className="text-xs text-background/70 font-medium mt-1 max-w-[260px] truncate text-right">
-                {result.description || "Rate Description"}
+              <p className="text-xs text-background/60 font-medium mt-1.5 truncate max-w-[260px]">
+                {result.description || "Configure above"}
               </p>
             </div>
           </div>
           <div className="flex items-center justify-between pt-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-background/80">
-                {result.className || "---"}
-              </span>
-              {result.isValid && (
-                <Badge variant="outline" className="text-[10px] border-background/20 text-background/70">
-                  {SERVICE_LABELS[inputs.service]}
-                </Badge>
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1.5 text-xs h-8"
+            <span className="text-xs font-medium text-background/70">{result.className || "---"}</span>
+            <button
               onClick={handleAddToQuote}
               disabled={!result.isValid}
+              className="flex items-center gap-1.5 bg-background text-foreground text-xs font-semibold px-4 py-2 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3.5 w-3.5" />
               Add to Quote
-            </Button>
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Size specs reference */}
       <div className="rounded-lg bg-muted/40 border border-border p-4 text-xs text-muted-foreground">

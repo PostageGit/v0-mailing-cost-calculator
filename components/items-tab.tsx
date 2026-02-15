@@ -94,19 +94,12 @@ export function ItemsTab() {
   }
 
   return (
-    <Card className="border-border shadow-sm">
+    <Card className="border-border rounded-2xl overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-chart-5/10">
-            <Package className="h-4 w-4 text-chart-5" />
-          </div>
-          <div>
-            <CardTitle className="text-lg">Items & Supplies</CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Browse your item catalog and add to the current quote.
-            </p>
-          </div>
-        </div>
+        <CardTitle className="text-base font-semibold text-foreground">Items & Supplies</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Browse your catalog and add items to the current quote.
+        </p>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">

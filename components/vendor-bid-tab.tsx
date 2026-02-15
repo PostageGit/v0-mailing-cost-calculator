@@ -45,13 +45,13 @@ export function VendorBidTab() {
 
   if (!resolvedId || items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-        <div className="flex items-center justify-center h-12 w-12 rounded-full bg-muted/60 mb-3">
-          <Send className="h-5 w-5 opacity-50" />
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="rounded-2xl bg-secondary p-5 mb-5">
+          <Send className="h-7 w-7 text-muted-foreground" />
         </div>
-        <p className="text-sm font-medium">No line items yet</p>
-        <p className="text-xs mt-1 max-w-xs text-center text-pretty">
-          Add items from the calculators first, then come here to request vendor bids for out-of-house production (OHP).
+        <p className="text-sm font-semibold text-foreground">No line items yet</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-xs leading-relaxed">
+          Add items from the other steps first, then come here to request vendor bids.
         </p>
       </div>
     )

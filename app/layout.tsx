@@ -3,16 +3,16 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 
 import './globals.css'
 
-const _inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
-const _jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono' })
+const _inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
+const _jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'MailCost Pro - Mailing & Printing Calculator',
-  description: 'Professional mailing and printing cost calculator. Calculate addressing, postage, flat printing, cutting, and more.',
+  title: 'MailCost Pro',
+  description: 'Professional mailing and printing cost calculator.',
 }
 
 export const viewport: Viewport = {
-  themeColor: '#f1f3f6',
+  themeColor: '#fafafa',
   colorScheme: 'light',
   width: 'device-width',
   initialScale: 1,

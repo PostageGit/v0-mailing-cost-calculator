@@ -166,16 +166,11 @@ export function LaborCalculator() {
   return (
     <div className="flex flex-col gap-5">
       {/* Header card with class selection info */}
-      <Card className="border-border">
+      <Card className="border-border rounded-2xl overflow-hidden">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-primary" />
-            Labor & List Work Calculator
-          </CardTitle>
-          <CardDescription className="text-pretty">
-            Labor costs are calculated based on the mail class and quantity set
-            in the USPS Postage tab. Switch to that tab to change the class or
-            quantity.
+          <CardTitle className="text-base font-semibold text-foreground">Labor & List Work</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground text-pretty">
+            Based on the mail class and quantity from USPS Postage.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -244,9 +239,9 @@ export function LaborCalculator() {
 
       {/* Labor breakdown */}
       {classSetting && !isLoading && (
-        <Card className="border-border">
+        <Card className="border-border rounded-2xl overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base font-semibold text-foreground">
               {classSetting.class_name} Labor Breakdown
             </CardTitle>
             {classSetting.notes && (
@@ -329,7 +324,7 @@ export function LaborCalculator() {
               <span className="text-base font-semibold text-foreground">
                 Labor Total
               </span>
-              <span className="text-xl font-bold font-mono text-primary tabular-nums">
+              <span className="text-xl font-bold font-mono text-foreground tabular-nums">
                 {formatCurrency(totalLabor)}
               </span>
             </div>
@@ -348,14 +343,14 @@ export function LaborCalculator() {
 
             {/* Add to quote */}
             <Button
-              className="gap-2 mt-1"
+              className="gap-2 mt-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
               onClick={handleAddToQuote}
               disabled={totalLabor === 0 || addedToQuote}
             >
               {addedToQuote ? (
                 <>
                   <Check className="h-4 w-4" />
-                  Added to Quote
+                  Added
                 </>
               ) : (
                 <>
@@ -370,10 +365,10 @@ export function LaborCalculator() {
 
       {/* Related Items for this labor class */}
       {relatedItems && relatedItems.length > 0 && (
-        <Card className="border-border">
+        <Card className="border-border rounded-2xl overflow-hidden">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-4 w-4 text-chart-5" />
+            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Package className="h-4 w-4 text-muted-foreground" />
               Related Items
             </CardTitle>
             <CardDescription className="text-xs">
