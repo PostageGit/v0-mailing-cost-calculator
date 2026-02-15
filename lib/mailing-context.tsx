@@ -1,93 +1,112 @@
 "use client"
 
-import { createContext, useContext, useState, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useState, useMemo, useCallback, type ReactNode } from "react"
 import type { USPSShape } from "./usps-rates"
 
-/** Shared state that flows from the Job Setup / USPS calculator to other tabs */
+// ─── Mail piece types ────────────────────────────────────
+export type PieceType = "flat_card" | "folded_card" | "envelope" | "self_mailer" | "booklet" | "postcard"
+export type EnvelopeKind = "paper" | "plastic" | ""
+export type InsertType = "flat" | "folded" | "booklet" | "card"
+
+export interface InsertItem {
+  id: string
+  type: InsertType
+  description: string
+}
+
+// ─── Context shape ───────────────────────────────────────
 interface MailingState {
-  /** Total pieces from the USPS calc (quantity + saturation) */
+  // quantities & USPS
   quantity: number
-  /** USPS shape chosen: POSTCARD | LETTER | FLAT */
   shape: string
-  /** Resolved class name matching mail_class_settings (e.g. "Postcard", "Letter", "Flat") */
   className: string
-  /** Mailer width in inches (entered in Job Setup) */
-  mailerWidth: number | null
-  /** Mailer height in inches (entered in Job Setup) */
-  mailerHeight: number | null
-  /** Number of inserts */
-  inserts: number
-  /** Contact name for this job */
-  contactName: string
-  /** Suggested USPS shapes based on mailer dimensions */
   suggestedShapes: USPSShape[]
   setQuantity: (qty: number) => void
   setShape: (shape: string) => void
   setClassName: (name: string) => void
+
+  // Mail piece definition
+  pieceType: PieceType | ""
+  envelopeKind: EnvelopeKind
+  mailerWidth: number | null
+  mailerHeight: number | null
+  inserts: InsertItem[]
+  customerProvidesInserts: boolean
+  customerProvidesPrinting: boolean
+  contactName: string
+
+  setPieceType: (t: PieceType | "") => void
+  setEnvelopeKind: (k: EnvelopeKind) => void
   setMailerWidth: (w: number | null) => void
   setMailerHeight: (h: number | null) => void
-  setInserts: (n: number) => void
+  setInserts: (items: InsertItem[]) => void
+  addInsert: (type: InsertType, desc?: string) => void
+  removeInsert: (id: string) => void
+  setCustomerProvidesInserts: (v: boolean) => void
+  setCustomerProvidesPrinting: (v: boolean) => void
   setContactName: (name: string) => void
+
+  // Derived: which calculator steps are relevant
+  needsEnvelope: boolean
+  needsPrinting: boolean
+  needsBooklet: boolean
 }
 
 const MailingContext = createContext<MailingState | null>(null)
 
-/**
- * Determine which USPS shapes the piece qualifies for based on dimensions.
- * USPS size thresholds (width x height):
- *   POSTCARD: 3.5x5 to 6x9 (max thickness 0.016")
- *   LETTER:   3.5x5 to 6.125x11.5 (max thickness 0.25")
- *   FLAT:     over letter limits, up to 12x15 (max thickness 0.75")
- */
 function computeSuggestedShapes(w: number | null, h: number | null): USPSShape[] {
   if (!w || !h) return ["POSTCARD", "LETTER", "FLAT"]
-  // Ensure width <= height for comparison
   const short = Math.min(w, h)
   const long = Math.max(w, h)
-
   const shapes: USPSShape[] = []
-
-  // Postcard: short 3.5-6, long 5-9
-  if (short >= 3.5 && short <= 6 && long >= 5 && long <= 9) {
-    shapes.push("POSTCARD")
-  }
-  // Letter: short 3.5-6.125, long 5-11.5
-  if (short >= 3.5 && short <= 6.125 && long >= 5 && long <= 11.5) {
-    shapes.push("LETTER")
-  }
-  // Flat: exceeds letter max or fits in flat range, up to 12x15
-  if (short <= 12 && long <= 15) {
-    if (short > 6.125 || long > 11.5) {
-      shapes.push("FLAT")
-    }
-  }
-
-  // If nothing matches (too small or too big), return empty -- no shapes qualify
+  if (short >= 3.5 && short <= 6 && long >= 5 && long <= 9) shapes.push("POSTCARD")
+  if (short >= 3.5 && short <= 6.125 && long >= 5 && long <= 11.5) shapes.push("LETTER")
+  if (short <= 12 && long <= 15 && (short > 6.125 || long > 11.5)) shapes.push("FLAT")
   return shapes
 }
+
+let insertCounter = 0
 
 export function MailingProvider({ children }: { children: ReactNode }) {
   const [quantity, setQuantity] = useState(5000)
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
+  const [pieceType, setPieceType] = useState<PieceType | "">("")
+  const [envelopeKind, setEnvelopeKind] = useState<EnvelopeKind>("")
   const [mailerWidth, setMailerWidth] = useState<number | null>(null)
   const [mailerHeight, setMailerHeight] = useState<number | null>(null)
-  const [inserts, setInserts] = useState(0)
+  const [inserts, setInserts] = useState<InsertItem[]>([])
+  const [customerProvidesInserts, setCustomerProvidesInserts] = useState(false)
+  const [customerProvidesPrinting, setCustomerProvidesPrinting] = useState(false)
   const [contactName, setContactName] = useState("")
 
-  const suggestedShapes = useMemo(
-    () => computeSuggestedShapes(mailerWidth, mailerHeight),
-    [mailerWidth, mailerHeight]
-  )
+  const suggestedShapes = useMemo(() => computeSuggestedShapes(mailerWidth, mailerHeight), [mailerWidth, mailerHeight])
+
+  const addInsert = useCallback((type: InsertType, desc?: string) => {
+    insertCounter++
+    setInserts((prev) => [...prev, { id: `ins-${insertCounter}`, type, description: desc || "" }])
+  }, [])
+
+  const removeInsert = useCallback((id: string) => {
+    setInserts((prev) => prev.filter((i) => i.id !== id))
+  }, [])
+
+  // Derived: what steps are needed
+  const needsEnvelope = pieceType === "envelope"
+  const needsPrinting = !customerProvidesPrinting
+  const needsBooklet = pieceType === "booklet" || inserts.some((i) => i.type === "booklet")
 
   return (
     <MailingContext.Provider
       value={{
-        quantity, shape, className,
-        mailerWidth, mailerHeight, inserts, contactName,
-        suggestedShapes,
+        quantity, shape, className, suggestedShapes,
         setQuantity, setShape, setClassName,
-        setMailerWidth, setMailerHeight, setInserts, setContactName,
+        pieceType, envelopeKind, mailerWidth, mailerHeight,
+        inserts, customerProvidesInserts, customerProvidesPrinting, contactName,
+        setPieceType, setEnvelopeKind, setMailerWidth, setMailerHeight,
+        setInserts, addInsert, removeInsert,
+        setCustomerProvidesInserts, setCustomerProvidesPrinting, setContactName,
+        needsEnvelope, needsPrinting, needsBooklet,
       }}
     >
       {children}

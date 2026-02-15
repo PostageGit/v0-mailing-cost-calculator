@@ -8,7 +8,7 @@ import { LaborCalculator } from "@/components/labor-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { JobInfoSidebar } from "@/components/job-info-sidebar"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
-import { MailingProvider } from "@/lib/mailing-context"
+import { MailingProvider, useMailing } from "@/lib/mailing-context"
 import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
@@ -27,7 +27,7 @@ import {
 
 // ─── Steps ───────────────────────────────────────────────
 type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "ohp" | "items"
-const STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
+const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
   { id: "usps",      label: "Postage",   icon: <Stamp className="h-3.5 w-3.5" /> },
   { id: "labor",     label: "Labor",     icon: <Wrench className="h-3.5 w-3.5" /> },
@@ -50,7 +50,25 @@ function AppContent() {
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const { loadQuote, items, newQuote } = useQuote()
+  const mailing = useMailing()
   usePricingConfig()
+
+  // Dynamic steps based on mail piece configuration
+  const visibleSteps = useMemo(() => {
+    return ALL_STEPS.filter((step) => {
+      if (step.id === "envelope" && !mailing.needsEnvelope && mailing.pieceType !== "" && mailing.pieceType !== "envelope") return false
+      if (step.id === "printing" && !mailing.needsPrinting) return false
+      if (step.id === "booklet" && !mailing.needsBooklet) return false
+      return true
+    })
+  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.pieceType])
+
+  // If current step becomes hidden, jump to first visible
+  useEffect(() => {
+    if (!visibleSteps.find((s) => s.id === currentStep)) {
+      setCurrentStep(visibleSteps[0]?.id || "usps")
+    }
+  }, [visibleSteps, currentStep])
 
   const handleLoadQuote = useCallback(
     (quoteId: string) => { loadQuote(quoteId); setView("job") },
@@ -62,11 +80,11 @@ function AppContent() {
 
   const completedSteps = useMemo(() => {
     const done = new Set<StepId>()
-    for (const s of STEPS) {
+    for (const s of visibleSteps) {
       if (STEP_CATS[s.id].length > 0 && items.some((i) => STEP_CATS[s.id].includes(i.category))) done.add(s.id)
     }
     return done
-  }, [items])
+  }, [items, visibleSteps])
 
   const renderStep = () => {
     switch (currentStep) {
@@ -145,7 +163,7 @@ function AppContent() {
           <div className="sticky top-11 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40">
             <div className="max-w-[100rem] mx-auto px-4">
               <div className="flex items-center gap-1 py-1.5 overflow-x-auto no-scrollbar">
-                {STEPS.map((step) => {
+                {visibleSteps.map((step) => {
                   const active = step.id === currentStep
                   const done = completedSteps.has(step.id)
                   return (
@@ -167,11 +185,11 @@ function AppContent() {
                   )
                 })}
                 {(() => {
-                  const idx = STEPS.findIndex((s) => s.id === currentStep)
-                  if (idx < STEPS.length - 1) {
+                  const idx = visibleSteps.findIndex((s) => s.id === currentStep)
+                  if (idx < visibleSteps.length - 1) {
                     return (
                       <button
-                        onClick={() => setCurrentStep(STEPS[idx + 1].id)}
+                        onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
                         className="ml-auto flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0"
                       >
                         Next <ChevronRight className="h-3 w-3" />
