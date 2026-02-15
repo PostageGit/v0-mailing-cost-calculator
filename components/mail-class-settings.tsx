@@ -34,6 +34,15 @@ import {
   ListPlus,
   Wrench,
   CreditCard,
+  Activity,
+  Database,
+  KeyRound,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  HardDrive,
+  ShieldAlert,
+  Info,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -88,7 +97,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
               <div>
                 <CardTitle className="text-lg">Settings</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5 text-pretty">
-                  Configure labor rates, departments, custom fields, and payment terms.
+                  Labor rates, departments, custom fields, payment terms, and system health.
                 </p>
               </div>
             </div>
@@ -105,7 +114,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
 
         <CardContent className="max-h-[75vh] overflow-y-auto">
           <Tabs defaultValue="labor" className="w-full">
-            <TabsList className="mb-4 bg-muted/60 h-9 p-1 w-fit">
+            <TabsList className="mb-4 bg-muted/60 h-auto p-1 w-fit flex flex-wrap gap-0.5">
               <TabsTrigger value="labor" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Wrench className="h-3.5 w-3.5" />
                 Labor Rates
@@ -122,6 +131,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <CreditCard className="h-3.5 w-3.5" />
                 Payment Terms
               </TabsTrigger>
+              <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Activity className="h-3.5 w-3.5" />
+                System
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="labor">
@@ -135,6 +148,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="terms">
               <PaymentTermsTab />
+            </TabsContent>
+            <TabsContent value="system">
+              <SystemDashboardTab />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -1170,6 +1186,250 @@ function PaymentTermsTab() {
           {saving ? "Adding..." : "Add Term"}
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ---------- SYSTEM DASHBOARD TAB ----------
+interface SystemStats {
+  connection: boolean
+  supabase_url: string | null
+  row_counts: Record<string, number>
+  total_rows: number
+  db_size_bytes: number
+  db_size_formatted: string
+  table_sizes: { table_name: string; size_bytes: number; size_formatted: string }[]
+  env_status: Record<string, { set: boolean; preview: string }>
+  warnings: { level: "info" | "warning" | "critical"; message: string }[]
+  checked_at: string
+}
+
+const TABLE_LABELS: Record<string, string> = {
+  customers: "Customers",
+  customer_contacts: "Contacts",
+  delivery_addresses: "Delivery Addresses",
+  quotes: "Quotes",
+  mail_class_settings: "Mail Class Settings",
+  app_settings: "App Settings",
+}
+
+const WARNING_STYLES: Record<string, { bg: string; border: string; icon: string; text: string }> = {
+  info: { bg: "bg-blue-500/10", border: "border-blue-500/30", icon: "text-blue-500", text: "text-blue-700 dark:text-blue-300" },
+  warning: { bg: "bg-amber-500/10", border: "border-amber-500/30", icon: "text-amber-500", text: "text-amber-700 dark:text-amber-300" },
+  critical: { bg: "bg-red-500/10", border: "border-red-500/30", icon: "text-red-500", text: "text-red-700 dark:text-red-300" },
+}
+
+function SystemDashboardTab() {
+  const { data, error, isLoading, mutate } = useSWR<SystemStats>("/api/system-stats", fetcher)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refresh = async () => {
+    setRefreshing(true)
+    await mutate()
+    setRefreshing(false)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Loading system stats...</span>
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+        <XCircle className="h-6 w-6 text-destructive" />
+        <p className="text-sm">Failed to load system stats.</p>
+        <Button variant="outline" size="sm" className="mt-2 gap-1 text-xs" onClick={refresh}>
+          <RefreshCw className="h-3.5 w-3.5" /> Retry
+        </Button>
+      </div>
+    )
+  }
+
+  const DB_LIMIT = 500 * 1024 * 1024 // 500MB free tier
+  const dbPercent = data.db_size_bytes > 0 ? Math.min(100, (data.db_size_bytes / DB_LIMIT) * 100) : 0
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Header with refresh */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">System Dashboard</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Last checked: {new Date(data.checked_at).toLocaleString()}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={refresh}
+          disabled={refreshing}
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Warnings */}
+      {data.warnings.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {data.warnings.map((w, i) => {
+            const style = WARNING_STYLES[w.level] || WARNING_STYLES.info
+            return (
+              <div
+                key={i}
+                className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${style.bg} ${style.border}`}
+              >
+                {w.level === "critical" ? (
+                  <ShieldAlert className={`h-4 w-4 mt-0.5 shrink-0 ${style.icon}`} />
+                ) : w.level === "warning" ? (
+                  <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${style.icon}`} />
+                ) : (
+                  <Info className={`h-4 w-4 mt-0.5 shrink-0 ${style.icon}`} />
+                )}
+                <span className={`text-xs ${style.text}`}>{w.message}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {data.warnings.length === 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+          <span className="text-xs text-emerald-700 dark:text-emerald-300">
+            All systems healthy. No warnings.
+          </span>
+        </div>
+      )}
+
+      {/* Connection status */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-lg border border-border bg-card p-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Database className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Connection</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {data.connection ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <XCircle className="h-4 w-4 text-destructive" />
+            )}
+            <span className="text-sm font-semibold text-foreground">
+              {data.connection ? "Connected" : "Disconnected"}
+            </span>
+          </div>
+          {data.supabase_url && (
+            <p className="text-[10px] text-muted-foreground mt-1 truncate">{data.supabase_url}</p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Database Size</span>
+          </div>
+          <p className="text-sm font-semibold text-foreground">{data.db_size_formatted}</p>
+          <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                dbPercent > 80
+                  ? "bg-red-500"
+                  : dbPercent > 50
+                    ? "bg-amber-500"
+                    : "bg-emerald-500"
+              }`}
+              style={{ width: `${dbPercent}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {dbPercent.toFixed(1)}% of 500 MB free tier
+          </p>
+        </div>
+      </div>
+
+      {/* Row counts & table sizes */}
+      <section>
+        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Data Points ({data.total_rows.toLocaleString()} total rows)
+        </h4>
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="text-left font-medium text-muted-foreground px-3 py-2">Table</th>
+                <th className="text-right font-medium text-muted-foreground px-3 py-2">Rows</th>
+                <th className="text-right font-medium text-muted-foreground px-3 py-2">Size</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(data.row_counts).map(([table, count]) => {
+                const sizeInfo = data.table_sizes.find((t) => t.table_name === table)
+                return (
+                  <tr key={table} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-3 py-2 font-medium text-foreground">
+                      {TABLE_LABELS[table] || table}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-foreground">
+                      {count >= 0 ? count.toLocaleString() : (
+                        <span className="text-destructive">Error</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">
+                      {sizeInfo?.size_formatted || "-"}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Environment variables */}
+      <section>
+        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <KeyRound className="h-3 w-3" /> Environment Variables
+        </h4>
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="text-left font-medium text-muted-foreground px-3 py-2">Variable</th>
+                <th className="text-left font-medium text-muted-foreground px-3 py-2">Status</th>
+                <th className="text-left font-medium text-muted-foreground px-3 py-2">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(data.env_status).map(([key, info]) => (
+                <tr key={key} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                  <td className="px-3 py-2 font-mono text-[10px] text-foreground">{key}</td>
+                  <td className="px-3 py-2">
+                    {info.set ? (
+                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3" /> Set
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-destructive">
+                        <XCircle className="h-3 w-3" /> Missing
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground truncate max-w-[140px]">
+                    {info.preview}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   )
 }
