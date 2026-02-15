@@ -136,7 +136,6 @@ function getRateForLevel(
 ): number {
   const isSat = level === "SAT"
   const isPlastic = pack === "PLAS"
-  const isSelfMailer = pack === "SM_CARD" || pack === "SM_FOLD" || pack === "SM_BOOK"
 
   // --- FCM RETAIL: flat per-piece, no presort ---
   if (service === "FCM_RETAIL") {

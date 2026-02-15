@@ -43,6 +43,7 @@ const STEP_CATS: Record<StepId, string[]> = {
 
 type View = "home" | "job" | "dashboard" | "customers" | "vendors"
 type JobPhase = "planner" | "pricing"
+// v2 - cleaned up calculators
 
 function AppContent() {
   const [view, setView] = useState<View>("home")
@@ -154,7 +155,7 @@ function AppContent() {
         </div>
       )}
 
-      {/* ─── JOB VIEW ─── */}
+      {/* ─── JOB VIEW ──�� */}
       {view === "job" && jobPhase === "planner" && (
         <div className="flex-1 px-6 pt-8 pb-12">
           <MailPiecePlanner onContinue={handleContinueToPricing} />
