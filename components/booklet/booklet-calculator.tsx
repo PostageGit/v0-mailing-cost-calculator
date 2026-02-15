@@ -41,6 +41,13 @@ export function BookletCalculator() {
     (p) => p.type === "booklet" && (p.production === "inhouse" || p.production === "both")
   )
 
+  const [inputs, setInputs] = useState<BookletInputs>(EMPTY_INPUTS)
+  const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string>("cover")
+
+  const [editingItemId] = useState<number | null>(null)
+
   const loadPiece = useCallback((piece: MailPiece) => {
     setInputs((prev) => ({
       ...prev,
@@ -51,13 +58,6 @@ export function BookletCalculator() {
     setCalcResult(null)
     setValidationError(null)
   }, [mailing.quantity])
-
-  const [inputs, setInputs] = useState<BookletInputs>(EMPTY_INPUTS)
-  const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
-  const [validationError, setValidationError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<string>("cover")
-
-  const [editingItemId] = useState<number | null>(null)
 
   const isFormValid =
     inputs.bookQty > 0 &&

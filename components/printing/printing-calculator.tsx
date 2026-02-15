@@ -53,23 +53,6 @@ export function PrintingCalculator() {
            (p.production === "inhouse" || p.production === "both")
   )
 
-  // Load a planner piece into the form
-  const loadPiece = useCallback((piece: MailPiece) => {
-    const flat = getFlatSize(piece)
-    setInputs((prev) => ({
-      ...prev,
-      qty: mailing.quantity || prev.qty,
-      width: flat.w || piece.width || prev.width,
-      height: flat.h || piece.height || prev.height,
-    }))
-    // Reset calculation state since inputs changed
-    setSheetOptions([])
-    setSelectedOption(null)
-    setFullResult(null)
-    setHasCalculated(false)
-    setShowResults(false)
-  }, [mailing.quantity])
-
   // Finishing calculators from DB
   const { data: finCalcs } = useSWR<FinishingCalculator[]>("/api/finishing-calculators", swrFetcher)
   const { data: finRates } = useSWR<FinishingGlobalRates>("/api/finishing-global-rates", swrFetcher)
@@ -86,6 +69,23 @@ export function PrintingCalculator() {
 
   // Order state
   const [editingItemId] = useState<number | null>(null)
+
+  // Load a planner piece into the form
+  const loadPiece = useCallback((piece: MailPiece) => {
+    const flat = getFlatSize(piece)
+    setInputs((prev) => ({
+      ...prev,
+      qty: mailing.quantity || prev.qty,
+      width: flat.w || piece.width || prev.width,
+      height: flat.h || piece.height || prev.height,
+    }))
+    // Reset calculation state since inputs changed
+    setSheetOptions([])
+    setSelectedOption(null)
+    setFullResult(null)
+    setHasCalculated(false)
+    setShowResults(false)
+  }, [mailing.quantity])
 
   // Helper to compute finishing calculator costs
   const getFinCalcCosts = useCallback(
