@@ -39,6 +39,7 @@ export interface MailPiece {
   production: ProductionRoute // how this piece will be produced
   envelopeId?: string        // if type=envelope, which standard size
   envelopeKind?: "paper" | "plastic" | ""
+  _suggested?: boolean       // true if size was auto-suggested and needs user verification
 }
 
 // ─── Standard envelope sizes ─────────────────────────────
@@ -114,7 +115,23 @@ export function MailingProvider({ children }: { children: ReactNode }) {
     _counter++
     setPieces((prev) => {
       const pos = prev.length + 1
-      return [...prev, { id: `p-${_counter}`, position: pos, type, label: PIECE_TYPE_META[type].label, width: null, height: null, production: "inhouse" }]
+      // Auto-suggest size for inner pieces: 0.5" less per side than the piece above
+      let sugW: number | null = null
+      let sugH: number | null = null
+      if (pos > 1) {
+        const above = prev[prev.length - 1] // the piece just above this one
+        if (above?.width && above.width > 1) sugW = Math.round((above.width - 1) * 1000) / 1000   // 0.5" each side = 1" total
+        if (above?.height && above.height > 1) sugH = Math.round((above.height - 1) * 1000) / 1000
+        if (sugW && sugW < 1) sugW = null
+        if (sugH && sugH < 1) sugH = null
+      }
+      return [...prev, {
+        id: `p-${_counter}`, position: pos, type,
+        label: PIECE_TYPE_META[type].label,
+        width: sugW, height: sugH,
+        production: "inhouse",
+        _suggested: sugW && sugH ? true : undefined, // flag to trigger verify prompt
+      } as MailPiece]
     })
   }, [])
 

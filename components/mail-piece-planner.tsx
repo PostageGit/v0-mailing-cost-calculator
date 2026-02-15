@@ -239,6 +239,24 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                       </div>
                     )}
 
+                    {/* Suggested size verify banner */}
+                    {piece._suggested && piece.width && piece.height && (
+                      <div className="flex items-center gap-3 mb-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 px-4 py-3">
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">Suggested size: {piece.width}" x {piece.height}"</p>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+                            Based on piece above minus 0.5" per side. Verify or adjust.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => m.updatePiece(piece.id, { _suggested: undefined })}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+                        >
+                          <Check className="h-3 w-3 inline mr-1" />Confirm
+                        </button>
+                      </div>
+                    )}
+
                     {/* Dimensions row */}
                     <div className="flex items-center gap-3 mb-3">
                       {(piece.type !== "envelope" || piece.envelopeId === "custom" || !piece.envelopeId) ? (
@@ -247,18 +265,18 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                             <label className="text-xs text-muted-foreground">W</label>
                             <Input type="number" step="0.125" min="0" placeholder={'0"'}
                               value={piece.width ?? ""}
-                              onChange={(e) => m.updatePiece(piece.id, { width: e.target.value ? parseFloat(e.target.value) : null })}
-                              className="h-8 w-20 text-xs border-border bg-background rounded-lg font-mono" />
+                              onChange={(e) => m.updatePiece(piece.id, { width: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
+                              className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
                           </div>
                           <span className="text-muted-foreground text-xs">x</span>
                           <div className="flex items-center gap-1.5">
                             <label className="text-xs text-muted-foreground">H</label>
                             <Input type="number" step="0.125" min="0" placeholder={'0"'}
                               value={piece.height ?? ""}
-                              onChange={(e) => m.updatePiece(piece.id, { height: e.target.value ? parseFloat(e.target.value) : null })}
-                              className="h-8 w-20 text-xs border-border bg-background rounded-lg font-mono" />
+                              onChange={(e) => m.updatePiece(piece.id, { height: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
+                              className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
                           </div>
-                          {piece.width && piece.height && (
+                          {piece.width && piece.height && !piece._suggested && (
                             <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
                           )}
                         </>
