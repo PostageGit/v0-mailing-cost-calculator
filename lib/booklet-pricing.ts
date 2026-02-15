@@ -4,7 +4,7 @@ import type {
   PartCalcResult,
   BookletCalcResult,
 } from "./booklet-types"
-import { getActiveConfig } from "./pricing-config"
+import { getActiveConfig, calculateFinishingCost } from "./pricing-config"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -291,33 +291,23 @@ function getLaminationPrice(
   isBroker: boolean,
 ): number {
   if (!coverPaperName || laminationType === "none") return 0
-  const lam = laminationType.charAt(0).toUpperCase() + laminationType.slice(1)
-  const runtimeCosts: Record<string, Record<string, number>> = {
-    "80Cover": { Silk: 0.1333, default: 0.0667 },
-    Cardstock: { Silk: 0.05, default: 0.025 },
+
+  // Look up the finishing option from config by matching the lamination type
+  const cfg = getActiveConfig()
+  const lamId = laminationType.toLowerCase() + "_lamination"
+  const finishing = cfg.finishings.find((f) => f.id === lamId)
+
+  if (finishing) {
+    return calculateFinishingCost(finishing, coverPaperName, quantity, isBroker)
   }
-  const rollCosts: Record<string, number> = { Gloss: 0.1058, Matte: 0.1045, Silk: 0.1009, Leather: 0.1045 }
-  const rollChangeFees: Record<string, number> = { Gloss: 0, Matte: 10, Silk: 10, Leather: 10 }
-  const wastePercentages: Record<string, number> = { Gloss: 0.05, Matte: 0.05, Silk: 0.10, Leather: 0.05 }
-  const minSheets: Record<string, number> = { Gloss: 5, Matte: 5, Silk: 10, Leather: 5 }
 
-  const setupCost = 10
-  const baseMarkup = 225
-  const brokerDiscount = 30
-  const minimumJobPrice = 45
+  // Fallback: if someone typed a custom name, try partial match
+  const byName = cfg.finishings.find((f) => f.name.toLowerCase().includes(laminationType.toLowerCase()))
+  if (byName) {
+    return calculateFinishingCost(byName, coverPaperName, quantity, isBroker)
+  }
 
-  const category = coverPaperName.toLowerCase().includes("80") ? "80Cover" : "Cardstock"
-  const runtimeCost = runtimeCosts[category][lam] || runtimeCosts[category]["default"]
-  const sheets = Math.max(quantity, minSheets[lam] || 5)
-  const sheetsWithWaste = sheets * (1 + (wastePercentages[lam] || 0.05))
-  const rollCost = rollCosts[lam] || 0
-  const rollChangeFee = rollChangeFees[lam] || 0
-  const totalBaseCost = setupCost + sheetsWithWaste * runtimeCost + sheetsWithWaste * rollCost + rollChangeFee
-
-  let effectiveMarkup = baseMarkup
-  if (isBroker) effectiveMarkup *= 1 - brokerDiscount / 100
-  const totalWithMarkup = totalBaseCost * (1 + effectiveMarkup / 100)
-  return Math.max(totalWithMarkup, minimumJobPrice)
+  return 0
 }
 
 // ==================== MAIN CALCULATION ====================

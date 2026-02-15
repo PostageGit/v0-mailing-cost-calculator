@@ -33,6 +33,9 @@ export interface PrintingInputs {
   hasBleed: boolean
   addOnCharge: number
   addOnDescription: string
+  /** IDs of finishing options to apply (e.g. ["gloss_lamination"]) */
+  finishingIds?: string[]
+  isBroker?: boolean
 }
 
 export interface PrintingCalcResult {
@@ -62,12 +65,20 @@ export interface SheetOptionRow {
   result: PrintingCalcResult
 }
 
+export interface FinishingCostLine {
+  id: string
+  name: string
+  cost: number
+}
+
 export interface FullPrintingResult {
   printingCost: number
   printingCostPlus10: number
   addOnCharge: number
   addOnDescription: string
   cuttingCost: number
+  finishingCosts: FinishingCostLine[]
+  totalFinishing: number
   subtotal: number
   grandTotal: number
   result: PrintingCalcResult

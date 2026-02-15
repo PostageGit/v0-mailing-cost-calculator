@@ -22,6 +22,8 @@ import {
   DEFAULT_PAPER_PRICES,
   DEFAULT_BOOKLET_PAPER_PRICES,
   DEFAULT_MARKUPS,
+  DEFAULT_FINISHING_OPTIONS,
+  type FinishingOption,
 } from "@/lib/pricing-config"
 import {
   Settings,
@@ -137,6 +139,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <CreditCard className="h-3.5 w-3.5" />
                 Payment Terms
               </TabsTrigger>
+              <TabsTrigger value="finishings" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Wrench className="h-3.5 w-3.5" />
+                Finishings
+              </TabsTrigger>
               <TabsTrigger value="pricing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <DollarSign className="h-3.5 w-3.5" />
                 Pricing
@@ -158,6 +164,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="terms">
               <PaymentTermsTab />
+            </TabsContent>
+            <TabsContent value="finishings">
+              <FinishingsSettingsTab />
             </TabsContent>
             <TabsContent value="pricing">
               <PricingSettingsTab />
@@ -1767,6 +1776,260 @@ function PaperPriceEditor({
                         />
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ---------- FINISHINGS SETTINGS TAB ----------
+function FinishingsSettingsTab() {
+  const { data: settings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [saving, setSaving] = useState(false)
+
+  const dbFinishings = (settings?.pricing_finishings ?? null) as FinishingOption[] | null
+  const [finishings, setFinishings] = useState<FinishingOption[]>(structuredClone(DEFAULT_FINISHING_OPTIONS))
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
+
+  const [loaded, setLoaded] = useState(false)
+  if (settings && !loaded) {
+    if (dbFinishings && dbFinishings.length > 0) {
+      setFinishings(structuredClone(dbFinishings))
+    }
+    setLoaded(true)
+  }
+
+  const saveFinishings = async (updated: FinishingOption[]) => {
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pricing_finishings: updated }),
+      })
+      setDirty(false)
+      mutate()
+      globalMutate("/api/app-settings")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateFinishing = (id: string, partial: Partial<FinishingOption>) => {
+    setFinishings((prev) => prev.map((f) => (f.id === id ? { ...f, ...partial } : f)))
+    setDirty(true)
+  }
+
+  const addFinishing = () => {
+    const id = "custom_" + Date.now()
+    const newF: FinishingOption = {
+      id,
+      name: "New Finishing",
+      category: "finishing",
+      setupCost: 10,
+      runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
+      rollCostPerSheet: 0,
+      rollChangeFee: 0,
+      wastePercent: 0.05,
+      minSheets: 5,
+      markupPercent: 225,
+      brokerDiscountPercent: 30,
+      minimumJobPrice: 45,
+      reducesSheetArea: false,
+    }
+    setFinishings((prev) => [...prev, newF])
+    setExpandedId(id)
+    setDirty(true)
+  }
+
+  const removeFinishing = (id: string) => {
+    setFinishings((prev) => prev.filter((f) => f.id !== id))
+    setDirty(true)
+  }
+
+  const resetDefaults = () => {
+    setFinishings(structuredClone(DEFAULT_FINISHING_OPTIONS))
+    setDirty(true)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Finishing Options</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Configure lamination and other finishing processes. These apply per parent sheet (the big printer sheet, not the cut piece).
+        </p>
+      </div>
+
+      {/* Actions bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveFinishings(finishings)} disabled={saving}>
+          <Save className="h-3 w-3" />
+          {saving ? "Saving..." : "Save Changes"}
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
+          <Plus className="h-3 w-3" /> Add Finishing
+        </Button>
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetDefaults}>
+          Reset to Defaults
+        </Button>
+        {dirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved changes</span>}
+      </div>
+
+      {/* Finishing cards */}
+      <div className="flex flex-col gap-2">
+        {finishings.map((f) => {
+          const isExpanded = expandedId === f.id
+          return (
+            <div key={f.id} className="rounded-lg border border-border">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => setExpandedId(isExpanded ? null : f.id)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-foreground">{f.name}</span>
+                  <Badge variant="outline" className="text-[9px]">{f.category}</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    Setup: ${f.setupCost} | Markup: {f.markupPercent}% | Min: ${f.minimumJobPrice}
+                  </span>
+                  {isExpanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="px-3 pb-3 border-t border-border pt-3 flex flex-col gap-3">
+                  {/* Name, Category */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Name</label>
+                      <Input value={f.name} onChange={(e) => updateFinishing(f.id, { name: e.target.value })} className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Category</label>
+                      <Select value={f.category} onValueChange={(v) => updateFinishing(f.id, { category: v as "lamination" | "finishing" })}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lamination">Lamination</SelectItem>
+                          <SelectItem value="finishing">Finishing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Setup Cost ($)</label>
+                      <Input type="number" step="0.01" value={f.setupCost}
+                        onChange={(e) => updateFinishing(f.id, { setupCost: parseFloat(e.target.value) || 0 })}
+                        className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Min Job Price ($)</label>
+                      <Input type="number" step="0.01" value={f.minimumJobPrice}
+                        onChange={(e) => updateFinishing(f.id, { minimumJobPrice: parseFloat(e.target.value) || 0 })}
+                        className="h-7 text-xs" />
+                    </div>
+                  </div>
+
+                  {/* Cost parameters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Roll Cost / Sheet ($)</label>
+                      <Input type="number" step="0.0001" value={f.rollCostPerSheet}
+                        onChange={(e) => updateFinishing(f.id, { rollCostPerSheet: parseFloat(e.target.value) || 0 })}
+                        className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Roll Change Fee ($)</label>
+                      <Input type="number" step="0.01" value={f.rollChangeFee}
+                        onChange={(e) => updateFinishing(f.id, { rollChangeFee: parseFloat(e.target.value) || 0 })}
+                        className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Waste %</label>
+                      <Input type="number" step="0.01" value={(f.wastePercent * 100).toFixed(1)}
+                        onChange={(e) => updateFinishing(f.id, { wastePercent: (parseFloat(e.target.value) || 0) / 100 })}
+                        className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Min Sheets</label>
+                      <Input type="number" step="1" value={f.minSheets}
+                        onChange={(e) => updateFinishing(f.id, { minSheets: parseInt(e.target.value) || 1 })}
+                        className="h-7 text-xs" />
+                    </div>
+                  </div>
+
+                  {/* Markup and broker */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Markup %</label>
+                      <Input type="number" step="1" value={f.markupPercent}
+                        onChange={(e) => updateFinishing(f.id, { markupPercent: parseFloat(e.target.value) || 0 })}
+                        className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Broker Discount %</label>
+                      <Input type="number" step="1" value={f.brokerDiscountPercent}
+                        onChange={(e) => updateFinishing(f.id, { brokerDiscountPercent: parseFloat(e.target.value) || 0 })}
+                        className="h-7 text-xs" />
+                    </div>
+                    <div className="flex items-end gap-2 col-span-2">
+                      <div className="flex items-center gap-2 h-7">
+                        <Switch
+                          checked={f.reducesSheetArea}
+                          onCheckedChange={(v) => updateFinishing(f.id, { reducesSheetArea: v })}
+                        />
+                        <span className="text-[10px] text-muted-foreground">Reduces printable area (0.15in margin)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Runtime costs per paper category */}
+                  <div>
+                    <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                      Runtime Cost / Sheet by Paper Category
+                    </h4>
+                    <div className="rounded border border-border overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-muted/50 border-b border-border">
+                            <th className="text-left font-medium text-muted-foreground px-2 py-1.5">Category</th>
+                            <th className="text-right font-medium text-muted-foreground px-2 py-1.5">Cost ($)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(f.runtimeCosts).map(([cat, costs]) => (
+                            <tr key={cat} className="border-b border-border last:border-0">
+                              <td className="px-2 py-1 font-medium text-foreground">{cat}</td>
+                              <td className="px-2 py-1 text-right">
+                                <Input
+                                  type="number" step="0.0001"
+                                  value={costs["default"] || Object.values(costs)[0] || 0}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0
+                                    const updated = { ...f.runtimeCosts, [cat]: { default: val } }
+                                    updateFinishing(f.id, { runtimeCosts: updated })
+                                  }}
+                                  className="h-6 text-[10px] w-20 ml-auto text-right"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Delete */}
+                  <div className="flex justify-end">
+                    <Button variant="destructive" size="sm" className="h-7 text-xs gap-1" onClick={() => removeFinishing(f.id)}>
+                      <Trash2 className="h-3 w-3" /> Remove
+                    </Button>
                   </div>
                 </div>
               )}

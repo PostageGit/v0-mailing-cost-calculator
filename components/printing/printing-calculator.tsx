@@ -30,6 +30,8 @@ const EMPTY_INPUTS: PrintingInputs = {
   hasBleed: false,
   addOnCharge: 0,
   addOnDescription: "",
+  finishingIds: [],
+  isBroker: false,
 }
 
 export function PrintingCalculator() {

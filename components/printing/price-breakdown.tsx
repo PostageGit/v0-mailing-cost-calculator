@@ -20,7 +20,7 @@ function DetailRow({ label, value, bold }: { label: string; value: string; bold?
 }
 
 export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
-  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, subtotal, grandTotal } = data
+  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, finishingCosts, totalFinishing, subtotal, grandTotal } = data
   const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
   const pricePerPage = subtotal > 0 && inputs.qty > 0 ? subtotal / inputs.qty : 0
 
@@ -95,6 +95,13 @@ export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
                 (result.wasCuttingMinApplied ? " (min.)" : "")
               }
             />
+            {finishingCosts && finishingCosts.length > 0 && finishingCosts.map((fc) => (
+              <DetailRow
+                key={fc.id}
+                label={`${fc.name}:`}
+                value={formatCurrency(fc.cost)}
+              />
+            ))}
             <DetailRow
               label={addOnDescription ? `${addOnDescription}:` : "Add on:"}
               value={formatCurrency(addOnCharge)}

@@ -8,7 +8,8 @@ import type {
   SheetOptionRow,
   FullPrintingResult,
 } from "./printing-types"
-import { getActiveConfig } from "./pricing-config"
+import { getActiveConfig, calculateFinishingCost } from "./pricing-config"
+import type { FinishingCostLine } from "./printing-types"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -280,6 +281,23 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
 
 // ==================== FULL CALCULATION WITH ALL SHEET SIZES ====================
 
+function getFinishingCosts(inputs: PrintingInputs, parentSheets: number): { lines: FinishingCostLine[]; total: number } {
+  const ids = inputs.finishingIds || []
+  if (ids.length === 0) return { lines: [], total: 0 }
+  const cfg = getActiveConfig()
+  const isBroker = inputs.isBroker || false
+  const lines: FinishingCostLine[] = []
+  let total = 0
+  for (const id of ids) {
+    const f = cfg.finishings.find((o) => o.id === id)
+    if (!f) continue
+    const cost = calculateFinishingCost(f, inputs.paperName, parentSheets, isBroker)
+    lines.push({ id: f.id, name: f.name, cost })
+    total += cost
+  }
+  return { lines, total }
+}
+
 export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow[] {
   const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
   if (!paper) return []
@@ -291,7 +309,8 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
 
     const printingCost = result.cost
     const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
-    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge
+    const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
+    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal
     const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
 
     results.push({
@@ -310,8 +329,9 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
 export function buildFullResult(inputs: PrintingInputs, result: PrintingCalcResult): FullPrintingResult {
   const printingCost = result.cost
   const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
-  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge
-  const grandTotal = subtotal // No tax for now
+  const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
+  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing
+  const grandTotal = subtotal
 
   return {
     printingCost,
@@ -319,6 +339,8 @@ export function buildFullResult(inputs: PrintingInputs, result: PrintingCalcResu
     addOnCharge: inputs.addOnCharge,
     addOnDescription: inputs.addOnDescription,
     cuttingCost: result.cuttingCost,
+    finishingCosts,
+    totalFinishing,
     subtotal,
     grandTotal,
     result,

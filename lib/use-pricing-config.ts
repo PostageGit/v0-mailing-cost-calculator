@@ -2,7 +2,7 @@
 
 import useSWR from "swr"
 import { useEffect, useRef } from "react"
-import { applyOverrides, getActiveConfig, type PricingConfig } from "./pricing-config"
+import { applyOverrides, getActiveConfig, type PricingConfig, type FinishingOption } from "./pricing-config"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -25,6 +25,7 @@ export function usePricingConfig(): { config: PricingConfig; isLoading: boolean 
       pricing_paper_prices: data.pricing_paper_prices as Record<string, Record<string, number>> | undefined,
       pricing_booklet_paper_prices: data.pricing_booklet_paper_prices as Record<string, Record<string, number>> | undefined,
       pricing_markups: data.pricing_markups as Record<string, Record<number, number>> | undefined,
+      pricing_finishings: data.pricing_finishings as FinishingOption[] | undefined,
     })
     appliedRef.current = true
   }, [data])

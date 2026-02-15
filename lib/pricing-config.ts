@@ -61,6 +61,100 @@ export const DEFAULT_MARKUPS: Record<string, Record<number, number>> = {
   "Color Card": { 1: 12, 2: 6, 3: 4, 4: 3.4, 5: 3.15, 6: 2.95, 7: 2.5, 8: 2.2, 9: 2.05, 10: 1.52 },
 }
 
+// ==================== FINISHING OPTIONS ====================
+
+/**
+ * Each finishing option describes a process applied per parent sheet (the big
+ * printer sheet, not the cut piece).  For saddle stitch, lamination is applied
+ * to the cover sheets.  For flat, it is applied to each parent sheet.
+ *
+ * Cost model:
+ *   baseCost  = setupCost + sheets * runtimeCostPerSheet + sheets * rollCostPerSheet + rollChangeFee
+ *   sheets    = max(quantity, minSheets) * (1 + wastePercent)
+ *   sell      = baseCost * (1 + markupPercent/100)  [broker gets brokerDiscountPercent off]
+ *   final     = max(sell, minimumJobPrice)
+ */
+export interface FinishingOption {
+  id: string                   // e.g. "gloss_lamination"
+  name: string                 // display name: "Gloss Lamination"
+  category: "lamination" | "finishing"
+  setupCost: number
+  /** Per-sheet runtime cost by paper weight category */
+  runtimeCosts: Record<string, Record<string, number>>
+  rollCostPerSheet: number
+  rollChangeFee: number
+  wastePercent: number
+  minSheets: number
+  markupPercent: number
+  brokerDiscountPercent: number
+  minimumJobPrice: number
+  /** If true, it shrinks the printable area by 0.15" on the short side */
+  reducesSheetArea: boolean
+}
+
+export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
+  {
+    id: "gloss_lamination",
+    name: "Gloss Lamination",
+    category: "lamination",
+    setupCost: 10,
+    runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+    rollCostPerSheet: 0.1058,
+    rollChangeFee: 0,
+    wastePercent: 0.05,
+    minSheets: 5,
+    markupPercent: 225,
+    brokerDiscountPercent: 30,
+    minimumJobPrice: 45,
+    reducesSheetArea: true,
+  },
+  {
+    id: "matte_lamination",
+    name: "Matte Lamination",
+    category: "lamination",
+    setupCost: 10,
+    runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+    rollCostPerSheet: 0.1045,
+    rollChangeFee: 10,
+    wastePercent: 0.05,
+    minSheets: 5,
+    markupPercent: 225,
+    brokerDiscountPercent: 30,
+    minimumJobPrice: 45,
+    reducesSheetArea: true,
+  },
+  {
+    id: "silk_lamination",
+    name: "Silk Lamination",
+    category: "lamination",
+    setupCost: 10,
+    runtimeCosts: { "80Cover": { Silk: 0.1333, default: 0.1333 }, Cardstock: { Silk: 0.05, default: 0.05 } },
+    rollCostPerSheet: 0.1009,
+    rollChangeFee: 10,
+    wastePercent: 0.10,
+    minSheets: 10,
+    markupPercent: 225,
+    brokerDiscountPercent: 30,
+    minimumJobPrice: 45,
+    reducesSheetArea: true,
+  },
+  {
+    id: "leather_lamination",
+    name: "Leather Lamination",
+    category: "lamination",
+    setupCost: 10,
+    runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+    rollCostPerSheet: 0.1045,
+    rollChangeFee: 10,
+    wastePercent: 0.05,
+    minSheets: 5,
+    markupPercent: 225,
+    brokerDiscountPercent: 30,
+    minimumJobPrice: 45,
+    reducesSheetArea: true,
+  },
+]
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -68,6 +162,7 @@ export interface PricingConfig {
   paperPrices: Record<string, Record<string, number>>
   bookletPaperPrices: Record<string, Record<string, number>>
   markups: Record<string, Record<number, number>>
+  finishings: FinishingOption[]
 }
 
 /** The active runtime config. Starts as defaults, gets merged with DB overrides. */
@@ -76,6 +171,7 @@ let _activeConfig: PricingConfig = {
   paperPrices: deepClonePrices(DEFAULT_PAPER_PRICES),
   bookletPaperPrices: deepClonePrices(DEFAULT_BOOKLET_PAPER_PRICES),
   markups: deepCloneMarkups(DEFAULT_MARKUPS),
+  finishings: structuredClone(DEFAULT_FINISHING_OPTIONS),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -91,6 +187,7 @@ export function applyOverrides(overrides: Partial<{
   pricing_paper_prices: Record<string, Record<string, number>>
   pricing_booklet_paper_prices: Record<string, Record<string, number>>
   pricing_markups: Record<string, Record<number, number>>
+  pricing_finishings: FinishingOption[]
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -105,7 +202,34 @@ export function applyOverrides(overrides: Partial<{
     markups: overrides.pricing_markups
       ? deepMerge(deepCloneMarkups(DEFAULT_MARKUPS), overrides.pricing_markups)
       : deepCloneMarkups(DEFAULT_MARKUPS),
+    finishings: overrides.pricing_finishings
+      ? structuredClone(overrides.pricing_finishings)
+      : structuredClone(DEFAULT_FINISHING_OPTIONS),
   }
+}
+
+/** Calculate the cost of a single finishing applied to a given number of parent sheets. */
+export function calculateFinishingCost(
+  finishing: FinishingOption,
+  paperName: string,
+  parentSheets: number,
+  isBroker: boolean,
+): number {
+  if (parentSheets <= 0) return 0
+
+  // Determine paper category
+  const category = paperName.toLowerCase().includes("80") ? "80Cover" : "Cardstock"
+  const catCosts = finishing.runtimeCosts[category] || finishing.runtimeCosts["Cardstock"] || {}
+  const runtimeCostPerSheet = catCosts[finishing.name] || catCosts["default"] || Object.values(catCosts)[0] || 0
+
+  const sheets = Math.max(parentSheets, finishing.minSheets)
+  const sheetsWithWaste = sheets * (1 + finishing.wastePercent)
+  const totalBaseCost = finishing.setupCost + sheetsWithWaste * runtimeCostPerSheet + sheetsWithWaste * finishing.rollCostPerSheet + finishing.rollChangeFee
+
+  let effectiveMarkup = finishing.markupPercent
+  if (isBroker) effectiveMarkup *= (1 - finishing.brokerDiscountPercent / 100)
+  const totalWithMarkup = totalBaseCost * (1 + effectiveMarkup / 100)
+  return Math.max(totalWithMarkup, finishing.minimumJobPrice)
 }
 
 // ==================== DEEP CLONE / MERGE HELPERS ====================

@@ -10,7 +10,9 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
+import { getActiveConfig } from "@/lib/pricing-config"
 import type { PrintingInputs } from "@/lib/printing-types"
 
 interface PrintingFormProps {
@@ -167,7 +169,47 @@ export function PrintingForm({
             </div>
           </div>
 
-          {/* Row 3: Add-on */}
+          {/* Row 3: Finishings */}
+          <div className="mb-4">
+            <label className="text-sm font-medium text-foreground mb-1.5 block">
+              Finishings
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {getActiveConfig().finishings.map((f) => {
+                const selected = (inputs.finishingIds || []).includes(f.id)
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => {
+                      const current = inputs.finishingIds || []
+                      const updated = selected
+                        ? current.filter((id) => id !== f.id)
+                        : [...current, f.id]
+                      onInputsChange({ ...inputs, finishingIds: updated })
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      selected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {f.name}
+                    {selected && (
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4">
+                        ON
+                      </Badge>
+                    )}
+                  </button>
+                )
+              })}
+              {getActiveConfig().finishings.length === 0 && (
+                <span className="text-xs text-muted-foreground">No finishings configured. Add them in Settings.</span>
+              )}
+            </div>
+          </div>
+
+          {/* Row 4: Add-on */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="add-on-charge" className="text-sm font-medium text-foreground">
