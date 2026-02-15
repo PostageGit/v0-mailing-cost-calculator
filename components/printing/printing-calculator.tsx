@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { PrintingForm } from "./printing-form"
 import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
@@ -75,6 +75,24 @@ export function PrintingCalculator() {
     setShowResults(false)
     setHasCalculated(true)
   }, [inputs, isFormValid])
+
+  // Reactively rebuild result when inputs change while a sheet is selected
+  // (e.g. user toggles lamination or score/fold after picking a sheet)
+  useEffect(() => {
+    if (selectedOption && showResults) {
+      const result = buildFullResult(inputs, selectedOption.result)
+      setFullResult(result)
+    }
+  }, [
+    inputs.finishingIds?.join(","),
+    inputs.scoreFoldOperation,
+    inputs.scoreFoldType,
+    inputs.addOnCharge,
+    inputs.addOnDescription,
+    inputs.isBroker,
+    selectedOption,
+    showResults,
+  ])
 
   // Select a sheet size from the table
   const handleSelectSheet = useCallback(

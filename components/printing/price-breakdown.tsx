@@ -95,21 +95,32 @@ export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
                 (result.wasCuttingMinApplied ? " (min.)" : "")
               }
             />
-            {finishingCosts && finishingCosts.length > 0 && finishingCosts.map((fc) => (
-              <DetailRow
-                key={fc.id}
-                label={`${fc.name}:`}
-                value={formatCurrency(fc.cost)}
-              />
-            ))}
+            {finishingCosts && finishingCosts.length > 0 && (
+              <>
+                {finishingCosts.map((fc) => (
+                  <div key={fc.id} className="col-span-2 flex justify-between items-center py-0.5">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      {fc.name}:
+                    </span>
+                    <span className="font-semibold text-primary text-xs font-mono">
+                      +{formatCurrency(fc.cost)}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
             {scoreFoldCost && (
-              <DetailRow
-                label={`${scoreFoldCost.operation} (${scoreFoldCost.foldType}):`}
-                value={
-                  formatCurrency(scoreFoldCost.cost) +
-                  (scoreFoldCost.isMinApplied ? " (min.)" : "")
-                }
-              />
+              <div className="col-span-2 flex justify-between items-center py-0.5">
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-chart-3 shrink-0" />
+                  {scoreFoldCost.operation} ({scoreFoldCost.foldType}):
+                </span>
+                <span className="font-semibold text-chart-3 text-xs font-mono">
+                  +{formatCurrency(scoreFoldCost.cost)}
+                  {scoreFoldCost.isMinApplied ? " (min.)" : ""}
+                </span>
+              </div>
             )}
             {scoreFoldCost?.suggestion && (
               <div className="col-span-2 text-[10px] text-amber-600 dark:text-amber-400 italic py-0.5">
