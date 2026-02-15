@@ -44,8 +44,8 @@ export function QuoteSidebar() {
   return (
     <div className="rounded-2xl bg-card border border-border flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 h-11 border-b border-border/60 bg-secondary/30 shrink-0">
-        <span className="text-xs font-semibold text-foreground">Quote</span>
+      <div className="flex items-center justify-between px-3 h-10 border-b border-border/60 bg-secondary/30 shrink-0">
+        <span className="text-[11px] font-semibold text-foreground tracking-tight">Quote</span>
         <div className="flex items-center gap-2">
           {saveText && (
             <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -146,22 +146,22 @@ export function QuoteSidebar() {
 
       {/* Footer */}
       {hasItems && (
-        <div className="shrink-0 border-t border-border/60 p-4 flex flex-col gap-3 bg-secondary/20">
+        <div className="shrink-0 border-t border-border/60 px-3 py-3 flex flex-col gap-2.5 bg-secondary/20">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-foreground">Total</span>
-            <span className="text-xl font-bold font-mono text-foreground tabular-nums">{formatCurrency(total)}</span>
+            <span className="text-xs font-semibold text-foreground">Total</span>
+            <span className="text-lg font-bold font-mono text-foreground tabular-nums">{formatCurrency(total)}</span>
           </div>
           <div className="flex gap-2">
             <Button
               variant={copied ? "default" : "secondary"}
               size="sm"
-              className="flex-1 gap-1.5 text-xs h-9 rounded-xl"
+              className="flex-1 gap-1.5 text-[11px] h-8 rounded-lg"
               onClick={handleCopy}
             >
-              {copied ? <><Check className="h-3.5 w-3.5" />Copied</> : <><ClipboardCopy className="h-3.5 w-3.5" />Copy for Email</>}
+              {copied ? <><Check className="h-3 w-3" />Copied</> : <><ClipboardCopy className="h-3 w-3" />Copy</>}
             </Button>
-            <Button variant="secondary" size="sm" className="gap-1.5 text-xs h-9 rounded-xl" onClick={newQuote}>
-              <FilePlus className="h-3.5 w-3.5" />New
+            <Button variant="secondary" size="sm" className="gap-1.5 text-[11px] h-8 rounded-lg" onClick={newQuote}>
+              <FilePlus className="h-3 w-3" />New
             </Button>
           </div>
         </div>
