@@ -219,9 +219,9 @@ export function BookletForm({
 
           <Separator className="my-4" />
 
-          {/* Lamination, Level, Broker */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 items-end">
-            <div className="flex flex-col gap-1.5 md:col-span-2">
+          {/* Lamination, Level, Markup, Broker */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 items-end">
+            <div className="flex flex-col gap-1.5 md:col-span-1">
               <label className="text-sm font-medium text-foreground">Lamination</label>
               <Select
                 value={inputs.laminationType}
@@ -249,6 +249,17 @@ export function BookletForm({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Markup %</label>
+              <Input
+                type="number"
+                step="1"
+                min={0}
+                max={100}
+                value={inputs.printingMarkupPct ?? 10}
+                onChange={(e) => updateInputs({ printingMarkupPct: parseFloat(e.target.value) || 0 })}
+              />
             </div>
             <div className="flex items-center gap-2 h-9">
               <Checkbox

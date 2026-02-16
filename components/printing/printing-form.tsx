@@ -182,8 +182,26 @@ export function PrintingForm({
             currentResult={currentResult}
           />
 
-          {/* Row 4: Add-on */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Row 4: Printing Markup + Add-on */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="print-markup-pct" className="text-sm font-medium text-foreground">
+                Printing Markup %
+              </label>
+              <Input
+                id="print-markup-pct"
+                type="number"
+                step="1"
+                min={0}
+                max={100}
+                autoComplete="off"
+                placeholder="10"
+                value={inputs.printingMarkupPct ?? 10}
+                onChange={(e) =>
+                  onInputsChange({ ...inputs, printingMarkupPct: parseFloat(e.target.value) || 0 })
+                }
+              />
+            </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="add-on-charge" className="text-sm font-medium text-foreground">
                 Add on ($)
@@ -203,7 +221,7 @@ export function PrintingForm({
             </div>
             <div className="flex flex-col gap-1.5 md:col-span-2">
               <label htmlFor="add-on-desc" className="text-sm font-medium text-foreground">
-                Description
+                Add on Description
               </label>
               <Input
                 id="add-on-desc"

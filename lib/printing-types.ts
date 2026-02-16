@@ -43,6 +43,8 @@ export interface PrintingInputs {
   finishingCalcIds?: string[]
   /** Override the auto-detected level (1-8) */
   levelOverride?: number
+  /** Extra percentage on printing cost (default 10) */
+  printingMarkupPct: number
 }
 
 export interface PrintingCalcResult {

@@ -43,6 +43,7 @@ const EMPTY_INPUTS: PrintingInputs = {
   isBroker: false,
   scoreFoldOperation: "",
   scoreFoldType: "",
+  printingMarkupPct: 10,
 }
 
 export function PrintingCalculator() {

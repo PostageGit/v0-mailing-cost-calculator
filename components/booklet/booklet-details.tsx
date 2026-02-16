@@ -1,11 +1,12 @@
 "use client"
 
 import { formatCurrency, formatDecimal } from "@/lib/booklet-pricing"
-import type { BookletCalcResult } from "@/lib/booklet-types"
+import type { BookletCalcResult, BookletInputs } from "@/lib/booklet-types"
 
 interface BookletDetailsProps {
   result: BookletCalcResult
   bookQty: number
+  inputs: BookletInputs
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -25,7 +26,7 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-export function BookletDetails({ result, bookQty }: BookletDetailsProps) {
+export function BookletDetails({ result, bookQty, inputs }: BookletDetailsProps) {
   const {
     insideResult, coverResult, totalSheetsPerBooklet,
     bindingPricePerBook, totalBindingPrice, laminationCostPerBook,
@@ -97,7 +98,7 @@ export function BookletDetails({ result, bookQty }: BookletDetailsProps) {
           <div className="col-span-full">
             <SectionHeader label="Job Details" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-              <DetailRow label="Total Printing:" value={formatCurrency(totalPrintingCost)} />
+              <DetailRow label={`Total Printing +${inputs.printingMarkupPct ?? 10}%:`} value={formatCurrency(totalPrintingCost)} />
               <DetailRow label="Total Binding:" value={formatCurrency(totalBindingPrice)} />
               {brokerMinimumApplied && (
                 <DetailRow label="Broker Min:" value={brokerMinimumApplied} />

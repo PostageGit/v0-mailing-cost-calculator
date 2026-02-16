@@ -30,6 +30,7 @@ const EMPTY_INPUTS: BookletInputs = {
   laminationType: "none",
   customLevel: "auto",
   isBroker: false,
+  printingMarkupPct: 10,
 }
 
 export function BookletCalculator() {
@@ -198,10 +199,11 @@ export function BookletCalculator() {
 
                 {/* Price Details */}
                 <div className="flex flex-col gap-4">
-                  <BookletDetails
-                    result={calcResult}
-                    bookQty={inputs.bookQty}
-                  />
+              <BookletDetails
+                result={calcResult}
+                bookQty={inputs.bookQty}
+                inputs={inputs}
+              />
                   <Button
                     onClick={handleAddToQuote}
                     className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

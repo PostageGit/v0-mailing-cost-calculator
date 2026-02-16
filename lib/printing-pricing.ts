@@ -350,7 +350,8 @@ export function buildFullResult(
   finishingCalcCosts?: { id: string; name: string; cost: number }[],
 ): FullPrintingResult {
   const printingCost = result.cost
-  const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
+  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
+  const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
   const scoreFoldCost = getScoreFoldCost(inputs)
   const fcCosts = finishingCalcCosts || []

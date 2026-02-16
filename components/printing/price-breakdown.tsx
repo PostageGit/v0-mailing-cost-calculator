@@ -122,7 +122,7 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange }: PriceBrea
       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
         {/* Printing */}
         <CostRow
-          label={result.wasPrintingMinApplied ? "Printing (min.)" : "Printing +10%"}
+          label={result.wasPrintingMinApplied ? "Printing (min.)" : `Printing +${inputs.printingMarkupPct ?? 10}%`}
           value={printingCostPlus10}
         />
 

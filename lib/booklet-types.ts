@@ -28,6 +28,8 @@ export interface BookletInputs {
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   customLevel: string // "auto" or "1"-"10"
   isBroker: boolean
+  /** Extra percentage on printing cost (default 10) */
+  printingMarkupPct: number
 }
 
 export interface PartCalcResult {
