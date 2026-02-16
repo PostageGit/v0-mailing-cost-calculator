@@ -31,14 +31,16 @@ export type ProductionRoute = "inhouse" | "ohp" | "both"
 // ─── Fold types (simplified) ─────────────────────────────
 // Finished size = what fits in the envelope (after folding)
 // Fold multiplier computes the FLAT print sheet size
-export type FoldType = "none" | "x2w" | "x2h" | "x3w" | "x3h" | "custom"
+// Convention: fold "along width" = crease runs horizontally = HEIGHT expands
+//             fold "along height" = crease runs vertically = WIDTH expands
+export type FoldType = "none" | "x2h" | "x2w" | "x3h" | "x3w" | "custom"
 export const FOLD_OPTIONS: { id: FoldType; label: string; desc: string; multW: number; multH: number }[] = [
-  { id: "none", label: "Flat",    desc: "No fold",                                   multW: 1, multH: 1 },
-  { id: "x2w",  label: "x2 (W)", desc: "Half fold along width (greeting card style)", multW: 2, multH: 1 },
-  { id: "x2h",  label: "x2 (H)", desc: "Half fold along height (landscape open)",     multW: 1, multH: 2 },
-  { id: "x3w",  label: "x3 (W)", desc: "Tri-fold / Z-fold along width",               multW: 3, multH: 1 },
-  { id: "x3h",  label: "x3 (H)", desc: "Tri-fold / Z-fold along height",              multW: 1, multH: 3 },
-  { id: "custom", label: "Custom", desc: "Enter flat size manually",                   multW: 1, multH: 1 },
+  { id: "none",   label: "Flat",    desc: "No fold",                                        multW: 1, multH: 1 },
+  { id: "x2h",    label: "x2 (H)", desc: "Half fold -- height doubles, width stays",        multW: 1, multH: 2 },
+  { id: "x2w",    label: "x2 (W)", desc: "Half fold -- width doubles, height stays",        multW: 2, multH: 1 },
+  { id: "x3h",    label: "x3 (H)", desc: "Tri-fold -- height triples, width stays",         multW: 1, multH: 3 },
+  { id: "x3w",    label: "x3 (W)", desc: "Tri-fold -- width triples, height stays",         multW: 3, multH: 1 },
+  { id: "custom",  label: "Custom", desc: "Enter flat size manually",                        multW: 1, multH: 1 },
 ]
 
 /** Compute the flat (print) sheet size from finished size + fold type */
