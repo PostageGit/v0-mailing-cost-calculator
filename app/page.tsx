@@ -41,7 +41,7 @@ const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "items",     label: "Items",     icon: <Package className="h-3.5 w-3.5" /> },
 ]
 const STEP_CATS: Record<StepId, string[]> = {
-  envelope: [], usps: ["postage"], labor: ["listwork"],
+  envelope: ["envelope"], usps: ["postage"], labor: ["listwork"],
   printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], perfect: ["perfect"], ohp: ["ohp"], items: ["item"],
 }
 

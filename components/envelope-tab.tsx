@@ -1,149 +1,584 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
 import { useQuote } from "@/lib/quote-context"
-import { useMailing, PIECE_TYPE_META } from "@/lib/mailing-context"
+import { useMailing } from "@/lib/mailing-context"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus, Check, Package, AlertCircle } from "lucide-react"
+import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
+import { useFormValidation } from "@/hooks/use-form-validation"
+import {
+  calculateEnvelope,
+  DEFAULT_ENVELOPE_SETTINGS,
+  defaultEnvelopeInputs,
+  getInkJetPrintTypes,
+  getLaserPrintTypes,
+  type EnvelopeInputs,
+  type EnvelopeCalcResult,
+  type EnvelopeSettings,
+  type InkType,
+  type InkJetPrintType,
+  type LaserPrintType,
+} from "@/lib/envelope-pricing"
+import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 
-/**
- * Envelope Tab -- piece-aware.
- * Lists all envelope pieces from the planner, each with size pre-filled.
- * User enters cost/each, adds to quote. Simple and focused.
- */
 export function EnvelopeTab() {
   const quote = useQuote()
-  const m = useMailing()
+  const mailing = useMailing()
+  const v = useFormValidation()
 
-  // Get all envelope pieces that are in-house or both
-  const envPieces = m.pieces.filter(
-    (p) => p.type === "envelope" && (p.production === "inhouse" || p.production === "both")
-  )
+  const [inputs, setInputs] = useState<EnvelopeInputs>(() => {
+    const def = defaultEnvelopeInputs()
+    // Pre-fill amount from planner quantity
+    if (mailing.quantity > 0) def.amount = mailing.quantity
+    return def
+  })
+  const [calcResult, setCalcResult] = useState<EnvelopeCalcResult | null>(null)
+  const [error, setError] = useState("")
+  const [effectiveTotal, setEffectiveTotal] = useState(0)
+  const [showSettings, setShowSettings] = useState(false)
+  const [settings, setSettings] = useState<EnvelopeSettings>(() => structuredClone(DEFAULT_ENVELOPE_SETTINGS))
 
-  if (envPieces.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center mb-4">
-          <Package className="h-5 w-5 text-muted-foreground" />
-        </div>
-        <p className="text-sm font-semibold text-foreground mb-1">No envelope pieces defined</p>
-        <p className="text-xs text-muted-foreground max-w-xs">
-          Go back to the Planner and add an envelope piece to price it here.
-        </p>
-      </div>
-    )
-  }
+  // Auto-calculate on input change
+  useEffect(() => {
+    if (inputs.amount > 0 && inputs.itemName && inputs.printType) {
+      const result = calculateEnvelope(inputs, settings)
+      if ("error" in result) {
+        setError(result.error)
+        setCalcResult(null)
+      } else {
+        setError("")
+        setCalcResult(result)
+      }
+    } else {
+      setCalcResult(null)
+      setError("")
+    }
+  }, [inputs, settings])
+
+  const update = useCallback((patch: Partial<EnvelopeInputs>) => {
+    setInputs((prev) => ({ ...prev, ...patch }))
+  }, [])
+
+  // When ink type changes, reset print type to first option of new type
+  const handleInkChange = useCallback((ink: InkType) => {
+    const newPrint = ink === "InkJet" ? "Text + Logo" : "BW"
+    update({ inkType: ink, printType: newPrint as never, hasBleed: false })
+  }, [update])
+
+  // Handle item change -- uncheck bleed if item doesn't support it
+  const handleItemChange = useCallback((name: string) => {
+    const item = settings.items.find((i) => i.name === name)
+    update({
+      itemName: name,
+      hasBleed: item?.bleed && inputs.inkType === "InkJet" ? inputs.hasBleed : false,
+    })
+  }, [settings.items, inputs.inkType, inputs.hasBleed, update])
+
+  const handleCalculate = useCallback(() => {
+    v.markAttempted()
+    if (inputs.amount <= 0 || !inputs.itemName || !inputs.printType) return
+    const result = calculateEnvelope(inputs, settings)
+    if ("error" in result) {
+      setError(result.error)
+      setCalcResult(null)
+    } else {
+      setError("")
+      setCalcResult(result)
+    }
+  }, [inputs, settings, v])
+
+  const handleAddToQuote = useCallback(() => {
+    if (!calcResult) return
+    const finalAmount = effectiveTotal > 0 ? effectiveTotal : calcResult.price
+    quote.addItem({
+      category: "envelope",
+      label: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
+      description: `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`,
+      amount: finalAmount,
+    })
+  }, [calcResult, inputs, quote, effectiveTotal])
+
+  const handleReset = useCallback(() => {
+    v.reset()
+    const def = defaultEnvelopeInputs()
+    if (mailing.quantity > 0) def.amount = mailing.quantity
+    setInputs(def)
+    setCalcResult(null)
+    setError("")
+    setSettings(structuredClone(DEFAULT_ENVELOPE_SETTINGS))
+  }, [mailing.quantity, v])
+
+  // Current item's bleed capability
+  const currentItem = settings.items.find((i) => i.name === inputs.itemName)
+  const bleedEnabled = currentItem?.bleed === true && inputs.inkType === "InkJet"
+
+  // Print type options based on ink type
+  const printOptions = inputs.inkType === "InkJet" ? getInkJetPrintTypes() : getLaserPrintTypes()
+
+  // Laser cheaper warning for custom inkjet
+  const laserColorCost = settings.laser["Color"]
+  const showLaserCheaper = inputs.inkType === "InkJet" && inputs.printType === "Custom" && inputs.customPrintCost > laserColorCost
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2 mb-1">
-        <h2 className="text-base font-bold text-foreground tracking-tight">Envelope Pricing</h2>
-        <span className="text-xs text-muted-foreground">{envPieces.length} envelope{envPieces.length > 1 ? "s" : ""} to price</span>
+    <div className="flex flex-col lg:flex-row gap-6">
+      {/* ─── LEFT: Form ─── */}
+      <div className="flex-1 min-w-0">
+        <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-foreground tracking-tight">Envelope Calculator</h2>
+            <button
+              type="button"
+              onClick={() => setShowSettings(!showSettings)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Settings
+            </button>
+          </div>
+
+          {/* Amount */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Amount{v.req(!inputs.amount) && <span className="text-destructive text-xs ml-0.5">*</span>}
+            </label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              placeholder="e.g. 1200"
+              className={v.cls(!inputs.amount)}
+              value={inputs.amount || ""}
+              onChange={(e) => update({ amount: parseInt(e.target.value) || 0 })}
+            />
+            {inputs.amount > 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                Rounds to {(Math.ceil(inputs.amount / 50) * 50).toLocaleString()} (nearest 50)
+              </span>
+            )}
+          </div>
+
+          {/* Item selection */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Envelope{v.req(!inputs.itemName) && <span className="text-destructive text-xs ml-0.5">*</span>}
+            </label>
+            <Select value={inputs.itemName} onValueChange={handleItemChange}>
+              <SelectTrigger className={v.cls(!inputs.itemName)}>
+                <SelectValue placeholder="Select envelope" />
+              </SelectTrigger>
+              <SelectContent>
+                {settings.items.map((item) => (
+                  <SelectItem key={item.name} value={item.name}>
+                    <div className="flex items-center justify-between w-full gap-3">
+                      <span>{item.name}</span>
+                      <span className="text-muted-foreground text-xs font-mono">
+                        {item.costPer1000 > 0 ? `$${item.costPer1000}/M` : ""}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Custom env cost (for Provided stock) */}
+          {inputs.itemName === "Provided stock" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Envelope Cost / 1000{v.req(!inputs.customEnvCost) && <span className="text-destructive text-xs ml-0.5">*</span>}
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                placeholder="Cost per 1000"
+                className={v.cls(!inputs.customEnvCost)}
+                value={inputs.customEnvCost || ""}
+                onChange={(e) => update({ customEnvCost: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+          )}
+
+          {/* Ink + Print row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Ink</label>
+              <Select value={inputs.inkType} onValueChange={(v) => handleInkChange(v as InkType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="InkJet">InkJet</SelectItem>
+                  <SelectItem value="Laser">Laser</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Print{v.req(!inputs.printType) && <span className="text-destructive text-xs ml-0.5">*</span>}
+              </label>
+              <Select value={inputs.printType} onValueChange={(val) => update({ printType: val as never })}>
+                <SelectTrigger className={v.cls(!inputs.printType)}>
+                  <SelectValue placeholder="Select print" />
+                </SelectTrigger>
+                <SelectContent>
+                  {printOptions.map((pt) => (
+                    <SelectItem key={pt} value={pt}>{pt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Custom print cost */}
+          {inputs.printType === "Custom" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Custom Click Cost / 1000{v.req(!inputs.customPrintCost) && <span className="text-destructive text-xs ml-0.5">*</span>}
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                placeholder="Click cost per 1000"
+                className={v.cls(!inputs.customPrintCost)}
+                value={inputs.customPrintCost || ""}
+                onChange={(e) => update({ customPrintCost: parseFloat(e.target.value) || 0 })}
+              />
+              {showLaserCheaper && (
+                <div className="flex items-center gap-1.5 text-xs text-destructive font-medium">
+                  <AlertTriangle className="h-3 w-3" />
+                  Laser is cheaper at ${laserColorCost}/M
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bleed */}
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="env-bleed"
+              checked={inputs.hasBleed}
+              disabled={!bleedEnabled}
+              onCheckedChange={(checked) => update({ hasBleed: checked === true })}
+            />
+            <label
+              htmlFor="env-bleed"
+              className={`text-sm font-medium cursor-pointer ${bleedEnabled ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              Bleed
+            </label>
+            {!bleedEnabled && inputs.itemName && (
+              <span className="text-[10px] text-muted-foreground">
+                {inputs.inkType !== "InkJet" ? "(InkJet only)" : "(Not available for this item)"}
+              </span>
+            )}
+            {inputs.hasBleed && inputs.itemName === "Provided stock" && (
+              <span className="text-[10px] font-semibold text-amber-600">Check w/ prod.</span>
+            )}
+          </div>
+
+          {/* Customer type */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">Customer</label>
+            <Select value={inputs.customerType} onValueChange={(val) => update({ customerType: val as "Regular" | "Broker" })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Regular">Regular (x{settings.customer.Regular})</SelectItem>
+                <SelectItem value="Broker">Broker (x{settings.customer.Broker})</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-xl bg-destructive/5 border border-destructive/20 px-4 py-3 text-xs text-destructive font-medium">
+              {error}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <Button onClick={handleCalculate} className="flex-1 font-semibold rounded-xl bg-foreground text-background hover:bg-foreground/90">
+              Calculate
+            </Button>
+            <Button type="button" variant="secondary" onClick={handleReset} className="flex-1 font-semibold rounded-xl">
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Reset
+            </Button>
+          </div>
+
+          {/* ─── Collapsible Settings ─── */}
+          {showSettings && (
+            <EnvelopeSettingsPanel settings={settings} onSettingsChange={setSettings} />
+          )}
+        </div>
       </div>
 
-      {envPieces.map((piece) => (
-        <EnvelopePriceCard key={piece.id} pieceId={piece.id} />
-      ))}
+      {/* ─── RIGHT: Result ─── */}
+      <div className="lg:w-[22rem] shrink-0">
+        {calcResult ? (
+          <div className="flex flex-col gap-3">
+            <EnvelopeResultCard
+              result={calcResult}
+              inputs={inputs}
+              settings={settings}
+              onEffectiveTotalChange={setEffectiveTotal}
+            />
+            <Button
+              onClick={handleAddToQuote}
+              className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border bg-secondary/20 flex flex-col items-center justify-center py-16 px-6 text-center">
+            <p className="text-sm font-medium text-muted-foreground">Enter details and calculate</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Result will appear here</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-function EnvelopePriceCard({ pieceId }: { pieceId: string }) {
-  const quote = useQuote()
-  const m = useMailing()
-  const piece = m.pieces.find((p) => p.id === pieceId)!
-  const meta = PIECE_TYPE_META[piece.type]
+/* ─── Result card using CalcPriceCard ─── */
 
-  const [unitCost, setUnitCost] = useState("")
-  const [added, setAdded] = useState(false)
+function EnvelopeResultCard({
+  result,
+  inputs,
+  settings,
+  onEffectiveTotalChange,
+}: {
+  result: EnvelopeCalcResult
+  inputs: EnvelopeInputs
+  settings: EnvelopeSettings
+  onEffectiveTotalChange?: (total: number) => void
+}) {
+  const stats: PaperStat[] = [
+    { label: "Qty", value: result.quantity.toLocaleString() },
+    { label: "Ink", value: inputs.inkType },
+    { label: "Markup", value: `x${result.customerMarkup}` },
+  ]
 
-  const cost = parseFloat(unitCost) || 0
-  const qty = m.quantity
-  const total = cost * qty
+  const costLines: CostLine[] = [
+    { label: "Base Cost", value: result.baseCost, sub: `${result.quantity} x (env + print) x ${result.customerMarkup}` },
+  ]
 
-  const sizeLabel = piece.width && piece.height
-    ? `${piece.width}" x ${piece.height}"`
-    : "No size set"
-
-  const kindLabel = piece.envelopeKind === "plastic"
-    ? "Plastic"
-    : piece.envelopeKind === "paper"
-      ? "Paper"
-      : ""
-
-  const handleAdd = () => {
-    if (cost <= 0) return
-    quote.addItem({
-      category: "item",
-      label: `${kindLabel ? kindLabel + " " : ""}Envelope: ${sizeLabel}`,
-      description: `${formatCurrency(cost)}/ea x ${qty.toLocaleString()}`,
-      amount: total,
-    })
-    setAdded(true)
-    setTimeout(() => setAdded(false), 1500)
+  if (result.bleedFeesApplied) {
+    costLines.push({ label: "Bleed Markup +10%", value: result.bleedMarkupAmount })
+    costLines.push({ label: "Bleed Setup Fee", value: result.setupFee })
   }
 
+  if (result.minFeeApplied) {
+    costLines.push({ label: "Minimum Fee", value: settings.fees.minNoBleed, sub: `base < $${settings.fees.minNoBleed}` })
+  }
+
+  const expandedDetails = (
+    <div className="flex flex-col gap-3 text-xs">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+        <span className="text-muted-foreground">Envelope</span>
+        <span className="font-medium text-foreground">{inputs.itemName}</span>
+        <span className="text-muted-foreground">Env Cost / 1000</span>
+        <span className="font-mono text-foreground">${result.envelopeCostPer1000.toFixed(2)}</span>
+        <span className="text-muted-foreground">Print Type</span>
+        <span className="font-medium text-foreground">{inputs.printType}</span>
+        <span className="text-muted-foreground">Print Cost / 1000</span>
+        <span className="font-mono text-foreground">${result.printCostPer1000.toFixed(2)}</span>
+        <span className="text-muted-foreground">Bleed</span>
+        <span className="font-medium text-foreground">{inputs.hasBleed ? "Yes" : "No"}</span>
+        <span className="text-muted-foreground">Customer</span>
+        <span className="font-medium text-foreground">{inputs.customerType}</span>
+      </div>
+    </div>
+  )
+
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-border/60 bg-secondary/20">
-        <span className={`text-[9px] font-bold px-2 py-1 rounded-md ${meta.color}`}>{meta.short}</span>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-foreground">{piece.label}</h3>
-          <div className="flex items-center gap-2 mt-0.5">
-            {kindLabel && (
-              <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
-                {kindLabel}
-              </span>
-            )}
-            <span className="text-xs font-mono text-muted-foreground">{sizeLabel}</span>
-            {piece.envelopeId && piece.envelopeId !== "custom" && (
-              <span className="text-[10px] text-muted-foreground">({piece.envelopeId.toUpperCase()})</span>
-            )}
+    <CalcPriceCard
+      total={result.price}
+      perUnitLabel="/ envelope"
+      perUnitCost={result.pricePerUnit}
+      paperName={inputs.itemName}
+      stats={stats}
+      costLines={costLines}
+      details={expandedDetails}
+      onEffectiveTotalChange={onEffectiveTotalChange}
+    />
+  )
+}
+
+/* ─── Settings panel ─── */
+
+function EnvelopeSettingsPanel({
+  settings,
+  onSettingsChange,
+}: {
+  settings: EnvelopeSettings
+  onSettingsChange: (s: EnvelopeSettings) => void
+}) {
+  const [open, setOpen] = useState<string | null>(null)
+
+  const updateInkjet = (key: string, val: number) => {
+    const next = structuredClone(settings)
+    next.inkjet[key as InkJetPrintType] = val
+    onSettingsChange(next)
+  }
+  const updateLaser = (key: string, val: number) => {
+    const next = structuredClone(settings)
+    next.laser[key as LaserPrintType] = val
+    onSettingsChange(next)
+  }
+  const updateCustomer = (key: string, val: number) => {
+    const next = structuredClone(settings)
+    next.customer[key as "Regular" | "Broker"] = val
+    onSettingsChange(next)
+  }
+  const updateFee = (key: keyof typeof settings.fees, val: number) => {
+    const next = structuredClone(settings)
+    next.fees[key] = val
+    onSettingsChange(next)
+  }
+  const updateItemCost = (idx: number, val: number) => {
+    const next = structuredClone(settings)
+    next.items[idx].costPer1000 = val
+    onSettingsChange(next)
+  }
+
+  const sections = [
+    {
+      id: "env",
+      title: "Envelope Costs",
+      content: (
+        <div className="flex flex-col gap-2">
+          {settings.items.map((item, i) => (
+            <div key={item.name} className="flex items-center justify-between gap-3">
+              <span className="text-xs text-foreground flex-1 min-w-0 truncate">{item.name}</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={item.costPer1000}
+                  onChange={(e) => updateItemCost(i, parseFloat(e.target.value) || 0)}
+                  className="h-7 w-20 text-xs font-mono"
+                  disabled={item.name === "Provided stock"}
+                />
+                <span className={`text-[10px] w-6 text-center ${item.bleed ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                  {item.bleed ? "B" : "-"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "inkjet",
+      title: "InkJet Print Costs (/1000)",
+      content: (
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(settings.inkjet).map(([key, val]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[10px] text-muted-foreground">{key}</span>
+              <Input
+                type="number"
+                step="0.5"
+                value={val}
+                onChange={(e) => updateInkjet(key, parseFloat(e.target.value) || 0)}
+                className="h-7 text-xs font-mono"
+                disabled={key === "Custom"}
+              />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "laser",
+      title: "Laser Print Costs (/1000)",
+      content: (
+        <div className="grid grid-cols-3 gap-3">
+          {Object.entries(settings.laser).map(([key, val]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[10px] text-muted-foreground">{key}</span>
+              <Input
+                type="number"
+                step="0.5"
+                value={val}
+                onChange={(e) => updateLaser(key, parseFloat(e.target.value) || 0)}
+                className="h-7 text-xs font-mono"
+              />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "markup",
+      title: "Customer Markup",
+      content: (
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(settings.customer).map(([key, val]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[10px] text-muted-foreground">{key}</span>
+              <Input
+                type="number"
+                step="0.01"
+                value={val}
+                onChange={(e) => updateCustomer(key, parseFloat(e.target.value) || 0)}
+                className="h-7 text-xs font-mono"
+              />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "fees",
+      title: "Fees & Minimums",
+      content: (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-muted-foreground">Min (no bleed)</span>
+            <Input type="number" step="1" value={settings.fees.minNoBleed} onChange={(e) => updateFee("minNoBleed", parseFloat(e.target.value) || 0)} className="h-7 text-xs font-mono" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-muted-foreground">Setup (bleed)</span>
+            <Input type="number" step="1" value={settings.fees.setupFee} onChange={(e) => updateFee("setupFee", parseFloat(e.target.value) || 0)} className="h-7 text-xs font-mono" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-muted-foreground">Bleed markup</span>
+            <Input type="number" step="0.01" value={settings.fees.bleedMarkup} onChange={(e) => updateFee("bleedMarkup", parseFloat(e.target.value) || 0)} className="h-7 text-xs font-mono" />
           </div>
         </div>
-        <span className="text-xs text-muted-foreground font-medium tabular-nums">{qty.toLocaleString()} pcs</span>
-      </div>
+      ),
+    },
+  ]
 
-      {/* No size warning */}
-      {(!piece.width || !piece.height) && (
-        <div className="flex items-center gap-2 px-5 py-3 bg-destructive/5 text-destructive text-xs font-medium border-b border-border/40">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          Set envelope dimensions in the Planner first.
-        </div>
-      )}
-
-      {/* Pricing row */}
-      <div className="px-4 sm:px-5 py-4 flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-1 w-full sm:w-32">
-          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Cost / each</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-            <Input
-              type="number" step="0.001" min="0" placeholder="0.000"
-              value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
-              className="h-10 text-sm font-mono pl-7 rounded-xl border-border bg-background"
-            />
-          </div>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Total</label>
-          <span className="text-lg font-bold font-mono text-foreground tabular-nums h-10 flex items-center">
-            {formatCurrency(total)}
-          </span>
-        </div>
-        <div className="ml-auto w-full sm:w-auto">
+  return (
+    <div className="rounded-xl border border-border bg-secondary/20 overflow-hidden divide-y divide-border">
+      {sections.map((sec) => (
+        <div key={sec.id}>
           <button
-            onClick={handleAdd}
-            disabled={cost <= 0 || added}
-            className="flex items-center justify-center gap-2 bg-foreground text-background text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-foreground/90 disabled:opacity-30 transition-all w-full sm:w-auto min-h-[44px]"
+            type="button"
+            onClick={() => setOpen(open === sec.id ? null : sec.id)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary/40 transition-colors"
           >
-            {added ? <><Check className="h-3.5 w-3.5" />Added</> : <><Plus className="h-3.5 w-3.5" />Add to Quote</>}
+            {sec.title}
+            {open === sec.id ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
           </button>
+          {open === sec.id && <div className="px-4 pb-4 pt-1">{sec.content}</div>}
         </div>
-      </div>
+      ))}
     </div>
   )
 }
