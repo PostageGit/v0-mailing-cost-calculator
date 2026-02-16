@@ -1,9 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import {
   Select,
@@ -26,9 +24,9 @@ import {
   type USPSEntry,
   type SortLevel,
 } from "@/lib/usps-rates"
-import { Plus, AlertTriangle, AlertCircle, Info } from "lucide-react"
+import { Plus, AlertTriangle, AlertCircle, Info, ChevronDown } from "lucide-react"
 
-/* ── Compact pill toggle ── */
+/* ── Compact pill ── */
 function Pill({
   active,
   disabled,
@@ -47,24 +45,60 @@ function Pill({
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`px-3 py-1.5 rounded-lg text-left transition-all text-xs font-medium border ${
+      className={`px-3 py-2 rounded-lg text-left transition-all font-medium border ${
         disabled
-          ? "opacity-25 cursor-not-allowed border-border bg-secondary"
+          ? "opacity-25 cursor-not-allowed border-border bg-secondary text-xs"
           : active
-            ? "border-foreground bg-foreground text-background"
-            : "border-border bg-card hover:border-foreground/20 cursor-pointer"
+            ? "border-foreground bg-foreground text-background text-sm"
+            : "border-border bg-card hover:border-foreground/20 cursor-pointer text-sm"
       }`}
     >
       <span className="block leading-tight">{label}</span>
       {sub && (
         <span
-          className={`block text-[10px] leading-tight mt-0.5 ${
+          className={`block text-xs leading-tight mt-0.5 ${
             active && !disabled ? "text-background/60" : "text-muted-foreground"
           }`}
         >
           {sub}
         </span>
       )}
+    </button>
+  )
+}
+
+/* ── Sort level button with big price ── */
+function SortBtn({
+  active,
+  rate,
+  sortLabel,
+  onClick,
+}: {
+  active: boolean
+  rate: number
+  sortLabel: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center rounded-xl py-3 px-2 transition-all border ${
+        active
+          ? "bg-foreground text-background border-foreground"
+          : "bg-card border-border hover:border-foreground/20"
+      }`}
+    >
+      <span className="text-lg font-bold font-mono tabular-nums leading-none">
+        {rate > 0 ? formatPostageRate(rate) : "---"}
+      </span>
+      <span
+        className={`text-xs font-medium mt-1 ${
+          active ? "text-background/60" : "text-muted-foreground"
+        }`}
+      >
+        {sortLabel}
+      </span>
     </button>
   )
 }
@@ -99,7 +133,7 @@ export function USPSPostageCalculator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs.quantity, inputs.saturationQty, inputs.shape])
 
-  // Auto-detect shape + format from planner's outer piece (runs when outer piece changes, NOT on quantity changes to avoid loop)
+  // Auto-detect shape + format from planner's outer piece
   const seededQtyRef = useRef(false)
   useEffect(() => {
     const outer = mailing.outerPiece
@@ -107,13 +141,11 @@ export function USPSPostageCalculator() {
 
     const patch: Partial<USPSInputs> = {}
 
-    // Auto-set quantity from planner only on first mount
     if (!seededQtyRef.current && mailing.quantity) {
       patch.quantity = mailing.quantity
       seededQtyRef.current = true
     }
 
-    // Determine format from outer piece type
     if (outer.type === "envelope") {
       patch.pack = outer.envelopeKind === "plastic" ? "PLAS" : "ENV"
     } else if (outer.type === "booklet") {
@@ -126,7 +158,6 @@ export function USPSPostageCalculator() {
       patch.pack = "SM_CARD"
     }
 
-    // Determine shape from outer piece dimensions
     if (outer.width && outer.height) {
       const s = Math.min(outer.width, outer.height)
       const l = Math.max(outer.width, outer.height)
@@ -178,11 +209,9 @@ export function USPSPostageCalculator() {
   const suggestedShapes = mailing.suggestedShapes
   const [shapeOverride, setShapeOverride] = useState(false)
 
-  // Auto-switch shape when current selection is disqualified by dimensions
   useEffect(() => {
     if (!hasDimensions || shapeOverride) return
     if (suggestedShapes.length > 0 && !suggestedShapes.includes(inputs.shape as any)) {
-      // Current shape is invalid -- switch to first valid one
       const isMktService = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
       const validShapes = isMktService
         ? suggestedShapes.filter((s) => s !== "POSTCARD")
@@ -197,376 +226,225 @@ export function USPSPostageCalculator() {
   const isRetail = inputs.service === "FCM_RETAIL"
   const isShapeDisabled = (shape: string) => {
     if (shape === "POSTCARD" && isMkt) return true
-    if (
-      hasDimensions &&
-      !shapeOverride &&
-      !suggestedShapes.includes(shape as "POSTCARD" | "LETTER" | "FLAT")
-    )
-      return true
+    if (hasDimensions && !shapeOverride && !suggestedShapes.includes(shape as "POSTCARD" | "LETTER" | "FLAT")) return true
     return false
   }
   const postcardDisabled = isShapeDisabled("POSTCARD")
   const showSaturation = isMkt
   const showEntryPoint = isMkt
   const showSortSlider = !isRetail
-  const remainingQty =
-    inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
+  const remainingQty = inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
   const spec = SPECS[inputs.shape]
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 max-w-3xl">
       {/* Planner detection banner */}
       {mailing.outerPiece && (
         <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3 flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-foreground/5 flex items-center justify-center">
-            <Info className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1">
-            <p className="text-xs font-semibold text-foreground">
-              Auto-detected from planner
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Outer piece: <strong>{mailing.outerPiece.label}</strong>
-              {mailing.outerPiece.width && mailing.outerPiece.height && (
-                <span className="font-mono ml-1">{mailing.outerPiece.width}" x {mailing.outerPiece.height}"</span>
-              )}
-              {mailing.outerPiece.type === "envelope" && mailing.outerPiece.envelopeKind && (
-                <span className="ml-1">({mailing.outerPiece.envelopeKind})</span>
-              )}
-              <span className="mx-1.5 text-border">|</span>
-              Shape: <strong>{SHAPE_LABELS[inputs.shape]}</strong>
-              <span className="mx-1.5 text-border">|</span>
-              Format: <strong>{inputs.pack === "ENV" ? "Envelope (Paper)" : inputs.pack === "PLAS" ? "Envelope (Plastic)" : inputs.pack === "SM_CARD" ? "Self-Mailer Card" : inputs.pack === "SM_FOLD" ? "Self-Mailer Folded" : "Self-Mailer Booklet"}</strong>
-            </p>
-          </div>
+          <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            Auto-detected from planner:
+            <strong className="text-foreground ml-1">{mailing.outerPiece.label}</strong>
+            {mailing.outerPiece.width && mailing.outerPiece.height && (
+              <span className="font-mono ml-1 text-foreground">{mailing.outerPiece.width}" x {mailing.outerPiece.height}"</span>
+            )}
+          </p>
         </div>
       )}
 
-      {/* ── Single card: all inputs ── */}
-      <Card className="border-border rounded-2xl overflow-hidden">
-        <CardContent className="p-5 flex flex-col gap-5">
-          {/* Row 1: Service */}
+      {/* ── All inputs ── */}
+      <div className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-6">
+
+        {/* Mail Service */}
+        <div>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+            Mail Service
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            <Pill active={inputs.service === "FCM_COMM"} onClick={() => update({ service: "FCM_COMM" })} label="FC Presort" sub="500+ pc" />
+            <Pill active={inputs.service === "FCM_RETAIL"} onClick={() => update({ service: "FCM_RETAIL" })} label="FC Retail" sub="Stamps" />
+            <Pill active={inputs.service === "MKT_COMM"} onClick={() => update({ service: "MKT_COMM" })} label="Marketing" sub="Commercial" />
+            <Pill active={inputs.service === "MKT_NP"} onClick={() => update({ service: "MKT_NP" })} label="Nonprofit" sub="Auth req." />
+          </div>
+        </div>
+
+        <hr className="border-border" />
+
+        {/* Shape + Format */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-              Mail Service
-            </Label>
-            <div className="grid grid-cols-4 gap-2">
-              <Pill
-                active={inputs.service === "FCM_COMM"}
-                onClick={() => update({ service: "FCM_COMM" })}
-                label="FC Presort"
-                sub="500+ pc"
-              />
-              <Pill
-                active={inputs.service === "FCM_RETAIL"}
-                onClick={() => update({ service: "FCM_RETAIL" })}
-                label="FC Retail"
-                sub="Stamps"
-              />
-              <Pill
-                active={inputs.service === "MKT_COMM"}
-                onClick={() => update({ service: "MKT_COMM" })}
-                label="Marketing"
-                sub="Commercial"
-              />
-              <Pill
-                active={inputs.service === "MKT_NP"}
-                onClick={() => update({ service: "MKT_NP" })}
-                label="Nonprofit"
-                sub="Auth req."
-              />
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Shape</label>
+              {hasDimensions && (
+                <button
+                  type="button"
+                  onClick={() => setShapeOverride(!shapeOverride)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    shapeOverride
+                      ? "bg-foreground/10 text-foreground border-foreground/30 font-semibold"
+                      : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
+                  }`}
+                >
+                  {shapeOverride ? "Override ON" : "Override"}
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Pill active={inputs.shape === "POSTCARD"} disabled={postcardDisabled} onClick={() => update({ shape: "POSTCARD" })} label="Postcard" />
+              <Pill active={inputs.shape === "LETTER"} disabled={isShapeDisabled("LETTER")} onClick={() => update({ shape: "LETTER" })} label="Letter" />
+              <Pill active={inputs.shape === "FLAT"} disabled={isShapeDisabled("FLAT")} onClick={() => update({ shape: "FLAT" })} label="Flat" />
             </div>
           </div>
-
-          {/* Divider */}
-          <div className="border-t border-border" />
-
-          {/* Row 2: Shape + Format side by side */}
-          <div className="grid grid-cols-2 gap-5">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Shape
-                </Label>
-                {hasDimensions && (
-                  <button
-                    type="button"
-                    onClick={() => setShapeOverride(!shapeOverride)}
-                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                      shapeOverride
-                        ? "bg-foreground/10 text-foreground border-foreground/30"
-                        : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
-                    }`}
-                  >
-                    {shapeOverride ? "Override ON" : "Override"}
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <Pill
-                  active={inputs.shape === "POSTCARD"}
-                  disabled={postcardDisabled}
-                  onClick={() => update({ shape: "POSTCARD" })}
-                  label="Postcard"
-                />
-                <Pill
-                  active={inputs.shape === "LETTER"}
-                  disabled={isShapeDisabled("LETTER")}
-                  onClick={() => update({ shape: "LETTER" })}
-                  label="Letter"
-                />
-                <Pill
-                  active={inputs.shape === "FLAT"}
-                  disabled={isShapeDisabled("FLAT")}
-                  onClick={() => update({ shape: "FLAT" })}
-                  label="Flat"
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-                Format
-              </Label>
-              <div className="flex flex-wrap gap-1.5">
-                <Pill
-                  active={inputs.pack === "ENV"}
-                  onClick={() => update({ pack: "ENV" })}
-                  label="Envelope"
-                  sub="Paper"
-                />
-                <Pill
-                  active={inputs.pack === "PLAS"}
-                  onClick={() => update({ pack: "PLAS" })}
-                  label="Envelope"
-                  sub="Plastic"
-                />
-                <Pill
-                  active={inputs.pack === "SM_CARD"}
-                  onClick={() => update({ pack: "SM_CARD" })}
-                  label="Self-Mailer"
-                  sub="Card"
-                />
-                <Pill
-                  active={inputs.pack === "SM_FOLD"}
-                  onClick={() => update({ pack: "SM_FOLD" })}
-                  label="Self-Mailer"
-                  sub="Folded"
-                />
-                <Pill
-                  active={inputs.pack === "SM_BOOK"}
-                  onClick={() => update({ pack: "SM_BOOK" })}
-                  label="Self-Mailer"
-                  sub="Booklet"
-                />
-              </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Format</label>
+            <div className="flex flex-wrap gap-2">
+              <Pill active={inputs.pack === "ENV"} onClick={() => update({ pack: "ENV" })} label="Envelope" sub="Paper" />
+              <Pill active={inputs.pack === "PLAS"} onClick={() => update({ pack: "PLAS" })} label="Envelope" sub="Plastic" />
+              <Pill active={inputs.pack === "SM_CARD"} onClick={() => update({ pack: "SM_CARD" })} label="Self-Mailer" sub="Card" />
+              <Pill active={inputs.pack === "SM_FOLD"} onClick={() => update({ pack: "SM_FOLD" })} label="Self-Mailer" sub="Folded" />
+              <Pill active={inputs.pack === "SM_BOOK"} onClick={() => update({ pack: "SM_BOOK" })} label="Self-Mailer" sub="Booklet" />
             </div>
           </div>
+        </div>
 
-          {/* Divider */}
-          <div className="border-t border-border" />
+        <hr className="border-border" />
 
-          {/* Row 3: Qty + Weight + (optional Saturation) inline */}
-          <div className={`grid gap-3 ${showSaturation ? "grid-cols-3" : "grid-cols-2"}`}>
+        {/* Quantity + Weight + Saturation */}
+        <div className={`grid gap-4 ${showSaturation ? "grid-cols-3" : "grid-cols-2"}`}>
+          <div>
+            <label htmlFor="usps-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Quantity
+            </label>
+            <Input
+              id="usps-qty"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              autoComplete="off"
+              placeholder="5000"
+              className="h-11 font-mono text-base"
+              value={inputs.quantity || ""}
+              onChange={(e) => update({ quantity: parseInt(e.target.value) || 0 })}
+            />
+          </div>
+          <div>
+            <label htmlFor="usps-weight" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Weight (oz)
+            </label>
+            <Input
+              id="usps-weight"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={0}
+              autoComplete="off"
+              placeholder="1.0"
+              className="h-11 font-mono text-base"
+              value={inputs.weight || ""}
+              onChange={(e) => update({ weight: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+          {showSaturation && (
             <div>
-              <Label
-                htmlFor="usps-qty"
-                className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
-              >
-                Quantity
-              </Label>
+              <label htmlFor="usps-sat-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+                Saturation Qty
+              </label>
               <Input
-                id="usps-qty"
+                id="usps-sat-qty"
                 type="number"
                 inputMode="numeric"
-                min={1}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="5000"
-                className="h-9 font-mono text-sm"
-                value={inputs.quantity || ""}
-                onChange={(e) =>
-                  update({ quantity: parseInt(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div>
-              <Label
-                htmlFor="usps-weight"
-                className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
-              >
-                Weight (oz)
-              </Label>
-              <Input
-                id="usps-weight"
-                type="number"
-                inputMode="decimal"
-                step="0.1"
                 min={0}
+                max={inputs.quantity}
                 autoComplete="off"
-                spellCheck={false}
-                placeholder="1.0"
-                className="h-9 font-mono text-sm"
-                value={inputs.weight || ""}
-                onChange={(e) =>
-                  update({ weight: parseFloat(e.target.value) || 0 })
-                }
+                placeholder="0"
+                className="h-11 font-mono text-base"
+                value={inputs.saturationQty || ""}
+                onChange={(e) => update({ saturationQty: parseInt(e.target.value) || 0 })}
               />
+              {result.satRate > 0 && (
+                <span className="text-xs text-muted-foreground mt-1.5 block font-mono">
+                  Sat rate: {formatPostageRate(result.satRate)}
+                </span>
+              )}
             </div>
-            {showSaturation && (
-              <div>
-                <Label
-                  htmlFor="usps-sat-qty"
-                  className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
-                >
-                  Saturation Qty
-                </Label>
-                <Input
-                  id="usps-sat-qty"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={inputs.quantity}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="0"
-                  className="h-9 font-mono text-sm"
-                  value={inputs.saturationQty || ""}
-                  onChange={(e) =>
-                    update({
-                      saturationQty: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-                {result.satRate > 0 && (
-                  <span className="text-[10px] text-muted-foreground mt-1 block font-mono">
-                    Sat rate: {formatPostageRate(result.satRate)}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Row 4: Sort + Entry (conditional) */}
-          {showSortSlider && (
-            <>
-              <div className="border-t border-border" />
-              <div className={`grid gap-5 ${showEntryPoint ? "grid-cols-[1fr_200px]" : "grid-cols-1"}`}>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Sort Level
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Remaining:{" "}
-                      <strong className="font-mono text-foreground">
-                        {remainingQty.toLocaleString()}
-                      </strong>
-                    </span>
-                  </div>
-                  <Slider
-                    value={[inputs.sortLevel]}
-                    onValueChange={([v]) =>
-                      update({ sortLevel: v as SortLevel })
-                    }
-                    min={1}
-                    max={3}
-                    step={1}
-                    className="mb-2"
-                  />
-                  <div className="grid grid-cols-3 gap-1.5 text-center">
-                    {([1, 2, 3] as SortLevel[]).map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => update({ sortLevel: level })}
-                        className={`text-[10px] font-mono font-bold py-1 rounded-md transition-colors ${
-                          inputs.sortLevel === level
-                            ? "bg-foreground text-background"
-                            : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                        }`}
-                      >
-                        {result.rateAtLevel[level] > 0
-                          ? formatPostageRate(result.rateAtLevel[level])
-                          : "---"}
-                        <span className="block text-[9px] font-sans font-medium opacity-70">
-                          {SORT_LABELS[level].split(" (")[0]}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {showEntryPoint && (
-                  <div>
-                    <Label
-                      htmlFor="usps-entry"
-                      className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block"
-                    >
-                      Entry Point
-                    </Label>
-                    <Select
-                      value={inputs.entry}
-                      onValueChange={(v) => update({ entry: v as USPSEntry })}
-                    >
-                      <SelectTrigger id="usps-entry" className="h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ORIGIN">
-                          {ENTRY_LABELS.ORIGIN}
-                        </SelectItem>
-                        <SelectItem value="DSCF">
-                          {ENTRY_LABELS.DSCF}
-                        </SelectItem>
-                        <SelectItem value="DDU">
-                          {ENTRY_LABELS.DDU}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-            </>
           )}
+        </div>
 
-          {/* Spec reference + dimension warning */}
-          <div className="border-t border-border pt-3 flex flex-col gap-2">
-            <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {SHAPE_LABELS[inputs.shape]}
-              </span>
-              <span>
-                Min: <strong className="font-mono">{spec.min}</strong>
-              </span>
-              <span>
-                Max: <strong className="font-mono">{spec.max}</strong>
-              </span>
-              <span>
-                Weight: <strong className="font-mono">{spec.weight}</strong>
-              </span>
+        {/* Sort Level */}
+        {showSortSlider && (
+          <>
+            <hr className="border-border" />
+            <div className={`grid gap-6 ${showEntryPoint ? "grid-cols-[1fr_180px]" : "grid-cols-1"}`}>
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sort Level</label>
+                  <span className="text-sm text-muted-foreground">
+                    Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong>
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([1, 2, 3] as SortLevel[]).map((level) => (
+                    <SortBtn
+                      key={level}
+                      active={inputs.sortLevel === level}
+                      rate={result.rateAtLevel[level]}
+                      sortLabel={SORT_LABELS[level].split(" (")[0]}
+                      onClick={() => update({ sortLevel: level })}
+                    />
+                  ))}
+                </div>
+              </div>
+              {showEntryPoint && (
+                <div>
+                  <label htmlFor="usps-entry" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Entry Point
+                  </label>
+                  <Select value={inputs.entry} onValueChange={(v) => update({ entry: v as USPSEntry })}>
+                    <SelectTrigger id="usps-entry" className="h-11 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ORIGIN">{ENTRY_LABELS.ORIGIN}</SelectItem>
+                      <SelectItem value="DSCF">{ENTRY_LABELS.DSCF}</SelectItem>
+                      <SelectItem value="DDU">{ENTRY_LABELS.DDU}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-            {hasDimensions && suggestedShapes.length === 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                {mailing.mailerWidth}" x {mailing.mailerHeight}" is too small for any USPS mail shape. Check dimensions.
-              </div>
-            )}
-            {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as any) && (
-              <div className="flex items-center gap-2 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2 text-xs font-medium">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                {mailing.mailerWidth}" x {mailing.mailerHeight}" does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
-              </div>
-            )}
+          </>
+        )}
+
+        {/* Spec reference */}
+        <div className="border-t border-border pt-4 flex flex-col gap-2">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{SHAPE_LABELS[inputs.shape]}</span>
+            <span>Min: <strong className="font-mono">{spec.min}</strong></span>
+            <span>Max: <strong className="font-mono">{spec.max}</strong></span>
+            <span>Weight: <strong className="font-mono">{spec.weight}</strong></span>
           </div>
-        </CardContent>
-      </Card>
+          {hasDimensions && suggestedShapes.length === 0 && (
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2.5 text-sm font-medium">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {mailing.mailerWidth}" x {mailing.mailerHeight}" is too small for any USPS mail shape. Check dimensions.
+            </div>
+          )}
+          {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as any) && (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2.5 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {mailing.mailerWidth}" x {mailing.mailerHeight}" does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Alerts */}
       {result.alerts.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           {result.alerts.map((alert, idx) => (
             <div
               key={idx}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium ${
+              className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${
                 alert.type === "error"
                   ? "bg-destructive/10 text-destructive"
                   : alert.type === "warning"
@@ -575,11 +453,11 @@ export function USPSPostageCalculator() {
               }`}
             >
               {alert.type === "error" ? (
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <AlertCircle className="h-4 w-4 shrink-0" />
               ) : alert.type === "warning" ? (
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <AlertTriangle className="h-4 w-4 shrink-0" />
               ) : (
-                <Info className="h-3.5 w-3.5 shrink-0" />
+                <Info className="h-4 w-4 shrink-0" />
               )}
               {alert.message}
             </div>
@@ -589,36 +467,38 @@ export function USPSPostageCalculator() {
 
       {/* ── Sticky results bar ── */}
       <div className="sticky bottom-4 z-20">
-        <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-6">
+        <div className="bg-foreground text-background rounded-2xl shadow-2xl px-6 py-5 flex items-center justify-between gap-4">
+          <div className="flex items-baseline gap-8">
             <div>
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-background/40 block mb-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
                 Per Piece
               </span>
-              <span className="text-2xl font-bold font-mono tabular-nums leading-none">
+              <span className="text-3xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatPostageRate(result.avgPerPiece) : "---"}
               </span>
             </div>
             <div>
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-background/40 block mb-0.5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
                 Total
               </span>
-              <span className="text-lg font-bold font-mono tabular-nums leading-none">
+              <span className="text-xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatCurrency(result.total) : "$0.00"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-background/50 max-w-[140px] truncate hidden sm:block">
-              {result.description || ""}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-background/60 max-w-[200px] truncate hidden sm:block">
+              {result.isValid && result.description
+                ? `${inputs.quantity.toLocaleString()} @ ${formatPostageRate(result.avgPerPiece)} (${result.description})`
+                : ""}
             </span>
             <button
               onClick={handleAddToQuote}
               disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
-              className="flex items-center gap-1.5 bg-background text-foreground text-xs font-semibold px-4 py-2 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
+              className="flex items-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
             >
-              <Plus className="h-3.5 w-3.5" />
-              {hasDimensions && suggestedShapes.length === 0 && !shapeOverride ? "Size Error" : "Add to Quote"}
+              <Plus className="h-4 w-4" />
+              Add to Quote
             </button>
           </div>
         </div>
