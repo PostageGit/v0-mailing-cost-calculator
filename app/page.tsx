@@ -256,7 +256,7 @@ function AppContent() {
               </StepErrorBoundary>
             </main>
             {rightOpen ? (
-              <aside className="hidden lg:block w-72 shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
+              <aside className="hidden lg:block w-[22rem] shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
                 <QuoteSidebar />
               </aside>
             ) : (

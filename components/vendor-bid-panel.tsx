@@ -7,7 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
-  X, Plus, Loader2, Trophy, Send, ShoppingCart, Check, ArrowRight,
+  X, Plus, Loader2, Send, ShoppingCart, Check, ArrowRight, Star,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 import { useQuote } from "@/lib/quote-context"
@@ -37,8 +37,6 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   const quote = useQuote()
 
   const ohpPieces = mailing.pieces.filter((p) => p.production === "ohp" || p.production === "both")
-
-  // Auto-create bids for planner pieces that don't have one yet
   const [autoCreating, setAutoCreating] = useState<Set<string>>(new Set())
   const existingLabels = useMemo(() => new Set(bids?.map((b) => b.item_label) ?? []), [bids])
 
@@ -55,7 +53,6 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     setAutoCreating((s) => { const n = new Set(s); n.delete(piece.id); return n })
   }
 
-  // Manual bid
   const [showManual, setShowManual] = useState(false)
   const [manualLabel, setManualLabel] = useState("")
   const [manualCreating, setManualCreating] = useState(false)
@@ -71,22 +68,25 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     setManualLabel(""); setShowManual(false); mutateBids(); setManualCreating(false)
   }
 
-  // Get in-house cost for a piece from quote items
+  // Pull REAL in-house cost from quote line items for a piece
   const getInhouseCost = useCallback((piece: MailPiece): number | null => {
     const meta = PIECE_TYPE_META[piece.type]
-    const cat = meta.calc === "booklet" ? "booklet" : "flat"
+    const cat = meta.calc === "booklet" ? "booklet" : meta.calc === "envelope" ? "flat" : "flat"
     const sizeStr = piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : ""
-    const match = quote.items.find((i) => i.category === cat && i.label.includes(sizeStr))
+    // Search for matching in-house quote item by size string in the flat/booklet category
+    const match = quote.items.find((i) =>
+      (i.category === cat || i.category === "flat" || i.category === "booklet") && i.label.includes(sizeStr)
+    )
     return match ? match.amount : null
   }, [quote.items])
 
   const content = (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {isLoading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
-          {/* ── Planner pieces that still need bids ── */}
+          {/* Planner pieces that still need bids */}
           {ohpPieces.some((p) => !existingLabels.has(describePiece(p, mailing.quantity).label)) && (
             <div className="flex flex-wrap gap-2">
               {ohpPieces.filter((p) => !existingLabels.has(describePiece(p, mailing.quantity).label)).map((piece) => {
@@ -95,25 +95,23 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
                 const busy = autoCreating.has(piece.id)
                 return (
                   <button key={piece.id} onClick={() => autoCreateBid(piece)} disabled={busy}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-border bg-card hover:border-foreground/30 hover:bg-secondary/30 transition-all text-left">
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${meta.color}`}>{meta.short}</span>
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-dashed border-border bg-card hover:border-foreground/30 hover:bg-secondary/30 transition-all text-left">
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
                     <span className="text-sm font-semibold text-foreground">{label}</span>
-                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" /> :
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground ml-1" />}
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" /> : <Plus className="h-3.5 w-3.5 text-muted-foreground ml-1" />}
                   </button>
                 )
               })}
             </div>
           )}
 
-          {/* ── Active bid cards ── */}
+          {/* Bid cards */}
           {bids?.map((bid) => (
             <BidCard key={bid.id} bid={bid} vendors={vendors ?? []} quote={quote}
               ohpPieces={ohpPieces} qty={mailing.quantity} getInhouseCost={getInhouseCost}
               onUpdate={() => mutateBids()} />
           ))}
 
-          {/* ── Empty state ── */}
           {(!bids || bids.length === 0) && ohpPieces.length === 0 && !showManual && (
             <div className="text-center py-16">
               <Send className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
@@ -122,7 +120,6 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
             </div>
           )}
 
-          {/* ── Manual bid ── */}
           {showManual ? (
             <div className="flex items-center gap-2">
               <Input value={manualLabel} onChange={(e) => setManualLabel(e.target.value)}
@@ -132,9 +129,7 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
                 className="h-10 px-4 rounded-xl bg-foreground text-background text-sm font-bold hover:bg-foreground/90 disabled:opacity-40 transition-all">
                 Create
               </button>
-              <button onClick={() => setShowManual(false)} className="h-10 px-3 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Cancel
-              </button>
+              <button onClick={() => setShowManual(false)} className="h-10 px-3 rounded-xl text-sm text-muted-foreground hover:text-foreground">Cancel</button>
             </div>
           ) : (
             <button onClick={() => setShowManual(true)}
@@ -151,7 +146,7 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     <div className="w-full max-w-3xl">
       <div className="mb-5">
         <h3 className="text-xl font-black text-foreground tracking-tight">Out of House Production</h3>
-        <p className="text-sm text-muted-foreground mt-0.5">Get vendor prices, compare with in-house, push to quote.</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Compare vendor prices with in-house, push best to quote.</p>
       </div>
       {content}
     </div>
@@ -171,31 +166,28 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   )
 }
 
-/* ═══════════════════════════════════════════════════════
-   BidCard -- ONE card per piece, everything visible
-   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   BidCard -- one card per OHP piece
+   ═══════════════════════════════════════════════ */
 function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate }: {
   bid: VendorBid; vendors: Vendor[]; quote: ReturnType<typeof useQuote>;
   ohpPieces: MailPiece[]; qty: number; getInhouseCost: (p: MailPiece) => number | null;
   onUpdate: () => void
 }) {
   const { data: prices, mutate: mutatePrices } = useSWR<VendorBidPrice[]>(`/api/vendor-bids/${bid.id}/prices`, fetcher)
-  const [quickVendorId, setQuickVendorId] = useState("")
+  const [addingVendor, setAddingVendor] = useState(false)
   const [markupPct, setMarkupPct] = useState(20)
   const [pushed, setPushed] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const existingVendorIds = new Set(prices?.map((p) => p.vendor_id) ?? [])
-  const availableVendors = vendors.filter((v) => !existingVendorIds.has(v.id))
-
-  // Quick-add vendor: select -> instantly added
+  // Allow adding ANY vendor -- even duplicates if user wants to re-bid
   const quickAddVendor = async (vendorId: string) => {
-    setQuickVendorId(vendorId)
+    setAddingVendor(true)
     await fetch(`/api/vendor-bids/${bid.id}/prices`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vendor_id: vendorId }),
     })
-    setQuickVendorId(""); mutatePrices()
+    setAddingVendor(false); mutatePrices()
   }
 
   const updatePrice = async (priceId: string, price: number | null, quoteNum?: string) => {
@@ -204,14 +196,6 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
       body: JSON.stringify({ price, notes: quoteNum || null, status: price != null ? "received" : "pending", responded_at: price != null ? new Date().toISOString() : null }),
     })
     mutatePrices()
-  }
-
-  const awardBid = async (vendorId: string, price: number) => {
-    await fetch(`/api/vendor-bids/${bid.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "awarded", winning_vendor_id: vendorId, winning_price: price }),
-    })
-    onUpdate()
   }
 
   const removePrice = async (priceId: string) => {
@@ -223,169 +207,142 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
     await fetch(`/api/vendor-bids/${bid.id}`, { method: "DELETE" }); onUpdate()
   }
 
-  const handlePushToQuote = useCallback(() => {
-    if (bid.winning_price == null || !bid.winning_vendor_id) return
-    const winVendor = vendors.find((v) => v.id === bid.winning_vendor_id)
-    const pickupCost = winVendor?.pickup_cost ?? 100
-    const base = Number(bid.winning_price)
-    const markedUp = base * (1 + markupPct / 100) + pickupCost
-    quote.addItem({
-      category: "ohp",
-      label: `OHP: ${bid.item_label}`,
-      description: `${winVendor?.company_name ?? "Vendor"} | Markup ${markupPct}%`,
-      amount: markedUp,
-    })
-    setPushed(true); setTimeout(() => setPushed(false), 2500)
-  }, [bid, vendors, markupPct, quote])
-
   // Find matching planner piece for "Both" comparison
-  const matchedPiece = ohpPieces.find((p) => {
-    const { label } = describePiece(p, qty)
-    return label === bid.item_label
-  })
+  const matchedPiece = ohpPieces.find((p) => describePiece(p, qty).label === bid.item_label)
   const isBoth = matchedPiece?.production === "both"
   const inhouseCost = matchedPiece ? getInhouseCost(matchedPiece) : null
 
-  // Best received price
+  // Find the BEST (cheapest) vendor price
   const receivedPrices = prices?.filter((p) => p.price != null) ?? []
-  const cheapestPrice = receivedPrices.length > 0 ? Math.min(...receivedPrices.map((p) => Number(p.price))) : null
+  const bestPrice = receivedPrices.length > 0 ? Math.min(...receivedPrices.map((p) => Number(p.price))) : null
+  const bestVendorEntry = receivedPrices.find((p) => Number(p.price) === bestPrice)
+  const bestVendor = bestVendorEntry ? vendors.find((v) => v.id === bestVendorEntry.vendor_id) : null
 
-  // Award info
-  const winVendor = bid.winning_vendor_id ? vendors.find((v) => v.id === bid.winning_vendor_id) : null
-  const isAwarded = bid.status === "awarded" && bid.winning_price != null
-  const awardedPrice = isAwarded ? Number(bid.winning_price) : 0
-  const pickupCost = winVendor?.pickup_cost ?? 100
-  const customerTotal = isAwarded ? awardedPrice * (1 + markupPct / 100) + pickupCost : 0
+  // Customer total for best price
+  const bestPickup = bestVendor?.pickup_cost ?? 0
+  const bestCustomerTotal = bestPrice != null ? bestPrice * (1 + markupPct / 100) + bestPickup : null
+
+  // Push best price to quote
+  const handlePushToQuote = useCallback(() => {
+    if (bestPrice == null || !bestVendor) return
+    const total = bestPrice * (1 + markupPct / 100) + (bestVendor.pickup_cost ?? 0)
+    quote.addItem({
+      category: "ohp",
+      label: `OHP: ${bid.item_label}`,
+      description: `${bestVendor.company_name} | +${markupPct}% markup`,
+      amount: total,
+    })
+    setPushed(true); setTimeout(() => setPushed(false), 2500)
+  }, [bid, bestPrice, bestVendor, markupPct, quote])
+
+  // Is in-house cheaper?
+  const inhouseWins = inhouseCost != null && bestPrice != null && inhouseCost <= bestPrice
+  const ohpWins = bestPrice != null && (inhouseCost == null || bestPrice < inhouseCost)
 
   return (
     <div className="rounded-2xl border border-border overflow-hidden bg-card">
-      {/* ── HEADER: piece name + specs + delete ── */}
-      <div className="px-5 py-4 border-b border-border bg-secondary/20">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h4 className="text-base font-black text-foreground leading-tight">{bid.item_label}</h4>
-            {bid.item_description && (
-              <p className="text-sm text-muted-foreground mt-0.5">{bid.item_description}</p>
-            )}
-          </div>
-          {isAwarded && winVendor && (
-            <div className="flex items-center gap-1.5 shrink-0 bg-emerald-500/10 text-emerald-700 px-3 py-1.5 rounded-xl">
-              <Trophy className="h-3.5 w-3.5" />
-              <span className="text-sm font-black">{winVendor.company_name}</span>
-            </div>
-          )}
-          <button onClick={deleteBid} disabled={deleting}
-            className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5 transition-colors shrink-0">
-            <X className="h-4 w-4" />
-          </button>
+      {/* HEADER */}
+      <div className="px-5 py-3.5 flex items-center justify-between bg-secondary/20 border-b border-border">
+        <div className="min-w-0 flex-1">
+          <h4 className="text-base font-black text-foreground leading-snug">{bid.item_label}</h4>
+          {bid.item_description && <p className="text-xs text-muted-foreground mt-0.5">{bid.item_description}</p>}
         </div>
-
-        {/* ── "Both" comparison bar ── */}
-        {isBoth && (
-          <div className="mt-3 flex items-center gap-0 rounded-xl overflow-hidden border border-border">
-            <div className={`flex-1 px-4 py-2.5 text-center ${
-              inhouseCost != null && (cheapestPrice == null || inhouseCost <= cheapestPrice)
-                ? "bg-emerald-500/10 border-r border-emerald-500/20" : "bg-card border-r border-border"
-            }`}>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">In-House</p>
-              <p className={`text-lg font-black font-mono tabular-nums mt-0.5 ${
-                inhouseCost != null && (cheapestPrice == null || inhouseCost <= cheapestPrice) ? "text-emerald-700" : "text-foreground"
-              }`}>
-                {inhouseCost != null ? formatCurrency(inhouseCost) : "---"}
-              </p>
-            </div>
-            <div className={`flex-1 px-4 py-2.5 text-center ${
-              cheapestPrice != null && (inhouseCost == null || cheapestPrice < inhouseCost)
-                ? "bg-emerald-500/10" : "bg-card"
-            }`}>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">OHP Best</p>
-              <p className={`text-lg font-black font-mono tabular-nums mt-0.5 ${
-                cheapestPrice != null && (inhouseCost == null || cheapestPrice < inhouseCost) ? "text-emerald-700" : "text-foreground"
-              }`}>
-                {cheapestPrice != null ? formatCurrency(cheapestPrice) : "---"}
-              </p>
-            </div>
-          </div>
-        )}
+        <button onClick={deleteBid} disabled={deleting}
+          className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors shrink-0 ml-3">
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* ── VENDOR ROWS: each vendor is one clean row ── */}
-      <div className="divide-y divide-border/50">
+      {/* "BOTH" COMPARISON: In-House vs OHP Best -- big bold split */}
+      {isBoth && (
+        <div className="grid grid-cols-2 border-b border-border">
+          <div className={`px-5 py-3 text-center border-r border-border transition-colors ${inhouseWins ? "bg-emerald-50" : "bg-card"}`}>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">In-House</p>
+            <p className={`text-2xl font-black font-mono tabular-nums mt-0.5 ${inhouseWins ? "text-emerald-600" : "text-foreground"}`}>
+              {inhouseCost != null ? formatCurrency(inhouseCost) : "---"}
+            </p>
+            {inhouseWins && <p className="text-[10px] font-bold text-emerald-600 mt-0.5">BEST PRICE</p>}
+          </div>
+          <div className={`px-5 py-3 text-center transition-colors ${ohpWins ? "bg-emerald-50" : "bg-card"}`}>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">OHP Best</p>
+            <p className={`text-2xl font-black font-mono tabular-nums mt-0.5 ${ohpWins ? "text-emerald-600" : "text-foreground"}`}>
+              {bestPrice != null ? formatCurrency(bestPrice) : "---"}
+            </p>
+            {ohpWins && <p className="text-[10px] font-bold text-emerald-600 mt-0.5">BEST PRICE</p>}
+          </div>
+        </div>
+      )}
+
+      {/* VENDOR ROWS */}
+      <div className="divide-y divide-border/40">
         {prices?.map((p) => {
           const vendor = vendors.find((v) => v.id === p.vendor_id)
           const vName = vendor?.company_name ?? "Unknown"
-          const vPickup = vendor?.pickup_cost ?? 100
-          const isCheapest = p.price != null && Number(p.price) === cheapestPrice
-          const isWinner = bid.winning_vendor_id === p.vendor_id
+          const vPickup = vendor?.pickup_cost ?? 0
+          const price = p.price != null ? Number(p.price) : null
+          const isBest = price != null && price === bestPrice
+          const customerTotal = price != null ? price * (1 + markupPct / 100) + vPickup : null
 
           return (
             <VendorRow key={p.id} entry={p} vendorName={vName} pickupCost={vPickup}
-              isCheapest={isCheapest} isWinner={isWinner} bidAwarded={isAwarded}
-              markupPct={markupPct}
-              onUpdate={(price, quoteNum) => updatePrice(p.id, price, quoteNum)}
-              onAward={(price) => awardBid(p.vendor_id, price)}
+              isBest={isBest} markupPct={markupPct} customerTotal={customerTotal}
+              onUpdate={(pr, qn) => updatePrice(p.id, pr, qn)}
               onRemove={() => removePrice(p.id)} />
           )
         })}
       </div>
 
-      {/* ── QUICK ADD VENDOR: one-step dropdown ── */}
-      <div className="px-5 py-3 border-t border-border/50 bg-secondary/5">
-        {availableVendors.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground shrink-0">Add vendor:</span>
-            <Select value="" onValueChange={(v) => quickAddVendor(v)}>
-              <SelectTrigger className="h-9 text-sm flex-1 rounded-xl max-w-xs">
-                <SelectValue placeholder={quickVendorId ? "Adding..." : "Select vendor..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {availableVendors.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>{v.company_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {quickVendorId && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          </div>
-        ) : vendors.length > 0 ? (
-          <p className="text-xs text-muted-foreground text-center">All vendors added</p>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center">No vendors configured yet</p>
-        )}
+      {/* ADD VENDOR -- always available, no "all added" blocking */}
+      <div className="px-5 py-2.5 border-t border-border/40 bg-secondary/5 flex items-center gap-2">
+        <Select value="" onValueChange={(v) => quickAddVendor(v)}>
+          <SelectTrigger className="h-9 text-sm flex-1 rounded-xl max-w-[16rem]">
+            <SelectValue placeholder={addingVendor ? "Adding..." : "+ Add vendor"} />
+          </SelectTrigger>
+          <SelectContent>
+            {(vendors ?? []).map((v) => (
+              <SelectItem key={v.id} value={v.id}>{v.company_name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {addingVendor && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
 
-      {/* ── PUSH TO QUOTE BAR ── */}
-      {isAwarded && (
-        <div className="px-5 py-4 bg-foreground text-background border-t border-foreground/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-5">
+      {/* PUSH TO QUOTE BAR -- auto shows when there's a best price, no "award" needed */}
+      {bestPrice != null && (
+        <div className="px-5 py-3.5 bg-foreground text-background border-t border-foreground/10">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-4 text-sm">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-background/50">Vendor Cost</p>
-                <p className="text-lg font-black font-mono tabular-nums">{formatCurrency(awardedPrice)}</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Best</span>
+                <span className="text-lg font-black font-mono tabular-nums">{formatCurrency(bestPrice)}</span>
               </div>
-              <ArrowRight className="h-4 w-4 text-background/30" />
+              <ArrowRight className="h-3.5 w-3.5 text-background/20" />
               <div className="flex items-center gap-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-background/50 mr-1">Markup</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-background/40">+</span>
                 <input type="number" step="1" min="0" max="200" value={markupPct}
                   onChange={(e) => setMarkupPct(parseFloat(e.target.value) || 0)}
-                  className="w-14 h-8 text-sm text-center rounded-lg bg-background/10 border border-background/20 text-background font-mono font-bold" />
-                <span className="text-sm text-background/70 font-bold">%</span>
+                  className="w-12 h-7 text-xs text-center rounded-md bg-background/10 border border-background/20 text-background font-mono font-bold" />
+                <span className="text-xs text-background/50 font-bold">%</span>
               </div>
-              <ArrowRight className="h-4 w-4 text-background/30" />
+              {bestPickup > 0 && (
+                <>
+                  <ArrowRight className="h-3.5 w-3.5 text-background/20" />
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Pickup</span>
+                    <span className="text-sm font-mono font-bold text-background/70">{formatCurrency(bestPickup)}</span>
+                  </div>
+                </>
+              )}
+              <ArrowRight className="h-3.5 w-3.5 text-background/20" />
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-background/50">+ Pickup</p>
-                <p className="text-sm font-mono font-bold text-background/80">{formatCurrency(pickupCost)}</p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Customer</span>
+                <span className="text-xl font-black font-mono tabular-nums">{bestCustomerTotal != null ? formatCurrency(bestCustomerTotal) : "---"}</span>
               </div>
             </div>
-            <div className="text-right flex items-center gap-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-background/50">Customer Total</p>
-                <p className="text-2xl font-black font-mono tabular-nums">{formatCurrency(customerTotal)}</p>
-              </div>
-              <button onClick={handlePushToQuote} disabled={pushed}
-                className="h-11 px-5 rounded-xl bg-background text-foreground text-sm font-black flex items-center gap-2 hover:bg-background/90 disabled:opacity-50 transition-all">
-                {pushed ? <><Check className="h-4 w-4" /> Added</> : <><ShoppingCart className="h-4 w-4" /> Add to Quote</>}
-              </button>
-            </div>
+            <button onClick={handlePushToQuote} disabled={pushed}
+              className="h-10 px-5 rounded-xl bg-background text-foreground text-sm font-black flex items-center gap-2 hover:bg-background/90 disabled:opacity-50 transition-all shrink-0">
+              {pushed ? <><Check className="h-4 w-4" /> Added</> : <><ShoppingCart className="h-4 w-4" /> Add to Quote</>}
+            </button>
           </div>
         </div>
       )}
@@ -393,14 +350,13 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
   )
 }
 
-/* ═══════════════════════════════════════════════════════
-   VendorRow -- one clean inline row per vendor
-   ═══════════════════════════════════════════════════════ */
-function VendorRow({ entry, vendorName, pickupCost, isCheapest, isWinner, bidAwarded, markupPct, onUpdate, onAward, onRemove }: {
+/* ═══════════════════════════════════════════════
+   VendorRow -- compact inline row per vendor
+   ═══════════════════════════════════════════════ */
+function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerTotal, onUpdate, onRemove }: {
   entry: VendorBidPrice; vendorName: string; pickupCost: number;
-  isCheapest: boolean; isWinner: boolean; bidAwarded: boolean; markupPct: number;
-  onUpdate: (price: number | null, quoteNum?: string) => void;
-  onAward: (price: number) => void; onRemove: () => void
+  isBest: boolean; markupPct: number; customerTotal: number | null;
+  onUpdate: (price: number | null, quoteNum?: string) => void; onRemove: () => void
 }) {
   const [editPrice, setEditPrice] = useState(entry.price != null ? String(entry.price) : "")
   const [quoteNum, setQuoteNum] = useState(entry.notes ?? "")
@@ -410,56 +366,48 @@ function VendorRow({ entry, vendorName, pickupCost, isCheapest, isWinner, bidAwa
     if (!isNaN(num) && num >= 0) onUpdate(num, quoteNum)
   }
 
-  const price = entry.price != null ? Number(entry.price) : null
-  const customerPrice = price != null ? price * (1 + markupPct / 100) + pickupCost : null
-
   return (
-    <div className={`px-5 py-3 flex items-center gap-4 ${
-      isWinner ? "bg-emerald-500/5" : isCheapest ? "bg-amber-500/5" : ""
-    }`}>
-      {/* Vendor name + trophy */}
-      <div className="min-w-0 w-36 shrink-0">
+    <div className={`px-5 py-3 flex items-center gap-3 transition-colors ${isBest ? "bg-emerald-50" : ""}`}>
+      {/* Vendor name */}
+      <div className="min-w-0 w-32 shrink-0">
         <div className="flex items-center gap-1.5">
-          {isWinner && <Trophy className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+          {isBest && <Star className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600 shrink-0" />}
           <span className="text-sm font-bold text-foreground truncate">{vendorName}</span>
         </div>
-        <span className="text-xs text-muted-foreground font-mono">+{formatCurrency(pickupCost)} pickup</span>
+        {pickupCost > 0 && <span className="text-[11px] text-muted-foreground">+{formatCurrency(pickupCost)} pickup</span>}
       </div>
 
       {/* Quote # */}
-      <div className="w-24 shrink-0">
-        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-0.5">Quote #</label>
+      <div className="w-20 shrink-0">
         <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
-          onBlur={handleSave} placeholder="---"
-          className="h-8 w-full text-sm rounded-lg border border-border bg-background px-2 font-mono" />
+          onBlur={handleSave} placeholder="Qte #"
+          className="h-8 w-full text-xs rounded-lg border border-border bg-background px-2 font-mono placeholder:text-muted-foreground/40" />
       </div>
 
       {/* Price */}
-      <div className="w-28 shrink-0">
-        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-0.5">Price</label>
+      <div className="w-24 shrink-0">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
           <input type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
-            onBlur={handleSave} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="0.00"
-            className="h-8 w-full text-sm text-right rounded-lg border border-border bg-background pl-5 pr-2 font-mono font-bold tabular-nums" />
+            onBlur={handleSave} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="0"
+            className={`h-8 w-full text-sm text-right rounded-lg border bg-background pl-5 pr-2 font-mono font-bold tabular-nums ${
+              isBest ? "border-emerald-300 bg-emerald-50" : "border-border"
+            }`} />
         </div>
       </div>
 
       {/* Customer price */}
       <div className="w-24 text-right shrink-0">
-        <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-0.5">Customer</label>
-        <p className="text-sm font-black font-mono tabular-nums text-foreground h-8 flex items-center justify-end">
-          {customerPrice != null ? formatCurrency(customerPrice) : "---"}
+        <p className={`text-sm font-black font-mono tabular-nums ${isBest ? "text-emerald-700" : "text-foreground"}`}>
+          {customerTotal != null ? formatCurrency(customerTotal) : "---"}
         </p>
+        <p className="text-[10px] text-muted-foreground">customer</p>
       </div>
 
-      {/* Award + remove */}
+      {/* Best badge or remove */}
       <div className="flex items-center gap-1 ml-auto">
-        {price != null && !bidAwarded && (
-          <button onClick={() => onAward(price)}
-            className="h-8 px-3 rounded-lg bg-foreground text-background text-xs font-black hover:bg-foreground/90 transition-colors flex items-center gap-1">
-            <Trophy className="h-3 w-3" /> Award
-          </button>
+        {isBest && (
+          <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase tracking-wider">Best</span>
         )}
         <button onClick={onRemove} className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors">
           <X className="h-3.5 w-3.5" />
