@@ -14,10 +14,11 @@ export async function createClient() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     // Return a minimal client that will fail gracefully on queries
-    // instead of crashing the server in a loop during hot reloads
+    // instead of crashing the server in a loop during hot reloads.
+    // The URL must look like a real Supabase project URL to pass SDK validation.
     return createServerClient(
       'https://placeholder.supabase.co',
-      'placeholder-key',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0.placeholder',
       { cookies: { getAll() { return [] }, setAll() {} } },
     )
   }
