@@ -1,13 +1,22 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
-// GET all board columns, ordered by position
-export async function GET() {
+// GET board columns, optionally filtered by board_type
+export async function GET(request: Request) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const boardType = searchParams.get("type") // "quote" | "job"
+
+  let query = supabase
     .from("board_columns")
     .select("*")
     .order("sort_order", { ascending: true })
+
+  if (boardType) {
+    query = query.eq("board_type", boardType)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -35,6 +44,7 @@ export async function POST(request: Request) {
       title: body.name || "New Column",
       color: body.color || "#94a3b8",
       sort_order: nextPos,
+      board_type: body.board_type || "quote",
     })
     .select()
     .single()

@@ -91,11 +91,16 @@
   * {
     @apply border-border;
   }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
   html {
     color-scheme: light dark;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    @apply bg-background;
   }
   body {
     @apply bg-background text-foreground;

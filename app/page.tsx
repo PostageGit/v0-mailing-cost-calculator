@@ -24,11 +24,12 @@ import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
 import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
-  Send, Package, Check, ChevronRight, FileText, Receipt,
-  PanelRightOpen, X, Layers, ArrowLeft, PenLine,
+  Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
+  PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
+  Users, Truck, Menu, ChevronLeft,
 } from "lucide-react"
 
-// ─── Calculator Steps (after planner) ─────────────────────
+// ---- Calculator Steps (after planner) ----
 type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "ohp" | "items"
 const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
@@ -46,7 +47,6 @@ const STEP_CATS: Record<StepId, string[]> = {
   printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], perfect: ["perfect"], ohp: ["ohp"], items: ["item"],
 }
 
-/* Error boundary for step-level crash catching */
 class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string }, { error: Error | null }> {
   state: { error: Error | null } = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
@@ -62,11 +62,26 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
   }
 }
 
-type View = "home" | "job" | "dashboard" | "customers" | "vendors" | "invoices"
+// ---- Sidebar nav sections ----
+type Section =
+  | "quotes-board" | "jobs-board"
+  | "customers" | "invoices" | "vendors"
+  | "job"
+
+interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
+const NAV_ITEMS: NavItem[] = [
+  { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
+  { id: "jobs-board",   label: "Jobs",        icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
+  { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
+  { id: "vendors",      label: "Vendors",     icon: <Truck className="h-4 w-4" />,            group: "data" },
+]
+
 type JobPhase = "planner" | "pricing"
 
 function AppContent() {
-  const [view, setView] = useState<View>("home")
+  const [section, setSection] = useState<Section>("quotes-board")
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
@@ -75,20 +90,18 @@ function AppContent() {
   const mailing = useMailing()
   usePricingConfig()
 
-  // Dynamic steps based on mail piece configuration
   const visibleSteps = useMemo(() => {
     return ALL_STEPS.filter((step) => {
       if (step.id === "envelope" && !mailing.needsEnvelope) return false
       if (step.id === "printing" && !mailing.needsPrinting) return false
-  if (step.id === "booklet" && !mailing.needsBooklet) return false
-  if (step.id === "spiral" && !mailing.needsSpiral) return false
-  if (step.id === "perfect" && !mailing.needsPerfect) return false
-  if (step.id === "ohp" && !mailing.needsOHP) return false
+      if (step.id === "booklet" && !mailing.needsBooklet) return false
+      if (step.id === "spiral" && !mailing.needsSpiral) return false
+      if (step.id === "perfect" && !mailing.needsPerfect) return false
+      if (step.id === "ohp" && !mailing.needsOHP) return false
       return true
     })
   }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsOHP])
 
-  // If current step becomes hidden, jump to first visible
   useEffect(() => {
     if (jobPhase === "pricing" && !visibleSteps.find((s) => s.id === currentStep)) {
       setCurrentStep(visibleSteps[0]?.id || "usps")
@@ -96,11 +109,11 @@ function AppContent() {
   }, [visibleSteps, currentStep, jobPhase])
 
   const handleLoadQuote = useCallback(
-    (quoteId: string) => { loadQuote(quoteId); setJobPhase("pricing"); setView("job") },
+    (quoteId: string) => { loadQuote(quoteId); setJobPhase("pricing"); setSection("job") },
     [loadQuote],
   )
   const handleNewJob = useCallback(() => {
-    newQuote(); setJobPhase("planner"); setView("job")
+    newQuote(); setJobPhase("planner"); setSection("job")
   }, [newQuote])
 
   const handleContinueToPricing = useCallback(() => {
@@ -130,178 +143,306 @@ function AppContent() {
     }
   }
 
+  const isJobView = section === "job"
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* ─── Top Nav ─── */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/60">
-        <div className="max-w-[100rem] mx-auto px-4 flex items-center justify-between h-11">
-          <span className="text-sm font-semibold tracking-tight text-foreground select-none">Postage Plus</span>
-          <nav className="flex items-center gap-0.5">
-            {([
-              { v: "home" as View, label: "Home" },
-              { v: "dashboard" as View, label: "Dashboard" },
-              { v: "customers" as View, label: "Customers" },
-              { v: "invoices" as View, label: "Invoices" },
-              { v: "vendors" as View, label: "Vendors" },
-            ]).map((n) => (
-              <button key={n.v} onClick={() => setView(n.v)}
-                className={cn(
-                  "px-3.5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors min-h-[44px] flex items-center",
-                  view === n.v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
-                )}>
-                {n.label}
-              </button>
-            ))}
-            <div className="w-px h-4 bg-border mx-1" />
-            <button onClick={() => setShowSettings(true)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors" aria-label="Settings">
-              <Settings className="h-4 w-4" />
-            </button>
-          </nav>
-        </div>
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
+      {/* ---- Mobile Top Bar ---- */}
+      <header className="flex lg:hidden items-center justify-between h-12 px-3 border-b border-border bg-background shrink-0 z-40">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-secondary min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Toggle menu">
+          <Menu className="h-5 w-5" />
+        </button>
+        <span className="text-sm font-semibold text-foreground">Postage Plus</span>
+        <button onClick={() => setShowSettings(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Settings">
+          <Settings className="h-4 w-4" />
+        </button>
       </header>
 
-      {/* ─── HOME ─── */}
-      {view === "home" && (
-        <div className="flex-1 flex items-center justify-center px-6">
-          <div className="text-center max-w-md">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground text-balance">Ready to quote.</h1>
-            <p className="mt-3 text-base text-muted-foreground text-pretty leading-relaxed">
-              Start a new job to build your mailing and printing estimate.
-            </p>
-            <Button onClick={handleNewJob}
-              className="mt-8 h-12 px-8 text-base font-semibold rounded-full bg-foreground text-background hover:bg-foreground/90 gap-2 shadow-lg">
-              <Plus className="h-5 w-5" /> New Job
-            </Button>
-            <button onClick={() => setView("dashboard")}
-              className="mt-5 block mx-auto text-sm text-muted-foreground hover:text-foreground transition-colors">
-              or open an existing quote
+      <div className="flex flex-1 min-h-0">
+        {/* ---- LEFT SIDEBAR ---- */}
+        {/* Desktop: always visible; Mobile: overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
+        )}
+        <aside className={cn(
+          "flex flex-col bg-card border-r border-border shrink-0 z-50 transition-all duration-200",
+          // Desktop
+          "hidden lg:flex",
+          sidebarOpen ? "w-52" : "w-14",
+          // Mobile overlay
+        )}>
+          {/* Logo + collapse */}
+          <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
+            {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
+            <button onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+              {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
           </div>
-        </div>
-      )}
 
-      {/* ─── JOB VIEW ──�� */}
-      {view === "job" && jobPhase === "planner" && (
-        <div className="flex-1 px-6 pt-8 pb-12">
-          <MailPiecePlanner onContinue={handleContinueToPricing} />
-        </div>
-      )}
-
-      {view === "job" && jobPhase === "pricing" && (
-        <StepErrorBoundary stepId="pricing-layout">
-        <div className="flex-1 flex flex-col">
-          {/* Step Pills Bar + Back to Planner */}
-          <div className="sticky top-11 z-30 bg-background/80 backdrop-blur-xl border-b border-border/40">
-            <div className="max-w-[100rem] mx-auto px-4">
-              <div className="flex items-center gap-1 py-1.5 overflow-x-auto no-scrollbar">
-                {/* Back to planner */}
-                <button onClick={() => setJobPhase("planner")}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1 min-h-[44px]">
-                  <Layers className="h-3.5 w-3.5" /> Planner
-                </button>
-                <div className="w-px h-4 bg-border shrink-0" />
-
-                {/* Calculator steps */}
-                {visibleSteps.map((step) => {
-                  const active = step.id === currentStep
-                  const done = completedSteps.has(step.id)
-                  return (
-                    <button key={step.id} onClick={() => setCurrentStep(step.id)}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap shrink-0 min-h-[44px]",
-                        active ? "bg-foreground text-background shadow-sm"
-                          : done ? "bg-secondary text-foreground hover:bg-secondary/80"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      )}>
-                      {done && !active ? <Check className="h-3 w-3" /> : step.icon}
-                      {step.label}
-                    </button>
-                  )
-                })}
-                {(() => {
-                  const idx = visibleSteps.findIndex((s) => s.id === currentStep)
-                  if (idx < visibleSteps.length - 1) {
-                    return (
-                      <button onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
-                        className="ml-auto flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0">
-                        Next <ChevronRight className="h-3 w-3" />
-                      </button>
-                    )
-                  }
-                  return null
-                })()}
-              </div>
-            </div>
-          </div>
-
-          {/* ─── Job Summary Bar (compact, shows what was defined in planner) ─── */}
-          <div className="bg-secondary/30 border-b border-border/40">
-            <div className="max-w-[100rem] mx-auto px-4 py-2 flex items-center gap-4 text-xs overflow-x-auto no-scrollbar">
-              <button onClick={() => setJobPhase("planner")} className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold shrink-0 transition-colors">
-                <PenLine className="h-3 w-3" /> Edit
-              </button>
-              {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
-              <div className="w-px h-3 bg-border shrink-0" />
-              {mailing.pieces.map((p) => {
-                const meta = PIECE_TYPE_META[p.type]
-                return (
-                  <span key={p.id} className="flex items-center gap-1.5 shrink-0">
-                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
-                    <span className="text-foreground font-medium">{p.label}</span>
-                    {p.width && p.height && <span className="font-mono text-muted-foreground">{p.width}x{p.height}</span>}
-                    <span className={`text-[8px] font-bold ${p.production === "inhouse" ? "text-emerald-600" : p.production === "ohp" ? "text-amber-600" : "text-primary"}`}>
-                      {p.production === "inhouse" ? "IH" : p.production === "ohp" ? "OHP" : "BOTH"}
-                    </span>
-                  </span>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* ─── Content + Quote Sidebar ─── */}
-          <div className="max-w-[100rem] mx-auto w-full px-4 pt-4 pb-8 flex gap-4 flex-1 min-h-0">
-            <main key={currentStep} className="flex-1 min-w-0 step-enter">
-              <StepErrorBoundary stepId={currentStep}>
-                {renderStep()}
-              </StepErrorBoundary>
-            </main>
-            {rightOpen ? (
-              <aside className="hidden lg:block w-[22rem] shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
-                <QuoteSidebar />
-              </aside>
-            ) : (
-              <aside className="hidden lg:flex flex-col items-center pt-1 shrink-0 sticky top-[7.5rem] h-[calc(100vh-8.5rem)]">
-                <button onClick={() => setRightOpen(true)}
-                  className="h-8 w-8 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:shadow-sm transition-all">
-                  <PanelRightOpen className="h-3.5 w-3.5" />
-                </button>
-              </aside>
-            )}
-          </div>
-
-          <MobileBar />
-        </div>
-        </StepErrorBoundary>
-      )}
-
-      {/* ─── Other views ─── */}
-      {view === "dashboard" && (
-        <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">Saved Quotes</h1>
-              <p className="text-sm text-muted-foreground mt-1">Track and manage your quotes.</p>
-            </div>
-            <Button onClick={handleNewJob} className="gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90">
-              <Plus className="h-4 w-4" /> New Job
+          {/* New Job button */}
+          <div className="px-2 pt-3 pb-1">
+            <Button onClick={handleNewJob}
+              className={cn(
+                "w-full gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
+                sidebarOpen ? "h-9 text-xs px-3 justify-start" : "h-9 w-9 p-0 justify-center mx-auto"
+              )}>
+              <Plus className="h-4 w-4 shrink-0" />
+              {sidebarOpen && "New Quote"}
             </Button>
           </div>
-          <KanbanBoard onLoadQuote={handleLoadQuote} />
-        </div>
-      )}
-      {view === "customers" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><CustomerList /></div>}
-      {view === "invoices" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><InvoiceList /></div>}
-      {view === "vendors" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><VendorList /></div>}
+
+          {/* Nav groups */}
+          <nav className="flex-1 overflow-y-auto px-2 pt-2 pb-4 flex flex-col gap-4">
+            {(["dashboards", "data"] as const).map((group) => (
+              <div key={group}>
+                {sidebarOpen && (
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 px-2 mb-1">
+                    {group === "dashboards" ? "Boards" : "Manage"}
+                  </p>
+                )}
+                <div className="flex flex-col gap-0.5">
+                  {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
+                    const active = section === nav.id
+                    return (
+                      <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg transition-all min-h-[40px]",
+                          sidebarOpen ? "px-2.5 py-2 text-sm" : "px-0 py-2 justify-center",
+                          active
+                            ? "bg-foreground text-background font-semibold"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        )}
+                        title={!sidebarOpen ? nav.label : undefined}>
+                        {nav.icon}
+                        {sidebarOpen && <span className="truncate">{nav.label}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+
+          {/* Settings footer */}
+          <div className="px-2 pb-3 border-t border-border pt-2">
+            <button onClick={() => setShowSettings(true)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
+                sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
+              )}>
+              <Settings className="h-4 w-4 shrink-0" />
+              {sidebarOpen && <span>Settings</span>}
+            </button>
+          </div>
+        </aside>
+
+        {/* Mobile sidebar overlay panel */}
+        {sidebarOpen && (
+          <aside className="fixed left-0 top-12 bottom-0 w-56 bg-card border-r border-border z-50 flex flex-col lg:hidden animate-in slide-in-from-left-2 duration-200">
+            <div className="px-2 pt-3 pb-1">
+              <Button onClick={() => { handleNewJob(); setSidebarOpen(false) }}
+                className="w-full gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold h-10 text-xs px-3 justify-start">
+                <Plus className="h-4 w-4 shrink-0" /> New Quote
+              </Button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-2 pt-2 pb-4 flex flex-col gap-4">
+              {(["dashboards", "data"] as const).map((group) => (
+                <div key={group}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 px-2 mb-1">
+                    {group === "dashboards" ? "Boards" : "Manage"}
+                  </p>
+                  <div className="flex flex-col gap-0.5">
+                    {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
+                      const active = section === nav.id
+                      return (
+                        <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(false) }}
+                          className={cn(
+                            "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all min-h-[44px]",
+                            active ? "bg-foreground text-background font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          )}>
+                          {nav.icon}
+                          <span>{nav.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+            <div className="px-2 pb-3 border-t border-border pt-2">
+              <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
+                <Settings className="h-4 w-4 shrink-0" /> Settings
+              </button>
+            </div>
+          </aside>
+        )}
+
+        {/* ---- MAIN CONTENT AREA ---- */}
+        <main className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+
+          {/* == QUOTES BOARD == */}
+          {section === "quotes-board" && (
+            <div className="flex-1 flex flex-col min-h-0 overflow-auto">
+              <div className="px-4 sm:px-6 pt-5 pb-2 flex items-center justify-between shrink-0">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-foreground">Quotes Board</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Track and manage your quotes through each stage.</p>
+                </div>
+                <Button onClick={handleNewJob} size="sm" className="gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-9 text-xs font-semibold">
+                  <Plus className="h-3.5 w-3.5" /> New Quote
+                </Button>
+              </div>
+              <div className="flex-1 px-4 sm:px-6 pb-6 min-h-0 overflow-auto">
+                <KanbanBoard boardType="quote" onLoadQuote={handleLoadQuote} />
+              </div>
+            </div>
+          )}
+
+          {/* == JOBS BOARD == */}
+          {section === "jobs-board" && (
+            <div className="flex-1 flex flex-col min-h-0 overflow-auto">
+              <div className="px-4 sm:px-6 pt-5 pb-2 flex items-center justify-between shrink-0">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-foreground">Jobs Board</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Active jobs moving through production stages.</p>
+                </div>
+              </div>
+              <div className="flex-1 px-4 sm:px-6 pb-6 min-h-0 overflow-auto">
+                <KanbanBoard boardType="job" onLoadQuote={handleLoadQuote} />
+              </div>
+            </div>
+          )}
+
+          {/* == CUSTOMERS == */}
+          {section === "customers" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
+              <CustomerList />
+            </div>
+          )}
+
+          {/* == INVOICES == */}
+          {section === "invoices" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
+              <InvoiceList />
+            </div>
+          )}
+
+          {/* == VENDORS == */}
+          {section === "vendors" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
+              <VendorList />
+            </div>
+          )}
+
+          {/* == JOB VIEW (Planner) == */}
+          {isJobView && jobPhase === "planner" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-8">
+              <MailPiecePlanner onContinue={handleContinueToPricing} />
+            </div>
+          )}
+
+          {/* == JOB VIEW (Pricing / Calculator) == */}
+          {isJobView && jobPhase === "pricing" && (
+            <StepErrorBoundary stepId="pricing-layout">
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Step Pills */}
+                <div className="shrink-0 bg-background border-b border-border/40">
+                  <div className="px-4 sm:px-6">
+                    <div className="flex items-center gap-1 py-1.5 overflow-x-auto no-scrollbar">
+                      <button onClick={() => setJobPhase("planner")}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1 min-h-[44px]">
+                        <Layers className="h-3.5 w-3.5" /> Planner
+                      </button>
+                      <div className="w-px h-4 bg-border shrink-0" />
+                      {visibleSteps.map((step) => {
+                        const active = step.id === currentStep
+                        const done = completedSteps.has(step.id)
+                        return (
+                          <button key={step.id} onClick={() => setCurrentStep(step.id)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 min-h-[44px]",
+                              active ? "bg-foreground text-background shadow-sm"
+                                : done ? "bg-secondary text-foreground hover:bg-secondary/80"
+                                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                            )}>
+                            {done && !active ? <Check className="h-3 w-3" /> : step.icon}
+                            {step.label}
+                          </button>
+                        )
+                      })}
+                      {(() => {
+                        const idx = visibleSteps.findIndex((s) => s.id === currentStep)
+                        if (idx < visibleSteps.length - 1) {
+                          return (
+                            <button onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
+                              className="ml-auto flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                              Next <ChevronRight className="h-3 w-3" />
+                            </button>
+                          )
+                        }
+                        return null
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Job Summary Bar */}
+                <div className="shrink-0 bg-secondary/30 border-b border-border/40">
+                  <div className="px-4 sm:px-6 py-2 flex items-center gap-4 text-xs overflow-x-auto no-scrollbar">
+                    <button onClick={() => setJobPhase("planner")} className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold shrink-0 transition-colors">
+                      <PenLine className="h-3 w-3" /> Edit
+                    </button>
+                    {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
+                    <div className="w-px h-3 bg-border shrink-0" />
+                    {mailing.pieces.map((p) => {
+                      const meta = PIECE_TYPE_META[p.type]
+                      return (
+                        <span key={p.id} className="flex items-center gap-1.5 shrink-0">
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
+                          <span className="text-foreground font-medium">{p.label}</span>
+                          {p.width && p.height && <span className="font-mono text-muted-foreground">{p.width}x{p.height}</span>}
+                          <span className={`text-[8px] font-bold ${p.production === "inhouse" ? "text-emerald-600" : p.production === "ohp" ? "text-amber-600" : "text-primary"}`}>
+                            {p.production === "inhouse" ? "IH" : p.production === "ohp" ? "OHP" : "BOTH"}
+                          </span>
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Content + Quote Sidebar */}
+                <div className="flex-1 flex min-h-0 overflow-hidden">
+                  <div className="flex-1 min-w-0 overflow-auto px-4 sm:px-6 pt-4 pb-8">
+                    <div key={currentStep} className="step-enter">
+                      <StepErrorBoundary stepId={currentStep}>
+                        {renderStep()}
+                      </StepErrorBoundary>
+                    </div>
+                  </div>
+                  {rightOpen ? (
+                    <aside className="hidden lg:block w-[22rem] shrink-0 border-l border-border overflow-y-auto">
+                      <QuoteSidebar />
+                    </aside>
+                  ) : (
+                    <aside className="hidden lg:flex flex-col items-center pt-2 px-1 shrink-0 border-l border-border">
+                      <button onClick={() => setRightOpen(true)}
+                        className="h-8 w-8 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:shadow-sm transition-all">
+                        <PanelRightOpen className="h-3.5 w-3.5" />
+                      </button>
+                    </aside>
+                  )}
+                </div>
+
+                <MobileBar />
+              </div>
+            </StepErrorBoundary>
+          )}
+        </main>
+      </div>
+
       {showSettings && <MailClassSettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   )

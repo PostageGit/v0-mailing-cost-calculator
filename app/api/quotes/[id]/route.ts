@@ -43,6 +43,8 @@ export async function PATCH(
   if (body.mailing_date !== undefined) updates.mailing_date = body.mailing_date
   if (body.lights !== undefined) updates.lights = body.lights
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order
+  if (body.is_job !== undefined) updates.is_job = body.is_job
+  if (body.converted_at !== undefined) updates.converted_at = body.converted_at
 
   const { data, error } = await supabase
     .from("quotes")

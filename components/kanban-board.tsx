@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,17 +13,17 @@ import { buildQuoteText } from "@/lib/build-quote-text"
 import {
   FileText, Trash2, GripVertical, ArrowRight, ArrowLeft,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
-  Plus, Settings2, CalendarDays, Circle,
+  Plus, Settings2, CalendarDays, Circle, Briefcase,
 } from "lucide-react"
 
-/* ─── Types ───────────────────────────────── */
+/* ---- Types ---- */
 
 interface QuoteItem {
   id: number; category: QuoteCategory; label: string; description: string; amount: number
 }
 
 interface BoardColumn {
-  id: string; title: string; color: string; sort_order: number
+  id: string; title: string; color: string; sort_order: number; board_type?: string
 }
 
 interface Quote {
@@ -31,6 +31,7 @@ interface Quote {
   items: QuoteItem[]; total: number; notes: string | null
   quote_number: number | null; mailing_date: string | null
   lights: Record<string, string> | null
+  is_job?: boolean; converted_at?: string | null
   created_at: string; updated_at: string
 }
 
@@ -38,7 +39,6 @@ const fetcher = async (url: string) => {
   const r = await fetch(url)
   if (!r.ok) throw new Error(`Fetch failed: ${r.status}`)
   const json = await r.json()
-  // If API returns an error object instead of an array, treat as error
   if (json && typeof json === "object" && "error" in json && !Array.isArray(json)) {
     throw new Error(json.error)
   }
@@ -57,14 +57,15 @@ const LIGHT_COLORS: Record<string, string> = {
   off: "text-muted-foreground/20",
 }
 
-/* ─── Quote Card ──────────────────────────── */
+/* ---- Draggable Quote Card ---- */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onDelete, onEdit,
+  quote, columns, onColumnChange, onDelete, onEdit, onConvertToJob, boardType,
 }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
   onDelete: (id: string) => void; onEdit: (id: string) => void
+  onConvertToJob?: (id: string) => void; boardType: "quote" | "job"
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
@@ -75,12 +76,23 @@ function QuoteCard({
   const lightKeys = Object.keys(lights)
 
   return (
-    <Card className="border-border bg-card shadow-sm hover:shadow-md transition-shadow">
+    <Card
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", quote.id)
+        e.dataTransfer.effectAllowed = "move"
+        ;(e.currentTarget as HTMLElement).style.opacity = "0.4"
+      }}
+      onDragEnd={(e) => {
+        ;(e.currentTarget as HTMLElement).style.opacity = "1"
+      }}
+      className="border-border bg-card shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+    >
       <CardContent className="p-3 flex flex-col gap-2">
         {/* Header row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0 cursor-grab" />
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">{quote.project_name}</p>
               {quote.quote_number && (
@@ -154,6 +166,13 @@ function QuoteCard({
             )}
           </div>
           <div className="flex items-center gap-1">
+            {/* Convert to Job (only on quote board) */}
+            {boardType === "quote" && onConvertToJob && (
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-emerald-600"
+                onClick={() => onConvertToJob(quote.id)} aria-label="Convert to Job" title="Convert to Job">
+                <Briefcase className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-[44px] min-w-[44px] text-muted-foreground hover:text-primary"
               onClick={() => onEdit(quote.id)} aria-label="Edit quote">
               <Pencil className="h-3.5 w-3.5" />
@@ -176,7 +195,7 @@ function QuoteCard({
   )
 }
 
-/* ─── Column Settings Inline ──────────────── */
+/* ---- Column Settings ---- */
 
 function ColumnSettings({
   columns, onAdd, onRename, onDelete, onReorder, onClose,
@@ -200,28 +219,18 @@ function ColumnSettings({
                   const ids = columns.map(c => c.id)
                   ;[ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]]
                   onReorder(ids)
-                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none"
-                  aria-label="Move up">
-                  {"^"}
-                </button>
+                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none" aria-label="Move up">{"^"}</button>
               )}
               {idx < columns.length - 1 && (
                 <button onClick={() => {
                   const ids = columns.map(c => c.id)
                   ;[ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]]
                   onReorder(ids)
-                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none"
-                  aria-label="Move down">
-                  {"v"}
-                </button>
+                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none" aria-label="Move down">{"v"}</button>
               )}
             </div>
             <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-            <Input
-              defaultValue={col.title}
-              onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }}
-              className="h-8 text-sm flex-1"
-            />
+            <Input defaultValue={col.title} onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }} className="h-8 text-sm flex-1" />
             {columns.length > 1 && (
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                 onClick={() => onDelete(col.id)} aria-label={`Delete ${col.title}`}>
@@ -238,7 +247,7 @@ function ColumnSettings({
   )
 }
 
-/* ─── Quote Edit Modal (preserved from existing) ─── */
+/* ---- Quote Edit Modal ---- */
 
 function QuoteEditModal({
   quote, onClose, onSaved, onLoadIntoCalculator,
@@ -290,9 +299,7 @@ function QuoteEditModal({
                 className="text-lg font-bold text-foreground bg-transparent border-none outline-none w-full placeholder:text-muted-foreground focus:ring-0"
                 placeholder="Project / Client Name..." autoComplete="off" spellCheck={false} />
               <div className="flex items-center gap-2 mt-1.5">
-                {quote.quote_number && (
-                  <Badge variant="secondary" className="text-xs font-mono">Q-{quote.quote_number}</Badge>
-                )}
+                {quote.quote_number && <Badge variant="secondary" className="text-xs font-mono">Q-{quote.quote_number}</Badge>}
                 <span className="text-xs text-muted-foreground">Updated {formatDate(quote.updated_at)}</span>
               </div>
             </div>
@@ -399,11 +406,95 @@ function QuoteEditModal({
   )
 }
 
-/* ─── Main Kanban Board ───────────────────── */
+/* ---- Droppable Column ---- */
 
-export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) => void }) {
-  const { data: columns, isLoading: colsLoading } = useSWR<BoardColumn[]>("/api/board-columns", fetcher)
-  const { data: quotes, error, isLoading: quotesLoading } = useSWR<Quote[]>("/api/quotes", fetcher, { refreshInterval: 10000 })
+function DroppableColumn({
+  col, quotes, allColumns, onColumnChange, onDelete, onEdit, onConvertToJob, boardType,
+}: {
+  col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
+  onColumnChange: (id: string, colId: string) => void
+  onDelete: (id: string) => void; onEdit: (id: string) => void
+  onConvertToJob?: (id: string) => void; boardType: "quote" | "job"
+}) {
+  const [dragOver, setDragOver] = useState(false)
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const quoteId = e.dataTransfer.getData("text/plain")
+    if (quoteId) {
+      onColumnChange(quoteId, col.id)
+    }
+  }, [col.id, onColumnChange])
+
+  return (
+    <div className="flex-1 min-w-[240px] flex flex-col gap-3">
+      {/* Column header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+          <span className="text-sm font-semibold text-foreground">{col.title}</span>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+            {quotes.length}
+          </Badge>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground tabular-nums">
+          {formatCurrency(quotes.reduce((s, q) => s + Number(q.total), 0))}
+        </span>
+      </div>
+
+      {/* Column body (droppable) */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`flex flex-col gap-2 min-h-[120px] p-2 rounded-lg border border-dashed flex-1 transition-colors ${
+          dragOver
+            ? "bg-primary/5 border-primary/40"
+            : "bg-muted/30 border-border"
+        }`}
+      >
+        {quotes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center flex-1">
+            <FileText className="h-5 w-5 text-muted-foreground/50 mb-2" />
+            <p className="text-xs text-muted-foreground">{dragOver ? "Drop here" : "No items"}</p>
+          </div>
+        ) : (
+          quotes.map((quote) => (
+            <QuoteCard key={quote.id} quote={quote} columns={allColumns}
+              onColumnChange={onColumnChange} onDelete={onDelete}
+              onEdit={onEdit} onConvertToJob={onConvertToJob} boardType={boardType} />
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ---- Main Kanban Board ---- */
+
+export function KanbanBoard({
+  boardType = "quote",
+  onLoadQuote,
+}: {
+  boardType?: "quote" | "job"
+  onLoadQuote: (quoteId: string) => void
+}) {
+  const colsUrl = `/api/board-columns?type=${boardType}`
+  const quotesUrl = `/api/quotes?is_job=${boardType === "job" ? "true" : "false"}`
+
+  const { data: columns, isLoading: colsLoading } = useSWR<BoardColumn[]>(colsUrl, fetcher)
+  const { data: quotes, error, isLoading: quotesLoading } = useSWR<Quote[]>(quotesUrl, fetcher, { refreshInterval: 10000 })
   const [showSettings, setShowSettings] = useState(false)
   const [detailQuote, setDetailQuote] = useState<Quote | null>(null)
 
@@ -414,40 +505,59 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ column_id: colId }),
     })
-    globalMutate("/api/quotes")
-  }, [])
+    globalMutate(quotesUrl)
+  }, [quotesUrl])
 
   const handleDelete = useCallback(async (id: string) => {
     await fetch(`/api/quotes/${id}`, { method: "DELETE" })
-    globalMutate("/api/quotes")
-  }, [])
+    globalMutate(quotesUrl)
+  }, [quotesUrl])
+
+  const handleConvertToJob = useCallback(async (id: string) => {
+    // Get the first job column
+    const res = await fetch("/api/board-columns?type=job")
+    const jobCols: BoardColumn[] = await res.json()
+    const firstJobCol = jobCols?.[0]?.id || null
+
+    await fetch(`/api/quotes/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        is_job: true,
+        converted_at: new Date().toISOString(),
+        column_id: firstJobCol,
+      }),
+    })
+    // Refresh both boards
+    globalMutate(quotesUrl)
+    globalMutate(`/api/quotes?is_job=true`)
+    globalMutate(`/api/quotes?is_job=false`)
+  }, [quotesUrl])
 
   // Column CRUD
   const addColumn = useCallback(async () => {
     await fetch("/api/board-columns", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "New Stage" }),
+      body: JSON.stringify({ name: "New Stage", board_type: boardType }),
     })
-    globalMutate("/api/board-columns")
-  }, [])
+    globalMutate(colsUrl)
+  }, [colsUrl, boardType])
 
   const renameColumn = useCallback(async (id: string, name: string) => {
     await fetch(`/api/board-columns/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     })
-    globalMutate("/api/board-columns")
-  }, [])
+    globalMutate(colsUrl)
+  }, [colsUrl])
 
   const deleteColumn = useCallback(async (id: string) => {
     await fetch(`/api/board-columns/${id}`, { method: "DELETE" })
-    globalMutate("/api/board-columns")
-    globalMutate("/api/quotes")
-  }, [])
+    globalMutate(colsUrl)
+    globalMutate(quotesUrl)
+  }, [colsUrl, quotesUrl])
 
   const reorderColumns = useCallback(async (ids: string[]) => {
-    // Optimistic update
-    globalMutate("/api/board-columns", (prev: BoardColumn[] | undefined) => {
+    globalMutate(colsUrl, (prev: BoardColumn[] | undefined) => {
       if (!prev) return prev
       return ids.map((id, i) => {
         const col = prev.find((c) => c.id === id)!
@@ -458,8 +568,8 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order: ids }),
     })
-    globalMutate("/api/board-columns")
-  }, [])
+    globalMutate(colsUrl)
+  }, [colsUrl])
 
   if (isLoading) {
     return (
@@ -472,7 +582,7 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
   if (error) {
     return (
       <div className="flex items-center justify-center py-24 text-sm text-destructive">
-        Failed to load quotes. Check your database connection.
+        Failed to load. Check your database connection.
       </div>
     )
   }
@@ -483,8 +593,10 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
     <>
       {/* Settings toggle */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-foreground">Job Board</h2>
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs h-10 min-h-[44px]"
+        <h2 className="text-lg font-bold text-foreground">
+          {boardType === "job" ? "Production Pipeline" : "Quote Pipeline"}
+        </h2>
+        <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9 min-h-[44px]"
           onClick={() => setShowSettings(!showSettings)}>
           <Settings2 className="h-3.5 w-3.5" />
           {showSettings ? "Close" : "Columns"}
@@ -496,54 +608,34 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
           onDelete={deleteColumn} onReorder={reorderColumns} onClose={() => setShowSettings(false)} />
       )}
 
-      {/* Board */}
-      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-4" style={{ minWidth: `${Math.max(cols.length * 280, 300)}px` }}>
+      {/* Board -- horizontal scroll, never overflow */}
+      <div className="overflow-x-auto -mx-2 px-2">
+        <div className="flex gap-3" style={{ minWidth: `${Math.max(cols.length * 260, 300)}px` }}>
           {cols.map((col) => {
             const colQuotes = (quotes || []).filter((q) => q.column_id === col.id)
             return (
-              <div key={col.id} className="flex-1 min-w-[260px] flex flex-col gap-3">
-                {/* Column header */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                    <span className="text-sm font-semibold text-foreground">{col.title}</span>
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
-                      {colQuotes.length}
-                    </Badge>
-                  </div>
-                  <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                    {formatCurrency(colQuotes.reduce((s, q) => s + Number(q.total), 0))}
-                  </span>
-                </div>
-
-                {/* Column body */}
-                <div className="flex flex-col gap-2 min-h-[120px] p-2 rounded-lg bg-muted/30 border border-dashed border-border flex-1">
-                  {colQuotes.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center flex-1">
-                      <FileText className="h-5 w-5 text-muted-foreground/50 mb-2" />
-                      <p className="text-xs text-muted-foreground">No quotes</p>
-                    </div>
-                  ) : (
-                    colQuotes.map((quote) => (
-                      <QuoteCard key={quote.id} quote={quote} columns={cols}
-                        onColumnChange={handleColumnChange} onDelete={handleDelete}
-                        onEdit={(id) => {
-                          const q = (quotes || []).find((x) => x.id === id)
-                          if (q) setDetailQuote(q)
-                        }} />
-                    ))
-                  )}
-                </div>
-              </div>
+              <DroppableColumn
+                key={col.id}
+                col={col}
+                quotes={colQuotes}
+                allColumns={cols}
+                onColumnChange={handleColumnChange}
+                onDelete={handleDelete}
+                onEdit={(id) => {
+                  const q = (quotes || []).find((x) => x.id === id)
+                  if (q) setDetailQuote(q)
+                }}
+                onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                boardType={boardType}
+              />
             )
           })}
         </div>
       </div>
 
-      {/* Unassigned quotes (no column_id) */}
+      {/* Unassigned */}
       {(() => {
-        const unassigned = (quotes || []).filter((q) => !q.column_id)
+        const unassigned = (quotes || []).filter((q) => !q.column_id || !cols.some((c) => c.id === q.column_id))
         if (unassigned.length === 0) return null
         return (
           <div className="mt-6">
@@ -559,7 +651,9 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
                   onEdit={(id) => {
                     const q = unassigned.find((x) => x.id === id)
                     if (q) setDetailQuote(q)
-                  }} />
+                  }}
+                  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                  boardType={boardType} />
               ))}
             </div>
           </div>
@@ -569,7 +663,7 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
       {/* Edit modal */}
       {detailQuote && (
         <QuoteEditModal quote={detailQuote} onClose={() => setDetailQuote(null)}
-          onSaved={() => globalMutate("/api/quotes")}
+          onSaved={() => globalMutate(quotesUrl)}
           onLoadIntoCalculator={(id) => { setDetailQuote(null); onLoadQuote(id) }} />
       )}
     </>

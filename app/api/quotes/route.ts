@@ -1,13 +1,24 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
-// GET all quotes
-export async function GET() {
+// GET quotes, optionally filtered by is_job
+export async function GET(request: Request) {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const isJob = searchParams.get("is_job")
+
+  let query = supabase
     .from("quotes")
     .select("*")
     .order("updated_at", { ascending: false })
+
+  if (isJob === "true") {
+    query = query.eq("is_job", true)
+  } else if (isJob === "false") {
+    query = query.eq("is_job", false)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
