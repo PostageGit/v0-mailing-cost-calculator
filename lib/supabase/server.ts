@@ -2,8 +2,19 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 // Helper to check if Supabase env vars are available
+// Checks both NEXT_PUBLIC_ prefixed and non-prefixed variants
 export function supabaseReady() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+  return !!(url && key)
+}
+
+function getSupabaseUrl() {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
+}
+
+function getSupabaseKey() {
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
 }
 
 export async function createClient() {
@@ -32,8 +43,8 @@ export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabaseUrl(),
+    getSupabaseKey(),
     {
       cookies: {
         getAll() {
