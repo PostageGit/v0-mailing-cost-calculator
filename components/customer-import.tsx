@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, X, FileText, Loader2, CheckCircle } from "lucide-react"
+import { Upload, X, FileText, Loader2, CheckCircle, AlertTriangle, RefreshCw, SkipForward } from "lucide-react"
 import { createClient, supabaseClientReady } from "@/lib/supabase/client"
 
 interface Props {
@@ -69,7 +69,6 @@ function parseCSV(text: string): Record<string, string>[] {
 }
 
 // QB Online CSV headers mapped to our DB columns
-// Keys are lowercased + trimmed for case-insensitive matching
 const FIELD_MAP: Record<string, string> = {
   "name": "contact_name",
   "company": "company_name",
@@ -100,17 +99,29 @@ const FIELD_MAP: Record<string, string> = {
   "open balance": "open_balance_qb",
 }
 
+type DuplicateMode = "skip" | "update"
+
+interface ImportResult {
+  inserted: number
+  updated: number
+  skipped: number
+  errors: number
+}
+
 export function CustomerImportModal({ onClose, onImported }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [fileName, setFileName] = useState("")
   const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState<{ success: number; errors: number } | null>(null)
+  const [progress, setProgress] = useState("")
+  const [duplicateMode, setDuplicateMode] = useState<DuplicateMode>("skip")
+  const [result, setResult] = useState<ImportResult | null>(null)
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setFileName(file.name)
+    setResult(null)
     const reader = new FileReader()
     reader.onload = (ev) => {
       const text = ev.target?.result as string
@@ -119,85 +130,142 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
     reader.readAsText(file)
   }
 
-  const handleImport = async () => {
-    setImporting(true)
-    let errors = 0
+  // Build a customer record from a CSV row
+  function buildCustomer(row: Record<string, string>) {
+    const customer: Record<string, string | boolean | Record<string, string>> = {
+      billing_same_as_primary: true,
+    }
+    const extras: Record<string, string> = {}
 
-    // Build all customer objects first
-    const customers: Record<string, string | boolean | Record<string, string>>[] = []
-
-    for (const row of rows) {
-      const customer: Record<string, string | boolean | Record<string, string>> = {
-        billing_same_as_primary: true,
+    for (const [csvKey, value] of Object.entries(row)) {
+      if (!value) continue
+      const dbField = FIELD_MAP[csvKey.toLowerCase().trim()]
+      if (!dbField) continue
+      if (dbField === "customer_type_qb") {
+        extras["QB Customer Type"] = value
+      } else if (dbField === "open_balance_qb") {
+        const parsed = parseFloat(value.replace(/[,"]/g, ""))
+        if (parsed !== 0) extras["QB Open Balance"] = value.replace(/"/g, "")
+      } else {
+        customer[dbField] = value
       }
-      const extras: Record<string, string> = {}
-
-      for (const [csvKey, value] of Object.entries(row)) {
-        if (!value) continue
-        const dbField = FIELD_MAP[csvKey.toLowerCase().trim()]
-        if (!dbField) continue
-        if (dbField === "customer_type_qb") {
-          extras["QB Customer Type"] = value
-        } else if (dbField === "open_balance_qb") {
-          const parsed = parseFloat(value.replace(/[,"]/g, ""))
-          if (parsed !== 0) extras["QB Open Balance"] = value.replace(/"/g, "")
-        } else {
-          customer[dbField] = value
-        }
-      }
-
-      if (Object.keys(extras).length > 0) {
-        customer.custom_fields = extras
-      }
-
-      if (!customer.company_name) {
-        if (customer.contact_name) {
-          customer.company_name = customer.contact_name as string
-        } else {
-          errors++
-          continue
-        }
-      }
-      customers.push(customer)
     }
 
-    // Direct client-side Supabase insert (bypasses server route cache issues)
-    let success = 0
+    if (Object.keys(extras).length > 0) {
+      customer.custom_fields = extras
+    }
+
+    if (!customer.company_name) {
+      if (customer.contact_name) {
+        customer.company_name = customer.contact_name as string
+      } else {
+        return null // skip rows with no name at all
+      }
+    }
+    return customer
+  }
+
+  const handleImport = async () => {
+    setImporting(true)
+    setProgress("Preparing...")
 
     if (!supabaseClientReady()) {
-      console.log("[v0] Supabase env vars not available, cannot import")
-      errors += customers.length
-      setResult({ success: 0, errors: customers.length })
+      setResult({ inserted: 0, updated: 0, skipped: 0, errors: rows.length })
       setImporting(false)
       return
     }
 
     const supabase = createClient()
+
+    // Step 1: fetch all existing customer names for duplicate detection
+    setProgress("Checking for existing customers...")
+    const { data: existing } = await supabase
+      .from("customers")
+      .select("id, company_name")
+
+    const existingMap = new Map<string, string>() // lowered name -> id
+    if (existing) {
+      for (const c of existing) {
+        if (c.company_name) {
+          existingMap.set(c.company_name.toLowerCase().trim(), c.id)
+        }
+      }
+    }
+
+    // Step 2: categorize rows
+    const toInsert: Record<string, unknown>[] = []
+    const toUpdate: { id: string; data: Record<string, unknown> }[] = []
+    let skipped = 0
+    let errors = 0
+
+    for (const row of rows) {
+      const customer = buildCustomer(row)
+      if (!customer) { errors++; continue }
+
+      const key = (customer.company_name as string).toLowerCase().trim()
+      const existingId = existingMap.get(key)
+
+      if (existingId) {
+        if (duplicateMode === "update") {
+          toUpdate.push({ id: existingId, data: customer })
+        } else {
+          skipped++
+        }
+      } else {
+        toInsert.push(customer)
+        // Mark as "existing" so we don't try to insert the same new name twice
+        existingMap.set(key, "pending")
+      }
+    }
+
+    // Step 3: batch insert new customers
+    let inserted = 0
     const BATCH_SIZE = 100
-    for (let i = 0; i < customers.length; i += BATCH_SIZE) {
-      const batch = customers.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+      const batch = toInsert.slice(i, i + BATCH_SIZE)
+      setProgress(`Inserting ${i + 1}-${Math.min(i + BATCH_SIZE, toInsert.length)} of ${toInsert.length}...`)
       try {
         const { data, error: insertError } = await supabase
           .from("customers")
           .insert(batch)
-          .select()
-        console.log("[v0] Batch", Math.floor(i / BATCH_SIZE) + 1, "result:", data?.length ?? 0, "inserted, error:", insertError?.message ?? "none")
+          .select("id")
         if (!insertError && data) {
-          success += data.length
+          inserted += data.length
         } else {
-          console.log("[v0] Batch insert error:", insertError?.message)
           errors += batch.length
         }
-      } catch (err) {
-        console.log("[v0] Batch exception:", err)
+      } catch {
         errors += batch.length
       }
     }
 
-    setResult({ success, errors })
+    // Step 4: update existing customers (if mode = update)
+    let updated = 0
+    for (let i = 0; i < toUpdate.length; i++) {
+      const { id, data } = toUpdate[i]
+      if (i % 10 === 0) {
+        setProgress(`Updating ${i + 1} of ${toUpdate.length}...`)
+      }
+      try {
+        const { error: updateError } = await supabase
+          .from("customers")
+          .update(data)
+          .eq("id", id)
+        if (!updateError) {
+          updated++
+        } else {
+          errors++
+        }
+      } catch {
+        errors++
+      }
+    }
+
+    setResult({ inserted, updated, skipped, errors })
     setImporting(false)
-    if (success > 0) {
-      setTimeout(() => onImported(), 1500)
+    setProgress("")
+    if (inserted > 0 || updated > 0) {
+      setTimeout(() => onImported(), 2000)
     }
   }
 
@@ -220,9 +288,8 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground text-pretty">
-            Upload a CSV exported from QuickBooks Online (Customers export). Supported columns:
-            Name, Company name, Street Address, City, State, Zip, Country, Phone, Email, Customer type, Open balance.
-            Also accepts generic CSVs with similar headers.
+            Upload a CSV exported from QuickBooks Online. Safe to re-import -- duplicates are
+            detected by company name and handled based on your choice below.
           </p>
 
           {/* File picker */}
@@ -245,6 +312,33 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
             )}
           </div>
 
+          {/* Duplicate handling */}
+          {rows.length > 0 && !result && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold text-muted-foreground">If a customer already exists:</p>
+              <div className="flex gap-2">
+                <Button
+                  variant={duplicateMode === "skip" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5 text-xs h-8 flex-1"
+                  onClick={() => setDuplicateMode("skip")}
+                >
+                  <SkipForward className="h-3.5 w-3.5" />
+                  Skip duplicates
+                </Button>
+                <Button
+                  variant={duplicateMode === "update" ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5 text-xs h-8 flex-1"
+                  onClick={() => setDuplicateMode("update")}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Update existing
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Preview */}
           {rows.length > 0 && !result && (
             <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-48 overflow-y-auto">
@@ -264,16 +358,48 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
             </div>
           )}
 
+          {/* Progress */}
+          {importing && progress && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {progress}
+            </div>
+          )}
+
           {/* Result */}
           {result && (
-            <div className="rounded-lg border border-border p-4 flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Import complete</p>
-                <p className="text-xs text-muted-foreground">
-                  {result.success} imported successfully
-                  {result.errors > 0 && `, ${result.errors} failed`}
-                </p>
+            <div className="rounded-lg border border-border p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                {result.errors > 0 && result.inserted === 0 && result.updated === 0 ? (
+                  <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                ) : (
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                )}
+                <div>
+                  <p className="text-sm font-medium text-foreground">Import complete</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                    {result.inserted > 0 && (
+                      <span className="text-xs text-green-600 dark:text-green-400">
+                        {result.inserted} new
+                      </span>
+                    )}
+                    {result.updated > 0 && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400">
+                        {result.updated} updated
+                      </span>
+                    )}
+                    {result.skipped > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {result.skipped} skipped (already exist)
+                      </span>
+                    )}
+                    {result.errors > 0 && (
+                      <span className="text-xs text-red-600 dark:text-red-400">
+                        {result.errors} errors
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
