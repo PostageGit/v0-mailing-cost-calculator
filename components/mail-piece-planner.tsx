@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import useSWR from "swr"
 import type { Customer } from "@/lib/customer-types"
+import { CustomerSearchCombobox } from "@/components/customer-search-combobox"
 import {
   Plus, X, Mail, ArrowRight, User, Package, AlertCircle,
   ChevronDown, Check, Printer, Send, Layers, Loader2,
@@ -97,10 +98,11 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
           <div className="flex flex-col gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Company</label>
-              <Select value={q.customerId || "none"} onValueChange={(v) => { q.setCustomerId(v === "none" ? null : v); if (v === "none") q.setContactName("") }}>
-                <SelectTrigger className="h-9 text-sm border-border bg-background rounded-xl"><SelectValue placeholder="Select customer..." /></SelectTrigger>
-                <SelectContent>{(customers || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>)}</SelectContent>
-              </Select>
+              <CustomerSearchCombobox
+                customers={customers}
+                selectedId={q.customerId}
+                onSelect={(id) => { q.setCustomerId(id); if (!id) q.setContactName("") }}
+              />
             </div>
             {q.customerId && (
               <div>
