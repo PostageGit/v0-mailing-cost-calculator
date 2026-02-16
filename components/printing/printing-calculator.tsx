@@ -162,7 +162,7 @@ export function PrintingCalculator() {
   const handleLevelChange = useCallback((delta: number) => {
     if (!fullResult || !selectedOption) return
     const currentLevel = fullResult.result.level
-    const newLevel = Math.max(1, Math.min(8, currentLevel + delta))
+    const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
     if (newLevel === currentLevel) return
     const updatedInputs = { ...inputs, levelOverride: newLevel }
     const newCalcResult = calculatePrintingCost(updatedInputs, selectedOption.size)

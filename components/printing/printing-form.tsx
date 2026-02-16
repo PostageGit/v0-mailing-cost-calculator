@@ -242,6 +242,23 @@ export function PrintingForm({
             </div>
           </div>
 
+          {/* Broker toggle */}
+          <div className="flex items-center gap-2 mb-4">
+            <Checkbox
+              id="print-broker"
+              checked={inputs.isBroker || false}
+              onCheckedChange={(checked) =>
+                onInputsChange({ ...inputs, isBroker: checked === true })
+              }
+            />
+            <label htmlFor="print-broker" className="text-sm font-medium text-foreground cursor-pointer">
+              Broker Pricing
+            </label>
+            {inputs.isBroker && (
+              <span className="text-[10px] text-muted-foreground">(Level 10 default)</span>
+            )}
+          </div>
+
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button

@@ -110,7 +110,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange }: Bookl
       stats={stats}
       level={{
         level: primaryLevel,
-        maxLevel: 8,
+        maxLevel: 10,
         markup: primaryMarkup,
         pricePerSheet: primaryPPS,
         onLevelChange,

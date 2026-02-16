@@ -19,6 +19,8 @@ export interface SpiralInputs {
   back: SpiralPartInputs
   clearPlastic: boolean
   blackVinyl: boolean
+  isBroker: boolean
+  customLevel: "auto" | string   // "auto" | "Level 2" - "Level 10"
 }
 
 export interface SpiralPartResult {
@@ -78,5 +80,7 @@ export function defaultSpiralInputs(): SpiralInputs {
     back: { ...DEFAULT_SPIRAL_PART },
     clearPlastic: false,
     blackVinyl: false,
+    isBroker: false,
+    customLevel: "auto",
   }
 }

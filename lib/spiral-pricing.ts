@@ -377,7 +377,10 @@ export function calculateSpiral(inputs: SpiralInputs): SpiralCalcResult | { erro
     return { error: `Inside pages require ${sheetsPerBook} sheets -- too thick to bind (max 290).` }
   }
 
-  const insideResult = calculatePart("inside", bookQty, pageWidth, pageHeight, sheetsPerBook, inputs.inside)
+  // Determine level override: explicit custom > broker default > auto
+  const userLevel = inputs.customLevel !== "auto" ? inputs.customLevel : inputs.isBroker ? "Level 10" : undefined
+
+  const insideResult = calculatePart("inside", bookQty, pageWidth, pageHeight, sheetsPerBook, inputs.inside, userLevel)
   if (!insideResult || "error" in insideResult) return { error: (insideResult as { error: string })?.error || "Inside calculation failed." }
 
   const forcedLevel = insideResult.levelName

@@ -255,7 +255,7 @@ export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { erro
   if (pageWidth < 2.5 || pageHeight < 2.5) return { error: "Page dimensions must be at least 2.5\"." }
 
   const hasLamination = laminationType !== "none"
-  const forcedLevel = customLevel === "auto" ? null : parseInt(customLevel, 10)
+  const forcedLevel = customLevel !== "auto" ? parseInt(customLevel, 10) : isBroker ? 10 : null
 
   const isDS = ["D/S", "4/4", "1/1"].includes(inside.sides)
   const sidesForCalc = isDS ? 2 : 1

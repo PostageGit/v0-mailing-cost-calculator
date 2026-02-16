@@ -323,7 +323,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   const spreadWidth = pageWidth * 2
   const spreadHeight = pageHeight
   const hasLamination = separateCover && laminationType !== "none"
-  const forcedLevel = customLevel === "auto" ? null : parseInt(customLevel, 10)
+  const forcedLevel = customLevel !== "auto" ? parseInt(customLevel, 10) : isBroker ? 10 : null
 
   let insideResult: PartCalcResult
   let coverResult: PartCalcResult = emptyPartResult("cover", "")

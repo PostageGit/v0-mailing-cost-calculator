@@ -67,6 +67,19 @@ export function SpiralCalculator() {
     setActiveTab("inside")
   }, [inputs, isFormValid])
 
+  // Change pricing level override
+  const handleLevelChange = useCallback((delta: number) => {
+    if (!calcResult) return
+    const currentNum = parseInt(calcResult.levelName.replace("Level ", ""), 10) || 5
+    const newLevel = Math.max(2, Math.min(10, currentNum + delta))
+    if (newLevel === currentNum) return
+    const updatedInputs = { ...inputs, customLevel: `Level ${newLevel}` }
+    const newResult = calculateSpiral(updatedInputs)
+    if ("error" in newResult) return
+    setInputs(updatedInputs)
+    setCalcResult(newResult)
+  }, [calcResult, inputs])
+
   function resetForm() {
     setInputs(defaultSpiralInputs())
     setCalcResult(null)
@@ -189,7 +202,7 @@ export function SpiralCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <SpiralDetails result={calcResult} />
+                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
