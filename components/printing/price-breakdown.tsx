@@ -1,152 +1,192 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { formatCurrency, formatVariableDecimal } from "@/lib/printing-pricing"
 import type { FullPrintingResult } from "@/lib/printing-types"
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 interface PriceBreakdownProps {
   data: FullPrintingResult
   onChangeSheet: () => void
+  /** When provided the user can override the level (1-8) */
+  onLevelChange?: (delta: number) => void
 }
 
-function DetailRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+export function PriceBreakdown({ data, onChangeSheet, onLevelChange }: PriceBreakdownProps) {
+  const {
+    result, inputs, printingCostPlus10, cuttingCost,
+    addOnCharge, addOnDescription,
+    finishingCosts, scoreFoldCost, finishingCalcCosts,
+    subtotal, grandTotal,
+  } = data
+
+  const pricePerPage = subtotal > 0 && inputs.qty > 0 ? subtotal / inputs.qty : 0
+  const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
+
+  // Collect ALL finishing into one flat list
+  const allFinishing: { label: string; cost: number; color: string }[] = []
+  if (finishingCosts?.length) {
+    for (const fc of finishingCosts) {
+      allFinishing.push({ label: fc.name, cost: fc.cost, color: "text-foreground" })
+    }
+  }
+  if (scoreFoldCost) {
+    allFinishing.push({
+      label: `${scoreFoldCost.operation} (${scoreFoldCost.foldType})${scoreFoldCost.isMinApplied ? " min." : ""}`,
+      cost: scoreFoldCost.cost,
+      color: "text-foreground",
+    })
+  }
+  if (finishingCalcCosts?.length) {
+    for (const fc of finishingCalcCosts) {
+      allFinishing.push({ label: fc.name, cost: fc.cost, color: "text-foreground" })
+    }
+  }
+
   return (
-    <div className={`flex justify-between items-center py-0.5 ${bold ? "font-bold" : ""}`}>
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="font-semibold text-foreground text-xs font-mono">{value}</span>
+    <div className="flex flex-col gap-3">
+      {/* ── Hero total ── */}
+      <div className="bg-foreground text-background rounded-2xl px-5 py-4 flex items-baseline justify-between">
+        <div>
+          <p className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(subtotal)}</p>
+          <p className="text-xs opacity-60 mt-0.5">{formatCurrency(pricePerPage, 4)} / page</p>
+        </div>
+        <button
+          type="button"
+          onClick={onChangeSheet}
+          className="text-xs font-medium underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity"
+        >
+          Change Size
+        </button>
+      </div>
+
+      {/* ── Paper + Level row ── */}
+      <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
+          <span className="text-sm font-semibold text-foreground">{inputs.paperName}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="Sheet" value={result.sheetSize} />
+          <Stat label="Ups" value={String(result.maxUps)} />
+          <Stat label="Sheets" value={result.sheets.toLocaleString()} />
+        </div>
+      </div>
+
+      {/* ── Level control ── */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Level</span>
+            <span className="ml-2 text-lg font-bold text-foreground font-mono">{result.level}</span>
+            <span className="ml-1.5 text-xs text-muted-foreground">/ {result.markup.toFixed(2)}x markup</span>
+          </div>
+          {onLevelChange && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onLevelChange(-1)}
+                disabled={result.level <= 1}
+                className="h-8 w-8 rounded-lg border border-border bg-background flex items-center justify-center hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Decrease level"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onLevelChange(1)}
+                disabled={result.level >= 8}
+                className="h-8 w-8 rounded-lg border border-border bg-background flex items-center justify-center hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                aria-label="Increase level"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="mt-2 flex gap-1">
+          {Array.from({ length: 8 }, (_, i) => i + 1).map((lvl) => (
+            <div
+              key={lvl}
+              className={`flex-1 h-1.5 rounded-full transition-colors ${
+                lvl <= result.level ? "bg-foreground" : "bg-border"
+              }`}
+            />
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5">
+          {formatVariableDecimal(result.pricePerSheet)} / sheet
+        </p>
+      </div>
+
+      {/* ── Cost lines ── */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+        {/* Printing */}
+        <CostRow
+          label={result.wasPrintingMinApplied ? "Printing (min.)" : "Printing +10%"}
+          value={printingCostPlus10}
+        />
+
+        {/* Cutting */}
+        <CostRow
+          label={`Cutting (${totalJobCuts} cuts)`}
+          value={cuttingCost}
+          sub={result.wasCuttingMinApplied ? "min. applied" : undefined}
+        />
+
+        {/* Each finishing on its own row */}
+        {allFinishing.map((f, i) => (
+          <CostRow key={i} label={f.label} value={f.cost} accent />
+        ))}
+
+        {/* Suggestion */}
+        {scoreFoldCost?.suggestion && (
+          <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20">
+            <p className="text-[10px] text-amber-700 dark:text-amber-400 italic">
+              {scoreFoldCost.suggestion}
+            </p>
+          </div>
+        )}
+
+        {/* Add-on */}
+        {addOnCharge > 0 && (
+          <CostRow
+            label={addOnDescription || "Add on"}
+            value={addOnCharge}
+          />
+        )}
+
+        {/* Grand Total */}
+        <div className="px-4 py-3 bg-secondary/30 flex items-center justify-between">
+          <span className="text-sm font-bold text-foreground">Total</span>
+          <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(grandTotal)}</span>
+        </div>
+      </div>
     </div>
   )
 }
 
-export function PriceBreakdown({ data, onChangeSheet }: PriceBreakdownProps) {
-  const { result, inputs, printingCostPlus10, cuttingCost, addOnCharge, addOnDescription, finishingCosts, totalFinishing, scoreFoldCost, finishingCalcCosts, totalFinishingCalcCost, subtotal, grandTotal } = data
-  const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
-  const pricePerPage = subtotal > 0 && inputs.qty > 0 ? subtotal / inputs.qty : 0
-
+/* ── Small helpers ── */
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-4">
-      {/* Change Sheet Size */}
-      <div className="flex justify-end">
-        <Button variant="link" size="sm" onClick={onChangeSheet} className="text-primary text-xs px-0">
-          Change Sheet Size
-        </Button>
+    <div className="flex flex-col items-center rounded-lg bg-secondary/30 py-2 px-1">
+      <span className="text-[10px] text-muted-foreground">{label}</span>
+      <span className="text-sm font-bold text-foreground font-mono leading-tight">{value}</span>
+    </div>
+  )
+}
+
+function CostRow({ label, value, sub, accent }: { label: string; value: number; sub?: string; accent?: boolean }) {
+  return (
+    <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+      <div className="flex-1 min-w-0">
+        <span className={`text-xs ${accent ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+          {label}
+        </span>
+        {sub && <span className="text-[10px] text-muted-foreground ml-1.5">({sub})</span>}
       </div>
-
-      {/* Grand Total Hero */}
-      <div className="bg-foreground text-background p-4 rounded-lg text-center">
-        <p className="text-3xl font-bold font-mono">{formatCurrency(subtotal)}</p>
-        <p className="text-sm opacity-70 mt-1">{formatCurrency(pricePerPage, 4)} / page</p>
-      </div>
-
-      {/* Details Sections */}
-      <div className="border border-border rounded-lg p-4 flex flex-col gap-3">
-        {/* Paper Details */}
-        <div>
-          <h3 className="text-xs font-semibold text-foreground text-center bg-muted rounded px-2 py-1 mb-2">
-            Paper Details
-          </h3>
-          <div className="grid grid-cols-2 gap-x-5">
-            <DetailRow label="Paper:" value={inputs.paperName} />
-            <DetailRow label="Paper Size:" value={result.sheetSize} />
-            <DetailRow label="Max Ups:" value={String(result.maxUps)} />
-            <DetailRow label="Total Sheets:" value={result.sheets.toLocaleString()} />
-            <DetailRow label="Cost / Sheet:" value={formatVariableDecimal(result.pricePerSheet)} />
-            <DetailRow
-              label="Level / Markup:"
-              value={`${result.level} / ${result.markup.toFixed(2)}x`}
-            />
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Cutting Details */}
-        <div>
-          <h3 className="text-xs font-semibold text-foreground text-center bg-muted rounded px-2 py-1 mb-2">
-            Cutting Details
-          </h3>
-          <div className="grid grid-cols-2 gap-x-5">
-            <DetailRow label="Cuts / Sheet:" value={String(result.cuts.total)} />
-            <DetailRow label="Stacks:" value={String(result.numberOfStacks)} />
-            <DetailRow label="Total Cuts:" value={String(totalJobCuts)} />
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Totals */}
-        <div>
-          <h3 className="text-xs font-semibold text-foreground text-center bg-muted rounded px-2 py-1 mb-2">
-            Totals
-          </h3>
-          <div className="grid grid-cols-2 gap-x-5">
-            <DetailRow
-              label={result.wasPrintingMinApplied ? "Total Printing:" : "Total Printing +10%:"}
-              value={
-                formatCurrency(printingCostPlus10) +
-                (result.wasPrintingMinApplied ? " (min.)" : "")
-              }
-            />
-            <DetailRow
-              label="Total Cutting:"
-              value={
-                formatCurrency(cuttingCost) +
-                (result.wasCuttingMinApplied ? " (min.)" : "")
-              }
-            />
-            {finishingCosts && finishingCosts.length > 0 && (
-              <>
-                {finishingCosts.map((fc) => (
-                  <div key={fc.id} className="col-span-2 flex justify-between items-center py-0.5">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      {fc.name}:
-                    </span>
-                    <span className="font-semibold text-primary text-xs font-mono">
-                      +{formatCurrency(fc.cost)}
-                    </span>
-                  </div>
-                ))}
-              </>
-            )}
-            {scoreFoldCost && (
-              <div className="col-span-2 flex justify-between items-center py-0.5">
-                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-chart-3 shrink-0" />
-                  {scoreFoldCost.operation} ({scoreFoldCost.foldType}):
-                </span>
-                <span className="font-semibold text-chart-3 text-xs font-mono">
-                  +{formatCurrency(scoreFoldCost.cost)}
-                  {scoreFoldCost.isMinApplied ? " (min.)" : ""}
-                </span>
-              </div>
-            )}
-            {scoreFoldCost?.suggestion && (
-              <div className="col-span-2 text-[10px] text-amber-600 dark:text-amber-400 italic py-0.5">
-                {scoreFoldCost.suggestion}
-              </div>
-            )}
-            {finishingCalcCosts && finishingCalcCosts.length > 0 && finishingCalcCosts.map((fc) => (
-              <div key={fc.id} className="col-span-2 flex justify-between items-center py-0.5">
-                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-chart-4 shrink-0" />
-                  {fc.name}:
-                </span>
-                <span className="font-semibold text-chart-4 text-xs font-mono">
-                  +{formatCurrency(fc.cost)}
-                </span>
-              </div>
-            ))}
-            <DetailRow
-              label={addOnDescription ? `${addOnDescription}:` : "Add on:"}
-              value={formatCurrency(addOnCharge)}
-            />
-            <DetailRow label="Subtotal:" value={formatCurrency(subtotal)} />
-            <DetailRow label="Grand Total:" value={formatCurrency(grandTotal)} bold />
-          </div>
-        </div>
-      </div>
+      <span className={`text-xs font-semibold font-mono whitespace-nowrap ${accent ? "text-foreground" : "text-foreground"}`}>
+        {accent ? "+" : ""}{formatCurrency(value)}
+      </span>
     </div>
   )
 }

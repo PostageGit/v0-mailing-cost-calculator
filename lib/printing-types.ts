@@ -41,6 +41,8 @@ export interface PrintingInputs {
   scoreFoldType?: "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold" | ""
   /** IDs of custom finishing calculators to apply */
   finishingCalcIds?: string[]
+  /** Override the auto-detected level (1-8) */
+  levelOverride?: number
 }
 
 export interface PrintingCalcResult {

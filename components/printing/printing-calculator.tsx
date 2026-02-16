@@ -9,7 +9,9 @@ import { PriceBreakdown } from "./price-breakdown"
 import { Button } from "@/components/ui/button"
 import {
   calculateAllSheetOptions,
+  calculatePrintingCost,
   buildFullResult,
+  formatCurrency,
 } from "@/lib/printing-pricing"
 import type {
   PrintingInputs,
@@ -156,11 +158,26 @@ export function PrintingCalculator() {
     [inputs, getFinCalcCosts]
   )
 
+  // Change pricing level override
+  const handleLevelChange = useCallback((delta: number) => {
+    if (!fullResult || !selectedOption) return
+    const currentLevel = fullResult.result.level
+    const newLevel = Math.max(1, Math.min(8, currentLevel + delta))
+    if (newLevel === currentLevel) return
+    const updatedInputs = { ...inputs, levelOverride: newLevel }
+    const newCalcResult = calculatePrintingCost(updatedInputs, selectedOption.size)
+    if (!newCalcResult) return
+    const fcCosts = getFinCalcCosts(inputs.qty, newCalcResult.sheets, inputs.isBroker || false)
+    const result = buildFullResult(updatedInputs, newCalcResult, fcCosts)
+    setInputs(updatedInputs)
+    setFullResult(result)
+  }, [fullResult, selectedOption, inputs, getFinCalcCosts])
+
   // Change sheet size (go back to table)
   const handleChangeSheet = useCallback(() => {
-    setShowResults(false)
-    setSelectedOption(null)
-    setFullResult(null)
+  setShowResults(false)
+  setSelectedOption(null)
+  setFullResult(null)
   }, [])
 
   // Add to order
@@ -252,7 +269,7 @@ export function PrintingCalculator() {
                   pageHeight={inputs.height}
                 />
                 <div className="flex flex-col gap-4">
-                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} />
+                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} />
                   <Button
                     onClick={handleAddToQuote}
                     className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

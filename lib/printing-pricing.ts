@@ -228,7 +228,8 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
 
   const clickCostPerSheet =
     sidesRule.clickAmount * clickCostData.regular + sidesRule.machineClickAmount * clickCostData.machine
-  const level = getLevel(totalParentSheets)
+  const autoLevel = getLevel(totalParentSheets)
+  const level = inputs.levelOverride ? Math.max(1, Math.min(8, inputs.levelOverride)) : autoLevel
   const markup = getMarkup(level, sidesValue, paperData.isCardstock)
   const baseCostPerSheet = paperCostPerSheet + clickCostPerSheet
 
