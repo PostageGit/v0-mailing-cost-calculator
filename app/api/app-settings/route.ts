@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
+function supabaseReady() {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
 export async function GET() {
+  if (!supabaseReady()) return NextResponse.json({})
   try {
     const supabase = await createClient()
     const { data, error } = await supabase
@@ -14,12 +19,12 @@ export async function GET() {
     }
     return NextResponse.json(map)
   } catch {
-    // If Supabase is not yet configured, return empty settings
     return NextResponse.json({})
   }
 }
 
 export async function PATCH(req: Request) {
+  if (!supabaseReady()) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 })
   try {
     const supabase = await createClient()
     const body = await req.json() as Record<string, unknown>
