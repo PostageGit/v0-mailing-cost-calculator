@@ -26,7 +26,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft,
+  Users, Truck, Menu, ChevronLeft, Columns3, List,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -82,6 +82,8 @@ type JobPhase = "planner" | "pricing"
 function AppContent() {
   const [section, setSection] = useState<Section>("quotes-board")
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [quoteView, setQuoteView] = useState<"board" | "list">("board")
+  const [jobView, setJobView] = useState<"board" | "list">("board")
   const [showSettings, setShowSettings] = useState(false)
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
@@ -286,16 +288,20 @@ function AppContent() {
           {/* == QUOTES BOARD == */}
           {section === "quotes-board" && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <div className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between shrink-0">
-                <div>
-                  <h1 className="text-lg font-bold tracking-tight text-foreground">Quotes</h1>
+              <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
+                <h1 className="text-lg font-bold tracking-tight text-foreground">Quotes</h1>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                    <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                    <button onClick={() => setQuoteView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
+                  </div>
+                  <Button onClick={handleNewJob} size="sm" className="gap-1.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-8 text-xs font-semibold">
+                    <Plus className="h-3.5 w-3.5" /> New Quote
+                  </Button>
                 </div>
-                <Button onClick={handleNewJob} size="sm" className="gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-8 text-xs font-semibold">
-                  <Plus className="h-3.5 w-3.5" /> New Quote
-                </Button>
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard boardType="quote" onLoadQuote={handleLoadQuote} />
+                <KanbanBoard boardType="quote" viewMode={quoteView} onLoadQuote={handleLoadQuote} />
               </div>
             </div>
           )}
@@ -303,13 +309,15 @@ function AppContent() {
           {/* == JOBS BOARD == */}
           {section === "jobs-board" && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <div className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between shrink-0">
-                <div>
-                  <h1 className="text-lg font-bold tracking-tight text-foreground">Jobs</h1>
+              <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
+                <h1 className="text-lg font-bold tracking-tight text-foreground">Jobs</h1>
+                <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                  <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                  <button onClick={() => setJobView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
                 </div>
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard boardType="job" onLoadQuote={handleLoadQuote} />
+                <KanbanBoard boardType="job" viewMode={jobView} onLoadQuote={handleLoadQuote} />
               </div>
             </div>
           )}

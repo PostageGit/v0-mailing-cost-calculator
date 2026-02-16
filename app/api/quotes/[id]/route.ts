@@ -47,6 +47,8 @@ export async function PATCH(
   if (body.converted_at !== undefined) updates.converted_at = body.converted_at
   if (body.archived !== undefined) updates.archived = body.archived
   if (body.archived_at !== undefined) updates.archived_at = body.archived_at
+  if (body.job_meta !== undefined) updates.job_meta = body.job_meta
+  if (body.quantity !== undefined) updates.quantity = body.quantity
 
   const { data, error } = await supabase
     .from("quotes")
