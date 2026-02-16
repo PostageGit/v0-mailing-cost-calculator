@@ -17,6 +17,7 @@ import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 import { formatCurrency } from "@/lib/printing-pricing"
 import { AlertTriangle, Info, Check } from "lucide-react"
 import { FinishingAddOns } from "@/components/finishing-add-ons"
+import { useFormValidation } from "@/hooks/use-form-validation"
 
 interface PrintingFormProps {
   inputs: PrintingInputs
@@ -43,6 +44,7 @@ export function PrintingForm({
   currentResult,
 }: PrintingFormProps) {
   const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
+  const v = useFormValidation()
 
   function handlePaperChange(value: string) {
     const newSides = getAvailableSides(value)
@@ -56,6 +58,7 @@ export function PrintingForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    v.markAttempted()
     onCalculate()
   }
 
@@ -65,17 +68,17 @@ export function PrintingForm({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="print-qty" className="text-sm font-medium text-foreground">
-                Quantity
+                Quantity{v.req(!inputs.qty) && <span className="text-destructive text-xs ml-0.5">*</span>}
               </label>
               <Input
                 id="print-qty"
                 type="number"
                 inputMode="numeric"
                 min={1}
-                required
                 autoComplete="off"
                 spellCheck={false}
                 placeholder="e.g. 500..."
+                className={v.cls(!inputs.qty)}
                 value={inputs.qty || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, qty: parseInt(e.target.value) || 0 })
@@ -84,7 +87,7 @@ export function PrintingForm({
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="print-width" className="text-sm font-medium text-foreground">
-                Width (in)
+                Width (in){v.req(!inputs.width) && <span className="text-destructive text-xs ml-0.5">*</span>}
               </label>
               <Input
                 id="print-width"
@@ -92,9 +95,9 @@ export function PrintingForm({
                 inputMode="decimal"
                 step="0.01"
                 min={0}
-                required
                 autoComplete="off"
                 placeholder="e.g. 4..."
+                className={v.cls(!inputs.width)}
                 value={inputs.width || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, width: parseFloat(e.target.value) || 0 })
@@ -103,7 +106,7 @@ export function PrintingForm({
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="print-height" className="text-sm font-medium text-foreground">
-                Height (in)
+                Height (in){v.req(!inputs.height) && <span className="text-destructive text-xs ml-0.5">*</span>}
               </label>
               <Input
                 id="print-height"
@@ -111,9 +114,9 @@ export function PrintingForm({
                 inputMode="decimal"
                 step="0.01"
                 min={0}
-                required
                 autoComplete="off"
                 placeholder="e.g. 6..."
+                className={v.cls(!inputs.height)}
                 value={inputs.height || ""}
                 onChange={(e) =>
                   onInputsChange({ ...inputs, height: parseFloat(e.target.value) || 0 })
@@ -125,9 +128,11 @@ export function PrintingForm({
           {/* Row 2: Paper Type, Sides, Bleed */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-paper" className="text-sm font-medium text-foreground">Paper Type</label>
+              <label htmlFor="print-paper" className="text-sm font-medium text-foreground">
+                Paper Type{v.req(!inputs.paperName) && <span className="text-destructive text-xs ml-0.5">*</span>}
+              </label>
               <Select value={inputs.paperName} onValueChange={handlePaperChange}>
-                <SelectTrigger id="print-paper">
+                <SelectTrigger id="print-paper" className={v.cls(!inputs.paperName)}>
                   <SelectValue placeholder="Select Paper" />
                 </SelectTrigger>
                 <SelectContent>
@@ -140,13 +145,15 @@ export function PrintingForm({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-sides" className="text-sm font-medium text-foreground">Sides</label>
+              <label htmlFor="print-sides" className="text-sm font-medium text-foreground">
+                Sides{v.req(!inputs.sidesValue) && <span className="text-destructive text-xs ml-0.5">*</span>}
+              </label>
               <Select
                 value={inputs.sidesValue}
-                onValueChange={(v) => onInputsChange({ ...inputs, sidesValue: v })}
+                onValueChange={(val) => onInputsChange({ ...inputs, sidesValue: val })}
                 disabled={!inputs.paperName}
               >
-                <SelectTrigger id="print-sides">
+                <SelectTrigger id="print-sides" className={v.cls(!inputs.sidesValue)}>
                   <SelectValue placeholder="Select Sides" />
                 </SelectTrigger>
                 <SelectContent>
@@ -258,7 +265,7 @@ export function PrintingForm({
             <Button
               type="button"
               variant="secondary"
-              onClick={onReset}
+              onClick={() => { v.reset(); onReset() }}
               className="flex-1 font-semibold"
             >
               {isEditing ? "Cancel Edit" : "Reset"}

@@ -17,6 +17,7 @@ import {
   getAvailableSides,
 } from "@/lib/spiral-pricing"
 import type { SpiralInputs, SpiralPartInputs } from "@/lib/spiral-types"
+import { useFormValidation } from "@/hooks/use-form-validation"
 
 interface SpiralFormProps {
   inputs: SpiralInputs
@@ -40,10 +41,17 @@ export function SpiralForm({
   validationError,
 }: SpiralFormProps) {
   const paperNames = getPaperNames()
+  const v = useFormValidation()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    v.markAttempted()
     onCalculate()
+  }
+
+  function handleReset() {
+    v.reset()
+    onReset()
   }
 
   function update(partial: Partial<SpiralInputs>) {
@@ -58,15 +66,17 @@ export function SpiralForm({
     const part = inputs[partKey]
     const sizes = part.paperName ? getAvailableSizes(part.paperName) : []
     const sides = part.paperName ? getAvailableSides(part.paperName, part.sheetSize !== "cheapest" ? part.sheetSize : undefined) : []
+    const needsPaper = !part.paperName
+    const needsSides = !part.sides
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
         <span className="text-sm font-medium text-foreground pb-2">{label}</span>
         <Select
           value={part.paperName}
-          onValueChange={(v) => updatePart(partKey, { paperName: v, sheetSize: "cheapest", sides: "" })}
+          onValueChange={(val) => updatePart(partKey, { paperName: val, sheetSize: "cheapest", sides: "" })}
         >
-          <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
+          <SelectTrigger className={v.cls(needsPaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
           <SelectContent>
             {paperNames.map((p) => (
               <SelectItem key={p} value={p}>{p}</SelectItem>
@@ -75,9 +85,9 @@ export function SpiralForm({
         </Select>
         <Select
           value={part.sides}
-          onValueChange={(v) => updatePart(partKey, { sides: v })}
+          onValueChange={(val) => updatePart(partKey, { sides: val })}
         >
-          <SelectTrigger><SelectValue placeholder="Sides" /></SelectTrigger>
+          <SelectTrigger className={v.cls(needsSides)}><SelectValue placeholder="Sides" /></SelectTrigger>
           <SelectContent>
             {sides.map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -96,7 +106,7 @@ export function SpiralForm({
         </div>
         <Select
           value={part.sheetSize}
-          onValueChange={(v) => updatePart(partKey, { sheetSize: v })}
+          onValueChange={(val) => updatePart(partKey, { sheetSize: val })}
         >
           <SelectTrigger><SelectValue placeholder="Sheet Size" /></SelectTrigger>
           <SelectContent>
@@ -116,66 +126,52 @@ export function SpiralForm({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-book-qty" className="text-sm font-medium text-foreground">
-            Book Amount
+            Book Amount{v.req(!inputs.bookQty) && <span className="text-destructive text-xs ml-0.5">*</span>}
           </label>
           <Input
             id="spiral-book-qty"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            required
-            autoComplete="off"
+            type="number" inputMode="numeric" min={1} autoComplete="off"
             placeholder="e.g. 50..."
+            className={v.cls(!inputs.bookQty)}
             value={inputs.bookQty || ""}
             onChange={(e) => update({ bookQty: parseInt(e.target.value) || 0 })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-pages" className="text-sm font-medium text-foreground">
-            Pages Per Book
+            Pages Per Book{v.req(!inputs.pagesPerBook) && <span className="text-destructive text-xs ml-0.5">*</span>}
           </label>
           <Input
             id="spiral-pages"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            required
-            autoComplete="off"
+            type="number" inputMode="numeric" min={1} autoComplete="off"
             placeholder="e.g. 20..."
+            className={v.cls(!inputs.pagesPerBook)}
             value={inputs.pagesPerBook || ""}
             onChange={(e) => update({ pagesPerBook: parseInt(e.target.value) || 0 })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-page-w" className="text-sm font-medium text-foreground">
-            Page Width (in)
+            Page Width (in){v.req(!inputs.pageWidth) && <span className="text-destructive text-xs ml-0.5">*</span>}
           </label>
           <Input
             id="spiral-page-w"
-            type="number"
-            inputMode="decimal"
-            step={0.01}
-            min={1}
-            required
-            autoComplete="off"
+            type="number" inputMode="decimal" step={0.01} min={1} autoComplete="off"
             placeholder="e.g. 8.5..."
+            className={v.cls(!inputs.pageWidth)}
             value={inputs.pageWidth || ""}
             onChange={(e) => update({ pageWidth: parseFloat(e.target.value) || 0 })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-page-h" className="text-sm font-medium text-foreground">
-            Page Height (in)
+            Page Height (in){v.req(!inputs.pageHeight) && <span className="text-destructive text-xs ml-0.5">*</span>}
           </label>
           <Input
             id="spiral-page-h"
-            type="number"
-            inputMode="decimal"
-            step={0.01}
-            min={1}
-            required
-            autoComplete="off"
+            type="number" inputMode="decimal" step={0.01} min={1} autoComplete="off"
             placeholder="e.g. 11..."
+            className={v.cls(!inputs.pageHeight)}
             value={inputs.pageHeight || ""}
             onChange={(e) => update({ pageHeight: parseFloat(e.target.value) || 0 })}
           />
@@ -241,8 +237,8 @@ export function SpiralForm({
         </div>
       </div>
 
-      {/* Validation Error */}
-      {validationError && (
+      {/* Validation Error -- only show if there's a specific error message beyond field validation */}
+      {validationError && v.attempted && (
         <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">
           {validationError}
         </div>
@@ -271,7 +267,7 @@ export function SpiralForm({
         <Button
           type="button"
           variant="secondary"
-          onClick={onReset}
+          onClick={handleReset}
           className="flex-1 font-semibold"
         >
           {isEditing ? "Cancel Edit" : "Reset"}

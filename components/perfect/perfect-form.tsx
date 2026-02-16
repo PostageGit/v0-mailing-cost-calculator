@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator"
 import { getCoverPapers, getInsidePapers, canLaminate } from "@/lib/perfect-pricing"
 import { PAPER_OPTIONS, COVER_SIDES, INSIDE_SIDES } from "@/lib/perfect-types"
 import type { PerfectInputs, PerfectPartInputs } from "@/lib/perfect-types"
+import { useFormValidation } from "@/hooks/use-form-validation"
 
 interface PerfectFormProps {
   inputs: PerfectInputs
@@ -38,10 +39,17 @@ export function PerfectForm({
 }: PerfectFormProps) {
   const coverPapers = getCoverPapers()
   const insidePapers = getInsidePapers()
+  const v = useFormValidation()
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    v.markAttempted()
     onCalculate()
+  }
+
+  function handleReset() {
+    v.reset()
+    onReset()
   }
 
   function update(partial: Partial<PerfectInputs>) {
@@ -50,7 +58,6 @@ export function PerfectForm({
 
   function updatePart(partKey: "cover" | "inside", partial: Partial<PerfectPartInputs>) {
     const updated = { ...inputs, [partKey]: { ...inputs[partKey], ...partial } }
-    // If cover paper changed, check if lamination is still valid
     if (partKey === "cover" && partial.paperName) {
       if (!canLaminate(partial.paperName) && updated.laminationType !== "none") {
         updated.laminationType = "none"
@@ -71,37 +78,49 @@ export function PerfectForm({
       {/* Row 1: General Info */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pb-book-qty" className="text-sm font-medium text-foreground">Book Amount</label>
+          <label htmlFor="pb-book-qty" className="text-sm font-medium text-foreground">
+            Book Amount{v.req(!inputs.bookQty) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
           <Input
-            id="pb-book-qty" type="number" inputMode="numeric" min={1} required autoComplete="off"
+            id="pb-book-qty" type="number" inputMode="numeric" min={1} autoComplete="off"
             placeholder="e.g. 50..."
+            className={v.cls(!inputs.bookQty)}
             value={inputs.bookQty || ""}
             onChange={(e) => update({ bookQty: parseInt(e.target.value) || 0 })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pb-pages" className="text-sm font-medium text-foreground">Page Amount</label>
+          <label htmlFor="pb-pages" className="text-sm font-medium text-foreground">
+            Page Amount{v.req(!inputs.pagesPerBook) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
           <Input
-            id="pb-pages" type="number" inputMode="numeric" min={40} required autoComplete="off"
+            id="pb-pages" type="number" inputMode="numeric" min={40} autoComplete="off"
             placeholder="Min 40..."
+            className={v.cls(!inputs.pagesPerBook)}
             value={inputs.pagesPerBook || ""}
             onChange={(e) => update({ pagesPerBook: parseInt(e.target.value) || 0 })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pb-page-w" className="text-sm font-medium text-foreground">Page Width (in)</label>
+          <label htmlFor="pb-page-w" className="text-sm font-medium text-foreground">
+            Page Width (in){v.req(!inputs.pageWidth) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
           <Input
-            id="pb-page-w" type="number" inputMode="decimal" step={0.01} min={2.5} required autoComplete="off"
+            id="pb-page-w" type="number" inputMode="decimal" step={0.01} min={2.5} autoComplete="off"
             placeholder="e.g. 5.5..."
+            className={v.cls(!inputs.pageWidth)}
             value={inputs.pageWidth || ""}
             onChange={(e) => update({ pageWidth: parseFloat(e.target.value) || 0 })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pb-page-h" className="text-sm font-medium text-foreground">Page Height (in)</label>
+          <label htmlFor="pb-page-h" className="text-sm font-medium text-foreground">
+            Page Height (in){v.req(!inputs.pageHeight) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
           <Input
-            id="pb-page-h" type="number" inputMode="decimal" step={0.01} min={2.5} required autoComplete="off"
+            id="pb-page-h" type="number" inputMode="decimal" step={0.01} min={2.5} autoComplete="off"
             placeholder="e.g. 8.5..."
+            className={v.cls(!inputs.pageHeight)}
             value={inputs.pageHeight || ""}
             onChange={(e) => update({ pageHeight: parseFloat(e.target.value) || 0 })}
           />
@@ -115,9 +134,9 @@ export function PerfectForm({
         <span className="text-sm font-medium text-foreground pb-2">Cover</span>
         <Select
           value={inputs.cover.paperName}
-          onValueChange={(v) => updatePart("cover", { paperName: v, sheetSize: "cheapest", sides: "" })}
+          onValueChange={(val) => updatePart("cover", { paperName: val, sheetSize: "cheapest", sides: "" })}
         >
-          <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
+          <SelectTrigger className={v.cls(!inputs.cover.paperName)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
           <SelectContent>
             {coverPapers.map((p) => (
               <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
@@ -126,9 +145,9 @@ export function PerfectForm({
         </Select>
         <Select
           value={inputs.cover.sides}
-          onValueChange={(v) => updatePart("cover", { sides: v })}
+          onValueChange={(val) => updatePart("cover", { sides: val })}
         >
-          <SelectTrigger><SelectValue placeholder="Sides" /></SelectTrigger>
+          <SelectTrigger className={v.cls(!inputs.cover.sides)}><SelectValue placeholder="Sides" /></SelectTrigger>
           <SelectContent>
             {COVER_SIDES.map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -145,7 +164,7 @@ export function PerfectForm({
         </div>
         <Select
           value={inputs.cover.sheetSize}
-          onValueChange={(v) => updatePart("cover", { sheetSize: v })}
+          onValueChange={(val) => updatePart("cover", { sheetSize: val })}
         >
           <SelectTrigger><SelectValue placeholder="Sheet Size" /></SelectTrigger>
           <SelectContent>
@@ -163,9 +182,9 @@ export function PerfectForm({
         <span className="text-sm font-medium text-foreground pb-2">Inside</span>
         <Select
           value={inputs.inside.paperName}
-          onValueChange={(v) => updatePart("inside", { paperName: v, sheetSize: "cheapest", sides: "" })}
+          onValueChange={(val) => updatePart("inside", { paperName: val, sheetSize: "cheapest", sides: "" })}
         >
-          <SelectTrigger><SelectValue placeholder="Select Paper" /></SelectTrigger>
+          <SelectTrigger className={v.cls(!inputs.inside.paperName)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
           <SelectContent>
             {insidePapers.map((p) => (
               <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
@@ -174,9 +193,9 @@ export function PerfectForm({
         </Select>
         <Select
           value={inputs.inside.sides}
-          onValueChange={(v) => updatePart("inside", { sides: v })}
+          onValueChange={(val) => updatePart("inside", { sides: val })}
         >
-          <SelectTrigger><SelectValue placeholder="Sides" /></SelectTrigger>
+          <SelectTrigger className={v.cls(!inputs.inside.sides)}><SelectValue placeholder="Sides" /></SelectTrigger>
           <SelectContent>
             {INSIDE_SIDES.map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -193,7 +212,7 @@ export function PerfectForm({
         </div>
         <Select
           value={inputs.inside.sheetSize}
-          onValueChange={(v) => updatePart("inside", { sheetSize: v })}
+          onValueChange={(val) => updatePart("inside", { sheetSize: val })}
         >
           <SelectTrigger><SelectValue placeholder="Sheet Size" /></SelectTrigger>
           <SelectContent>
@@ -214,7 +233,7 @@ export function PerfectForm({
           <label htmlFor="pb-lamination" className="text-sm font-medium text-foreground">Lamination</label>
           <Select
             value={inputs.laminationType}
-            onValueChange={(v) => update({ laminationType: v as PerfectInputs["laminationType"] })}
+            onValueChange={(val) => update({ laminationType: val as PerfectInputs["laminationType"] })}
             disabled={!coverCanLaminate}
           >
             <SelectTrigger id="pb-lamination"><SelectValue /></SelectTrigger>
@@ -231,7 +250,7 @@ export function PerfectForm({
           <label htmlFor="pb-custom-level" className="text-sm font-medium text-foreground">Custom Level</label>
           <Select
             value={inputs.customLevel}
-            onValueChange={(v) => update({ customLevel: v })}
+            onValueChange={(val) => update({ customLevel: val })}
           >
             <SelectTrigger id="pb-custom-level"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -253,7 +272,7 @@ export function PerfectForm({
       </div>
 
       {/* Validation Error */}
-      {validationError && (
+      {validationError && v.attempted && (
         <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">
           {validationError}
         </div>
@@ -282,7 +301,7 @@ export function PerfectForm({
         <Button
           type="button"
           variant="secondary"
-          onClick={onReset}
+          onClick={handleReset}
           className="flex-1 font-semibold"
         >
           {isEditing ? "Cancel Edit" : "Reset"}
