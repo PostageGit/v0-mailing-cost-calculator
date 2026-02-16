@@ -85,7 +85,6 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     const match = quote.items.find((item) =>
       matchingCats.includes(item.category) && patterns.some((pat) => item.label.includes(pat))
     )
-    console.log("[v0] getInhouseCost", { w, h, patterns, quoteLabels: quote.items.map(i => `[${i.category}] ${i.label}`), matchLabel: match?.label, matchAmount: match?.amount })
     return match ? match.amount : null
   }, [quote.items])
 
@@ -282,6 +281,18 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
         </div>
       )}
 
+      {/* COLUMN LABELS */}
+      {(prices?.length ?? 0) > 0 && (
+        <div className="px-5 pt-3 pb-1 flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
+          <span className="w-32 shrink-0">Vendor</span>
+          <span className="w-16 shrink-0 text-center">Qty</span>
+          <span className="w-20 shrink-0">Ref #</span>
+          <span className="w-24 shrink-0 text-right">Price</span>
+          <span className="w-24 shrink-0 text-right">Customer</span>
+          <span className="ml-auto" />
+        </div>
+      )}
+
       {/* VENDOR ROWS */}
       <div className="divide-y divide-border/40">
         {prices?.map((p) => {
@@ -295,6 +306,7 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
           return (
             <VendorRow key={p.id} entry={p} vendorName={vName} pickupCost={vPickup}
               isBest={isBest} markupPct={markupPct} customerTotal={customerTotal}
+              orderQty={qty}
               onUpdate={(pr, qn) => updatePrice(p.id, pr, qn)}
               onRemove={() => removePrice(p.id)} />
           )
@@ -362,13 +374,14 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
 /* ═══════════════════════════════════════════════
    VendorRow -- compact inline row per vendor
    ═══════════════════════════════════════════════ */
-function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerTotal, onUpdate, onRemove }: {
+function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerTotal, orderQty, onUpdate, onRemove }: {
   entry: VendorBidPrice; vendorName: string; pickupCost: number;
-  isBest: boolean; markupPct: number; customerTotal: number | null;
+  isBest: boolean; markupPct: number; customerTotal: number | null; orderQty: number;
   onUpdate: (price: number | null, quoteNum?: string) => void; onRemove: () => void
 }) {
   const [editPrice, setEditPrice] = useState(entry.price != null ? String(entry.price) : "")
   const [quoteNum, setQuoteNum] = useState(entry.notes ?? "")
+  const [qty, setQty] = useState(String(orderQty))
 
   const handleSave = () => {
     const num = parseFloat(editPrice)
@@ -386,10 +399,16 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
         {pickupCost > 0 && <span className="text-[11px] text-muted-foreground">+{formatCurrency(pickupCost)} pickup</span>}
       </div>
 
-      {/* Quote # */}
+      {/* Qty -- editable, defaults to order qty */}
+      <div className="w-16 shrink-0">
+        <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
+          className="h-8 w-full text-xs text-center rounded-lg border border-border bg-background px-1 font-mono font-bold tabular-nums" />
+      </div>
+
+      {/* Vendor Quote Ref */}
       <div className="w-20 shrink-0">
         <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
-          onBlur={handleSave} placeholder="Qte #"
+          onBlur={handleSave} placeholder="Ref #"
           className="h-8 w-full text-xs rounded-lg border border-border bg-background px-2 font-mono placeholder:text-muted-foreground/40" />
       </div>
 
