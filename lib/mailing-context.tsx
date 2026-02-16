@@ -9,20 +9,22 @@ export type PieceType =
   | "flat_card"      // flat printing calc
   | "folded_card"    // flat printing calc (prints flat, then folds)
   | "booklet"        // booklet / saddle stitch calc
+  | "spiral_book"    // spiral binding calc
   | "envelope"       // envelope pricing step
   | "self_mailer"    // flat printing calc
   | "letter"         // flat printing calc
   | "other"          // manual / OHP
 
 export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; calc: string; color: string }> = {
-  postcard:    { label: "Postcard",     short: "PC",   calc: "flat",     color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
-  flat_card:   { label: "Flat Card",    short: "FLT",  calc: "flat",     color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
-  folded_card: { label: "Folded Card",  short: "FLD",  calc: "flat",     color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-  booklet:     { label: "Booklet",      short: "BKL",  calc: "booklet",  color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
-  envelope:    { label: "Envelope",     short: "ENV",  calc: "envelope", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
-  self_mailer: { label: "Self-Mailer",  short: "SM",   calc: "flat",     color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
-  letter:      { label: "Letter",       short: "LTR",  calc: "flat",     color: "bg-secondary text-foreground" },
-  other:       { label: "Other",        short: "OTH",  calc: "ohp",      color: "bg-secondary text-foreground" },
+  postcard:     { label: "Postcard",      short: "PC",   calc: "flat",     color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
+  flat_card:    { label: "Flat Card",     short: "FLT",  calc: "flat",     color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" },
+  folded_card:  { label: "Folded Card",   short: "FLD",  calc: "flat",     color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+  booklet:      { label: "Booklet",       short: "BKL",  calc: "booklet",  color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
+  spiral_book:  { label: "Spiral Book",   short: "SPR",  calc: "spiral",   color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" },
+  envelope:     { label: "Envelope",      short: "ENV",  calc: "envelope", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  self_mailer:  { label: "Self-Mailer",   short: "SM",   calc: "flat",     color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
+  letter:       { label: "Letter",        short: "LTR",  calc: "flat",     color: "bg-secondary text-foreground" },
+  other:        { label: "Other",         short: "OTH",  calc: "ohp",      color: "bg-secondary text-foreground" },
 }
 
 // ─── Production routing ──────────────────────────────────
@@ -112,6 +114,7 @@ interface MailingState {
   needsEnvelope: boolean
   needsPrinting: boolean
   needsBooklet: boolean
+  needsSpiral: boolean
   needsOHP: boolean
   /** For backward compat */
   outerWidth: number | null; outerHeight: number | null
@@ -195,6 +198,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const needsEnvelope = inhouseOrBoth.some((p) => p.type === "envelope")
   const needsPrinting = inhouseOrBoth.some((p) => !p.customerProvidesPrinting && ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
   const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
+  const needsSpiral = inhouseOrBoth.some((p) => p.type === "spiral_book")
   const needsOHP = ohpOrBoth.length > 0
 
   // Backward compat setters for outer dims
@@ -210,7 +214,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
       quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
-      needsEnvelope, needsPrinting, needsBooklet, needsOHP,
+      needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsOHP,
       outerWidth: mailerWidth, outerHeight: mailerHeight, setOuterWidth, setOuterHeight,
     }}>
       {children}

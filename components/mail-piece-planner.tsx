@@ -16,7 +16,7 @@ import {
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 interface Contact { id: string; name: string; email?: string; phone?: string }
 
-const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "self_mailer", "letter", "other"]
+const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "spiral_book", "self_mailer", "letter", "other"]
 
 export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   const m = useMailing()
@@ -409,7 +409,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     </div>
 
                     {/* Per-piece: customer provides printing */}
-                    {["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet"].includes(piece.type) && (
+                    {["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet", "spiral_book"].includes(piece.type) && (
                       <label className="flex items-center gap-2 cursor-pointer mt-1">
                         <input
                           type="checkbox"

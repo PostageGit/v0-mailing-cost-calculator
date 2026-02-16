@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
+import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
 import { LaborCalculator } from "@/components/labor-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
@@ -20,25 +21,26 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
 import {
-  Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen,
+  Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine,
 } from "lucide-react"
 
 // ─── Calculator Steps (after planner) ─────────────────────
-type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "ohp" | "items"
+type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "ohp" | "items"
 const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
   { id: "usps",      label: "Postage",   icon: <Stamp className="h-3.5 w-3.5" /> },
   { id: "labor",     label: "Labor",     icon: <Wrench className="h-3.5 w-3.5" /> },
   { id: "printing",  label: "Printing",  icon: <Printer className="h-3.5 w-3.5" /> },
   { id: "booklet",   label: "Booklet",   icon: <BookOpen className="h-3.5 w-3.5" /> },
+  { id: "spiral",    label: "Spiral",    icon: <Disc3 className="h-3.5 w-3.5" /> },
   { id: "ohp",       label: "OHP",       icon: <Send className="h-3.5 w-3.5" /> },
   { id: "items",     label: "Items",     icon: <Package className="h-3.5 w-3.5" /> },
 ]
 const STEP_CATS: Record<StepId, string[]> = {
   envelope: [], usps: ["postage"], labor: ["listwork"],
-  printing: ["flat"], booklet: ["booklet"], ohp: ["ohp"], items: ["item"],
+  printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], ohp: ["ohp"], items: ["item"],
 }
 
 /* Error boundary for step-level crash catching */
@@ -75,11 +77,12 @@ function AppContent() {
     return ALL_STEPS.filter((step) => {
       if (step.id === "envelope" && !mailing.needsEnvelope) return false
       if (step.id === "printing" && !mailing.needsPrinting) return false
-      if (step.id === "booklet" && !mailing.needsBooklet) return false
-      if (step.id === "ohp" && !mailing.needsOHP) return false
+  if (step.id === "booklet" && !mailing.needsBooklet) return false
+  if (step.id === "spiral" && !mailing.needsSpiral) return false
+  if (step.id === "ohp" && !mailing.needsOHP) return false
       return true
     })
-  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsOHP])
+  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsOHP])
 
   // If current step becomes hidden, jump to first visible
   useEffect(() => {
@@ -116,6 +119,7 @@ function AppContent() {
       case "labor":    return <LaborCalculator />
       case "printing": return <PrintingCalculator />
       case "booklet":  return <BookletCalculator />
+      case "spiral":   return <SpiralCalculator />
       case "ohp":      return <VendorBidTab />
       case "items":    return <ItemsTab />
     }
