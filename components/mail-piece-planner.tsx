@@ -10,7 +10,7 @@ import useSWR from "swr"
 import type { Customer } from "@/lib/customer-types"
 import {
   Plus, X, Mail, ArrowRight, User, Package, AlertCircle,
-  ChevronDown, Check, Printer, Send, Layers,
+  ChevronDown, Check, Printer, Send, Layers, Loader2,
 } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -22,10 +22,42 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   const m = useMailing()
   const q = useQuote()
   const { data: customers } = useSWR<Customer[]>("/api/customers", fetcher)
-  const { data: contacts } = useSWR<Contact[]>(
+  const { data: contacts, mutate: mutateContacts } = useSWR<Contact[]>(
     q.customerId ? `/api/customers/${q.customerId}/contacts` : null, fetcher,
   )
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [showAddContact, setShowAddContact] = useState(false)
+  const [newContactName, setNewContactName] = useState("")
+  const [newContactEmail, setNewContactEmail] = useState("")
+  const [newContactPhone, setNewContactPhone] = useState("")
+  const [savingContact, setSavingContact] = useState(false)
+
+  const handleAddContact = async () => {
+    if (!newContactName.trim() || !q.customerId) return
+    setSavingContact(true)
+    try {
+      const res = await fetch(`/api/customers/${q.customerId}/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newContactName.trim(),
+          email: newContactEmail.trim() || null,
+          office_phone: newContactPhone.trim() || null,
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        mutateContacts()
+        q.setContactName(created.name || newContactName.trim())
+        setNewContactName("")
+        setNewContactEmail("")
+        setNewContactPhone("")
+        setShowAddContact(false)
+      }
+    } finally {
+      setSavingContact(false)
+    }
+  }
 
   const hasDims = !!(m.mailerWidth && m.mailerHeight)
   const shapes = m.suggestedShapes
@@ -72,7 +104,18 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             </div>
             {q.customerId && (
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Contact</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-muted-foreground">Contact</label>
+                  {!showAddContact && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddContact(true)}
+                      className="flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Plus className="h-3 w-3" /> Add
+                    </button>
+                  )}
+                </div>
                 {contacts && contacts.length > 0 ? (
                   <Select value={q.contactName || "none"} onValueChange={(v) => q.setContactName(v === "none" ? "" : v)}>
                     <SelectTrigger className="h-9 text-sm border-border bg-background rounded-xl"><SelectValue /></SelectTrigger>
@@ -80,6 +123,49 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                   </Select>
                 ) : (
                   <Input placeholder="Contact name" value={q.contactName} onChange={(e) => q.setContactName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+                )}
+                {/* Inline add contact form */}
+                {showAddContact && (
+                  <div className="mt-2 rounded-xl border border-border bg-secondary/40 p-3 flex flex-col gap-2">
+                    <Input
+                      placeholder="Name *"
+                      value={newContactName}
+                      onChange={(e) => setNewContactName(e.target.value)}
+                      className="h-8 text-xs border-border bg-background rounded-lg"
+                      autoFocus
+                    />
+                    <Input
+                      placeholder="Email"
+                      type="email"
+                      value={newContactEmail}
+                      onChange={(e) => setNewContactEmail(e.target.value)}
+                      className="h-8 text-xs border-border bg-background rounded-lg"
+                    />
+                    <Input
+                      placeholder="Phone"
+                      value={newContactPhone}
+                      onChange={(e) => setNewContactPhone(e.target.value)}
+                      className="h-8 text-xs border-border bg-background rounded-lg"
+                    />
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={handleAddContact}
+                        disabled={!newContactName.trim() || savingContact}
+                        className="flex items-center gap-1 h-7 px-3 bg-foreground text-background text-[11px] font-semibold rounded-lg hover:bg-foreground/90 disabled:opacity-40 transition-all"
+                      >
+                        {savingContact ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddContact(false); setNewContactName(""); setNewContactEmail(""); setNewContactPhone("") }}
+                        className="h-7 px-2.5 text-[11px] font-medium text-muted-foreground hover:text-foreground rounded-lg hover:bg-secondary transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -102,7 +188,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
-                <Input type="number" min="1" placeholder="5,000" value={m.quantity || ""} onChange={(e) => m.setQuantity(parseInt(e.target.value) || 0)} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
+                <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => m.setQuantity(parseInt(e.target.value) || 0)} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>

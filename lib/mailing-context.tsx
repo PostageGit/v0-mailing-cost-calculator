@@ -139,7 +139,7 @@ function computeSuggestedShapes(w: number | null, h: number | null): USPSShape[]
 let _counter = 0
 
 export function MailingProvider({ children }: { children: ReactNode }) {
-  const [quantity, setQuantity] = useState(5000)
+  const [quantity, setQuantity] = useState(0)
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
   const [pieces, setPieces] = useState<MailPiece[]>([])
