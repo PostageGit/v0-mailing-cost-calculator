@@ -24,9 +24,10 @@ function SectionHeader({ label }: { label: string }) {
 interface PerfectDetailsProps {
   result: PerfectCalcResult
   onLevelChange?: (delta: number) => void
+  onEffectiveTotalChange?: (total: number) => void
 }
 
-export function PerfectDetails({ result, onLevelChange }: PerfectDetailsProps) {
+export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange }: PerfectDetailsProps) {
   const {
     coverResult, insideResult, finishedSheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
@@ -104,6 +105,7 @@ export function PerfectDetails({ result, onLevelChange }: PerfectDetailsProps) {
       }}
       costLines={costLines}
       details={expandedDetails}
+      onEffectiveTotalChange={onEffectiveTotalChange}
     />
   )
 }

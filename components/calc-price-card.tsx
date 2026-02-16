@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { ChevronDown, ChevronUp, Settings2 } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { ChevronDown, ChevronUp, Settings2, Percent } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 
 /* ─── Shared price card for all calculators ─── */
@@ -27,7 +27,7 @@ export interface LevelInfo {
 }
 
 export interface CalcPriceCardProps {
-  /** Grand total */
+  /** Grand total (before upcharge) */
   total: number
   /** Per-unit label e.g. "/ page", "/ booklet" */
   perUnitLabel: string
@@ -44,6 +44,8 @@ export interface CalcPriceCardProps {
   details?: React.ReactNode
   /** Optional "Change Size" handler */
   onChangeSize?: () => void
+  /** Callback when the effective total changes (with upcharge). Parent reads this for "Add to Quote" */
+  onEffectiveTotalChange?: (effectiveTotal: number) => void
 }
 
 export function CalcPriceCard({
@@ -56,17 +58,38 @@ export function CalcPriceCard({
   costLines,
   details,
   onChangeSize,
+  onEffectiveTotalChange,
 }: CalcPriceCardProps) {
   const [showDetails, setShowDetails] = useState(false)
+  const [upchargeOn, setUpchargeOn] = useState(false)
+  const [upchargePct, setUpchargePct] = useState(35)
+  const [editingPct, setEditingPct] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const upchargeAmount = upchargeOn ? total * (upchargePct / 100) : 0
+  const effectiveTotal = total + upchargeAmount
+  const effectivePerUnit = perUnitCost > 0 && total > 0 ? effectiveTotal * (perUnitCost / total) : 0
+
+  // Notify parent when effective total changes
+  useEffect(() => {
+    onEffectiveTotalChange?.(effectiveTotal)
+  }, [effectiveTotal, onEffectiveTotalChange])
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (editingPct && inputRef.current) {
+      inputRef.current.select()
+    }
+  }, [editingPct])
 
   return (
     <div className="flex flex-col gap-3">
       {/* ── Hero total ── */}
       <div className="bg-foreground text-background rounded-2xl px-5 py-4 flex items-baseline justify-between">
         <div>
-          <p className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(total)}</p>
+          <p className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(effectiveTotal)}</p>
           <p className="text-xs opacity-60 mt-0.5">
-            {formatCurrency(perUnitCost, 4)} {perUnitLabel}
+            {formatCurrency(effectivePerUnit, 4)} {perUnitLabel}
           </p>
         </div>
         {onChangeSize && (
@@ -151,10 +174,76 @@ export function CalcPriceCard({
           <CostRow key={i} label={line.label} value={line.value} sub={line.sub} accent={line.accent} />
         ))}
 
+        {/* ── Upcharge toggle ── */}
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              {/* Toggle button */}
+              <button
+                type="button"
+                onClick={() => setUpchargeOn(!upchargeOn)}
+                className={`relative h-6 w-11 rounded-full transition-colors duration-200 ${
+                  upchargeOn ? "bg-foreground" : "bg-border"
+                }`}
+                aria-label="Toggle upcharge"
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-background shadow-sm transition-transform duration-200 ${
+                    upchargeOn ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs font-bold ${upchargeOn ? "text-foreground" : "text-muted-foreground"}`}>
+                  Upcharge
+                </span>
+                {/* Editable percentage pill */}
+                {editingPct ? (
+                  <div className="flex items-center gap-0.5 bg-secondary rounded-lg px-1.5 py-0.5">
+                    <input
+                      ref={inputRef}
+                      type="number"
+                      min={0}
+                      max={200}
+                      step={1}
+                      value={upchargePct}
+                      onChange={(e) => setUpchargePct(Math.max(0, Math.min(200, parseFloat(e.target.value) || 0)))}
+                      onBlur={() => setEditingPct(false)}
+                      onKeyDown={(e) => { if (e.key === "Enter") setEditingPct(false) }}
+                      className="w-10 bg-transparent text-xs font-bold text-foreground text-center outline-none font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <Percent className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditingPct(true)}
+                    className={`flex items-center gap-0.5 rounded-lg px-2 py-0.5 text-xs font-bold font-mono transition-colors ${
+                      upchargeOn
+                        ? "bg-foreground/10 text-foreground hover:bg-foreground/20"
+                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {upchargePct}%
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Upcharge amount */}
+            {upchargeOn && (
+              <span className="text-xs font-bold text-foreground font-mono">
+                +{formatCurrency(upchargeAmount)}
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Grand Total */}
         <div className="px-4 py-3 bg-secondary/30 flex items-center justify-between">
           <span className="text-sm font-bold text-foreground">Total</span>
-          <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(total)}</span>
+          <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(effectiveTotal)}</span>
         </div>
       </div>
 

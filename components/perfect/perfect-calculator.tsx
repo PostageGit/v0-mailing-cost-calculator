@@ -27,6 +27,7 @@ export function PerfectCalculator() {
   const [calcResult, setCalcResult] = useState<PerfectCalcResult | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("cover")
+  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
   const loadPiece = useCallback((piece: MailPiece) => {
     setInputs((prev) => ({
@@ -86,9 +87,9 @@ export function PerfectCalculator() {
       category: "perfect",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
       description: desc,
-      amount: calcResult.grandTotal,
+      amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
     })
-  }, [calcResult, inputs, quote])
+  }, [calcResult, inputs, quote, effectiveTotal])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
@@ -172,14 +173,14 @@ export function PerfectCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <PerfectDetails result={calcResult} />
+                <PerfectDetails result={calcResult} onEffectiveTotalChange={setEffectiveTotal} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                   size="sm"
                 >
                   <Plus className="h-4 w-4" />
-                  Add to Quote - {formatCurrency(calcResult.grandTotal)}
+                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                 </Button>
               </div>
             </div>

@@ -27,6 +27,7 @@ export function SpiralCalculator() {
   const [calcResult, setCalcResult] = useState<SpiralCalcResult | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("inside")
+  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
   const loadPiece = useCallback((piece: MailPiece) => {
     setInputs((prev) => ({
@@ -99,9 +100,9 @@ export function SpiralCalculator() {
       category: "spiral",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}`,
       description: desc,
-      amount: calcResult.grandTotal,
+      amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
     })
-  }, [calcResult, inputs, quote])
+  }, [calcResult, inputs, quote, effectiveTotal])
 
   // Determine which tabs to show
   const hasFront = calcResult?.frontResult != null
@@ -202,14 +203,14 @@ export function SpiralCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} />
+                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                   size="sm"
                 >
                   <Plus className="h-4 w-4" />
-                  Add to Quote - {formatCurrency(calcResult.grandTotal)}
+                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                 </Button>
               </div>
             </div>

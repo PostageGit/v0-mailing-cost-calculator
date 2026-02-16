@@ -48,6 +48,7 @@ export function BookletCalculator() {
   const [activeTab, setActiveTab] = useState<string>("cover")
 
   const [editingItemId] = useState<number | null>(null)
+  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
   const loadPiece = useCallback((piece: MailPiece) => {
     setInputs((prev) => ({
@@ -102,9 +103,9 @@ export function BookletCalculator() {
       category: "booklet",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
       description: desc,
-      amount: calcResult.grandTotal,
+      amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
     })
-  }, [calcResult, inputs, quote])
+  }, [calcResult, inputs, quote, effectiveTotal])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
@@ -203,6 +204,7 @@ export function BookletCalculator() {
                 result={calcResult}
                 bookQty={inputs.bookQty}
                 inputs={inputs}
+                onEffectiveTotalChange={setEffectiveTotal}
               />
                   <Button
                     onClick={handleAddToQuote}
@@ -210,7 +212,7 @@ export function BookletCalculator() {
                     size="sm"
                   >
                     <Plus className="h-4 w-4" />
-                    Add to Quote - {formatCurrency(calcResult.grandTotal)}
+                    Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                   </Button>
                 </div>
               </div>

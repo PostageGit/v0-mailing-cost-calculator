@@ -8,6 +8,7 @@ interface PriceBreakdownProps {
   data: FullPrintingResult
   onChangeSheet: () => void
   onLevelChange?: (delta: number) => void
+  onEffectiveTotalChange?: (total: number) => void
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -19,7 +20,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function PriceBreakdown({ data, onChangeSheet, onLevelChange }: PriceBreakdownProps) {
+export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffectiveTotalChange }: PriceBreakdownProps) {
   const {
     result, inputs, printingCostPlus10, cuttingCost,
     addOnCharge, addOnDescription,
@@ -112,6 +113,7 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange }: PriceBrea
       costLines={costLines}
       details={expandedDetails}
       onChangeSize={onChangeSheet}
+      onEffectiveTotalChange={onEffectiveTotalChange}
     />
   )
 }

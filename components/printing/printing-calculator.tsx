@@ -71,6 +71,7 @@ export function PrintingCalculator() {
 
   // Order state
   const [editingItemId] = useState<number | null>(null)
+  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
   // Load a planner piece into the form
   const loadPiece = useCallback((piece: MailPiece) => {
@@ -193,13 +194,14 @@ export function PrintingCalculator() {
   const handleAddToQuote = useCallback(() => {
     if (!fullResult) return
     const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
+    const finalAmount = effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal
     quote.addItem({
       category: "flat",
       label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
       description: desc,
-      amount: fullResult.grandTotal,
+      amount: finalAmount,
     })
-  }, [fullResult, inputs, quote])
+  }, [fullResult, inputs, quote, effectiveTotal])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
@@ -269,14 +271,14 @@ export function PrintingCalculator() {
                   pageHeight={inputs.height}
                 />
                 <div className="flex flex-col gap-4">
-                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} />
+                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} />
                   <Button
                     onClick={handleAddToQuote}
                     className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                     size="sm"
                   >
                     <Plus className="h-4 w-4" />
-                    Add to Quote - {formatCurrency(fullResult.grandTotal)}
+                    Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
                   </Button>
                 </div>
               </div>
