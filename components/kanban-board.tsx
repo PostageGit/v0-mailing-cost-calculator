@@ -8,13 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { formatCurrency } from "@/lib/pricing"
-import { getCategoryLabel, getCategoryColor, type QuoteCategory } from "@/lib/quote-types"
+import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { buildQuoteText } from "@/lib/build-quote-text"
 import {
-  FileText, Trash2, GripVertical, ArrowRight, ArrowLeft,
+  FileText, Trash2, ArrowRight, ArrowLeft,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
-  Plus, Settings2, CalendarDays, Circle, Briefcase,
-  Search, Archive, ArchiveRestore, AlertTriangle,
+  Plus, Settings2, CalendarDays, Briefcase,
+  Search, Archive, ArchiveRestore, ChevronDown,
 } from "lucide-react"
 
 /* ---- Types ---- */
@@ -54,13 +54,6 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-const LIGHT_COLORS: Record<string, string> = {
-  green: "text-emerald-500",
-  yellow: "text-amber-400",
-  red: "text-red-500",
-  off: "text-muted-foreground/20",
-}
-
 /* ---- Helpers ---- */
 
 function matchesSearch(q: Quote, term: string): boolean {
@@ -84,7 +77,18 @@ function matchesSearch(q: Quote, term: string): boolean {
   )
 }
 
-/* ---- Draggable Quote Card ---- */
+/** Group line items by category for the expanded view */
+function groupByCategory(items: QuoteItem[]) {
+  const groups: Record<string, { items: QuoteItem[]; total: number }> = {}
+  for (const it of items) {
+    if (!groups[it.category]) groups[it.category] = { items: [], total: 0 }
+    groups[it.category].items.push(it)
+    groups[it.category].total += it.amount
+  }
+  return groups
+}
+
+/* ---- Toggle Card (Apple-style) ---- */
 
 function QuoteCard({
   quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, boardType, isArchived,
@@ -99,17 +103,20 @@ function QuoteCard({
   boardType: "quote" | "job"
   isArchived?: boolean
 }) {
+  const [expanded, setExpanded] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
   const canMoveLeft = !isArchived && colIdx > 0
   const canMoveRight = !isArchived && colIdx < columns.length - 1
+  const groups = useMemo(() => groupByCategory(quote.items || []), [quote.items])
+  const categoryKeys = Object.keys(groups) as QuoteCategory[]
 
-  const lights = quote.lights || {}
-  const lightKeys = Object.keys(lights)
+  // Determine current column name
+  const currentCol = columns.find((c) => c.id === quote.column_id)
 
   return (
-    <Card
-      draggable={!isArchived}
+    <div
+      draggable={!isArchived && !expanded}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", quote.id)
         e.dataTransfer.effectAllowed = "move"
@@ -118,138 +125,155 @@ function QuoteCard({
       onDragEnd={(e) => {
         ;(e.currentTarget as HTMLElement).style.opacity = "1"
       }}
-      className={`border-border bg-card shadow-sm hover:shadow-md transition-shadow ${
-        isArchived ? "opacity-60" : "cursor-grab active:cursor-grabbing"
-      }`}
+      className={`rounded-xl border border-border bg-card overflow-hidden transition-all ${
+        isArchived ? "opacity-60" : expanded ? "" : "cursor-grab active:cursor-grabbing"
+      } ${expanded ? "shadow-md" : "shadow-sm hover:shadow-md"}`}
     >
-      <CardContent className="p-3 flex flex-col gap-2">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            {!isArchived && <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">{quote.project_name}</p>
-              <div className="flex items-center gap-2">
-                {quote.quote_number && (
-                  <span className="text-[10px] font-mono text-muted-foreground">Q-{quote.quote_number}</span>
-                )}
-                {quote.contact_name && (
-                  <span className="text-[10px] text-muted-foreground truncate">{quote.contact_name}</span>
-                )}
-              </div>
-            </div>
+      {/* ---- Collapsed Header (always visible) ---- */}
+      <div
+        className="flex items-start justify-between gap-2 px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-secondary/40"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="text-[13px] font-semibold text-foreground truncate leading-tight">{quote.project_name}</p>
           </div>
-          <span className="text-base font-bold font-mono text-primary tabular-nums shrink-0">
-            {formatCurrency(quote.total)}
-          </span>
-        </div>
-
-        {/* Traffic lights */}
-        {lightKeys.length > 0 && (
-          <div className="flex items-center gap-2">
-            {lightKeys.map((k) => (
-              <div key={k} className="flex items-center gap-1">
-                <Circle className={`h-2.5 w-2.5 fill-current ${LIGHT_COLORS[lights[k]] || LIGHT_COLORS.off}`} />
-                <span className="text-[9px] text-muted-foreground uppercase">{k}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Item badges */}
-        {quote.items?.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {quote.items.slice(0, 3).map((item, i) => (
-              <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal max-w-[140px] truncate">
-                {item.label}
-              </Badge>
-            ))}
-            {quote.items.length > 3 && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">+{quote.items.length - 3}</Badge>
-            )}
-          </div>
-        )}
-
-        {/* Meta row */}
-        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {formatDate(quote.updated_at)}
-          </div>
-          {quote.mailing_date && (
-            <div className="flex items-center gap-1">
-              <CalendarDays className="h-3 w-3" />
-              Mail {formatDate(quote.mailing_date)}
-            </div>
+          {quote.contact_name && (
+            <p className="text-[11px] text-muted-foreground truncate leading-tight">{quote.contact_name}</p>
           )}
-          {isArchived && (
-            <Badge variant="outline" className="text-[9px] px-1 py-0 text-muted-foreground">Archived</Badge>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Actions */}
-        <div className="flex items-center justify-between gap-1">
-          <div className="flex items-center gap-1">
-            {canMoveLeft && (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                onClick={() => onColumnChange(quote.id, columns[colIdx - 1].id)}
-                aria-label={`Move to ${columns[colIdx - 1].title}`}>
-                <ArrowLeft className="h-3.5 w-3.5" />
-              </Button>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {quote.quote_number && (
+              <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
             )}
-            {canMoveRight && (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0"
-                onClick={() => onColumnChange(quote.id, columns[colIdx + 1].id)}
-                aria-label={`Move to ${columns[colIdx + 1].title}`}>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
+            {quote.reference_number && (
+              <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{quote.reference_number}</span>
             )}
+            {quote.mailing_date && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <CalendarDays className="h-2.5 w-2.5" />
+                {formatDate(quote.mailing_date)}
+              </span>
+            )}
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+              <Clock className="h-2.5 w-2.5" />
+              {formatDate(quote.updated_at)}
+            </span>
           </div>
-          <div className="flex items-center gap-0.5">
-            {/* Restore (archive view only) */}
-            {isArchived && (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-emerald-600"
-                onClick={() => onRestore(quote.id)} aria-label="Restore" title="Restore">
-                <ArchiveRestore className="h-3.5 w-3.5" />
-              </Button>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+        </div>
+      </div>
+
+      {/* ---- Expanded Content ---- */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-border bg-secondary/20 px-3 py-3 flex flex-col gap-2.5">
+
+            {/* Info sections grid */}
+            {categoryKeys.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {categoryKeys.map((cat) => {
+                  const g = groups[cat]
+                  return (
+                    <div key={cat} className="bg-card border border-border rounded-lg p-2">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{getCategoryLabel(cat)}</span>
+                        <span className="text-[10px] font-mono font-semibold text-foreground tabular-nums">{formatCurrency(g.total)}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        {g.items.map((it, i) => (
+                          <div key={i} className="flex items-baseline justify-between gap-1">
+                            <span className="text-[10px] text-muted-foreground truncate leading-tight">{it.label}</span>
+                            <span className="text-[10px] font-mono text-foreground tabular-nums shrink-0">{formatCurrency(it.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
-            {/* Convert to Job (only on quote board, not archived) */}
-            {!isArchived && boardType === "quote" && onConvertToJob && (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-emerald-600"
-                onClick={() => onConvertToJob(quote.id)} aria-label="Convert to Job" title="Convert to Job">
-                <Briefcase className="h-3.5 w-3.5" />
-              </Button>
+
+            {/* Notes */}
+            {quote.notes && (
+              <div className="bg-card border border-border rounded-lg p-2">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Notes</span>
+                <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3">{quote.notes}</p>
+              </div>
             )}
-            {/* Edit */}
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-              onClick={() => onEdit(quote.id)} aria-label="Edit">
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            {/* Archive (active view only) */}
-            {!isArchived && (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-600"
-                onClick={() => onArchive(quote.id)} aria-label="Archive" title="Archive">
-                <Archive className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {/* Permanent delete */}
-            {confirmDelete ? (
+
+            {/* Total bar */}
+            <div className="flex items-center justify-between px-1 pt-1 border-t border-border">
+              <span className="text-[11px] font-semibold text-foreground">Total</span>
+              <span className="text-[13px] font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
+            </div>
+
+            {/* Actions row */}
+            <div className="flex items-center justify-between pt-1">
+              {/* Move arrows */}
               <div className="flex items-center gap-1">
-                <Button variant="destructive" size="sm" className="h-7 text-[10px] px-2" onClick={() => onDelete(quote.id)}>Delete</Button>
-                <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={() => setConfirmDelete(false)}>No</Button>
+                {canMoveLeft && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx - 1].id) }}
+                    className="flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title={`Move to ${columns[colIdx - 1].title}`}
+                  >
+                    <ArrowLeft className="h-3 w-3" /> {columns[colIdx - 1].title}
+                  </button>
+                )}
+                {canMoveRight && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx + 1].id) }}
+                    className="flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title={`Move to ${columns[colIdx + 1].title}`}
+                  >
+                    {columns[colIdx + 1].title} <ArrowRight className="h-3 w-3" />
+                  </button>
+                )}
               </div>
-            ) : (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => setConfirmDelete(true)} aria-label="Permanently delete" title="Permanently delete">
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            )}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-0.5">
+                {isArchived && (
+                  <button onClick={(e) => { e.stopPropagation(); onRestore(quote.id) }}
+                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Restore"><ArchiveRestore className="h-3 w-3" /></button>
+                )}
+                {!isArchived && boardType === "quote" && onConvertToJob && (
+                  <button onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
+                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Convert to Job"><Briefcase className="h-3 w-3" /></button>
+                )}
+                <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
+                  className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  title="Edit"><Pencil className="h-3 w-3" /></button>
+                {!isArchived && (
+                  <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
+                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    title="Archive"><Archive className="h-3 w-3" /></button>
+                )}
+                {confirmDelete ? (
+                  <div className="flex items-center gap-1 ml-1">
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(quote.id) }}
+                      className="h-6 px-2 text-[10px] font-semibold text-destructive-foreground bg-destructive rounded-md hover:bg-destructive/90">Delete</button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
+                      className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary">No</button>
+                  </div>
+                ) : (
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
+                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Delete permanently"><Trash2 className="h-3 w-3" /></button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -263,43 +287,41 @@ function ColumnSettings({
   onDelete: (id: string) => void; onReorder: (ids: string[]) => void; onClose: () => void
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 mb-4">
+    <div className="rounded-xl border border-border bg-card p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-foreground">Manage Columns</h3>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 text-xs">Done</Button>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 text-xs">Done</Button>
       </div>
       <div className="flex flex-col gap-2">
         {columns.map((col, idx) => (
-          <div key={col.id} className="flex items-center gap-2 py-1.5">
+          <div key={col.id} className="flex items-center gap-2 py-1">
             <div className="flex flex-col gap-0.5">
               {idx > 0 && (
                 <button onClick={() => {
                   const ids = columns.map(c => c.id)
                   ;[ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]]
                   onReorder(ids)
-                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none" aria-label="Move up">{"^"}</button>
+                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none">{"^"}</button>
               )}
               {idx < columns.length - 1 && (
                 <button onClick={() => {
                   const ids = columns.map(c => c.id)
                   ;[ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]]
                   onReorder(ids)
-                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none" aria-label="Move down">{"v"}</button>
+                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none">{"v"}</button>
               )}
             </div>
-            <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-            <Input defaultValue={col.title} onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }} className="h-8 text-sm flex-1" />
+            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+            <Input defaultValue={col.title} onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }} className="h-7 text-xs flex-1" />
             {columns.length > 1 && (
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(col.id)} aria-label={`Delete ${col.title}`}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                onClick={() => onDelete(col.id)}><X className="h-3 w-3" /></Button>
             )}
           </div>
         ))}
       </div>
-      <Button variant="outline" size="sm" className="mt-3 gap-1.5 text-xs" onClick={onAdd}>
-        <Plus className="h-3.5 w-3.5" /> Add Column
+      <Button variant="outline" size="sm" className="mt-3 gap-1 text-xs h-7" onClick={onAdd}>
+        <Plus className="h-3 w-3" /> Add Column
       </Button>
     </div>
   )
@@ -372,14 +394,12 @@ function QuoteEditModal({
             return (
               <div key={cat}>
                 <div className="flex items-center justify-between mb-2">
-                  <Badge variant="secondary" className={`text-[11px] px-2 py-0.5 font-semibold ${getCategoryColor(cat)}`}>
-                    {getCategoryLabel(cat)}
-                  </Badge>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{getCategoryLabel(cat)}</span>
                   <span className="text-sm font-mono font-semibold tabular-nums">{formatCurrency(ct)}</span>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {catItems.map((item, idx) => (
-                    <div key={item.id} className="flex items-start justify-between gap-2 py-2 px-3 bg-muted/40 rounded-lg">
+                    <div key={item.id} className="flex items-start justify-between gap-2 py-2 px-3 bg-secondary/40 rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">
                           {catItems.length > 1 && <span className="text-muted-foreground font-mono mr-1.5">#{idx + 1}</span>}
@@ -395,7 +415,7 @@ function QuoteEditModal({
                             className="w-24 h-9 text-right text-sm font-mono tabular-nums bg-card border border-border rounded-md pl-5 pr-2 focus:outline-none focus:ring-2 focus:ring-ring" />
                         </div>
                         <button onClick={() => removeItem(item.id)}
-                          className="p-1.5 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                          className="p-1.5 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`Remove ${item.label}`}>
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -407,28 +427,11 @@ function QuoteEditModal({
             )
           })}
 
-          {(() => {
-            const printCats: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect"]
-            const printTotals = printCats.map(catTotal)
-            const activePrint = printTotals.filter(t => t > 0)
-            if (activePrint.length > 1) {
-              return (
-                <div className="flex items-center justify-between px-1 pt-1 border-t border-dashed border-border">
-                  <span className="text-xs font-medium text-foreground">All Printing</span>
-                  <span className="text-xs font-mono font-medium text-foreground tabular-nums">
-                    {formatCurrency(printTotals.reduce((a, b) => a + b, 0))}
-                  </span>
-                </div>
-              )
-            }
-            return null
-          })()}
-
           <Separator />
 
           <div className="flex items-center justify-between">
             <span className="text-base font-semibold text-foreground">Project Total</span>
-            <span className="text-xl font-bold font-mono text-primary tabular-nums">{formatCurrency(total)}</span>
+            <span className="text-xl font-bold font-mono text-foreground tabular-nums">{formatCurrency(total)}</span>
           </div>
 
           <div>
@@ -454,7 +457,7 @@ function QuoteEditModal({
           </div>
 
           {showPlainText && (
-            <pre className="bg-muted rounded-lg p-3 text-[11px] font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto border border-border select-all">
+            <pre className="bg-secondary rounded-lg p-3 text-[11px] font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto border border-border select-all">
               {buildPlainText()}
             </pre>
           )}
@@ -498,20 +501,18 @@ function DroppableColumn({
     }
   }, [col.id, onColumnChange])
 
+  const colTotal = quotes.reduce((s, q) => s + Number(q.total), 0)
+
   return (
-    <div className="flex-1 min-w-[240px] flex flex-col gap-3">
+    <div className="flex-1 min-w-[240px] flex flex-col gap-2">
       {/* Column header */}
-      <div className="flex items-center justify-between px-1">
+      <div className="flex items-center justify-between px-1 h-8">
         <div className="flex items-center gap-2">
-          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-          <span className="text-sm font-semibold text-foreground">{col.title}</span>
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
-            {quotes.length}
-          </Badge>
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+          <span className="text-xs font-semibold text-foreground">{col.title}</span>
+          <span className="text-[10px] font-mono text-muted-foreground tabular-nums bg-secondary px-1.5 py-0.5 rounded">{quotes.length}</span>
         </div>
-        <span className="text-xs font-mono text-muted-foreground tabular-nums">
-          {formatCurrency(quotes.reduce((s, q) => s + Number(q.total), 0))}
-        </span>
+        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">{formatCurrency(colTotal)}</span>
       </div>
 
       {/* Column body (droppable) */}
@@ -519,16 +520,15 @@ function DroppableColumn({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`flex flex-col gap-2 min-h-[120px] p-2 rounded-lg border border-dashed flex-1 overflow-y-auto transition-colors ${
+        className={`flex flex-col gap-2 min-h-[100px] p-1.5 rounded-xl border flex-1 overflow-y-auto transition-colors ${
           dragOver
-            ? "bg-primary/5 border-primary/40"
-            : "bg-muted/30 border-border"
+            ? "bg-foreground/[0.02] border-foreground/20"
+            : "bg-secondary/20 border-transparent"
         }`}
       >
         {quotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center flex-1">
-            <FileText className="h-5 w-5 text-muted-foreground/50 mb-2" />
-            <p className="text-xs text-muted-foreground">{dragOver ? "Drop here" : "No items"}</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center flex-1">
+            <p className="text-[11px] text-muted-foreground/50">{dragOver ? "Drop here" : "Empty"}</p>
           </div>
         ) : (
           quotes.map((quote) => (
@@ -567,7 +567,6 @@ export function KanbanBoard({
 
   const isLoading = colsLoading || quotesLoading
 
-  // Client-side search filtering
   const filteredQuotes = useMemo(() => {
     if (!quotes) return []
     if (!searchTerm) return quotes
@@ -618,21 +617,15 @@ export function KanbanBoard({
     const res = await fetch("/api/board-columns?type=job")
     const jobCols: BoardColumn[] = await res.json()
     const firstJobCol = jobCols?.[0]?.id || null
-
     await fetch(`/api/quotes/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        is_job: true,
-        converted_at: new Date().toISOString(),
-        column_id: firstJobCol,
-      }),
+      body: JSON.stringify({ is_job: true, converted_at: new Date().toISOString(), column_id: firstJobCol }),
     })
     refreshAll()
     globalMutate(`/api/quotes?is_job=true&archived=false`)
     globalMutate(`/api/quotes?is_job=false&archived=false`)
   }, [refreshAll])
 
-  // Column CRUD
   const addColumn = useCallback(async () => {
     await fetch("/api/board-columns", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -673,7 +666,7 @@ export function KanbanBoard({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -691,53 +684,55 @@ export function KanbanBoard({
   const label = boardType === "job" ? "Job" : "Quote"
 
   return (
-    <>
-      {/* Toolbar: title, search, archive toggle, settings */}
-      <div className="flex flex-col gap-3 mb-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-lg font-bold text-foreground shrink-0">
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-2.5 mb-3 shrink-0">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-bold text-foreground shrink-0">
             {boardType === "job" ? "Production Pipeline" : "Quote Pipeline"}
           </h2>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={showArchive ? "default" : "outline"}
-              size="sm"
-              className="gap-1.5 text-xs h-9"
+          <div className="flex items-center gap-1.5">
+            <button
               onClick={() => setShowArchive(!showArchive)}
+              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors ${
+                showArchive ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Archive className="h-3.5 w-3.5" />
+              <Archive className="h-3 w-3" />
               Archive{archiveCount > 0 && ` (${archiveCount})`}
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9"
-              onClick={() => setShowSettings(!showSettings)}>
-              <Settings2 className="h-3.5 w-3.5" />
-              {showSettings ? "Close" : "Columns"}
-            </Button>
+            </button>
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors ${
+                showSettings ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Settings2 className="h-3 w-3" />
+              Columns
+            </button>
           </div>
         </div>
 
         {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
             type="search"
-            placeholder={`Search ${label.toLowerCase()}s by name, number, contact, amount...`}
+            placeholder={`Search ${label.toLowerCase()}s...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9 text-sm bg-background"
+            className="w-full h-8 pl-8 pr-8 rounded-lg bg-secondary/60 border-0 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3.5 w-3.5" />
+            <button onClick={() => setSearchTerm("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3" />
             </button>
           )}
         </div>
 
         {searchTerm && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] text-muted-foreground">
             {filteredQuotes.length} active + {filteredArchived.length} archived match{filteredQuotes.length + filteredArchived.length !== 1 ? "es" : ""}
           </p>
         )}
@@ -750,56 +745,41 @@ export function KanbanBoard({
 
       {/* Archive drawer */}
       {showArchive && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800/40 p-4 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Archive className="h-4 w-4 text-amber-600" />
-            <span className="text-sm font-semibold text-foreground">Archived {label}s</span>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">{filteredArchived.length}</Badge>
+        <div className="rounded-xl border border-border bg-secondary/30 p-3 mb-3 shrink-0">
+          <div className="flex items-center gap-2 mb-2">
+            <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-foreground">Archived {label}s</span>
+            <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{filteredArchived.length}</span>
           </div>
           {filteredArchived.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">No archived {label.toLowerCase()}s{searchTerm ? " matching your search" : ""}</p>
+            <p className="text-[10px] text-muted-foreground py-4 text-center">No archived {label.toLowerCase()}s{searchTerm ? " matching search" : ""}</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-[320px] overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
               {filteredArchived.map((q) => (
                 <QuoteCard key={q.id} quote={q} columns={cols}
                   onColumnChange={handleColumnChange} onDelete={handleDelete}
                   onArchive={handleArchive} onRestore={handleRestore}
-                  onEdit={(id) => {
-                    const found = filteredArchived.find((x) => x.id === id)
-                    if (found) setDetailQuote(found)
-                  }}
+                  onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                  boardType={boardType}
-                  isArchived
-                />
+                  boardType={boardType} isArchived />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Board -- horizontal scroll */}
-      <div className="overflow-x-auto -mx-2 px-2 flex-1">
-        <div className="flex gap-3 h-full" style={{ minWidth: `${Math.max(cols.length * 260, 300)}px` }}>
+      {/* Board -- horizontal columns */}
+      <div className="overflow-x-auto flex-1 -mx-1 px-1">
+        <div className="flex gap-2.5 h-full" style={{ minWidth: `${Math.max(cols.length * 250, 300)}px` }}>
           {cols.map((col) => {
             const colQuotes = filteredQuotes.filter((q) => q.column_id === col.id)
             return (
-              <DroppableColumn
-                key={col.id}
-                col={col}
-                quotes={colQuotes}
-                allColumns={cols}
-                onColumnChange={handleColumnChange}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-                onRestore={handleRestore}
-                onEdit={(id) => {
-                  const q = filteredQuotes.find((x) => x.id === id)
-                  if (q) setDetailQuote(q)
-                }}
+              <DroppableColumn key={col.id} col={col} quotes={colQuotes} allColumns={cols}
+                onColumnChange={handleColumnChange} onDelete={handleDelete}
+                onArchive={handleArchive} onRestore={handleRestore}
+                onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
                 onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                boardType={boardType}
-              />
+                boardType={boardType} />
             )
           })}
         </div>
@@ -810,21 +790,18 @@ export function KanbanBoard({
         const unassigned = filteredQuotes.filter((q) => !q.column_id || !cols.some((c) => c.id === q.column_id))
         if (unassigned.length === 0) return null
         return (
-          <div className="mt-6">
-            <div className="flex items-center gap-2 mb-3 px-1">
-              <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-              <span className="text-sm font-semibold text-muted-foreground">Unassigned</span>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">{unassigned.length}</Badge>
+          <div className="mt-4 shrink-0">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+              <span className="text-xs font-semibold text-muted-foreground">Unassigned</span>
+              <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{unassigned.length}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {unassigned.map((quote) => (
                 <QuoteCard key={quote.id} quote={quote} columns={cols}
                   onColumnChange={handleColumnChange} onDelete={handleDelete}
                   onArchive={handleArchive} onRestore={handleRestore}
-                  onEdit={(id) => {
-                    const q = unassigned.find((x) => x.id === id)
-                    if (q) setDetailQuote(q)
-                  }}
+                  onEdit={(id) => { const q = unassigned.find((x) => x.id === id); if (q) setDetailQuote(q) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                   boardType={boardType} />
               ))}
@@ -839,6 +816,6 @@ export function KanbanBoard({
           onSaved={refreshAll}
           onLoadIntoCalculator={(id) => { setDetailQuote(null); onLoadQuote(id) }} />
       )}
-    </>
+    </div>
   )
 }
