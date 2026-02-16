@@ -17,6 +17,7 @@ import {
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
+  Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -204,6 +205,123 @@ function MetaCheck({ label, checked, onChange, bold }: {
         checked ? "text-foreground" : "text-muted-foreground group-hover/ck:text-foreground"
       )}>{label}</span>
     </label>
+  )
+}
+
+/* ════════════════════════════════════════════════════
+   FILE DROP ZONE
+   ════════════════════════════════════════════════════ */
+
+interface JobFile {
+  id: string; quote_id: string; blob_url: string; filename: string; size: number; mime_type: string | null; uploaded_at: string
+}
+
+function fileIcon(mime: string | null) {
+  if (!mime) return <File className="h-3 w-3" />
+  if (mime.startsWith("image/")) return <FileImage className="h-3 w-3" />
+  if (mime.includes("pdf")) return <FileText className="h-3 w-3" />
+  if (mime.includes("sheet") || mime.includes("csv") || mime.includes("excel")) return <FileSpreadsheet className="h-3 w-3" />
+  return <File className="h-3 w-3" />
+}
+
+function fmtSize(bytes: number) {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)}KB`
+  return `${(bytes / 1048576).toFixed(1)}MB`
+}
+
+function JobFilesZone({ quoteId }: { quoteId: string }) {
+  const { data: files, mutate: refreshFiles } = useSWR<JobFile[]>(
+    `/api/job-files?quote_id=${quoteId}`, fetcher
+  )
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const uploadFiles = async (fileList: FileList | File[]) => {
+    setUploading(true)
+    try {
+      for (const file of Array.from(fileList)) {
+        const fd = new FormData()
+        fd.append("file", file)
+        fd.append("quote_id", quoteId)
+        await fetch("/api/job-files", { method: "POST", body: fd })
+      }
+      refreshFiles()
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const deleteFile = async (id: string) => {
+    await fetch(`/api/job-files/${id}`, { method: "DELETE" })
+    refreshFiles()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragging(false)
+    if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files)
+  }
+
+  return (
+    <div className="border-t border-border/50 pt-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-1">
+          <Paperclip className="h-2.5 w-2.5" /> Files {files && files.length > 0 && <span className="font-mono">({files.length})</span>}
+        </p>
+        <button onClick={() => inputRef.current?.click()} className="text-[9px] text-muted-foreground hover:text-foreground font-medium flex items-center gap-0.5 transition-colors">
+          <Upload className="h-2.5 w-2.5" /> Upload
+        </button>
+      </div>
+      <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = "" }} />
+
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
+        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
+        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }}
+        onDrop={handleDrop}
+        className={cn(
+          "rounded-md border border-dashed transition-colors p-1.5 min-h-[32px]",
+          dragging ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/60",
+          uploading && "opacity-60 pointer-events-none"
+        )}
+      >
+        {uploading && (
+          <div className="flex items-center justify-center gap-1 py-1">
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            <span className="text-[9px] text-muted-foreground">Uploading...</span>
+          </div>
+        )}
+        {!uploading && (!files || files.length === 0) && (
+          <button onClick={() => inputRef.current?.click()} className="w-full text-[9px] text-muted-foreground/40 text-center py-1 hover:text-muted-foreground transition-colors">
+            Drop files here or click to upload
+          </button>
+        )}
+        {!uploading && files && files.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {files.map((f) => (
+              <div key={f.id} className="flex items-center gap-1.5 py-0.5 px-1 rounded hover:bg-secondary/50 group/file">
+                <span className="text-muted-foreground shrink-0">{fileIcon(f.mime_type)}</span>
+                <a href={f.blob_url} target="_blank" rel="noopener noreferrer"
+                  className="text-[10px] text-foreground font-medium truncate flex-1 hover:underline">{f.filename}</a>
+                <span className="text-[8px] text-muted-foreground/50 font-mono tabular-nums shrink-0">{fmtSize(f.size)}</span>
+                <a href={f.blob_url} download={f.filename}
+                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground opacity-0 group-hover/file:opacity-100 transition-opacity shrink-0">
+                  <Download className="h-2.5 w-2.5" />
+                </a>
+                <button onClick={() => deleteFile(f.id)}
+                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/40 hover:text-destructive opacity-0 group-hover/file:opacity-100 transition-opacity shrink-0">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -413,6 +531,9 @@ function QuoteCard({
               <InlineField label="Assignee" value={meta.assignee || ""} onChange={(v) => updateMeta({ assignee: v })} />
               <InlineField label="Due Date" value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} type="date" />
             </div>
+
+            {/* ── File Drop Zone ── */}
+            <JobFilesZone quoteId={quote.id} />
 
             {/* ── Quote line items ── */}
             {(quote.items || []).length > 0 && (
