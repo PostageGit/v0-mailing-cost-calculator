@@ -265,25 +265,38 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     )}
 
                     {/* Suggested size verify banner */}
-                    {piece._suggested && piece.width && piece.height && (
-                      <div className="flex items-center gap-3 mb-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 px-4 py-3">
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">
-                            Suggested: <span className="font-mono">{piece.width}" x {piece.height}"</span>
-                          </p>
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
-                            0.5" clearance per side from piece above.{" "}
-                            {maxInnerW && maxInnerH && <span className="font-mono">Max allowed: {maxInnerW}" x {maxInnerH}"</span>}
-                          </p>
+                    {piece._suggested && piece.width && piece.height && (() => {
+                      const sugFlat = getFlatSize(piece)
+                      const isSugFolded = piece.foldType !== "none" && ["folded_card", "self_mailer"].includes(piece.type)
+                      const hasSugFlat = isSugFolded && sugFlat.w && sugFlat.h
+                      return (
+                        <div className="flex items-center gap-3 mb-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 px-4 py-3">
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+                              {"Suggested: "}
+                              <span className="font-mono">{piece.width}" x {piece.height}"</span>
+                              <span className="font-normal text-blue-600 dark:text-blue-400"> (finished)</span>
+                            </p>
+                            {hasSugFlat && (
+                              <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mt-0.5">
+                                {"Flat sheet: "}
+                                <span className="font-mono">{sugFlat.w}" x {sugFlat.h}"</span>
+                              </p>
+                            )}
+                            <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
+                              {"0.25\" total clearance from piece above. "}
+                              {maxInnerW && maxInnerH && <span className="font-mono">Max allowed: {maxInnerW}" x {maxInnerH}"</span>}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => m.updatePiece(piece.id, { _suggested: undefined })}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
+                          >
+                            <Check className="h-3 w-3 inline mr-1" />OK
+                          </button>
                         </div>
-                        <button
-                          onClick={() => m.updatePiece(piece.id, { _suggested: undefined })}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors"
-                        >
-                          <Check className="h-3 w-3 inline mr-1" />OK
-                        </button>
-                      </div>
-                    )}
+                      )
+                    })()}
 
                     {/* Dimensions row */}
                     {(() => {

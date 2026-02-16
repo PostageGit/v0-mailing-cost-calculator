@@ -143,13 +143,13 @@ export function MailingProvider({ children }: { children: ReactNode }) {
     _counter++
     setPieces((prev) => {
       const pos = prev.length + 1
-      // Auto-suggest size for inner pieces: 0.5" less per side than the piece above
+      // Auto-suggest size for inner pieces: 0.25" total clearance from the piece above
       let sugW: number | null = null
       let sugH: number | null = null
       if (pos > 1) {
         const above = prev[prev.length - 1] // the piece just above this one
-        if (above?.width && above.width > 1) sugW = Math.round((above.width - 1) * 1000) / 1000   // 0.5" each side = 1" total
-        if (above?.height && above.height > 1) sugH = Math.round((above.height - 1) * 1000) / 1000
+        if (above?.width && above.width > 0.5) sugW = Math.round((above.width - 0.25) * 1000) / 1000
+        if (above?.height && above.height > 0.5) sugH = Math.round((above.height - 0.25) * 1000) / 1000
         if (sugW && sugW < 1) sugW = null
         if (sugH && sugH < 1) sugH = null
       }
