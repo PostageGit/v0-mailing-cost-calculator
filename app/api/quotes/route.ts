@@ -20,11 +20,23 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const body = await request.json()
 
+  // Get the first board column as default
+  let defaultColumnId: string | null = null
+  if (!body.column_id) {
+    const { data: cols } = await supabase
+      .from("board_columns")
+      .select("id")
+      .order("position", { ascending: true })
+      .limit(1)
+    defaultColumnId = cols?.[0]?.id || null
+  }
+
   const { data, error } = await supabase
     .from("quotes")
     .insert({
       project_name: body.project_name || "Untitled Quote",
       status: body.status || "draft",
+      column_id: body.column_id || defaultColumnId,
       items: body.items || [],
       total: body.total || 0,
       notes: body.notes || null,

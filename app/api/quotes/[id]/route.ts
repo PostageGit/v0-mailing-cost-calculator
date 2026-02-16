@@ -39,6 +39,10 @@ export async function PATCH(
   if (body.customer_id !== undefined) updates.customer_id = body.customer_id
   if (body.contact_name !== undefined) updates.contact_name = body.contact_name
   if (body.reference_number !== undefined) updates.reference_number = body.reference_number
+  if (body.column_id !== undefined) updates.column_id = body.column_id
+  if (body.mailing_date !== undefined) updates.mailing_date = body.mailing_date
+  if (body.lights !== undefined) updates.lights = body.lights
+  if (body.sort_order !== undefined) updates.sort_order = body.sort_order
 
   const { data, error } = await supabase
     .from("quotes")
