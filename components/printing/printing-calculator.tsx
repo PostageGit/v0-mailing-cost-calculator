@@ -20,7 +20,6 @@ import type {
 
 } from "@/lib/printing-types"
 import { useQuote } from "@/lib/quote-context"
-import { formatCurrency } from "@/lib/pricing"
 import { Plus, ArrowDown } from "lucide-react"
 import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
