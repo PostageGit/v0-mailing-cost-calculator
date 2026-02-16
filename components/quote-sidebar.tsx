@@ -17,7 +17,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
 import { buildQuoteText } from "@/lib/build-quote-text"
 
-const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "postage", "listwork", "item", "ohp"]
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "postage", "listwork", "item", "ohp"]
 
 /* ── Inline-editable item row ─────────────────────────── */
 function QuoteItemRow({

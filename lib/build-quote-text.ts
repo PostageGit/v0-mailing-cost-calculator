@@ -49,7 +49,7 @@ export function buildQuoteText(
   lines.push(projectName ? `Quote Summary - ${projectName}` : "Quote Summary")
   lines.push(divider)
 
-  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet"]
+  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect"]
   const OTHER_CATS: QuoteCategory[] = ["postage", "listwork"]
 
   // --- PRINTING super-group ---

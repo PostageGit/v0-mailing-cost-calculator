@@ -10,6 +10,7 @@ export type PieceType =
   | "folded_card"    // flat printing calc (prints flat, then folds)
   | "booklet"        // booklet / saddle stitch calc
   | "spiral_book"    // spiral binding calc
+  | "perfect_bound"  // perfect (glue) binding calc
   | "envelope"       // envelope pricing step
   | "self_mailer"    // flat printing calc
   | "letter"         // flat printing calc
@@ -21,6 +22,7 @@ export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; 
   folded_card:  { label: "Folded Card",   short: "FLD",  calc: "flat",     color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
   booklet:      { label: "Booklet",       short: "BKL",  calc: "booklet",  color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
   spiral_book:  { label: "Spiral Book",   short: "SPR",  calc: "spiral",   color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" },
+  perfect_bound:{ label: "Perfect Bound", short: "PB",   calc: "perfect",  color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
   envelope:     { label: "Envelope",      short: "ENV",  calc: "envelope", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
   self_mailer:  { label: "Self-Mailer",   short: "SM",   calc: "flat",     color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
   letter:       { label: "Letter",        short: "LTR",  calc: "flat",     color: "bg-secondary text-foreground" },
@@ -115,6 +117,7 @@ interface MailingState {
   needsPrinting: boolean
   needsBooklet: boolean
   needsSpiral: boolean
+  needsPerfect: boolean
   needsOHP: boolean
   /** For backward compat */
   outerWidth: number | null; outerHeight: number | null
@@ -199,6 +202,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const needsPrinting = inhouseOrBoth.some((p) => !p.customerProvidesPrinting && ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
   const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
   const needsSpiral = inhouseOrBoth.some((p) => p.type === "spiral_book")
+  const needsPerfect = inhouseOrBoth.some((p) => p.type === "perfect_bound")
   const needsOHP = ohpOrBoth.length > 0
 
   // Backward compat setters for outer dims
@@ -214,7 +218,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
       quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
-      needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsOHP,
+      needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsOHP,
       outerWidth: mailerWidth, outerHeight: mailerHeight, setOuterWidth, setOuterHeight,
     }}>
       {children}

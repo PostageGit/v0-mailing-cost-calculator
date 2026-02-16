@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect, Component, type ReactNode } 
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
+import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
 import { LaborCalculator } from "@/components/labor-calculator"
 import { QuoteSidebar } from "@/components/quote-sidebar"
@@ -27,7 +28,7 @@ import {
 } from "lucide-react"
 
 // ─── Calculator Steps (after planner) ─────────────────────
-type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "ohp" | "items"
+type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "ohp" | "items"
 const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
   { id: "usps",      label: "Postage",   icon: <Stamp className="h-3.5 w-3.5" /> },
@@ -35,12 +36,13 @@ const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "printing",  label: "Printing",  icon: <Printer className="h-3.5 w-3.5" /> },
   { id: "booklet",   label: "Booklet",   icon: <BookOpen className="h-3.5 w-3.5" /> },
   { id: "spiral",    label: "Spiral",    icon: <Disc3 className="h-3.5 w-3.5" /> },
+  { id: "perfect",   label: "Perfect",   icon: <BookOpen className="h-3.5 w-3.5" /> },
   { id: "ohp",       label: "OHP",       icon: <Send className="h-3.5 w-3.5" /> },
   { id: "items",     label: "Items",     icon: <Package className="h-3.5 w-3.5" /> },
 ]
 const STEP_CATS: Record<StepId, string[]> = {
   envelope: [], usps: ["postage"], labor: ["listwork"],
-  printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], ohp: ["ohp"], items: ["item"],
+  printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], perfect: ["perfect"], ohp: ["ohp"], items: ["item"],
 }
 
 /* Error boundary for step-level crash catching */
@@ -79,10 +81,11 @@ function AppContent() {
       if (step.id === "printing" && !mailing.needsPrinting) return false
   if (step.id === "booklet" && !mailing.needsBooklet) return false
   if (step.id === "spiral" && !mailing.needsSpiral) return false
+  if (step.id === "perfect" && !mailing.needsPerfect) return false
   if (step.id === "ohp" && !mailing.needsOHP) return false
       return true
     })
-  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsOHP])
+  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsOHP])
 
   // If current step becomes hidden, jump to first visible
   useEffect(() => {
