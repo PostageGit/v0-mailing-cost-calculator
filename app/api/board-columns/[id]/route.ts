@@ -11,9 +11,9 @@ export async function PATCH(
   const body = await request.json()
 
   const updates: Record<string, unknown> = {}
-  if (body.name !== undefined) updates.name = body.name
+  if (body.name !== undefined) updates.title = body.name
   if (body.color !== undefined) updates.color = body.color
-  if (body.position !== undefined) updates.position = body.position
+  if (body.position !== undefined) updates.sort_order = body.position
 
   const { data, error } = await supabase
     .from("board_columns")
@@ -40,7 +40,7 @@ export async function DELETE(
   const { data: cols } = await supabase
     .from("board_columns")
     .select("id")
-    .order("position", { ascending: true })
+    .order("sort_order", { ascending: true })
     .limit(2)
 
   const fallback = cols?.find((c) => c.id !== id)

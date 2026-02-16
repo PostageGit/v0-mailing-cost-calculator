@@ -23,7 +23,7 @@ interface QuoteItem {
 }
 
 interface BoardColumn {
-  id: string; name: string; color: string; position: number
+  id: string; title: string; color: string; sort_order: number
 }
 
 interface Quote {
@@ -34,7 +34,16 @@ interface Quote {
   created_at: string; updated_at: string
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const fetcher = async (url: string) => {
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`Fetch failed: ${r.status}`)
+  const json = await r.json()
+  // If API returns an error object instead of an array, treat as error
+  if (json && typeof json === "object" && "error" in json && !Array.isArray(json)) {
+    throw new Error(json.error)
+  }
+  return json
+}
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
@@ -132,14 +141,14 @@ function QuoteCard({
             {canMoveLeft && (
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-[44px] min-w-[44px]"
                 onClick={() => onColumnChange(quote.id, columns[colIdx - 1].id)}
-                aria-label={`Move to ${columns[colIdx - 1].name}`}>
+                aria-label={`Move to ${columns[colIdx - 1].title}`}>
                 <ArrowLeft className="h-3.5 w-3.5" />
               </Button>
             )}
             {canMoveRight && (
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 min-h-[44px] min-w-[44px]"
                 onClick={() => onColumnChange(quote.id, columns[colIdx + 1].id)}
-                aria-label={`Move to ${columns[colIdx + 1].name}`}>
+                aria-label={`Move to ${columns[colIdx + 1].title}`}>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -209,13 +218,13 @@ function ColumnSettings({
             </div>
             <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
             <Input
-              defaultValue={col.name}
-              onBlur={(e) => { if (e.target.value !== col.name) onRename(col.id, e.target.value) }}
+              defaultValue={col.title}
+              onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }}
               className="h-8 text-sm flex-1"
             />
             {columns.length > 1 && (
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(col.id)} aria-label={`Delete ${col.name}`}>
+                onClick={() => onDelete(col.id)} aria-label={`Delete ${col.title}`}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -434,7 +443,7 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
       if (!prev) return prev
       return ids.map((id, i) => {
         const col = prev.find((c) => c.id === id)!
-        return { ...col, position: i }
+        return { ...col, sort_order: i }
       })
     }, false)
     await fetch("/api/board-columns/reorder", {
@@ -490,7 +499,7 @@ export function KanbanBoard({ onLoadQuote }: { onLoadQuote: (quoteId: string) =>
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                    <span className="text-sm font-semibold text-foreground">{col.name}</span>
+                    <span className="text-sm font-semibold text-foreground">{col.title}</span>
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
                       {colQuotes.length}
                     </Badge>

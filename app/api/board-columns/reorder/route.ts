@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   // Update positions in parallel
   const updates = order.map((id: string, idx: number) =>
-    supabase.from("board_columns").update({ position: idx }).eq("id", id)
+    supabase.from("board_columns").update({ sort_order: idx }).eq("id", id)
   )
   await Promise.all(updates)
 

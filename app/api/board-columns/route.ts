@@ -7,7 +7,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("board_columns")
     .select("*")
-    .order("position", { ascending: true })
+    .order("sort_order", { ascending: true })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -23,18 +23,18 @@ export async function POST(request: Request) {
   // Get max position
   const { data: cols } = await supabase
     .from("board_columns")
-    .select("position")
-    .order("position", { ascending: false })
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
     .limit(1)
 
-  const nextPos = (cols?.[0]?.position ?? 0) + 1
+  const nextPos = (cols?.[0]?.sort_order ?? 0) + 1
 
   const { data, error } = await supabase
     .from("board_columns")
     .insert({
-      name: body.name || "New Column",
+      title: body.name || "New Column",
       color: body.color || "#94a3b8",
-      position: nextPos,
+      sort_order: nextPos,
     })
     .select()
     .single()

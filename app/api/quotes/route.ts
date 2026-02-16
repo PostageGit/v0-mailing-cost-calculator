@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const { data: cols } = await supabase
       .from("board_columns")
       .select("id")
-      .order("position", { ascending: true })
+      .order("sort_order", { ascending: true })
       .limit(1)
     defaultColumnId = cols?.[0]?.id || null
   }
