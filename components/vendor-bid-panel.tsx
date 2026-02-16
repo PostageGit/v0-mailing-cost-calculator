@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useRef } from "react"
 import useSWR from "swr"
 import { Input } from "@/components/ui/input"
 import {
@@ -223,10 +223,16 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
   }
 
   const updatePrice = async (priceId: string, price: number | null, quoteNum?: string) => {
+    // Optimistic update -- mutate local cache first so inputs stay stable
+    mutatePrices(
+      (prev) => prev?.map((p) => p.id === priceId ? { ...p, price: price as number, notes: quoteNum || null, status: price != null ? "received" : "pending" } : p),
+      { revalidate: false }
+    )
     await fetch(`/api/bid-prices/${priceId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ price, notes: quoteNum || null, status: price != null ? "received" : "pending", responded_at: price != null ? new Date().toISOString() : null }),
     })
+    // Revalidate in background without resetting state
     mutatePrices()
   }
 
@@ -402,11 +408,20 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
   const [editPrice, setEditPrice] = useState(entry.price != null ? String(entry.price) : "")
   const [quoteNum, setQuoteNum] = useState(entry.notes ?? "")
   const [qty, setQty] = useState(String(orderQty))
+  const [saving, setSaving] = useState(false)
+  const priceRef = useRef(editPrice)
+  const quoteNumRef = useRef(quoteNum)
+  priceRef.current = editPrice
+  quoteNumRef.current = quoteNum
 
-  const handleSave = () => {
-    const num = parseFloat(editPrice)
-    if (!isNaN(num) && num >= 0) onUpdate(num, quoteNum)
-  }
+  const handleSave = useCallback(async () => {
+    const num = parseFloat(priceRef.current)
+    if (!isNaN(num) && num >= 0) {
+      setSaving(true)
+      await onUpdate(num, quoteNumRef.current)
+      setSaving(false)
+    }
+  }, [onUpdate])
 
   return (
     <div className={`px-4 sm:px-5 py-3 transition-colors ${isBest ? "bg-emerald-50" : ""}`}>
