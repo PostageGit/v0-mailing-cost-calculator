@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react"
+import { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -162,17 +162,6 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
   return derived
 }
 
-function isOverdue(meta?: JobMeta) {
-  if (!meta?.due_date) return false
-  return new Date(meta.due_date) < new Date()
-}
-
-function daysOverdue(meta?: JobMeta) {
-  if (!meta?.due_date) return 0
-  const diff = Date.now() - new Date(meta.due_date).getTime()
-  return Math.max(0, Math.ceil(diff / 86400000))
-}
-
 /* ════════════════════════════════════════════════════
    HELPERS: Field, Select, Checkbox, Overdue
    ════════════════════════════════════════════════════ */
@@ -236,24 +225,6 @@ function isOverdue(meta: JobMeta) {
 function daysOverdue(meta: JobMeta) {
   if (!meta.due_date) return 0
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
-}
-
-/* ════════════════════════════════════════════════════
-   CHECKBOX ROW
-   ════════════════════════════════════════════════════ */
-
-function MetaCheck({ label, checked, onChange, bold }: {
-  label: string; checked: boolean; onChange: (v: boolean) => void; bold?: boolean
-}) {
-  return (
-    <label className="flex items-center gap-1.5 cursor-pointer group/ck">
-      <Checkbox checked={checked} onCheckedChange={(c) => onChange(!!c)} className="h-3.5 w-3.5 rounded-[3px]" />
-      <span className={cn("text-[10px] transition-colors select-none",
-        bold ? "font-bold" : "font-medium",
-        checked ? "text-foreground" : "text-muted-foreground group-hover/ck:text-foreground"
-      )}>{label}</span>
-    </label>
-  )
 }
 
 /* ════════════════════════════════════════════════════
