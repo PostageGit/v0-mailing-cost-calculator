@@ -59,9 +59,9 @@ export interface SpiralCalcResult {
 }
 
 export const DEFAULT_SPIRAL_PART: SpiralPartInputs = {
-  paperName: "",
+  paperName: "20lb offset - White",
   sheetSize: "cheapest",
-  sides: "",
+  sides: "S/S",
   hasBleed: false,
 }
 

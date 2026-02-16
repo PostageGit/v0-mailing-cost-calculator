@@ -1,5 +1,6 @@
 "use client"
 
+import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency } from "@/lib/pricing"
 import type { PerfectCalcResult } from "@/lib/perfect-types"
 
@@ -20,17 +21,12 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-function formatPriceByLevel(price: number, level: number): string {
-  if (level <= 6) return price.toFixed(2)
-  if (level === 7) return price.toFixed(3)
-  return price.toFixed(4)
-}
-
 interface PerfectDetailsProps {
   result: PerfectCalcResult
+  onLevelChange?: (delta: number) => void
 }
 
-export function PerfectDetails({ result }: PerfectDetailsProps) {
+export function PerfectDetails({ result, onLevelChange }: PerfectDetailsProps) {
   const {
     coverResult, insideResult, finishedSheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
@@ -38,76 +34,76 @@ export function PerfectDetails({ result }: PerfectDetailsProps) {
     brokerDiscountAmount, bookQty, isBroker,
   } = result
 
-  return (
-    <div className="flex flex-col">
-      {/* Grand Total Banner */}
-      <div className="bg-foreground text-background p-3 rounded-lg text-center mb-3">
-        <p className="text-2xl font-bold">{formatCurrency(result.grandTotal)}</p>
-        {bookQty > 0 && (
-          <p className="text-sm text-background/70 mt-0.5">
-            {formatCurrency(result.pricePerBook)} / book
-          </p>
-        )}
+  const stats: PaperStat[] = [
+    { label: "Sheet", value: insideResult.sheetSize },
+    { label: "Ups", value: String(insideResult.maxUps) },
+    { label: "Sheets", value: insideResult.sheets.toLocaleString() },
+  ]
+
+  const costLines: CostLine[] = [
+    { label: "Printing", value: totalPrintingCost },
+    { label: "Binding", value: totalBindingPrice },
+  ]
+  if (totalLaminationCost > 0) {
+    costLines.push({ label: "Lamination", value: totalLaminationCost })
+  }
+  if (isBroker && brokerDiscountAmount > 0) {
+    costLines.push({ label: "Broker Discount", value: -brokerDiscountAmount })
+  }
+
+  const expandedDetails = (
+    <div className="flex flex-col gap-1">
+      <SectionHeader label="Cover" />
+      <div className="grid grid-cols-2 gap-x-6">
+        <DetailRow label="Paper:" value={coverResult.paper} />
+        <DetailRow label="Paper Size:" value={coverResult.sheetSize} />
+        <DetailRow label="Level / Markup:" value={`${coverResult.level} / ${coverResult.markup.toFixed(2)}x`} />
+        <DetailRow label="Max Ups:" value={String(coverResult.maxUps)} />
+        <DetailRow label="Cost/Sheet:" value={formatCurrency(coverResult.pricePerSheet, 4)} />
+        <DetailRow label="Total Sheets:" value={coverResult.sheets.toLocaleString()} />
+        <DetailRow label="Total Printing:" value={formatCurrency(coverResult.cost)} />
       </div>
 
-      {/* Details Grid */}
-      <div className="border border-border rounded-lg p-4 pt-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+      <SectionHeader label="Inside Paper" />
+      <div className="grid grid-cols-2 gap-x-6">
+        <DetailRow label="Paper:" value={insideResult.paper} />
+        <DetailRow label="Paper Size:" value={insideResult.sheetSize} />
+        <DetailRow label="Level / Markup:" value={`${insideResult.level} / ${insideResult.markup.toFixed(2)}x`} />
+        <DetailRow label="Max Ups:" value={String(insideResult.maxUps)} />
+        <DetailRow label="Cost/Sheet:" value={formatCurrency(insideResult.pricePerSheet, 4)} />
+        <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
+        <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
+      </div>
 
-          {/* Cover Details */}
-          <div className="col-span-full">
-            <SectionHeader label="Cover" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-              <DetailRow label="Level / Markup:" value={`${coverResult.level} / ${coverResult.markup.toFixed(2)}x`} />
-              <DetailRow label="Max Ups:" value={String(coverResult.maxUps)} />
-              <DetailRow label="Cost Per Sheet:" value={`$${formatPriceByLevel(coverResult.pricePerSheet, coverResult.level)}`} />
-              <DetailRow label="Total Sheets:" value={coverResult.sheets.toLocaleString()} />
-              <DetailRow label="Total Printing:" value={formatCurrency(coverResult.cost)} />
-            </div>
-          </div>
-
-          {/* Inside Paper Details */}
-          <div className="col-span-full">
-            <SectionHeader label="Inside Paper" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-              <DetailRow label="Level / Markup:" value={`${insideResult.level} / ${insideResult.markup.toFixed(2)}x`} />
-              <DetailRow label="Max Ups:" value={String(insideResult.maxUps)} />
-              <DetailRow label="Cost Per Sheet:" value={`$${formatPriceByLevel(insideResult.pricePerSheet, insideResult.level)}`} />
-              <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
-              <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
-            </div>
-          </div>
-
-          {/* Book Info */}
-          <div className="col-span-full">
-            <SectionHeader label="Book Info" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-              <DetailRow label="Sheets Per Book:" value={String(finishedSheetsPerBook)} />
-              <DetailRow label="Printing Per Book:" value={formatCurrency(bookQty > 0 ? totalPrintingCost / bookQty : 0)} />
-              <DetailRow label="Binding Per Book:" value={formatCurrency(bindingPricePerBook)} />
-              {totalLaminationCost > 0 && (
-                <DetailRow label="Lamination Per Book:" value={formatCurrency(laminationCostPerBook)} />
-              )}
-            </div>
-          </div>
-
-          {/* Job Details */}
-          <div className="col-span-full">
-            <SectionHeader label="Job Details" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-              <DetailRow label="Total Printing:" value={formatCurrency(totalPrintingCost)} />
-              <DetailRow label="Total Binding:" value={formatCurrency(totalBindingPrice)} />
-              {totalLaminationCost > 0 && (
-                <DetailRow label="Total Lamination:" value={formatCurrency(totalLaminationCost)} />
-              )}
-              {isBroker && brokerDiscountAmount > 0 && (
-                <DetailRow label="Broker Discount:" value={`- ${formatCurrency(brokerDiscountAmount)}`} />
-              )}
-            </div>
-          </div>
-
-        </div>
+      <SectionHeader label="Book Info" />
+      <div className="grid grid-cols-2 gap-x-6">
+        <DetailRow label="Sheets/Book:" value={String(finishedSheetsPerBook)} />
+        <DetailRow label="Printing/Book:" value={formatCurrency(bookQty > 0 ? totalPrintingCost / bookQty : 0)} />
+        <DetailRow label="Binding/Book:" value={formatCurrency(bindingPricePerBook)} />
+        {totalLaminationCost > 0 && (
+          <DetailRow label="Lamination/Book:" value={formatCurrency(laminationCostPerBook)} />
+        )}
+        <DetailRow label="Spine Width:" value={`${result.spineWidth.toFixed(3)}"`} />
       </div>
     </div>
+  )
+
+  return (
+    <CalcPriceCard
+      total={result.grandTotal}
+      perUnitLabel="/ book"
+      perUnitCost={result.pricePerBook}
+      paperName={`${coverResult.paper} / ${insideResult.paper}`}
+      stats={stats}
+      level={{
+        level: insideResult.level,
+        maxLevel: 10,
+        markup: insideResult.markup,
+        pricePerSheet: insideResult.pricePerSheet,
+        onLevelChange,
+      }}
+      costLines={costLines}
+      details={expandedDetails}
+    />
   )
 }
