@@ -77,36 +77,36 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     const w = piece.width
     const h = piece.height
     const meta = PIECE_TYPE_META[piece.type]
+    const flat = getFlatSize(piece)
 
-    // Build flexible search patterns for dimensions
-    const dimPatterns = [
-      `${w}x${h}`,          // 8.5x11
-      `${h}x${w}`,          // 11x8.5
-      `${w}" x ${h}"`,      // 8.5" x 11"
-      `${h}" x ${w}"`,      // 11" x 8.5"
-      `${w}"x${h}"`,        // 8.5"x11"
-      `${h}"x${w}"`,        // 11"x8.5"
+    // Build ALL dimension patterns -- finished size + flat size
+    const allDims: string[] = [
+      `${w}x${h}`, `${h}x${w}`,
+      `${w}" x ${h}"`, `${h}" x ${w}"`,
+      `${w}"x${h}"`, `${h}"x${w}"`,
     ]
-    const hasDim = (label: string) => dimPatterns.some((p) => label.includes(p))
+    // Add flat size patterns if different from finished
+    if (flat.w && flat.h && (flat.w !== w || flat.h !== h)) {
+      allDims.push(
+        `${flat.w}x${flat.h}`, `${flat.h}x${flat.w}`,
+        `${flat.w}" x ${flat.h}"`, `${flat.h}" x ${flat.w}"`,
+        `${flat.w}"x${flat.h}"`, `${flat.h}"x${flat.w}"`,
+      )
+    }
+    const hasDim = (label: string) => allDims.some((p) => label.includes(p))
 
     let match: typeof quote.items[0] | undefined
 
     if (meta.calc === "envelope") {
-      // Envelopes are stored as category "item" with "Envelope" in the label
+      // Envelopes: category "item" with "Envelope" in label
       match = quote.items.find((item) =>
         item.category === "item" && item.label.toLowerCase().includes("envelope") && hasDim(item.label)
       )
     } else if (meta.calc === "booklet") {
       match = quote.items.find((item) => item.category === "booklet" && hasDim(item.label))
     } else {
-      // Flat printing -- also check using getFlatSize dimensions
-      const flat = getFlatSize(piece)
-      const flatPatterns = flat.w && flat.h ? [
-        `${flat.w}x${flat.h}`, `${flat.h}x${flat.w}`,
-        `${flat.w}" x ${flat.h}"`, `${flat.h}" x ${flat.w}"`,
-      ] : []
-      const hasFlatDim = (label: string) => dimPatterns.some((p) => label.includes(p)) || flatPatterns.some((p) => label.includes(p))
-      match = quote.items.find((item) => item.category === "flat" && hasFlatDim(item.label))
+      // Flat printing
+      match = quote.items.find((item) => item.category === "flat" && hasDim(item.label))
     }
 
     return match ? match.amount : null
