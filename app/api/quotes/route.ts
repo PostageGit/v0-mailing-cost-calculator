@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
-// GET quotes, optionally filtered by is_job
+// GET quotes, with filters: is_job, archived, search
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const isJob = searchParams.get("is_job")
+  const archived = searchParams.get("archived")
+  const search = searchParams.get("search")
 
   let query = supabase
     .from("quotes")
@@ -16,6 +18,21 @@ export async function GET(request: Request) {
     query = query.eq("is_job", true)
   } else if (isJob === "false") {
     query = query.eq("is_job", false)
+  }
+
+  if (archived === "true") {
+    query = query.eq("archived", true)
+  } else if (archived === "false") {
+    query = query.eq("archived", false)
+  } else {
+    // Default: hide archived
+    query = query.eq("archived", false)
+  }
+
+  if (search) {
+    query = query.or(
+      `project_name.ilike.%${search}%,contact_name.ilike.%${search}%,reference_number.ilike.%${search}%,notes.ilike.%${search}%,status.ilike.%${search}%`
+    )
   }
 
   const { data, error } = await query
