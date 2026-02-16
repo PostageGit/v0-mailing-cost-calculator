@@ -209,19 +209,20 @@ function MetaCheck({ label, checked, onChange, bold }: {
 }
 
 /* ════════════════════════════════════════════════════
-   FILE DROP ZONE
+   FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
 interface JobFile {
   id: string; quote_id: string; blob_url: string; filename: string; size: number; mime_type: string | null; uploaded_at: string
 }
 
-function fileIcon(mime: string | null) {
-  if (!mime) return <File className="h-3 w-3" />
-  if (mime.startsWith("image/")) return <FileImage className="h-3 w-3" />
-  if (mime.includes("pdf")) return <FileText className="h-3 w-3" />
-  if (mime.includes("sheet") || mime.includes("csv") || mime.includes("excel")) return <FileSpreadsheet className="h-3 w-3" />
-  return <File className="h-3 w-3" />
+function fileIconLg(mime: string | null, size: "sm" | "lg" = "sm") {
+  const cls = size === "lg" ? "h-8 w-8" : "h-3.5 w-3.5"
+  if (!mime) return <File className={cls} />
+  if (mime.startsWith("image/")) return <FileImage className={cls} />
+  if (mime.includes("pdf")) return <FileText className={cls} />
+  if (mime.includes("sheet") || mime.includes("csv") || mime.includes("excel")) return <FileSpreadsheet className={cls} />
+  return <File className={cls} />
 }
 
 function fmtSize(bytes: number) {
@@ -230,10 +231,18 @@ function fmtSize(bytes: number) {
   return `${(bytes / 1048576).toFixed(1)}MB`
 }
 
-function JobFilesZone({ quoteId }: { quoteId: string }) {
-  const { data: files, mutate: refreshFiles } = useSWR<JobFile[]>(
-    `/api/job-files?quote_id=${quoteId}`, fetcher
-  )
+function fmtDateFull(d: string) {
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })
+}
+
+function useJobFiles(quoteId: string) {
+  const { data, mutate, isLoading } = useSWR<JobFile[]>(`/api/job-files?quote_id=${quoteId}`, fetcher)
+  return { files: data || [], refreshFiles: mutate, isLoading }
+}
+
+/** Inline file count badge + quick drop in the card */
+function JobFilesInline({ quoteId, onOpenPanel }: { quoteId: string; onOpenPanel: () => void }) {
+  const { files, refreshFiles } = useJobFiles(quoteId)
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -248,79 +257,226 @@ function JobFilesZone({ quoteId }: { quoteId: string }) {
         await fetch("/api/job-files", { method: "POST", body: fd })
       }
       refreshFiles()
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const deleteFile = async (id: string) => {
-    await fetch(`/api/job-files/${id}`, { method: "DELETE" })
-    refreshFiles()
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragging(false)
-    if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files)
+    } finally { setUploading(false) }
   }
 
   return (
     <div className="border-t border-border/50 pt-2">
-      <div className="flex items-center justify-between mb-1.5">
-        <p className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-1">
-          <Paperclip className="h-2.5 w-2.5" /> Files {files && files.length > 0 && <span className="font-mono">({files.length})</span>}
-        </p>
-        <button onClick={() => inputRef.current?.click()} className="text-[9px] text-muted-foreground hover:text-foreground font-medium flex items-center gap-0.5 transition-colors">
-          <Upload className="h-2.5 w-2.5" /> Upload
-        </button>
-      </div>
       <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = "" }} />
-
-      {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
         onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }}
-        onDrop={handleDrop}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files) }}
         className={cn(
-          "rounded-md border border-dashed transition-colors p-1.5 min-h-[32px]",
-          dragging ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/60",
-          uploading && "opacity-60 pointer-events-none"
+          "rounded-md border border-dashed transition-all flex items-center gap-2 px-2.5 py-1.5",
+          dragging ? "border-foreground/30 bg-foreground/[0.03]" : "border-border/40",
+          uploading && "opacity-60"
         )}
       >
-        {uploading && (
-          <div className="flex items-center justify-center gap-1 py-1">
+        {uploading ? (
+          <div className="flex items-center gap-1.5 flex-1">
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            <span className="text-[9px] text-muted-foreground">Uploading...</span>
+            <span className="text-[10px] text-muted-foreground">Uploading...</span>
           </div>
-        )}
-        {!uploading && (!files || files.length === 0) && (
-          <button onClick={() => inputRef.current?.click()} className="w-full text-[9px] text-muted-foreground/40 text-center py-1 hover:text-muted-foreground transition-colors">
-            Drop files here or click to upload
-          </button>
-        )}
-        {!uploading && files && files.length > 0 && (
-          <div className="flex flex-col gap-0.5">
-            {files.map((f) => (
-              <div key={f.id} className="flex items-center gap-1.5 py-0.5 px-1 rounded hover:bg-secondary/50 group/file">
-                <span className="text-muted-foreground shrink-0">{fileIcon(f.mime_type)}</span>
-                <a href={f.blob_url} target="_blank" rel="noopener noreferrer"
-                  className="text-[10px] text-foreground font-medium truncate flex-1 hover:underline">{f.filename}</a>
-                <span className="text-[8px] text-muted-foreground/50 font-mono tabular-nums shrink-0">{fmtSize(f.size)}</span>
-                <a href={f.blob_url} download={f.filename}
-                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground opacity-0 group-hover/file:opacity-100 transition-opacity shrink-0">
-                  <Download className="h-2.5 w-2.5" />
-                </a>
-                <button onClick={() => deleteFile(f.id)}
-                  className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/40 hover:text-destructive opacity-0 group-hover/file:opacity-100 transition-opacity shrink-0">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </div>
-            ))}
-          </div>
+        ) : (
+          <>
+            <Paperclip className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+            <button onClick={onOpenPanel} className="flex items-center gap-1 flex-1 min-w-0 text-left">
+              <span className="text-[10px] font-medium text-foreground">{files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""}` : "No files"}</span>
+              {files.length > 0 && (
+                <span className="text-[9px] text-muted-foreground truncate">
+                  - {files.slice(0, 2).map((f) => f.filename).join(", ")}{files.length > 2 ? ` +${files.length - 2}` : ""}
+                </span>
+              )}
+            </button>
+            <button onClick={onOpenPanel}
+              className="text-[9px] text-muted-foreground hover:text-foreground font-medium shrink-0 transition-colors">
+              Open
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); inputRef.current?.click() }}
+              className="text-[9px] text-muted-foreground hover:text-foreground font-medium shrink-0 flex items-center gap-0.5 transition-colors">
+              <Upload className="h-2.5 w-2.5" />
+            </button>
+          </>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Full file folder panel (overlay) */
+function JobFilesPanel({ quoteId, projectName, onClose }: { quoteId: string; projectName: string; onClose: () => void }) {
+  const { files, refreshFiles, isLoading } = useJobFiles(quoteId)
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [preview, setPreview] = useState<JobFile | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const uploadFiles = async (fileList: FileList | File[]) => {
+    setUploading(true)
+    try {
+      for (const file of Array.from(fileList)) {
+        const fd = new FormData()
+        fd.append("file", file)
+        fd.append("quote_id", quoteId)
+        await fetch("/api/job-files", { method: "POST", body: fd })
+      }
+      refreshFiles()
+    } finally { setUploading(false) }
+  }
+
+  const deleteFile = async (id: string) => {
+    setDeleting(id)
+    await fetch(`/api/job-files/${id}`, { method: "DELETE" })
+    refreshFiles()
+    setDeleting(null)
+    if (preview?.id === id) setPreview(null)
+  }
+
+  const isImage = (f: JobFile) => f.mime_type?.startsWith("image/")
+  const totalSize = files.reduce((s, f) => s + f.size, 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative w-full max-w-lg bg-card border-l border-border shadow-2xl flex flex-col h-full animate-in slide-in-from-right-8 duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold text-foreground truncate">{projectName || "Job"} Files</h2>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{files.length} file{files.length !== 1 ? "s" : ""} &middot; {fmtSize(totalSize)}</p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} className="h-7 text-[10px] gap-1 font-medium">
+              <Upload className="h-3 w-3" /> Upload
+            </Button>
+            <button onClick={onClose} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors">
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = "" }} />
+
+        {/* Drop zone + File list */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
+          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(true) }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false) }}
+          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragging(false); if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files) }}
+          className={cn("flex-1 overflow-y-auto p-4 transition-colors", dragging && "bg-foreground/[0.02]")}
+        >
+          {/* Upload state */}
+          {uploading && (
+            <div className="flex items-center justify-center gap-2 py-6 mb-4 rounded-xl border border-dashed border-border bg-secondary/30">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Uploading files...</span>
+            </div>
+          )}
+
+          {/* Drag overlay */}
+          {dragging && (
+            <div className="flex flex-col items-center justify-center gap-2 py-10 mb-4 rounded-xl border-2 border-dashed border-foreground/20 bg-foreground/[0.02]">
+              <Upload className="h-6 w-6 text-muted-foreground/50" />
+              <span className="text-xs text-muted-foreground font-medium">Drop files to upload</span>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoading && files.length === 0 && !uploading && !dragging && (
+            <button onClick={() => inputRef.current?.click()}
+              className="flex flex-col items-center justify-center gap-3 py-16 w-full rounded-xl border border-dashed border-border/60 hover:border-border hover:bg-secondary/20 transition-all cursor-pointer">
+              <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center">
+                <Upload className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-medium text-foreground">Drop files here or click to upload</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">PDF, images, spreadsheets, documents</p>
+              </div>
+            </button>
+          )}
+
+          {/* File grid */}
+          {files.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {files.map((f) => (
+                <div key={f.id} className={cn(
+                  "group/f flex items-center gap-3 px-3 py-2 rounded-lg border border-transparent hover:border-border hover:bg-secondary/30 transition-all",
+                  deleting === f.id && "opacity-40 pointer-events-none"
+                )}>
+                  {/* Thumbnail / Icon */}
+                  {isImage(f) ? (
+                    <button onClick={() => setPreview(f)} className="h-10 w-10 rounded-md overflow-hidden bg-secondary shrink-0 border border-border/50 hover:ring-2 hover:ring-ring transition-all">
+                      <img src={f.blob_url} alt={f.filename} className="h-full w-full object-cover" crossOrigin="anonymous" />
+                    </button>
+                  ) : (
+                    <button onClick={() => window.open(f.blob_url, "_blank")}
+                      className="h-10 w-10 rounded-md bg-secondary flex items-center justify-center shrink-0 border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+                      {fileIconLg(f.mime_type, "lg")}
+                    </button>
+                  )}
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{f.filename}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5 tabular-nums">
+                      {fmtSize(f.size)} &middot; {fmtDateFull(f.uploaded_at)}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover/f:opacity-100 transition-opacity shrink-0">
+                    {isImage(f) && (
+                      <button onClick={() => setPreview(f)}
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary" title="Preview">
+                        <FileImage className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <a href={f.blob_url} download={f.filename}
+                      className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary" title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                    <button onClick={() => deleteFile(f.id)}
+                      className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Delete">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer drop hint */}
+        <div className="px-4 py-2 border-t border-border shrink-0">
+          <p className="text-[9px] text-muted-foreground/50 text-center">Drag and drop files anywhere in this panel to upload</p>
+        </div>
+      </div>
+
+      {/* Image preview lightbox */}
+      {preview && (
+        <div className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-md flex items-center justify-center p-8"
+          onClick={() => setPreview(null)}>
+          <button onClick={() => setPreview(null)} className="absolute top-4 right-4 h-8 w-8 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+          <div className="flex flex-col items-center gap-3 max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+            <img src={preview.blob_url} alt={preview.filename} className="max-h-[70vh] max-w-full object-contain rounded-lg shadow-2xl" crossOrigin="anonymous" />
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-foreground">{preview.filename}</span>
+              <span className="text-xs text-muted-foreground">{fmtSize(preview.size)}</span>
+              <a href={preview.blob_url} download={preview.filename}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors">
+                <Download className="h-3 w-3" /> Download
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -346,6 +502,7 @@ function QuoteCard({
 }) {
   const [open, setOpen] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [showFiles, setShowFiles] = useState(false)
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
   const canL = !isArchived && colIdx > 0
   const canR = !isArchived && colIdx < columns.length - 1
@@ -443,6 +600,10 @@ function QuoteCard({
                     <Briefcase className="h-2.5 w-2.5" />
                   </button>
                 )}
+                <button onClick={(e) => { e.stopPropagation(); setShowFiles(true) }}
+                  className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Files">
+                  <Paperclip className="h-2.5 w-2.5" />
+                </button>
                 <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
                   className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Edit">
                   <Pencil className="h-2.5 w-2.5" />
@@ -532,8 +693,8 @@ function QuoteCard({
               <InlineField label="Due Date" value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} type="date" />
             </div>
 
-            {/* ── File Drop Zone ── */}
-            <JobFilesZone quoteId={quote.id} />
+            {/* ── Files (inline + panel trigger) ── */}
+            <JobFilesInline quoteId={quote.id} onOpenPanel={() => setShowFiles(true)} />
 
             {/* ── Quote line items ── */}
             {(quote.items || []).length > 0 && (
@@ -560,11 +721,16 @@ function QuoteCard({
           </div>
         </div>
       )}
+
+      {/* File folder panel */}
+      {showFiles && (
+        <JobFilesPanel quoteId={quote.id} projectName={quote.project_name} onClose={() => setShowFiles(false)} />
+      )}
     </div>
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ═════════════════════════════════════════════════���══
    COLUMN SETTINGS
    ════════════════════════════════════════════════════ */
 
