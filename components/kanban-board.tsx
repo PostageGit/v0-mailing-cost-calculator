@@ -31,7 +31,7 @@ interface BoardColumn {
 interface JobMeta {
   piece_desc?: string; insert_count?: number; inserts_desc?: string
   mailing_class?: string; drop_off?: string; international?: boolean
-  printed_by?: string; vendor_job?: string; prints_arrived?: boolean
+  printed_by?: string; vendor_name?: string; vendor_job?: string; prints_arrived?: boolean
   bcc_done?: boolean; paperwork_done?: boolean; folder_archived?: boolean; job_mailed?: boolean
   invoice_updated?: boolean; invoice_emailed?: boolean; paid_postage?: boolean; paid_full?: boolean
   assignee?: string; due_date?: string
@@ -132,10 +132,29 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
     derived.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").replace(/USPS\s*/i, "").trim() || ""
   }
 
-  // OHP items indicate out-of-house printing
+  // OHP items: vendor name is in .description ("PrintOut | +15% markup"), piece info in .label ("OHP: 5,750 - 2.5x6.5 Postcard")
   const ohpItems = items.filter((it) => it.category === "ohp")
   if (ohpItems.length > 0) {
-    derived.printed_by = ohpItems[0].label?.replace(/Out of House\s*[-–:]\s*/i, "").replace(/OHP[:\s]*/i, "").trim() || "Out of House"
+    // Extract vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
+    const ohpDesc = ohpItems[0].description || ""
+    const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
+    if (vendorFromDesc) {
+      derived.vendor_name = vendorFromDesc
+    }
+    derived.printed_by = "Out of House"
+
+    // If no piece_desc yet, try to get it from OHP label: "OHP: 5,750 - 2.5" x 6.5" Postcard"
+    if (!derived.piece_desc) {
+      const ohpLabel = ohpItems[0].label || ""
+      const afterOHP = ohpLabel.replace(/^OHP[:\s]*/i, "").trim()
+      // Try to extract size from the label
+      const sizeM = afterOHP.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
+      if (sizeM) {
+        const afterSize = afterOHP.substring(afterOHP.indexOf(sizeM[0]) + sizeM[0].length).trim()
+        const pieceType = afterSize.split(",")[0]?.trim() || ""
+        derived.piece_desc = `${sizeM[1]}x${sizeM[2]}${pieceType ? " " + pieceType : ""}`
+      }
+    }
   } else if (printItems.length > 0) {
     derived.printed_by = "In-House"
   }
@@ -581,6 +600,11 @@ function QuoteCard({
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{meta.assignee}
               </span>
             )}
+            {meta.vendor_name && (meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/50 dark:border-sky-800/30">
+                <Briefcase className="h-2.5 w-2.5" />{meta.vendor_name}
+              </span>
+            )}
             {listColumn && (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-secondary text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: listColumn.color }} />{listColumn.title}
@@ -709,11 +733,17 @@ function QuoteCard({
               {/* PRINTING DETAILS */}
               <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
                 <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-2.5">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-2">
                   <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
-                    options={["In-House", "PrintOut", "4 Over", "Jacky", "Provided", "Split Vendors"]} />
+                    options={["In-House", "Out of House", "Both"]} />
                   <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
                 </div>
+                {/* Vendor name: shown when OHP, auto-filled from bid */}
+                {(meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
+                  <div className="mb-2">
+                    <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="e.g. PrintOut" onChange={(v) => updateMeta({ vendor_name: v })} />
+                  </div>
+                )}
                 <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
               </div>
               {/* LIST / MAIL STATUS */}
@@ -1077,10 +1107,32 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       meta.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").trim() || ""
     }
 
-    // --- Printed by: if there's an OHP item, use its label ---
+    // --- Printed by + Vendor: from OHP items ---
     const ohpItems = items.filter((it) => it.category === "ohp")
     if (ohpItems.length > 0 && !meta.printed_by) {
-      meta.printed_by = ohpItems[0].label?.replace(/Out of House\s*[-–:]\s*/i, "").trim() || "Out of House"
+      // Vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
+      const ohpDesc = ohpItems[0].description || ""
+      const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
+      if (vendorFromDesc && !meta.vendor_name) meta.vendor_name = vendorFromDesc
+
+      // Check if there are ALSO in-house printing items
+      if (printingItems.length > 0) {
+        meta.printed_by = "Both"
+      } else {
+        meta.printed_by = "Out of House"
+      }
+
+      // Try piece desc from OHP label if not set: "OHP: 5,750 - 2.5x6.5 Postcard"
+      if (!meta.piece_desc) {
+        const ohpLabel = ohpItems[0].label || ""
+        const afterOHP = ohpLabel.replace(/^OHP[:\s]*/i, "").trim()
+        const sizeM = afterOHP.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
+        if (sizeM) {
+          const afterSize = afterOHP.substring(afterOHP.indexOf(sizeM[0]) + sizeM[0].length).trim()
+          const pieceType = afterSize.split(",")[0]?.trim() || ""
+          meta.piece_desc = `${sizeM[1]}x${sizeM[2]}${pieceType ? " " + pieceType : ""}`
+        }
+      }
     } else if (printingItems.length > 0 && !meta.printed_by) {
       meta.printed_by = "In-House"
     }
