@@ -11,11 +11,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
-  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock,
+  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, FileCheck,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
+import useSWR from "swr"
 import { formatCurrency } from "@/lib/pricing"
 import { buildQuoteText } from "@/lib/build-quote-text"
+import { FinalizeQuoteModal } from "@/components/finalize-quote-modal"
+import type { Customer } from "@/lib/customer-types"
+
+const sidebarFetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "envelope", "postage", "listwork", "item", "ohp"]
 
@@ -156,6 +161,11 @@ export function QuoteSidebar() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  const [showFinalize, setShowFinalize] = useState(false)
+
+  // Resolve customer name for the finalize modal
+  const { data: allCustomers } = useSWR<Customer[]>("/api/customers", sidebarFetcher)
+  const customerName = allCustomers?.find((c) => c.id === customerId)?.company_name
 
   const toggleCat = (cat: QuoteCategory) => {
     setCollapsedCats((p) => {
@@ -351,28 +361,44 @@ export function QuoteSidebar() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
             <Button
-              variant={copied ? "default" : "secondary"}
               size="sm"
-              className="flex-1 gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
-              onClick={handleCopy}
+              className="w-full gap-1.5 text-[12px] h-10 rounded-lg font-semibold bg-foreground text-background hover:bg-foreground/90"
+              onClick={() => setShowFinalize(true)}
             >
-              {copied ? (
-                <><Check className="h-3.5 w-3.5" /> Copied</>
-              ) : (
-                <><ClipboardCopy className="h-3.5 w-3.5" /> Copy</>
-              )}
+              <FileCheck className="h-3.5 w-3.5" /> Finalize / Export to QB
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
-              onClick={newQuote}
-            >
-              <FilePlus className="h-3.5 w-3.5" /> New
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant={copied ? "default" : "secondary"}
+                size="sm"
+                className="flex-1 gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <><Check className="h-3.5 w-3.5" /> Copied</>
+                ) : (
+                  <><ClipboardCopy className="h-3.5 w-3.5" /> Copy</>
+                )}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                onClick={newQuote}
+              >
+                <FilePlus className="h-3.5 w-3.5" /> New
+              </Button>
+            </div>
           </div>
+
+          {/* Finalize Modal */}
+          <FinalizeQuoteModal
+            open={showFinalize}
+            onClose={() => setShowFinalize(false)}
+            customerName={customerName}
+          />
         </div>
       )}
     </div>

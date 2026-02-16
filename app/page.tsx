@@ -18,12 +18,13 @@ import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
+import { InvoiceList } from "@/components/invoice-list"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
 import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
-  Send, Package, Check, ChevronRight, FileText,
+  Send, Package, Check, ChevronRight, FileText, Receipt,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine,
 } from "lucide-react"
 
@@ -61,7 +62,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
   }
 }
 
-type View = "home" | "job" | "dashboard" | "customers" | "vendors"
+type View = "home" | "job" | "dashboard" | "customers" | "vendors" | "invoices"
 type JobPhase = "planner" | "pricing"
 
 function AppContent() {
@@ -140,6 +141,7 @@ function AppContent() {
               { v: "home" as View, label: "Home" },
               { v: "dashboard" as View, label: "Dashboard" },
               { v: "customers" as View, label: "Customers" },
+              { v: "invoices" as View, label: "Invoices" },
               { v: "vendors" as View, label: "Vendors" },
             ]).map((n) => (
               <button key={n.v} onClick={() => setView(n.v)}
@@ -298,6 +300,7 @@ function AppContent() {
         </div>
       )}
       {view === "customers" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><CustomerList /></div>}
+      {view === "invoices" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><InvoiceList /></div>}
       {view === "vendors" && <div className="max-w-[90rem] mx-auto w-full px-6 pt-6 pb-10"><VendorList /></div>}
       {showSettings && <MailClassSettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
