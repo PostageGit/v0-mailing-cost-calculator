@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react"
+import { useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -94,6 +94,54 @@ function sectionDone(meta: JobMeta | undefined, keys: (keyof JobMeta)[]) {
   return keys.every((k) => !!meta[k])
 }
 
+/** Derives job_meta field values from a quote's line items as fallback display values */
+function deriveMetaFromItems(quote: Quote): JobMeta {
+  const items: QuoteItem[] = quote.items || []
+  const derived: JobMeta = {}
+
+  // Printing items (flat, booklet, etc) contain piece descriptions
+  const printItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
+  if (printItems.length > 0) {
+    const desc = printItems[0].description || printItems[0].label || ""
+    const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
+    const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
+    const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
+    const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase()))
+    const fallbackType = printItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
+    derived.piece_desc = sizeStr && (foundType || fallbackType) ? `${sizeStr} ${foundType || fallbackType}` : (sizeStr || foundType || fallbackType || desc.split(",")[0]?.trim() || "")
+  }
+
+  // Inserts: additional printing items beyond the first
+  if (printItems.length > 1) {
+    derived.insert_count = printItems.length - 1
+    const insertDescs = printItems.slice(1).map((it) => {
+      const d = it.description || it.label || ""
+      const m = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
+      return m ? `${m[1]}x${m[2]}` : d.split(",")[0]?.trim() || ""
+    }).filter(Boolean)
+    if (insertDescs.length > 0) derived.inserts_desc = insertDescs.join(" + ")
+  }
+
+  // Postage items contain mailing class
+  const postageItems = items.filter((it) => it.category === "postage")
+  if (postageItems.length > 0) {
+    const pDesc = postageItems[0].description || postageItems[0].label || ""
+    const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted", "Letter Class"]
+    const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
+    derived.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").replace(/USPS\s*/i, "").trim() || ""
+  }
+
+  // OHP items indicate out-of-house printing
+  const ohpItems = items.filter((it) => it.category === "ohp")
+  if (ohpItems.length > 0) {
+    derived.printed_by = ohpItems[0].label?.replace(/Out of House\s*[-–:]\s*/i, "").replace(/OHP[:\s]*/i, "").trim() || "Out of House"
+  } else if (printItems.length > 0) {
+    derived.printed_by = "In-House"
+  }
+
+  return derived
+}
+
 function isOverdue(meta?: JobMeta) {
   if (!meta?.due_date) return false
   return new Date(meta.due_date) < new Date()
@@ -109,8 +157,8 @@ function daysOverdue(meta?: JobMeta) {
    INLINE EDITABLE FIELD
    ════════════════════════════════════════════════════ */
 
-function InlineField({ label, value, onChange, type = "text" }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string
+function InlineField({ label, value, onChange, type = "text", isDerived }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; isDerived?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [local, setLocal] = useState(value)
@@ -131,7 +179,9 @@ function InlineField({ label, value, onChange, type = "text" }: {
         />
       ) : (
         <button onClick={() => setEditing(true)}
-          className="w-full text-left text-[11px] font-medium text-foreground py-0.5 border-b border-transparent hover:border-border transition-colors truncate min-h-[18px]">
+          className={cn("w-full text-left text-[11px] py-0.5 border-b border-transparent hover:border-border transition-colors truncate min-h-[18px]",
+            value ? (isDerived ? "font-normal text-muted-foreground italic" : "font-medium text-foreground") : ""
+          )}>
           {value || <span className="text-muted-foreground/30 font-normal">--</span>}
         </button>
       )}
@@ -182,15 +232,18 @@ function QuoteCard({
   const canL = !isArchived && colIdx > 0
   const canR = !isArchived && colIdx < columns.length - 1
 
-  const meta: JobMeta = quote.job_meta || {}
+  const rawMeta: JobMeta = quote.job_meta || {}
+  const derived = useMemo(() => deriveMetaFromItems(quote), [quote])
+  // Merge: saved meta wins over derived, derived fills gaps
+  const meta: JobMeta = useMemo(() => ({ ...derived, ...rawMeta }), [derived, rawMeta])
   const overdue = isOverdue(meta)
   const days = daysOverdue(meta)
-  const printDone = sectionDone(meta, ["prints_arrived"])
-  const mailDone = sectionDone(meta, ["bcc_done", "paperwork_done", "folder_archived", "job_mailed"])
-  const billDone = sectionDone(meta, ["invoice_updated", "invoice_emailed", "paid_postage", "paid_full"])
+  const printDone = sectionDone(rawMeta, ["prints_arrived"])
+  const mailDone = sectionDone(rawMeta, ["bcc_done", "paperwork_done", "folder_archived", "job_mailed"])
+  const billDone = sectionDone(rawMeta, ["invoice_updated", "invoice_emailed", "paid_postage", "paid_full"])
 
   const updateMeta = (patch: Partial<JobMeta>) => {
-    onPatch(quote.id, { job_meta: { ...meta, ...patch } })
+    onPatch(quote.id, { job_meta: { ...rawMeta, ...patch } })
   }
 
   return (
@@ -304,15 +357,15 @@ function QuoteCard({
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Job Details</p>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                   <InlineField label="Quantity" value={String(quote.quantity || "")} onChange={(v) => onPatch(quote.id, { quantity: parseInt(v) || 0 })} />
-                  <InlineField label="Mail Piece Desc." value={meta.piece_desc || ""} onChange={(v) => updateMeta({ piece_desc: v })} />
-                  <InlineField label="Insert Count" value={String(meta.insert_count || "")} onChange={(v) => updateMeta({ insert_count: parseInt(v) || 0 })} />
-                  <InlineField label="Inserts Desc." value={meta.inserts_desc || ""} onChange={(v) => updateMeta({ inserts_desc: v })} />
+                  <InlineField label="Mail Piece Desc." value={meta.piece_desc || ""} isDerived={!rawMeta.piece_desc && !!derived.piece_desc} onChange={(v) => updateMeta({ piece_desc: v })} />
+                  <InlineField label="Insert Count" value={String(meta.insert_count || "")} isDerived={!rawMeta.insert_count && !!derived.insert_count} onChange={(v) => updateMeta({ insert_count: parseInt(v) || 0 })} />
+                  <InlineField label="Inserts Desc." value={meta.inserts_desc || ""} isDerived={!rawMeta.inserts_desc && !!derived.inserts_desc} onChange={(v) => updateMeta({ inserts_desc: v })} />
                 </div>
               </div>
               <div className="rounded-lg border border-border p-2">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Postage Details</p>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                  <InlineField label="Mailing Class" value={meta.mailing_class || ""} onChange={(v) => updateMeta({ mailing_class: v })} />
+                  <InlineField label="Mailing Class" value={meta.mailing_class || ""} isDerived={!rawMeta.mailing_class && !!derived.mailing_class} onChange={(v) => updateMeta({ mailing_class: v })} />
                   <InlineField label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })} />
                 </div>
                 <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer">
@@ -328,7 +381,7 @@ function QuoteCard({
               <div className={cn("rounded-lg border p-2 transition-colors", printDone ? "border-emerald-400/50 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-border")}>
                 <p className={cn("text-[9px] font-bold uppercase tracking-widest mb-1.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 mb-1.5">
-                  <InlineField label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })} />
+                  <InlineField label="Printed By" value={meta.printed_by || ""} isDerived={!rawMeta.printed_by && !!derived.printed_by} onChange={(v) => updateMeta({ printed_by: v })} />
                   <InlineField label="Vendor Job #" value={meta.vendor_job || ""} onChange={(v) => updateMeta({ vendor_job: v })} />
                 </div>
                 <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
