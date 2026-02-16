@@ -69,22 +69,46 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   }
 
   // Pull REAL in-house cost from quote line items for a piece
-  // Labels look like: "1,500 - 8.5x11 Flat Prints" or "500 - 16pg Booklet 5.5x8.5 Self-Cover"
+  // Flat labels:     "1,500 - 8.5x11 Flat Prints"
+  // Booklet labels:  "500 - 16pg Booklet 5.5x8.5 Self-Cover"
+  // Envelope labels: "Paper Envelope: 4.125" x 9.5""  (category: "item")
   const getInhouseCost = useCallback((piece: MailPiece): number | null => {
     if (!piece.width || !piece.height) return null
     const w = piece.width
     const h = piece.height
-    // Try multiple dimension formats to match
-    const patterns = [
+    const meta = PIECE_TYPE_META[piece.type]
+
+    // Build flexible search patterns for dimensions
+    const dimPatterns = [
       `${w}x${h}`,          // 8.5x11
       `${h}x${w}`,          // 11x8.5
       `${w}" x ${h}"`,      // 8.5" x 11"
       `${h}" x ${w}"`,      // 11" x 8.5"
+      `${w}"x${h}"`,        // 8.5"x11"
+      `${h}"x${w}"`,        // 11"x8.5"
     ]
-    const matchingCats = ["flat", "booklet"]
-    const match = quote.items.find((item) =>
-      matchingCats.includes(item.category) && patterns.some((pat) => item.label.includes(pat))
-    )
+    const hasDim = (label: string) => dimPatterns.some((p) => label.includes(p))
+
+    let match: typeof quote.items[0] | undefined
+
+    if (meta.calc === "envelope") {
+      // Envelopes are stored as category "item" with "Envelope" in the label
+      match = quote.items.find((item) =>
+        item.category === "item" && item.label.toLowerCase().includes("envelope") && hasDim(item.label)
+      )
+    } else if (meta.calc === "booklet") {
+      match = quote.items.find((item) => item.category === "booklet" && hasDim(item.label))
+    } else {
+      // Flat printing -- also check using getFlatSize dimensions
+      const flat = getFlatSize(piece)
+      const flatPatterns = flat.w && flat.h ? [
+        `${flat.w}x${flat.h}`, `${flat.h}x${flat.w}`,
+        `${flat.w}" x ${flat.h}"`, `${flat.h}" x ${flat.w}"`,
+      ] : []
+      const hasFlatDim = (label: string) => dimPatterns.some((p) => label.includes(p)) || flatPatterns.some((p) => label.includes(p))
+      match = quote.items.find((item) => item.category === "flat" && hasFlatDim(item.label))
+    }
+
     return match ? match.amount : null
   }, [quote.items])
 
