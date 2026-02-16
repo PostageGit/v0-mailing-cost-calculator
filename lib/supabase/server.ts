@@ -13,14 +13,36 @@ export async function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    // Return a minimal client that will fail gracefully on queries
-    // instead of crashing the server in a loop during hot reloads.
-    // The URL must look like a real Supabase project URL to pass SDK validation.
-    return createServerClient(
-      'https://placeholder.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0.placeholder',
-      { cookies: { getAll() { return [] }, setAll() {} } },
-    )
+    // Return a stub object that mimics the Supabase client interface.
+    // All queries will return empty data. This prevents the server
+    // from crashing when env vars aren't yet configured.
+    const stub = {
+      from: () => stub,
+      select: () => stub,
+      insert: () => stub,
+      update: () => stub,
+      upsert: () => stub,
+      delete: () => stub,
+      eq: () => stub,
+      neq: () => stub,
+      single: () => stub,
+      order: () => stub,
+      limit: () => stub,
+      ilike: () => stub,
+      or: () => stub,
+      in: () => stub,
+      is: () => stub,
+      match: () => stub,
+      then: (resolve: (v: { data: null; error: { message: string } }) => void) =>
+        resolve({ data: null, error: { message: "Supabase not configured" } }),
+      data: null,
+      error: { message: "Supabase not configured" },
+      auth: {
+        getUser: async () => ({ data: { user: null }, error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+      },
+    }
+    return stub as unknown as Awaited<ReturnType<typeof createServerClient>>
   }
 
   return createServerClient(
