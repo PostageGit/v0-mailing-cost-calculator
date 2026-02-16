@@ -7,8 +7,8 @@ const _inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 's
 const _jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'MailCost Pro',
-  description: 'Professional mailing and printing cost calculator.',
+  title: 'Postage Plus',
+  description: 'Postage Plus - Professional mailing, printing, and fulfillment. Spring Valley, NY.',
 }
 
 export const viewport: Viewport = {

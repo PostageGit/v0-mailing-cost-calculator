@@ -1,5 +1,6 @@
 import { getCategoryLabel, type QuoteCategory } from "./quote-types"
 import { formatCurrency } from "./pricing"
+import { COMPANY } from "./company"
 
 interface TextItem {
   category: QuoteCategory
@@ -113,6 +114,11 @@ export function buildQuoteText(
     lines.push(notes)
   }
 
+  lines.push("")
+  lines.push(divider)
+  lines.push(COMPANY.name)
+  lines.push(COMPANY.fullAddress)
+  lines.push(`${COMPANY.phone} | ${COMPANY.email}`)
   lines.push("")
   return lines.join("\n")
 }

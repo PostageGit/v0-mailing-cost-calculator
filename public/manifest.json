@@ -1,0 +1,9 @@
+{
+  "name": "Postage Plus",
+  "short_name": "Postage Plus",
+  "description": "Postage Plus - Professional mailing, printing, and fulfillment.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#0a0a0a"
+}

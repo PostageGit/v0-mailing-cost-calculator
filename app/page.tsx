@@ -135,7 +135,7 @@ function AppContent() {
       {/* ─── Top Nav ─── */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/60">
         <div className="max-w-[100rem] mx-auto px-4 flex items-center justify-between h-11">
-          <span className="text-sm font-semibold tracking-tight text-foreground select-none">MailCost Pro</span>
+          <span className="text-sm font-semibold tracking-tight text-foreground select-none">Postage Plus</span>
           <nav className="flex items-center gap-0.5">
             {([
               { v: "home" as View, label: "Home" },

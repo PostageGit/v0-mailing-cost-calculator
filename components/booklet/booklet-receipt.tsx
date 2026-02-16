@@ -34,8 +34,9 @@ export const BookletReceipt = forwardRef<HTMLDivElement, BookletReceiptProps>(fu
       }}
     >
       <div style={{ textAlign: "center" }}>
-        <h1 style={{ fontSize: "12pt", margin: 0, fontWeight: "bold" }}>MailCost Pro</h1>
-        <p style={{ margin: "2pt 0", fontSize: "8pt" }}>Booklet Binding Services</p>
+        <h1 style={{ fontSize: "12pt", margin: 0, fontWeight: "bold" }}>Postage Plus</h1>
+        <p style={{ margin: "2pt 0", fontSize: "7pt" }}>100 Red Schoolhouse Rd Unit A-5, Spring Valley, NY 10977</p>
+        <p style={{ margin: "1pt 0", fontSize: "7pt" }}>845-290-8900 | Mail@thepostageplus.com</p>
       </div>
       <div style={{ fontSize: "7.5pt", marginTop: "8pt" }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
