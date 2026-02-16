@@ -670,10 +670,59 @@ function QuoteCard({
             </div>
           </div>
 
-          {/* Info sections on gray bg like PostFlow reference */}
+          {/* Info sections on gray bg */}
           <div className="bg-secondary/20 px-4 py-3 flex flex-col gap-3">
 
-            {/* ── ROW 1: Job Details + Postage Details (2 col) ── */}
+            {/* ── MAIL PIECES: full-width, wrapping grid ── */}
+            {(() => {
+              // Gather mail pieces from items: printing items (flat, booklet etc) + OHP + envelope
+              const pieces = (quote.items || []).filter((it) =>
+                ["flat", "booklet", "spiral", "perfect", "ohp", "envelope"].includes(it.category)
+              )
+              if (pieces.length === 0) return null
+              // Max 3 per row, 1 piece = full width, 2 = 2 col, 3+ = 3 col then wraps
+              const cols = pieces.length === 1 ? 1 : pieces.length === 2 ? 2 : 3
+              return (
+                <div>
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Mail Pieces ({pieces.length})</p>
+                  <div className={cn("grid gap-2", cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-2" : "grid-cols-3")}>
+                    {pieces.map((pc, i) => {
+                      const label = pc.label || pc.description || pc.category
+                      const sizeMatch = label.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
+                      const sizeStr = sizeMatch ? `${sizeMatch[1]}" x ${sizeMatch[2]}"` : null
+                      const isOHP = pc.category === "ohp"
+                      const vendorName = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
+                      // Extract the qty from label like "5,750 - 11x8.5..."
+                      const qtyMatch = label.match(/([\d,]+)\s*[-–]/)
+                      const qtyStr = qtyMatch ? qtyMatch[1] : ""
+                      // Extract type hint
+                      const typeHints = ["Postcard", "Flat", "Booklet", "Letter", "Self-Mailer", "Spiral", "Envelope", "Card"]
+                      const foundType = typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
+
+                      return (
+                        <div key={i} className={cn("rounded-lg border bg-card p-3", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {isOHP && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
+                              <span className="text-xs font-semibold text-foreground truncate">{foundType}</span>
+                            </div>
+                            <span className="text-xs font-bold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(pc.amount)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                            {qtyStr && <span className="text-[10px] text-muted-foreground"><span className="font-medium text-foreground">{qtyStr}</span> pcs</span>}
+                            {sizeStr && <span className="text-[10px] text-muted-foreground">{sizeStr}</span>}
+                            {isOHP && vendorName && <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">{vendorName}</span>}
+                          </div>
+                          <p className="text-[9px] text-muted-foreground/60 mt-1 truncate">{label}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── ROW: Job Details + Postage Details (2 col) ── */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border border-border bg-card p-3">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Job Details</p>
@@ -699,38 +748,36 @@ function QuoteCard({
               </div>
             </div>
 
-            {/* ── ROW 2: Printing + List/Mail + Billing (3 col) ── */}
-            <div className="grid grid-cols-3 gap-3">
-              {/* PRINTING DETAILS */}
-              <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
-                <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-2">
-                  <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
-                    options={["In-House", "Out of House", "Both"]} />
-                  <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
-                </div>
-                {/* Vendor name: shown when OHP, auto-filled from bid */}
+            {/* ── ROW: Printing Details (full width) ── */}
+            <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
+              <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
+              <div className={cn("grid gap-x-4 gap-y-2 mb-2.5",
+                (meta.printed_by === "Out of House" || meta.printed_by === "Both") ? "grid-cols-3" : "grid-cols-2"
+              )}>
+                <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
+                  options={["In-House", "Out of House", "Both"]} />
                 {(meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
-                  <div className="mb-2">
-                    <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="e.g. PrintOut" onChange={(v) => updateMeta({ vendor_name: v })} />
-                  </div>
+                  <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="e.g. PrintOut" onChange={(v) => updateMeta({ vendor_name: v })} />
                 )}
-                <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
+                <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
               </div>
-              {/* LIST / MAIL STATUS */}
+              <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
+            </div>
+
+            {/* ── ROW: List/Mail + Billing (2 col) ── */}
+            <div className="grid grid-cols-2 gap-3">
               <div className={cn("rounded-lg border bg-card p-3 transition-colors", mailDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
                 <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", mailDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>List / Mail Status</p>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   <MetaCheck label="BCC Done" checked={!!meta.bcc_done} onChange={(c) => updateMeta({ bcc_done: c })} />
                   <MetaCheck label="Paperwork Done" checked={!!meta.paperwork_done} onChange={(c) => updateMeta({ paperwork_done: c })} />
                   <MetaCheck label="Folder Archived" checked={!!meta.folder_archived} onChange={(c) => updateMeta({ folder_archived: c })} />
                   <MetaCheck label="Job Mailed" checked={!!meta.job_mailed} onChange={(c) => updateMeta({ job_mailed: c })} bold />
                 </div>
               </div>
-              {/* BILLING STATUS */}
               <div className={cn("rounded-lg border bg-card p-3 transition-colors", billDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
                 <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", billDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Billing Status</p>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   <MetaCheck label="Invoice Updated" checked={!!meta.invoice_updated} onChange={(c) => updateMeta({ invoice_updated: c })} />
                   <MetaCheck label="Invoice Emailed" checked={!!meta.invoice_emailed} onChange={(c) => updateMeta({ invoice_emailed: c })} />
                   <MetaCheck label="Paid (Postage)" checked={!!meta.paid_postage} onChange={(c) => updateMeta({ paid_postage: c })} />
@@ -826,7 +873,7 @@ function ColumnSettings({ columns, onAdd, onRename, onDelete, onReorder, onClose
 
 /* ════════════════════════════════════════════════════
    QUOTE EDIT MODAL
-   ════════════════════════════════════════════════════ */
+   ════════════════════════���═══════════════════════════ */
 
 function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   quote: Quote; onClose: () => void; onSaved: () => void; onLoadIntoCalculator: (id: string) => void
