@@ -49,12 +49,11 @@ const fetcher = async (url: string) => {
   return json
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+function fmtDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-/* ---- Helpers ---- */
+/* ---- Search helper ---- */
 
 function matchesSearch(q: Quote, term: string): boolean {
   if (!term) return true
@@ -68,16 +67,12 @@ function matchesSearch(q: Quote, term: string): boolean {
     (q.quote_number ? `q-${q.quote_number}`.includes(s) : false) ||
     (q.quote_number ? `${q.quote_number}`.includes(s) : false) ||
     formatCurrency(q.total).toLowerCase().includes(s) ||
-    `${q.total}`.includes(s) ||
     (q.items || []).some(
-      (it) =>
-        it.label.toLowerCase().includes(s) ||
-        it.description.toLowerCase().includes(s)
+      (it) => it.label.toLowerCase().includes(s) || it.description.toLowerCase().includes(s)
     )
   )
 }
 
-/** Group line items by category for the expanded view */
 function groupByCategory(items: QuoteItem[]) {
   const groups: Record<string, { items: QuoteItem[]; total: number }> = {}
   for (const it of items) {
@@ -88,7 +83,9 @@ function groupByCategory(items: QuoteItem[]) {
   return groups
 }
 
-/* ---- Toggle Card (Apple-style) ---- */
+/* ================================================================
+   QUOTE CARD -- compact collapsed, expandable detail
+   ================================================================ */
 
 function QuoteCard({
   quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, boardType, isArchived,
@@ -103,95 +100,80 @@ function QuoteCard({
   boardType: "quote" | "job"
   isArchived?: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
-  const canMoveLeft = !isArchived && colIdx > 0
-  const canMoveRight = !isArchived && colIdx < columns.length - 1
+  const canL = !isArchived && colIdx > 0
+  const canR = !isArchived && colIdx < columns.length - 1
   const groups = useMemo(() => groupByCategory(quote.items || []), [quote.items])
-  const categoryKeys = Object.keys(groups) as QuoteCategory[]
-
-  // Determine current column name
-  const currentCol = columns.find((c) => c.id === quote.column_id)
+  const cats = Object.keys(groups) as QuoteCategory[]
 
   return (
     <div
-      draggable={!isArchived && !expanded}
+      draggable={!isArchived && !open}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", quote.id)
         e.dataTransfer.effectAllowed = "move"
-        ;(e.currentTarget as HTMLElement).style.opacity = "0.4"
+        ;(e.currentTarget as HTMLElement).style.opacity = "0.35"
       }}
-      onDragEnd={(e) => {
-        ;(e.currentTarget as HTMLElement).style.opacity = "1"
-      }}
-      className={`rounded-xl border border-border bg-card overflow-hidden transition-all ${
-        isArchived ? "opacity-60" : expanded ? "" : "cursor-grab active:cursor-grabbing"
-      } ${expanded ? "shadow-md" : "shadow-sm hover:shadow-md"}`}
+      onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1" }}
+      className={`group rounded-lg border bg-card transition-all ${
+        isArchived ? "opacity-50 border-border" : "border-border hover:border-foreground/15"
+      } ${open ? "shadow-md" : "shadow-sm"} ${!open && !isArchived ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
-      {/* ---- Collapsed Header (always visible) ---- */}
-      <div
-        className="flex items-start justify-between gap-2 px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-secondary/40"
-        onClick={() => setExpanded(!expanded)}
+      {/* -- Collapsed row -- */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-2.5 py-2 text-left select-none"
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <p className="text-[13px] font-semibold text-foreground truncate leading-tight">{quote.project_name}</p>
-          </div>
-          {quote.contact_name && (
-            <p className="text-[11px] text-muted-foreground truncate leading-tight">{quote.contact_name}</p>
-          )}
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          <p className="text-[12px] font-semibold text-foreground truncate leading-none">{quote.project_name}</p>
+          <div className="flex items-center gap-1.5 mt-1">
             {quote.quote_number && (
-              <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
+              <span className="text-[9px] font-mono text-muted-foreground/70">Q-{quote.quote_number}</span>
             )}
             {quote.reference_number && (
-              <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{quote.reference_number}</span>
+              <span className="text-[9px] font-mono text-muted-foreground/70">{quote.reference_number}</span>
             )}
-            {quote.mailing_date && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                <CalendarDays className="h-2.5 w-2.5" />
-                {formatDate(quote.mailing_date)}
-              </span>
+            {quote.contact_name && (
+              <span className="text-[9px] text-muted-foreground truncate">{quote.contact_name}</span>
             )}
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-              <Clock className="h-2.5 w-2.5" />
-              {formatDate(quote.updated_at)}
-            </span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
-          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
-        </div>
-      </div>
+        <span className="text-[12px] font-bold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(quote.total)}</span>
+        <ChevronDown className={`h-3 w-3 text-muted-foreground/40 transition-transform duration-150 shrink-0 ${open ? "rotate-180" : ""}`} />
+      </button>
 
-      {/* ---- Expanded Content ---- */}
-      <div
-        className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-      >
-        <div className="overflow-hidden">
-          <div className="border-t border-border bg-secondary/20 px-3 py-3 flex flex-col gap-2.5">
+      {/* -- Expanded detail -- */}
+      {open && (
+        <div className="border-t border-border">
+          <div className="px-2.5 py-2 flex flex-col gap-2">
+            {/* Meta row */}
+            <div className="flex items-center gap-3 text-[9px] text-muted-foreground">
+              {quote.mailing_date && (
+                <span className="flex items-center gap-0.5"><CalendarDays className="h-2.5 w-2.5" />{fmtDate(quote.mailing_date)}</span>
+              )}
+              <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" />{fmtDate(quote.updated_at)}</span>
+            </div>
 
-            {/* Info sections grid */}
-            {categoryKeys.length > 0 && (
-              <div className="grid grid-cols-2 gap-2">
-                {categoryKeys.map((cat) => {
+            {/* Category sections */}
+            {cats.length > 0 && (
+              <div className={`grid gap-1.5 ${cats.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                {cats.map((cat) => {
                   const g = groups[cat]
                   return (
-                    <div key={cat} className="bg-card border border-border rounded-lg p-2">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{getCategoryLabel(cat)}</span>
-                        <span className="text-[10px] font-mono font-semibold text-foreground tabular-nums">{formatCurrency(g.total)}</span>
+                    <div key={cat} className="rounded-md bg-secondary/50 px-2 py-1.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/60">{getCategoryLabel(cat)}</span>
+                        <span className="text-[9px] font-mono font-semibold text-foreground tabular-nums">{formatCurrency(g.total)}</span>
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        {g.items.map((it, i) => (
-                          <div key={i} className="flex items-baseline justify-between gap-1">
-                            <span className="text-[10px] text-muted-foreground truncate leading-tight">{it.label}</span>
-                            <span className="text-[10px] font-mono text-foreground tabular-nums shrink-0">{formatCurrency(it.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
+                      {g.items.map((it, i) => (
+                        <div key={i} className="flex items-baseline justify-between gap-1">
+                          <span className="text-[9px] text-muted-foreground truncate">{it.label}</span>
+                          <span className="text-[9px] font-mono text-foreground/70 tabular-nums shrink-0">{formatCurrency(it.amount)}</span>
+                        </div>
+                      ))}
                     </div>
                   )
                 })}
@@ -200,84 +182,82 @@ function QuoteCard({
 
             {/* Notes */}
             {quote.notes && (
-              <div className="bg-card border border-border rounded-lg p-2">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Notes</span>
-                <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3">{quote.notes}</p>
-              </div>
+              <p className="text-[9px] text-muted-foreground leading-relaxed line-clamp-2 px-0.5">{quote.notes}</p>
             )}
 
-            {/* Total bar */}
-            <div className="flex items-center justify-between px-1 pt-1 border-t border-border">
-              <span className="text-[11px] font-semibold text-foreground">Total</span>
-              <span className="text-[13px] font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
+            {/* Total */}
+            <div className="flex items-center justify-between border-t border-border pt-1.5">
+              <span className="text-[10px] font-semibold text-foreground">Total</span>
+              <span className="text-[12px] font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
             </div>
 
-            {/* Actions row */}
-            <div className="flex items-center justify-between pt-1">
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-0.5">
               {/* Move arrows */}
-              <div className="flex items-center gap-1">
-                {canMoveLeft && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx - 1].id) }}
-                    className="flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title={`Move to ${columns[colIdx - 1].title}`}
-                  >
-                    <ArrowLeft className="h-3 w-3" /> {columns[colIdx - 1].title}
+              <div className="flex items-center gap-0.5">
+                {canL && (
+                  <button onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx - 1].id) }}
+                    className="flex items-center gap-0.5 h-5 px-1.5 rounded text-[9px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                    <ArrowLeft className="h-2.5 w-2.5" />{columns[colIdx - 1].title}
                   </button>
                 )}
-                {canMoveRight && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx + 1].id) }}
-                    className="flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title={`Move to ${columns[colIdx + 1].title}`}
-                  >
-                    {columns[colIdx + 1].title} <ArrowRight className="h-3 w-3" />
+                {canR && (
+                  <button onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx + 1].id) }}
+                    className="flex items-center gap-0.5 h-5 px-1.5 rounded text-[9px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                    {columns[colIdx + 1].title}<ArrowRight className="h-2.5 w-2.5" />
                   </button>
                 )}
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-0.5">
+              {/* Action icons */}
+              <div className="flex items-center gap-px">
                 {isArchived && (
                   <button onClick={(e) => { e.stopPropagation(); onRestore(quote.id) }}
-                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title="Restore"><ArchiveRestore className="h-3 w-3" /></button>
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Restore">
+                    <ArchiveRestore className="h-2.5 w-2.5" />
+                  </button>
                 )}
                 {!isArchived && boardType === "quote" && onConvertToJob && (
                   <button onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title="Convert to Job"><Briefcase className="h-3 w-3" /></button>
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Convert to Job">
+                    <Briefcase className="h-2.5 w-2.5" />
+                  </button>
                 )}
                 <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
-                  className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  title="Edit"><Pencil className="h-3 w-3" /></button>
+                  className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Edit">
+                  <Pencil className="h-2.5 w-2.5" />
+                </button>
                 {!isArchived && (
                   <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
-                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                    title="Archive"><Archive className="h-3 w-3" /></button>
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Archive">
+                    <Archive className="h-2.5 w-2.5" />
+                  </button>
                 )}
-                {confirmDelete ? (
-                  <div className="flex items-center gap-1 ml-1">
+                {confirmDel ? (
+                  <div className="flex items-center gap-0.5 ml-0.5">
                     <button onClick={(e) => { e.stopPropagation(); onDelete(quote.id) }}
-                      className="h-6 px-2 text-[10px] font-semibold text-destructive-foreground bg-destructive rounded-md hover:bg-destructive/90">Delete</button>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(false) }}
-                      className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary">No</button>
+                      className="h-5 px-1.5 text-[9px] font-semibold text-destructive-foreground bg-destructive rounded hover:bg-destructive/90">Yes</button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(false) }}
+                      className="h-5 px-1.5 text-[9px] text-muted-foreground hover:text-foreground rounded hover:bg-secondary">No</button>
                   </div>
                 ) : (
-                  <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
-                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    title="Delete permanently"><Trash2 className="h-3 w-3" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDel(true) }}
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Delete">
+                    <Trash2 className="h-2.5 w-2.5" />
+                  </button>
                 )}
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-/* ---- Column Settings ---- */
+/* ================================================================
+   COLUMN SETTINGS
+   ================================================================ */
 
 function ColumnSettings({
   columns, onAdd, onRename, onDelete, onReorder, onClose,
@@ -287,47 +267,50 @@ function ColumnSettings({
   onDelete: (id: string) => void; onReorder: (ids: string[]) => void; onClose: () => void
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-foreground">Manage Columns</h3>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 text-xs">Done</Button>
+    <div className="rounded-xl border border-border bg-card p-3 mb-3 shrink-0">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-bold text-foreground">Manage Columns</h3>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-6 text-[10px]">Done</Button>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         {columns.map((col, idx) => (
-          <div key={col.id} className="flex items-center gap-2 py-1">
-            <div className="flex flex-col gap-0.5">
+          <div key={col.id} className="flex items-center gap-2 py-0.5">
+            <div className="flex flex-col gap-px">
               {idx > 0 && (
                 <button onClick={() => {
                   const ids = columns.map(c => c.id)
                   ;[ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]]
                   onReorder(ids)
-                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none">{"^"}</button>
+                }} className="text-muted-foreground hover:text-foreground text-[9px] leading-none">{"^"}</button>
               )}
               {idx < columns.length - 1 && (
                 <button onClick={() => {
                   const ids = columns.map(c => c.id)
                   ;[ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]]
                   onReorder(ids)
-                }} className="text-muted-foreground hover:text-foreground text-[10px] leading-none">{"v"}</button>
+                }} className="text-muted-foreground hover:text-foreground text-[9px] leading-none">{"v"}</button>
               )}
             </div>
-            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-            <Input defaultValue={col.title} onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }} className="h-7 text-xs flex-1" />
+            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+            <Input defaultValue={col.title} onBlur={(e) => { if (e.target.value !== col.title) onRename(col.id, e.target.value) }}
+              className="h-6 text-[10px] flex-1 px-1.5 rounded" />
             {columns.length > 1 && (
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(col.id)}><X className="h-3 w-3" /></Button>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                onClick={() => onDelete(col.id)}><X className="h-2.5 w-2.5" /></Button>
             )}
           </div>
         ))}
       </div>
-      <Button variant="outline" size="sm" className="mt-3 gap-1 text-xs h-7" onClick={onAdd}>
-        <Plus className="h-3 w-3" /> Add Column
+      <Button variant="outline" size="sm" className="mt-2 gap-1 text-[10px] h-6" onClick={onAdd}>
+        <Plus className="h-2.5 w-2.5" /> Add Column
       </Button>
     </div>
   )
 }
 
-/* ---- Quote Edit Modal ---- */
+/* ================================================================
+   QUOTE EDIT MODAL
+   ================================================================ */
 
 function QuoteEditModal({
   quote, onClose, onSaved, onLoadIntoCalculator,
@@ -380,7 +363,7 @@ function QuoteEditModal({
                 placeholder="Project / Client Name..." autoComplete="off" spellCheck={false} />
               <div className="flex items-center gap-2 mt-1.5">
                 {quote.quote_number && <Badge variant="secondary" className="text-xs font-mono">Q-{quote.quote_number}</Badge>}
-                <span className="text-xs text-muted-foreground">Updated {formatDate(quote.updated_at)}</span>
+                <span className="text-xs text-muted-foreground">Updated {fmtDate(quote.updated_at)}</span>
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={onClose} className="h-8 text-xs shrink-0">Close</Button>
@@ -467,7 +450,9 @@ function QuoteEditModal({
   )
 }
 
-/* ---- Droppable Column ---- */
+/* ================================================================
+   DROPPABLE COLUMN -- fixed height, independent scroll
+   ================================================================ */
 
 function DroppableColumn({
   col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, boardType,
@@ -481,58 +466,40 @@ function DroppableColumn({
   onConvertToJob?: (id: string) => void; boardType: "quote" | "job"
 }) {
   const [dragOver, setDragOver] = useState(false)
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-    setDragOver(true)
-  }, [])
-
-  const handleDragLeave = useCallback(() => {
-    setDragOver(false)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const quoteId = e.dataTransfer.getData("text/plain")
-    if (quoteId) {
-      onColumnChange(quoteId, col.id)
-    }
-  }, [col.id, onColumnChange])
-
   const colTotal = quotes.reduce((s, q) => s + Number(q.total), 0)
 
   return (
-    <div className="flex-1 min-w-[240px] flex flex-col gap-2">
+    <div className="flex flex-col min-w-[220px] w-[220px] shrink-0 lg:min-w-0 lg:w-auto lg:flex-1">
       {/* Column header */}
-      <div className="flex items-center justify-between px-1 h-8">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-          <span className="text-xs font-semibold text-foreground">{col.title}</span>
-          <span className="text-[10px] font-mono text-muted-foreground tabular-nums bg-secondary px-1.5 py-0.5 rounded">{quotes.length}</span>
+      <div className="flex items-center justify-between px-1 pb-1.5 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
+          <span className="text-[11px] font-semibold text-foreground">{col.title}</span>
+          <span className="text-[9px] font-mono text-muted-foreground/60 tabular-nums">{quotes.length}</span>
         </div>
-        <span className="text-[10px] font-mono text-muted-foreground tabular-nums">{formatCurrency(colTotal)}</span>
+        <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums">{formatCurrency(colTotal)}</span>
       </div>
 
-      {/* Column body (droppable) */}
+      {/* Scrollable card area */}
       <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`flex flex-col gap-2 min-h-[100px] p-1.5 rounded-xl border flex-1 overflow-y-auto transition-colors ${
-          dragOver
-            ? "bg-foreground/[0.02] border-foreground/20"
-            : "bg-secondary/20 border-transparent"
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault(); setDragOver(false)
+          const id = e.dataTransfer.getData("text/plain")
+          if (id) onColumnChange(id, col.id)
+        }}
+        className={`flex-1 flex flex-col gap-1.5 p-1 rounded-lg overflow-y-auto transition-colors ${
+          dragOver ? "bg-foreground/[0.03] ring-1 ring-foreground/10" : "bg-secondary/20"
         }`}
       >
         {quotes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center flex-1">
-            <p className="text-[11px] text-muted-foreground/50">{dragOver ? "Drop here" : "Empty"}</p>
+          <div className="flex items-center justify-center flex-1 min-h-[60px]">
+            <p className="text-[10px] text-muted-foreground/30">{dragOver ? "Drop here" : "Empty"}</p>
           </div>
         ) : (
-          quotes.map((quote) => (
-            <QuoteCard key={quote.id} quote={quote} columns={allColumns}
+          quotes.map((q) => (
+            <QuoteCard key={q.id} quote={q} columns={allColumns}
               onColumnChange={onColumnChange} onDelete={onDelete}
               onArchive={onArchive} onRestore={onRestore}
               onEdit={onEdit} onConvertToJob={onConvertToJob} boardType={boardType} />
@@ -543,7 +510,9 @@ function DroppableColumn({
   )
 }
 
-/* ---- Main Kanban Board ---- */
+/* ================================================================
+   MAIN KANBAN BOARD
+   ================================================================ */
 
 export function KanbanBoard({
   boardType = "quote",
@@ -684,58 +653,47 @@ export function KanbanBoard({
   const label = boardType === "job" ? "Job" : "Quote"
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
-      <div className="flex flex-col gap-2.5 mb-3 shrink-0">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-foreground shrink-0">
-            {boardType === "job" ? "Production Pipeline" : "Quote Pipeline"}
-          </h2>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowArchive(!showArchive)}
-              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors ${
-                showArchive ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Archive className="h-3 w-3" />
-              Archive{archiveCount > 0 && ` (${archiveCount})`}
-            </button>
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors ${
-                showSettings ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Settings2 className="h-3 w-3" />
-              Columns
-            </button>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <div className="flex items-center gap-2 mb-2 shrink-0">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
           <input
             type="search"
             placeholder={`Search ${label.toLowerCase()}s...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-8 pl-8 pr-8 rounded-lg bg-secondary/60 border-0 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full h-7 pl-7 pr-7 rounded-md bg-secondary/60 border-0 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X className="h-3 w-3" />
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-2.5 w-2.5" />
             </button>
           )}
         </div>
-
         {searchTerm && (
-          <p className="text-[10px] text-muted-foreground">
-            {filteredQuotes.length} active + {filteredArchived.length} archived match{filteredQuotes.length + filteredArchived.length !== 1 ? "es" : ""}
-          </p>
+          <span className="text-[9px] text-muted-foreground shrink-0">{filteredQuotes.length} found</span>
         )}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={() => setShowArchive(!showArchive)}
+            className={`flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium transition-colors ${
+              showArchive ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            }`}
+          >
+            <Archive className="h-2.5 w-2.5" />
+            {archiveCount > 0 && archiveCount}
+          </button>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium transition-colors ${
+              showSettings ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            }`}
+          >
+            <Settings2 className="h-2.5 w-2.5" />
+          </button>
+        </div>
       </div>
 
       {showSettings && (
@@ -745,16 +703,16 @@ export function KanbanBoard({
 
       {/* Archive drawer */}
       {showArchive && (
-        <div className="rounded-xl border border-border bg-secondary/30 p-3 mb-3 shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <Archive className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-semibold text-foreground">Archived {label}s</span>
-            <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{filteredArchived.length}</span>
+        <div className="rounded-lg border border-border bg-secondary/20 p-2 mb-2 shrink-0 max-h-[200px] overflow-y-auto">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Archive className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] font-semibold text-foreground">Archived</span>
+            <span className="text-[9px] font-mono text-muted-foreground">{filteredArchived.length}</span>
           </div>
           {filteredArchived.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground py-4 text-center">No archived {label.toLowerCase()}s{searchTerm ? " matching search" : ""}</p>
+            <p className="text-[9px] text-muted-foreground/50 py-3 text-center">No archived {label.toLowerCase()}s</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
               {filteredArchived.map((q) => (
                 <QuoteCard key={q.id} quote={q} columns={cols}
                   onColumnChange={handleColumnChange} onDelete={handleDelete}
@@ -768,9 +726,9 @@ export function KanbanBoard({
         </div>
       )}
 
-      {/* Board -- horizontal columns */}
-      <div className="overflow-x-auto flex-1 -mx-1 px-1">
-        <div className="flex gap-2.5 h-full" style={{ minWidth: `${Math.max(cols.length * 250, 300)}px` }}>
+      {/* ---- Board columns (fills remaining height, columns scroll independently) ---- */}
+      <div className="flex-1 min-h-0 overflow-x-auto">
+        <div className="flex gap-2 h-full">
           {cols.map((col) => {
             const colQuotes = filteredQuotes.filter((q) => q.column_id === col.id)
             return (
@@ -790,18 +748,18 @@ export function KanbanBoard({
         const unassigned = filteredQuotes.filter((q) => !q.column_id || !cols.some((c) => c.id === q.column_id))
         if (unassigned.length === 0) return null
         return (
-          <div className="mt-4 shrink-0">
-            <div className="flex items-center gap-2 mb-2 px-1">
-              <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-              <span className="text-xs font-semibold text-muted-foreground">Unassigned</span>
-              <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{unassigned.length}</span>
+          <div className="mt-2 shrink-0 max-h-[140px] overflow-y-auto">
+            <div className="flex items-center gap-1.5 mb-1 px-0.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+              <span className="text-[10px] font-semibold text-muted-foreground">Unassigned</span>
+              <span className="text-[9px] font-mono text-muted-foreground/50">{unassigned.length}</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {unassigned.map((quote) => (
-                <QuoteCard key={quote.id} quote={quote} columns={cols}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
+              {unassigned.map((q) => (
+                <QuoteCard key={q.id} quote={q} columns={cols}
                   onColumnChange={handleColumnChange} onDelete={handleDelete}
                   onArchive={handleArchive} onRestore={handleRestore}
-                  onEdit={(id) => { const q = unassigned.find((x) => x.id === id); if (q) setDetailQuote(q) }}
+                  onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                   boardType={boardType} />
               ))}

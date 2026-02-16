@@ -285,17 +285,16 @@ function AppContent() {
 
           {/* == QUOTES BOARD == */}
           {section === "quotes-board" && (
-            <div className="flex-1 flex flex-col min-h-0 overflow-auto">
-              <div className="px-4 sm:px-6 pt-5 pb-2 flex items-center justify-between shrink-0">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between shrink-0">
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight text-foreground">Quotes Board</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Track and manage your quotes through each stage.</p>
+                  <h1 className="text-lg font-bold tracking-tight text-foreground">Quotes</h1>
                 </div>
-                <Button onClick={handleNewJob} size="sm" className="gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-9 text-xs font-semibold">
+                <Button onClick={handleNewJob} size="sm" className="gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-8 text-xs font-semibold">
                   <Plus className="h-3.5 w-3.5" /> New Quote
                 </Button>
               </div>
-              <div className="flex-1 px-4 sm:px-6 pb-6 min-h-0 overflow-auto">
+              <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
                 <KanbanBoard boardType="quote" onLoadQuote={handleLoadQuote} />
               </div>
             </div>
@@ -303,14 +302,13 @@ function AppContent() {
 
           {/* == JOBS BOARD == */}
           {section === "jobs-board" && (
-            <div className="flex-1 flex flex-col min-h-0 overflow-auto">
-              <div className="px-4 sm:px-6 pt-5 pb-2 flex items-center justify-between shrink-0">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between shrink-0">
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight text-foreground">Jobs Board</h1>
-                  <p className="text-xs text-muted-foreground mt-0.5">Active jobs moving through production stages.</p>
+                  <h1 className="text-lg font-bold tracking-tight text-foreground">Jobs</h1>
                 </div>
               </div>
-              <div className="flex-1 px-4 sm:px-6 pb-6 min-h-0 overflow-auto">
+              <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
                 <KanbanBoard boardType="job" onLoadQuote={handleLoadQuote} />
               </div>
             </div>
