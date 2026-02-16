@@ -24,7 +24,7 @@ function describePiece(piece: MailPiece, qty: number) {
   const label = `${qty.toLocaleString()} - ${sizeStr} ${meta.label}${flatStr}`
   const parts: string[] = []
   if (piece.envelopeId && piece.envelopeId !== "custom") parts.push(piece.envelopeId)
-  const category = meta.calc === "booklet" ? "booklet" : meta.calc === "envelope" ? "envelope" : "flat"
+  const category = meta.calc === "booklet" ? "booklet" : meta.calc === "spiral" ? "spiral" : meta.calc === "perfect" ? "perfect" : meta.calc === "envelope" ? "envelope" : "flat"
   return { label, desc: parts.join(" | "), category }
 }
 
@@ -104,6 +104,10 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
       )
     } else if (meta.calc === "booklet") {
       match = quote.items.find((item) => item.category === "booklet" && hasDim(item.label))
+    } else if (meta.calc === "spiral") {
+      match = quote.items.find((item) => item.category === "spiral" && hasDim(item.label))
+    } else if (meta.calc === "perfect") {
+      match = quote.items.find((item) => item.category === "perfect" && hasDim(item.label))
     } else {
       // Flat printing
       match = quote.items.find((item) => item.category === "flat" && hasDim(item.label))

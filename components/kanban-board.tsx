@@ -252,7 +252,7 @@ function QuoteEditModal({
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
 
-  const ALL_CATS: QuoteCategory[] = ["flat", "booklet", "postage", "listwork"]
+  const ALL_CATS: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "postage", "listwork", "item", "ohp"]
   const total = editItems.reduce((s, i) => s + i.amount, 0)
   const catTotal = (cat: QuoteCategory) => editItems.filter((i) => i.category === cat).reduce((s, i) => s + i.amount, 0)
   const removeItem = (id: number) => setEditItems((prev) => prev.filter((i) => i.id !== id))
@@ -342,14 +342,22 @@ function QuoteEditModal({
             )
           })}
 
-          {catTotal("flat") > 0 && catTotal("booklet") > 0 && (
-            <div className="flex items-center justify-between px-1 pt-1 border-t border-dashed border-border">
-              <span className="text-xs font-medium text-foreground">All Printing</span>
-              <span className="text-xs font-mono font-medium text-foreground tabular-nums">
-                {formatCurrency(catTotal("flat") + catTotal("booklet"))}
-              </span>
-            </div>
-          )}
+          {(() => {
+            const printCats: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect"]
+            const printTotals = printCats.map(catTotal)
+            const activePrint = printTotals.filter(t => t > 0)
+            if (activePrint.length > 1) {
+              return (
+                <div className="flex items-center justify-between px-1 pt-1 border-t border-dashed border-border">
+                  <span className="text-xs font-medium text-foreground">All Printing</span>
+                  <span className="text-xs font-mono font-medium text-foreground tabular-nums">
+                    {formatCurrency(printTotals.reduce((a, b) => a + b, 0))}
+                  </span>
+                </div>
+              )
+            }
+            return null
+          })()}
 
           <Separator />
 

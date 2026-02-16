@@ -123,6 +123,7 @@ function AppContent() {
       case "printing": return <PrintingCalculator />
       case "booklet":  return <BookletCalculator />
       case "spiral":   return <SpiralCalculator />
+      case "perfect":  return <PerfectCalculator />
       case "ohp":      return <VendorBidTab />
       case "items":    return <ItemsTab />
     }

@@ -13,8 +13,12 @@ export async function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase environment variables. Check that NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set."
+    // Return a minimal client that will fail gracefully on queries
+    // instead of crashing the server in a loop during hot reloads
+    return createServerClient(
+      'https://placeholder.supabase.co',
+      'placeholder-key',
+      { cookies: { getAll() { return [] }, setAll() {} } },
     )
   }
 

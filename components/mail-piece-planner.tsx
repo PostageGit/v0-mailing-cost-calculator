@@ -16,7 +16,7 @@ import {
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 interface Contact { id: string; name: string; email?: string; phone?: string }
 
-const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "spiral_book", "self_mailer", "letter", "other"]
+const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "spiral_book", "perfect_bound", "self_mailer", "letter", "other"]
 
 export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   const m = useMailing()
@@ -37,6 +37,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   stepSummary.push("Postage", "Labor")
   if (m.needsPrinting) stepSummary.push("Printing")
   if (m.needsBooklet) stepSummary.push("Booklet")
+  if (m.needsSpiral) stepSummary.push("Spiral")
+  if (m.needsPerfect) stepSummary.push("Perfect")
   if (m.needsOHP) stepSummary.push("OHP")
   stepSummary.push("Items")
 
@@ -400,7 +402,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                         {piece.production !== "ohp" && (
                           <span className="flex items-center gap-1">
                             <Printer className="h-3 w-3" />
-                            {meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "envelope" ? "Envelope" : "OHP"}
+                            {meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "spiral" ? "Spiral Binding" : meta.calc === "perfect" ? "Perfect Binding" : meta.calc === "envelope" ? "Envelope" : "OHP"}
                           </span>
                         )}
                         {piece.production === "ohp" && <span className="flex items-center gap-1"><Send className="h-3 w-3" />Vendor bid</span>}
@@ -409,7 +411,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     </div>
 
                     {/* Per-piece: customer provides printing */}
-                    {["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet", "spiral_book"].includes(piece.type) && (
+                    {["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet", "spiral_book", "perfect_bound"].includes(piece.type) && (
                       <label className="flex items-center gap-2 cursor-pointer mt-1">
                         <input
                           type="checkbox"
