@@ -1,53 +1,39 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-/**
- * Especially important if using Fluid compute: Don't put this client in a
- * global variable. Always create a new client within each function when using
- * it.
- */
+// Helper to check if Supabase env vars are available
+export function supabaseReady() {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
 export async function createClient() {
-  const cookieStore = await cookies()
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    // Return a stub object that mimics the Supabase client interface.
-    // All queries will return empty data. This prevents the server
-    // from crashing when env vars aren't yet configured.
-    const stub = {
+  // When env vars are missing, return a safe stub that won't throw.
+  // This prevents the entire server from crashing during development
+  // or in v0 preview when Supabase isn't configured yet.
+  if (!supabaseReady()) {
+    const noop = () => stub
+    const stub: Record<string, unknown> = {
       from: () => stub,
-      select: () => stub,
-      insert: () => stub,
-      update: () => stub,
-      upsert: () => stub,
-      delete: () => stub,
-      eq: () => stub,
-      neq: () => stub,
-      single: () => stub,
-      order: () => stub,
-      limit: () => stub,
-      ilike: () => stub,
-      or: () => stub,
-      in: () => stub,
-      is: () => stub,
-      match: () => stub,
+      select: noop, insert: noop, update: noop, upsert: noop, delete: noop,
+      eq: noop, neq: noop, single: noop, order: noop, limit: noop,
+      ilike: noop, or: noop, in: noop, is: noop, match: noop, maybeSingle: noop,
       then: (resolve: (v: { data: null; error: { message: string } }) => void) =>
-        resolve({ data: null, error: { message: "Supabase not configured" } }),
+        Promise.resolve().then(() => resolve({ data: null, error: { message: 'Supabase not configured' } })),
       data: null,
-      error: { message: "Supabase not configured" },
+      error: { message: 'Supabase not configured' },
       auth: {
         getUser: async () => ({ data: { user: null }, error: null }),
         getSession: async () => ({ data: { session: null }, error: null }),
       },
     }
-    return stub as unknown as Awaited<ReturnType<typeof createServerClient>>
+    return stub as unknown as ReturnType<typeof createServerClient>
   }
 
+  const cookieStore = await cookies()
+
   return createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
@@ -60,8 +46,7 @@ export async function createClient() {
             )
           } catch {
             // The "setAll" method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // This can be ignored if you have middleware refreshing user sessions.
           }
         },
       },

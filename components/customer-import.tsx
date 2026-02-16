@@ -171,13 +171,16 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(batch),
         })
-        if (res.ok) {
-          const data = await res.json()
+        const data = await res.json()
+        console.log("[v0] Batch import response:", res.status, JSON.stringify(data).slice(0, 200))
+        if (res.ok && !data.error) {
           success += data.inserted || batch.length
         } else {
+          console.log("[v0] Batch failed:", data.error || res.statusText)
           errors += batch.length
         }
-      } catch {
+      } catch (err) {
+        console.log("[v0] Batch fetch error:", err)
         errors += batch.length
       }
     }

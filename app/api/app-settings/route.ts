@@ -1,9 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, supabaseReady } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-
-function supabaseReady() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-}
 
 export async function GET() {
   if (!supabaseReady()) return NextResponse.json({})
