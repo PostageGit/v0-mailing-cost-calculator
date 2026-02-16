@@ -407,6 +407,19 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                         {piece.production === "both" && <span className="flex items-center gap-1 ml-1">+ <Send className="h-3 w-3" />OHP</span>}
                       </span>
                     </div>
+
+                    {/* Per-piece: customer provides printing */}
+                    {["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet"].includes(piece.type) && (
+                      <label className="flex items-center gap-2 cursor-pointer mt-1">
+                        <input
+                          type="checkbox"
+                          checked={!!piece.customerProvidesPrinting}
+                          onChange={(e) => m.updatePiece(piece.id, { customerProvidesPrinting: e.target.checked })}
+                          className="h-3.5 w-3.5 rounded border-border accent-foreground cursor-pointer"
+                        />
+                        <span className="text-[11px] text-muted-foreground">Customer provides printing</span>
+                      </label>
+                    )}
                   </div>
 
                   {/* Remove button */}
@@ -420,14 +433,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
           })}
         </div>
 
-        {/* Customer provides printing checkbox */}
-        {m.pieces.length > 0 && (
-          <label className="flex items-center gap-3 cursor-pointer mt-4 pt-4 border-t border-border/60">
-            <input type="checkbox" checked={m.customerProvidesPrinting} onChange={(e) => m.setCustomerProvidesPrinting(e.target.checked)}
-              className="h-4 w-4 rounded border-border accent-foreground cursor-pointer" />
-            <span className="text-sm text-muted-foreground">Customer provides printing (skip printing step)</span>
-          </label>
-        )}
+
       </div>
 
       {/* ─── USPS Shape Qualification ─── */}

@@ -67,6 +67,7 @@ export interface MailPiece {
   production: ProductionRoute // how this piece will be produced
   envelopeId?: string        // if type=envelope, which standard size
   envelopeKind?: "paper" | "plastic" | ""
+  customerProvidesPrinting?: boolean  // per-piece: if true, skip printing calc for this item
   _suggested?: boolean       // true if size was auto-suggested and needs user verification
 }
 
@@ -99,9 +100,6 @@ interface MailingState {
   addPiece: (type: PieceType) => void
   removePiece: (id: string) => void
   updatePiece: (id: string, patch: Partial<Omit<MailPiece, "id">>) => void
-
-  // Toggles
-  customerProvidesPrinting: boolean; setCustomerProvidesPrinting: (v: boolean) => void
 
   // === DERIVED ===
   /** The outermost piece (position 1) -- determines USPS mail piece size */
@@ -137,7 +135,6 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
   const [pieces, setPieces] = useState<MailPiece[]>([])
-  const [customerProvidesPrinting, setCustomerProvidesPrinting] = useState(false)
 
   const addPiece = useCallback((type: PieceType) => {
     _counter++
@@ -194,7 +191,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const ohpOrBoth = pieces.filter((p) => p.production === "ohp" || p.production === "both")
 
   const needsEnvelope = inhouseOrBoth.some((p) => p.type === "envelope")
-  const needsPrinting = !customerProvidesPrinting && inhouseOrBoth.some((p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
+  const needsPrinting = inhouseOrBoth.some((p) => !p.customerProvidesPrinting && ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
   const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
   const needsOHP = ohpOrBoth.length > 0
 
@@ -210,7 +207,6 @@ export function MailingProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{
       quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName,
       pieces, setPieces, addPiece, removePiece, updatePiece,
-      customerProvidesPrinting, setCustomerProvidesPrinting,
       outerPiece, mailerWidth, mailerHeight,
       needsEnvelope, needsPrinting, needsBooklet, needsOHP,
       outerWidth: mailerWidth, outerHeight: mailerHeight, setOuterWidth, setOuterHeight,
