@@ -3,15 +3,13 @@
 import { useState, useCallback } from "react"
 import useSWR from "swr"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
   X, Plus, Loader2, Trophy, Send, Factory, ChevronDown, ChevronUp,
-  Check, ShoppingCart, Truck, Printer, BookOpen, Mail, Package, Zap,
+  Check, ShoppingCart, Truck, Zap, Hash,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 import { useQuote } from "@/lib/quote-context"
@@ -20,60 +18,35 @@ import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-/** Build a human-readable description from a planner piece */
-function describePiece(piece: MailPiece, qty: number): { label: string; desc: string; category: string } {
+function describePiece(piece: MailPiece, qty: number) {
   const meta = PIECE_TYPE_META[piece.type]
   const flat = getFlatSize(piece)
   const sizeStr = piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : ""
-  const flatStr = flat.w && flat.h && (flat.w !== piece.width || flat.h !== piece.height)
-    ? ` (flat: ${flat.w}" x ${flat.h}")` : ""
-
+  const flatStr = flat.w && flat.h && (flat.w !== piece.width || flat.h !== piece.height) ? ` (flat: ${flat.w}" x ${flat.h}")` : ""
   const label = `${qty.toLocaleString()} - ${sizeStr} ${meta.label}${flatStr}`
-
   const parts: string[] = []
   if (piece.foldType && piece.foldType !== "none") parts.push(`Fold: ${piece.foldType}`)
   if (piece.envelopeKind) parts.push(`Kind: ${piece.envelopeKind}`)
   if (piece.envelopeId && piece.envelopeId !== "custom") parts.push(`Size: ${piece.envelopeId}`)
-
   const category = meta.calc === "booklet" ? "booklet" : meta.calc === "envelope" ? "envelope" : "flat"
   return { label, desc: parts.join(" | "), category }
 }
 
-// Type tag icons + colors
-const TYPE_CONFIG: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
-  flat:     { icon: <Printer className="h-3 w-3" />,  label: "Flat Print",    color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  booklet:  { icon: <BookOpen className="h-3 w-3" />, label: "Saddle Stitch", color: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
-  envelope: { icon: <Mail className="h-3 w-3" />,     label: "Envelope",      color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-  item:     { icon: <Package className="h-3 w-3" />,  label: "Item",          color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
-  other:    { icon: <Send className="h-3 w-3" />,     label: "Other",         color: "bg-secondary text-muted-foreground border-border" },
-}
-
-interface Props {
-  quoteId: string
-  onClose?: () => void
-  inline?: boolean
-}
+interface Props { quoteId: string; onClose?: () => void; inline?: boolean }
 
 export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
-  const { data: bids, isLoading, mutate: mutateBids } = useSWR<VendorBid[]>(
-    `/api/vendor-bids?quote_id=${quoteId}`, fetcher
-  )
+  const { data: bids, isLoading, mutate: mutateBids } = useSWR<VendorBid[]>(`/api/vendor-bids?quote_id=${quoteId}`, fetcher)
   const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
   const mailing = useMailing()
+  const quote = useQuote()
 
-  // OHP pieces from planner
-  const ohpPieces = mailing.pieces.filter(
-    (p) => p.production === "ohp" || p.production === "both"
-  )
-
-  // Track which planner pieces already have bids (match by label prefix)
+  const ohpPieces = mailing.pieces.filter((p) => p.production === "ohp" || p.production === "both")
+  const bothPieces = mailing.pieces.filter((p) => p.production === "both")
   const existingBidLabels = new Set(bids?.map((b) => b.item_label) ?? [])
 
-  // New bid form
   const [showNew, setShowNew] = useState(false)
   const [newLabel, setNewLabel] = useState("")
   const [newDesc, setNewDesc] = useState("")
-  const [newType, setNewType] = useState("flat")
   const [creating, setCreating] = useState(false)
   const [creatingPieceId, setCreatingPieceId] = useState<string | null>(null)
 
@@ -84,205 +57,199 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     await fetch("/api/vendor-bids", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        quote_id: quoteId,
-        item_label: finalLabel,
-        item_description: desc || newDesc.trim() || null,
-        item_category: category || newType,
-      }),
+      body: JSON.stringify({ quote_id: quoteId, item_label: finalLabel, item_description: desc || newDesc.trim() || null, item_category: category || "flat" }),
     })
     setNewLabel(""); setNewDesc(""); setShowNew(false)
-    mutateBids()
-    setCreating(false)
-    setCreatingPieceId(null)
+    mutateBids(); setCreating(false); setCreatingPieceId(null)
   }
 
-  // Quick-create a bid from a planner piece
   const createBidFromPiece = async (piece: MailPiece) => {
     setCreatingPieceId(piece.id)
     const { label, desc, category } = describePiece(piece, mailing.quantity)
     await createBid(label, desc, category)
   }
 
-  const content = (
-    <CardContent className="flex flex-col gap-4">
+  // Get in-house cost for a "Both" piece from the quote items (flat/booklet categories)
+  const getInhouseCost = (piece: MailPiece): number | null => {
+    const meta = PIECE_TYPE_META[piece.type]
+    const cat = meta.calc === "booklet" ? "booklet" : "flat"
+    const sizeStr = piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : ""
+    const match = quote.items.find((i) => i.category === cat && i.label.includes(sizeStr))
+    return match ? match.amount : null
+  }
+
+  const inner = (
+    <div className="flex flex-col gap-3">
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
+        <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
       ) : (
         <>
+          {/* Active bids */}
           {bids?.map((bid) => (
             <BidCard key={bid.id} bid={bid} vendors={vendors ?? []} onUpdate={() => mutateBids()} />
           ))}
 
-          {/* ── Auto-detect from planner ── */}
+          {/* OHP pieces from planner */}
           {ohpPieces.length > 0 && (
-            <div className="rounded-2xl border border-border bg-secondary/20 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="h-7 w-7 rounded-lg bg-foreground/5 flex items-center justify-center">
-                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-foreground">OHP Pieces from Planner</p>
-                  <p className="text-[10px] text-muted-foreground">Click to create a bid with specs pre-filled</p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                {ohpPieces.map((piece) => {
-                  const meta = PIECE_TYPE_META[piece.type]
-                  const { label, desc } = describePiece(piece, mailing.quantity)
-                  const alreadyCreated = existingBidLabels.has(label)
-                  const isCreating = creatingPieceId === piece.id
-                  return (
-                    <button
-                      key={piece.id}
-                      type="button"
-                      disabled={alreadyCreated || isCreating}
-                      onClick={() => createBidFromPiece(piece)}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                        alreadyCreated
-                          ? "border-border bg-secondary/30 opacity-50 cursor-default"
-                          : "border-border bg-card hover:border-foreground/30 hover:shadow-sm cursor-pointer"
-                      }`}
-                    >
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${meta.color}`}>{meta.short}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{label}</p>
-                        {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
-                      </div>
-                      {alreadyCreated ? (
-                        <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                          <Check className="h-3 w-3" /> Created
-                        </span>
-                      ) : isCreating ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <span className="text-[10px] font-semibold text-foreground bg-foreground/5 px-2.5 py-1 rounded-lg">
-                          Create Bid
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="rounded-xl border border-dashed border-border p-3">
+              <p className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Zap className="h-3 w-3" /> Planner Pieces
+              </p>
+              {ohpPieces.map((piece) => {
+                const meta = PIECE_TYPE_META[piece.type]
+                const { label } = describePiece(piece, mailing.quantity)
+                const exists = existingBidLabels.has(label)
+                const busy = creatingPieceId === piece.id
+                const inhouseCost = piece.production === "both" ? getInhouseCost(piece) : null
+                return (
+                  <div key={piece.id} className="flex items-center gap-2 py-1.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
+                    <span className="text-xs font-medium text-foreground flex-1 min-w-0 truncate">{label}</span>
+                    {inhouseCost != null && (
+                      <span className="text-[10px] text-muted-foreground font-mono shrink-0">in-house {formatCurrency(inhouseCost)}</span>
+                    )}
+                    {exists ? (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0"><Check className="h-3 w-3" /> Done</span>
+                    ) : busy ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                    ) : (
+                      <button onClick={() => createBidFromPiece(piece)}
+                        className="text-[10px] font-bold text-foreground bg-secondary hover:bg-secondary/80 px-2 py-0.5 rounded-md shrink-0 transition-colors">
+                        + Bid
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
+          )}
+
+          {/* "Both" comparison */}
+          {bothPieces.length > 0 && bids && bids.length > 0 && (
+            <ComparisonTable pieces={bothPieces} bids={bids} vendors={vendors ?? []} quote={quote} qty={mailing.quantity} />
           )}
 
           {(!bids || bids.length === 0) && ohpPieces.length === 0 && !showNew && (
-            <div className="flex flex-col items-center py-10 text-center">
-              <div className="rounded-2xl bg-secondary p-4 mb-4">
-                <Send className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium text-foreground">No OHP pieces defined</p>
-              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                Mark pieces as "OHP" or "Both" in the Planner to auto-generate bid requests, or create one manually below.
-              </p>
+            <div className="text-center py-8">
+              <Send className="h-5 w-5 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-sm font-medium text-muted-foreground">No OHP pieces yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Mark pieces as OHP in the Planner, or add manually.</p>
             </div>
           )}
 
-          {/* Manual new bid form (for "Other" type items) */}
           {showNew && (
-            <div className="rounded-2xl border border-border bg-secondary/30 p-5 flex flex-col gap-4">
-              <h4 className="text-sm font-semibold text-foreground">Manual Bid Request</h4>
-
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-2 block">Job Type</label>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setNewType(key)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
-                        newType === key
-                          ? "bg-foreground text-background border-foreground"
-                          : "bg-card border-border text-muted-foreground hover:border-foreground/20"
-                      }`}
-                    >
-                      {cfg.icon} {cfg.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-foreground mb-1 block">Job Description *</label>
-                  <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
-                    placeholder='e.g. 8.5x11 Tri-Fold Brochure, 5000 qty' className="h-10 text-sm rounded-xl" autoFocus />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-foreground mb-1 block">Details / Specs</label>
-                  <Input value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
-                    placeholder="Paper stock, colors, finishing, etc." className="h-10 text-sm rounded-xl" />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <Button onClick={() => createBid()} disabled={creating || !newLabel.trim()}
-                  className="gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90">
-                  <Plus className="h-4 w-4" /> {creating ? "Creating..." : "Create Bid"}
-                </Button>
-                <Button variant="ghost" onClick={() => setShowNew(false)} className="rounded-full">Cancel</Button>
+            <div className="rounded-xl border border-border p-3 flex flex-col gap-2">
+              <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="Job description..." className="h-9 text-sm rounded-lg" autoFocus />
+              <Input value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
+                placeholder="Paper, colors, finishing..." className="h-9 text-sm rounded-lg" />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => createBid()} disabled={creating || !newLabel.trim()}
+                  className="gap-1.5 rounded-lg h-8 text-xs"><Plus className="h-3 w-3" /> Create</Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowNew(false)} className="rounded-lg h-8 text-xs">Cancel</Button>
               </div>
             </div>
           )}
 
           {!showNew && (
             <button onClick={() => setShowNew(true)}
-              className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border-2 border-dashed border-border text-sm font-medium text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all">
-              <Plus className="h-4 w-4" /> Manual Bid Request
+              className="w-full flex items-center justify-center gap-1.5 h-9 rounded-xl border border-dashed border-border text-xs font-medium text-muted-foreground hover:border-foreground/20 hover:text-foreground transition-all">
+              <Plus className="h-3 w-3" /> Manual Bid
             </button>
           )}
         </>
       )}
-    </CardContent>
+    </div>
   )
 
   if (inline) {
     return (
-      <Card className="w-full border-border rounded-2xl overflow-hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold text-foreground">Out of House Production</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Build job descriptions, get vendor prices, mark up and add to your quote.
-          </p>
-        </CardHeader>
-        {content}
-      </Card>
+      <div className="w-full">
+        <div className="mb-4">
+          <h3 className="text-base font-bold text-foreground">Out of House Production</h3>
+          <p className="text-sm text-muted-foreground">Compare vendor prices, mark up, and add to quote.</p>
+        </div>
+        {inner}
+      </div>
     )
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-foreground/10 backdrop-blur-sm flex items-start justify-center p-4 pt-[4vh] overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
-      <Card className="w-full max-w-3xl border-border rounded-2xl overflow-hidden shadow-2xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-semibold text-foreground">Out of House Production</CardTitle>
-              <p className="text-sm text-muted-foreground">Compare vendor prices and push to quote.</p>
-            </div>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary transition-colors" aria-label="Close">
-              <X className="h-4 w-4 text-muted-foreground" />
-            </button>
+      <div className="w-full max-w-3xl rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h3 className="text-base font-bold text-foreground">Out of House Production</h3>
+            <p className="text-sm text-muted-foreground">Compare vendor prices and push to quote.</p>
           </div>
-        </CardHeader>
-        {content}
-      </Card>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-secondary"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-5">{inner}</div>
+      </div>
     </div>
   )
 }
 
-/* ════════════════════════════════════════════════════════════════
-   BidCard -- The core OHP experience per bid
-   ════════════════════════════════════════════════════════════════ */
+/* ═══ Comparison Table for "Both" pieces ═══ */
+function ComparisonTable({ pieces, bids, vendors, quote, qty }: {
+  pieces: MailPiece[]; bids: VendorBid[]; vendors: Vendor[]; quote: ReturnType<typeof useQuote>; qty: number
+}) {
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <div className="bg-secondary/30 px-3 py-2 border-b border-border">
+        <p className="text-xs font-bold text-foreground">In-House vs OHP Comparison</p>
+      </div>
+      <div className="divide-y divide-border">
+        {pieces.map((piece) => {
+          const meta = PIECE_TYPE_META[piece.type]
+          const { label } = describePiece(piece, qty)
+          const cat = meta.calc === "booklet" ? "booklet" : "flat"
+          const sizeStr = piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : ""
+          const inhouseItem = quote.items.find((i) => i.category === cat && i.label.includes(sizeStr))
+          const inhouseCost = inhouseItem?.amount ?? null
+
+          // Find matching bid
+          const matchBid = bids.find((b) => b.item_label === label)
+          const ohpCost = matchBid?.winning_price != null ? Number(matchBid.winning_price) : null
+          const winVendor = matchBid?.winning_vendor_id ? vendors.find((v) => v.id === matchBid.winning_vendor_id) : null
+          const pickup = winVendor?.pickup_cost ?? 100
+          const ohpTotal = ohpCost != null ? ohpCost + pickup : null
+
+          const cheaper = inhouseCost != null && ohpTotal != null
+            ? inhouseCost < ohpTotal ? "inhouse" : ohpTotal < inhouseCost ? "ohp" : "tie"
+            : null
+
+          return (
+            <div key={piece.id} className="px-3 py-2.5 grid grid-cols-[1fr_auto_auto] gap-3 items-center">
+              <div className="min-w-0">
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${meta.color} mr-1.5`}>{meta.short}</span>
+                <span className="text-xs font-medium text-foreground">{sizeStr} {meta.label}</span>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">In-House</p>
+                <p className={`text-sm font-mono font-bold tabular-nums ${cheaper === "inhouse" ? "text-emerald-600" : "text-foreground"}`}>
+                  {inhouseCost != null ? formatCurrency(inhouseCost) : "--"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">OHP{ohpCost != null ? ` +${formatCurrency(pickup)} pickup` : ""}</p>
+                <p className={`text-sm font-mono font-bold tabular-nums ${cheaper === "ohp" ? "text-emerald-600" : "text-foreground"}`}>
+                  {ohpTotal != null ? formatCurrency(ohpTotal) : "--"}
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ═══ BidCard -- compact bid with inline vendor rows ═══ */
 function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]; onUpdate: () => void }) {
   const quote = useQuote()
-  const { data: prices, mutate: mutatePrices } = useSWR<VendorBidPrice[]>(
-    `/api/vendor-bids/${bid.id}/prices`, fetcher
-  )
+  const { data: prices, mutate: mutatePrices } = useSWR<VendorBidPrice[]>(`/api/vendor-bids/${bid.id}/prices`, fetcher)
   const [expanded, setExpanded] = useState(true)
   const [addingVendor, setAddingVendor] = useState(false)
   const [selectedVendorId, setSelectedVendorId] = useState("")
@@ -294,50 +261,27 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
   const availableVendors = vendors.filter((v) => !existingVendorIds.has(v.id))
 
   const addVendor = async () => {
-    if (!selectedVendorId) return
-    setSaving(true)
-    await fetch(`/api/vendor-bids/${bid.id}/prices`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vendor_id: selectedVendorId }),
-    })
-    setSelectedVendorId(""); setAddingVendor(false)
-    mutatePrices(); setSaving(false)
+    if (!selectedVendorId) return; setSaving(true)
+    await fetch(`/api/vendor-bids/${bid.id}/prices`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vendor_id: selectedVendorId }) })
+    setSelectedVendorId(""); setAddingVendor(false); mutatePrices(); setSaving(false)
   }
 
-  const updatePrice = async (priceId: string, price: number | null) => {
+  const updatePrice = async (priceId: string, price: number | null, quoteNum?: string) => {
     await fetch(`/api/bid-prices/${priceId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        price,
-        status: price != null ? "received" : "pending",
-        responded_at: price != null ? new Date().toISOString() : null,
-      }),
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price, notes: quoteNum || null, status: price != null ? "received" : "pending", responded_at: price != null ? new Date().toISOString() : null }),
     })
     mutatePrices()
   }
 
   const awardBid = async (vendorId: string, price: number) => {
-    await fetch(`/api/vendor-bids/${bid.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "awarded", winning_vendor_id: vendorId, winning_price: price }),
-    })
+    await fetch(`/api/vendor-bids/${bid.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "awarded", winning_vendor_id: vendorId, winning_price: price }) })
     onUpdate()
   }
 
-  const removePrice = async (priceId: string) => {
-    await fetch(`/api/bid-prices/${priceId}`, { method: "DELETE" })
-    mutatePrices()
-  }
+  const removePrice = async (priceId: string) => { await fetch(`/api/bid-prices/${priceId}`, { method: "DELETE" }); mutatePrices() }
+  const deleteBid = async () => { await fetch(`/api/vendor-bids/${bid.id}`, { method: "DELETE" }); onUpdate() }
 
-  const deleteBid = async () => {
-    await fetch(`/api/vendor-bids/${bid.id}`, { method: "DELETE" })
-    onUpdate()
-  }
-
-  // Push to quote
   const handlePushToQuote = useCallback(() => {
     if (bid.winning_price == null || !bid.winning_vendor_id) return
     const winVendor = vendors.find((v) => v.id === bid.winning_vendor_id)
@@ -345,18 +289,10 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
     const base = Number(bid.winning_price)
     const markedUp = base * (1 + markupPct / 100)
     const customerTotal = markedUp + pickupCost
-
-    quote.addItem({
-      category: "ohp",
-      label: `OHP: ${bid.item_label}`,
-      description: bid.item_description || "",
-      amount: customerTotal,
-    })
-    setPushed(true)
-    setTimeout(() => setPushed(false), 2500)
+    quote.addItem({ category: "ohp", label: `OHP: ${bid.item_label}`, description: `Vendor: ${winVendor?.company_name ?? "Unknown"} | Markup: ${markupPct}%`, amount: customerTotal })
+    setPushed(true); setTimeout(() => setPushed(false), 2500)
   }, [bid, vendors, markupPct, quote])
 
-  // Price calculations
   const receivedPrices = prices?.filter((p) => p.price != null) ?? []
   const cheapestPrice = receivedPrices.length > 0 ? Math.min(...receivedPrices.map((p) => Number(p.price))) : null
   const winVendor = bid.winning_vendor_id ? vendors.find((v) => v.id === bid.winning_vendor_id) : null
@@ -365,46 +301,37 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
   const markedUpPrice = basePrice * (1 + markupPct / 100)
   const customerTotal = markedUpPrice + pickupCost
 
-  const typeCfg = TYPE_CONFIG[bid.item_category] ?? TYPE_CONFIG.other
-
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      {/* Header -- type tag, job name, description, collapse */}
-      <button className="w-full flex items-start gap-3 p-4 text-left hover:bg-secondary/30 transition-colors"
+    <div className="rounded-xl border border-border overflow-hidden">
+      {/* Header row -- tight, everything visible */}
+      <button className="w-full flex items-center gap-2 px-3 py-2.5 text-left bg-secondary/20 hover:bg-secondary/40 transition-colors"
         onClick={() => setExpanded(!expanded)}>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <Badge variant="outline" className={`text-[10px] gap-1 border ${typeCfg.color}`}>
-              {typeCfg.icon} {typeCfg.label}
-            </Badge>
-            {bid.status === "awarded" && (
-              <Badge variant="outline" className="text-[10px] gap-1 border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
-                <Trophy className="h-2.5 w-2.5" /> Awarded
-              </Badge>
-            )}
-          </div>
-          <p className="text-sm font-semibold text-foreground leading-tight">{bid.item_label}</p>
-          {bid.item_description && (
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{bid.item_description}</p>
-          )}
-          {bid.winning_price != null && winVendor && (
-            <p className="text-xs font-medium text-foreground mt-1.5">
-              Winner: {winVendor.company_name} at {formatCurrency(basePrice)}
-            </p>
-          )}
+          <p className="text-sm font-bold text-foreground leading-tight truncate">{bid.item_label}</p>
+          {bid.item_description && <p className="text-xs text-muted-foreground truncate mt-0.5">{bid.item_description}</p>}
         </div>
-        <div className="flex items-center gap-2 pt-1 shrink-0">
-          <span className="text-xs text-muted-foreground tabular-nums">{prices?.length ?? 0}</span>
-          <Factory className="h-3.5 w-3.5 text-muted-foreground" />
-          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </div>
+        {bid.status === "awarded" && winVendor && (
+          <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 shrink-0">
+            <Trophy className="h-3 w-3" /> {winVendor.company_name} {formatCurrency(basePrice)}
+          </span>
+        )}
+        <span className="text-[10px] text-muted-foreground shrink-0">{prices?.length ?? 0} vendor{(prices?.length ?? 0) !== 1 ? "s" : ""}</span>
+        {expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
       </button>
 
       {expanded && (
-        <div className="border-t border-border px-4 pb-4 pt-3 flex flex-col gap-4">
-          {/* ── Vendor price grid ── */}
-          {prices && prices.length > 0 ? (
-            <div className="flex flex-col gap-2">
+        <div className="border-t border-border">
+          {/* Vendor price table -- tight grid */}
+          {prices && prices.length > 0 && (
+            <div className="divide-y divide-border/50">
+              {/* Table header */}
+              <div className="grid grid-cols-[1fr_80px_80px_80px_auto] gap-2 px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-secondary/10">
+                <span>Vendor</span>
+                <span className="text-right">Quote #</span>
+                <span className="text-right">Price</span>
+                <span className="text-right">Customer</span>
+                <span className="w-16"></span>
+              </div>
               {prices.map((p) => {
                 const vendor = vendors.find((v) => v.id === p.vendor_id)
                 const vendorName = vendor?.company_name ?? "Unknown"
@@ -412,100 +339,60 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
                 const isCheapest = p.price != null && Number(p.price) === cheapestPrice
                 const isWinner = bid.winning_vendor_id === p.vendor_id
                 return (
-                  <VendorPriceRow
-                    key={p.id}
-                    entry={p}
-                    vendorName={vendorName}
-                    pickupCost={vPickup}
-                    isCheapest={isCheapest}
-                    isWinner={isWinner}
-                    bidAwarded={bid.status === "awarded"}
-                    markupPct={markupPct}
-                    onUpdatePrice={updatePrice}
-                    onAward={(price) => awardBid(p.vendor_id, price)}
-                    onRemove={() => removePrice(p.id)}
-                  />
+                  <VendorRow key={p.id} entry={p} vendorName={vendorName} pickupCost={vPickup}
+                    isCheapest={isCheapest} isWinner={isWinner} bidAwarded={bid.status === "awarded"}
+                    markupPct={markupPct} onUpdatePrice={updatePrice}
+                    onAward={(price) => awardBid(p.vendor_id, price)} onRemove={() => removePrice(p.id)} />
                 )
               })}
             </div>
-          ) : (
-            <p className="text-xs text-muted-foreground text-center py-3">Add vendors to compare prices.</p>
           )}
 
-          {/* ── Markup + Push to Quote ── */}
+          {/* Award block */}
           {bid.status === "awarded" && bid.winning_price != null && (
-            <div className="rounded-2xl bg-foreground p-4 flex flex-col gap-3 text-background">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold flex items-center gap-1.5">
-                  <ShoppingCart className="h-3.5 w-3.5" /> Customer Price
-                </span>
-                <span className="text-lg font-bold font-mono tabular-nums">{formatCurrency(customerTotal)}</span>
+            <div className="bg-foreground text-background px-3 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-4 text-xs">
+                  <span>Vendor: <strong className="font-mono">{formatCurrency(basePrice)}</strong></span>
+                  <span className="flex items-center gap-1">
+                    Markup:
+                    <input type="number" step="1" min="0" max="200" value={markupPct}
+                      onChange={(e) => setMarkupPct(parseFloat(e.target.value) || 0)}
+                      className="w-12 h-6 text-xs text-center rounded bg-background/10 border border-background/20 text-background font-mono" />%
+                  </span>
+                  <span>Pickup: <strong className="font-mono">{formatCurrency(pickupCost)}</strong></span>
+                </div>
+                <span className="text-lg font-black font-mono tabular-nums">{formatCurrency(customerTotal)}</span>
               </div>
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div>
-                  <span className="text-background/50 text-[10px]">Vendor Price</span>
-                  <p className="font-mono font-semibold tabular-nums">{formatCurrency(basePrice)}</p>
-                </div>
-                <div>
-                  <span className="text-background/50 text-[10px]">Markup %</span>
-                  <Input
-                    type="number" step="1" min="0" max="200" value={markupPct}
-                    onChange={(e) => setMarkupPct(parseFloat(e.target.value) || 0)}
-                    className="h-7 text-xs w-16 rounded-lg bg-background/10 border-background/20 text-background mt-0.5"
-                  />
-                </div>
-                <div>
-                  <span className="text-background/50 text-[10px] flex items-center gap-1"><Truck className="h-2.5 w-2.5" /> Pickup</span>
-                  <p className="font-mono font-semibold tabular-nums">{formatCurrency(pickupCost)}</p>
-                </div>
-              </div>
-              <button
-                onClick={handlePushToQuote}
-                disabled={pushed}
-                className="w-full h-10 rounded-full bg-background text-foreground text-sm font-semibold flex items-center justify-center gap-2 hover:bg-background/90 disabled:opacity-50 transition-all"
-              >
-                {pushed
-                  ? <><Check className="h-4 w-4" /> Added to Quote</>
-                  : <><ShoppingCart className="h-4 w-4" /> Add to Quote -- {formatCurrency(customerTotal)}</>
-                }
+              <button onClick={handlePushToQuote} disabled={pushed}
+                className="w-full h-9 rounded-lg bg-background text-foreground text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-background/90 disabled:opacity-50 transition-all">
+                {pushed ? <><Check className="h-3.5 w-3.5" /> Added</> : <><ShoppingCart className="h-3.5 w-3.5" /> Add to Quote -- {formatCurrency(customerTotal)}</>}
               </button>
             </div>
           )}
 
-          {/* ── Add vendor row ── */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Add vendor + delete */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-secondary/5">
             {addingVendor ? (
               <>
                 <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                  <SelectTrigger className="h-9 text-xs w-52 rounded-xl"><SelectValue placeholder="Select vendor..." /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs w-44 rounded-lg"><SelectValue placeholder="Select vendor..." /></SelectTrigger>
                   <SelectContent>
-                    {availableVendors.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        <span className="flex items-center gap-2">
-                          {v.company_name}
-                          <span className="text-muted-foreground text-[10px]">pickup {formatCurrency(v.pickup_cost ?? 100)}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                    {availableVendors.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">All vendors added</div>
-                    )}
+                    {availableVendors.map((v) => (<SelectItem key={v.id} value={v.id}>{v.company_name}</SelectItem>))}
+                    {availableVendors.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">All vendors added</div>}
                   </SelectContent>
                 </Select>
-                <Button size="sm" onClick={addVendor} disabled={saving || !selectedVendorId}
-                  className="h-9 gap-1.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-xs">
-                  <Plus className="h-3 w-3" /> {saving ? "Adding..." : "Add"}
+                <Button size="sm" onClick={addVendor} disabled={saving || !selectedVendorId} className="h-8 gap-1 rounded-lg text-xs">
+                  <Plus className="h-3 w-3" /> Add
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setAddingVendor(false)} className="h-9 rounded-full text-xs">Cancel</Button>
+                <Button size="sm" variant="ghost" onClick={() => setAddingVendor(false)} className="h-8 rounded-lg text-xs">Cancel</Button>
               </>
             ) : (
               <>
-                <Button variant="outline" size="sm" onClick={() => setAddingVendor(true)}
-                  className="h-9 gap-1.5 rounded-xl text-xs">
+                <Button variant="outline" size="sm" onClick={() => setAddingVendor(true)} className="h-8 gap-1 rounded-lg text-xs">
                   <Factory className="h-3 w-3" /> Add Vendor
                 </Button>
-                <Button variant="ghost" size="sm" onClick={deleteBid}
-                  className="h-9 gap-1.5 rounded-xl text-xs text-destructive hover:bg-destructive/10">
+                <Button variant="ghost" size="sm" onClick={deleteBid} className="h-8 gap-1 rounded-lg text-xs text-destructive hover:bg-destructive/10">
                   <X className="h-3 w-3" /> Remove
                 </Button>
               </>
@@ -517,88 +404,62 @@ function BidCard({ bid, vendors, onUpdate }: { bid: VendorBid; vendors: Vendor[]
   )
 }
 
-/* ════════════════════════════════════════════════════════════════
-   VendorPriceRow -- Inline price entry per vendor
-   ════════════════════════════════════════════════════════════════ */
-function VendorPriceRow({
-  entry, vendorName, pickupCost, isCheapest, isWinner, bidAwarded,
-  markupPct, onUpdatePrice, onAward, onRemove,
-}: {
-  entry: VendorBidPrice
-  vendorName: string
-  pickupCost: number
-  isCheapest: boolean
-  isWinner: boolean
-  bidAwarded: boolean
-  markupPct: number
-  onUpdatePrice: (id: string, price: number | null) => void
-  onAward: (price: number) => void
-  onRemove: () => void
+/* ═══ Vendor Row -- inline within the table grid ═══ */
+function VendorRow({ entry, vendorName, pickupCost, isCheapest, isWinner, bidAwarded, markupPct, onUpdatePrice, onAward, onRemove }: {
+  entry: VendorBidPrice; vendorName: string; pickupCost: number; isCheapest: boolean; isWinner: boolean;
+  bidAwarded: boolean; markupPct: number;
+  onUpdatePrice: (id: string, price: number | null, quoteNum?: string) => void;
+  onAward: (price: number) => void; onRemove: () => void
 }) {
   const [editPrice, setEditPrice] = useState(entry.price != null ? String(entry.price) : "")
+  const [quoteNum, setQuoteNum] = useState(entry.notes ?? "")
 
   const handleSave = () => {
     const num = parseFloat(editPrice)
-    if (!isNaN(num) && num >= 0) onUpdatePrice(entry.id, num)
+    if (!isNaN(num) && num >= 0) onUpdatePrice(entry.id, num, quoteNum)
   }
 
   const price = entry.price != null ? Number(entry.price) : null
-  const totalWithPickup = price != null ? price + pickupCost : null
   const markedUp = price != null ? price * (1 + markupPct / 100) + pickupCost : null
 
+  const rowBg = isWinner ? "bg-emerald-500/5" : isCheapest ? "bg-amber-500/5" : ""
+
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-      isWinner
-        ? "border-emerald-500/30 bg-emerald-500/5"
-        : isCheapest
-        ? "border-amber-500/20 bg-amber-500/5"
-        : "border-border bg-secondary/20 hover:bg-secondary/40"
-    }`}>
-      {/* Vendor name + pickup */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          {isWinner && <Trophy className="h-3 w-3 text-emerald-500 shrink-0" />}
-          <span className="text-xs font-semibold text-foreground truncate">{vendorName}</span>
-        </div>
-        <span className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-          <Truck className="h-2.5 w-2.5" /> {formatCurrency(pickupCost)} pickup
-        </span>
+    <div className={`grid grid-cols-[1fr_80px_80px_80px_auto] gap-2 px-3 py-2 items-center ${rowBg}`}>
+      {/* Vendor */}
+      <div className="min-w-0 flex items-center gap-1.5">
+        {isWinner && <Trophy className="h-3 w-3 text-emerald-500 shrink-0" />}
+        <span className="text-xs font-bold text-foreground truncate">{vendorName}</span>
+        <span className="text-[10px] text-muted-foreground shrink-0 font-mono">+{formatCurrency(pickupCost)}</span>
       </div>
 
-      {/* Price input */}
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-muted-foreground">$</span>
-        <Input
-          type="number" step="0.01" value={editPrice}
-          onChange={(e) => setEditPrice(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          placeholder="0.00"
-          className="h-8 text-xs w-24 text-right tabular-nums font-mono rounded-lg"
-        />
+      {/* Quote # */}
+      <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
+        onBlur={handleSave} placeholder="#"
+        className="h-7 text-xs text-right rounded border border-border bg-background px-1.5 font-mono w-full" />
+
+      {/* Price */}
+      <div className="relative">
+        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+        <input type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+          onBlur={handleSave} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="0"
+          className="h-7 text-xs text-right rounded border border-border bg-background pl-4 pr-1.5 font-mono font-bold tabular-nums w-full" />
       </div>
 
-      {/* Customer sees (with markup) */}
-      {markedUp != null && (
-        <div className="text-right shrink-0 hidden sm:block">
-          <p className="text-[10px] text-muted-foreground">Customer</p>
-          <p className="text-xs font-bold font-mono tabular-nums text-foreground">{formatCurrency(markedUp)}</p>
-        </div>
-      )}
+      {/* Customer price */}
+      <span className="text-xs font-mono font-bold tabular-nums text-right text-foreground">
+        {markedUp != null ? formatCurrency(markedUp) : "--"}
+      </span>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-0.5 w-16 justify-end">
         {price != null && !bidAwarded && (
-          <button
-            onClick={() => onAward(price)}
-            className="h-7 px-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
-          >
-            <Trophy className="h-3 w-3" /> Award
+          <button onClick={() => onAward(price)}
+            className="h-6 px-1.5 rounded bg-emerald-500/10 text-emerald-600 text-[10px] font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-0.5">
+            <Trophy className="h-2.5 w-2.5" /> Award
           </button>
         )}
-        <button onClick={onRemove} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" aria-label="Remove">
-          <X className="h-3 w-3" />
-        </button>
+        <button onClick={onRemove} className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"><X className="h-3 w-3" /></button>
       </div>
     </div>
   )

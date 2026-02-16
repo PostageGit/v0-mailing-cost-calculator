@@ -35,16 +35,16 @@ export function getCategoryLabel(cat: QuoteCategory): string {
 export function getCategoryColor(cat: QuoteCategory): string {
   switch (cat) {
     case "flat":
-      return "bg-primary/10 text-primary"
+      return "bg-foreground/5 text-foreground"
     case "booklet":
-      return "bg-chart-3/10 text-chart-3"
+      return "bg-foreground/5 text-foreground"
     case "postage":
-      return "bg-chart-2/10 text-chart-2"
+      return "bg-foreground/5 text-foreground"
     case "listwork":
-      return "bg-chart-4/10 text-chart-4"
+      return "bg-foreground/5 text-foreground"
     case "item":
-      return "bg-chart-5/10 text-chart-5"
+      return "bg-foreground/5 text-foreground"
     case "ohp":
-      return "bg-chart-1/10 text-chart-1"
+      return "bg-foreground/5 text-foreground"
   }
 }
