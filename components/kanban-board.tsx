@@ -644,12 +644,73 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   }, [refreshAll])
 
   const handleConvertToJob = useCallback(async (id: string) => {
+    // Find the quote to extract data from
+    const quote = (quotes || []).find((q) => q.id === id)
+    const items: QuoteItem[] = quote?.items || []
+
+    // Smart extraction: build job_meta from existing quote data
+    const meta: JobMeta = { ...(quote?.job_meta || {}) }
+
+    // --- Piece description: from the first printing item (flat/booklet/etc) label/description ---
+    const printingItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
+    if (printingItems.length > 0 && !meta.piece_desc) {
+      // The label or description usually contains the piece spec, e.g. "1,000 - 4x6 Flat Prints, 10pt Gloss"
+      const desc = printingItems[0].description || printingItems[0].label || ""
+      // Extract size pattern like "4x6", "6x9", "8.5x11" from the text
+      const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
+      const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
+      // Extract piece type hint
+      const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
+      const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase())) || printingItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
+      meta.piece_desc = sizeStr && foundType ? `${sizeStr} ${foundType}` : (sizeStr || foundType || desc.split(",")[0]?.trim() || "")
+    }
+
+    // --- Inserts: count non-first printing items ---
+    if (printingItems.length > 1 && !meta.insert_count) {
+      meta.insert_count = printingItems.length - 1
+      const insertDescs = printingItems.slice(1).map((it) => {
+        const d = it.description || it.label || ""
+        const m = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
+        return m ? `${m[1]}x${m[2]}` : d.split(",")[0]?.trim() || ""
+      }).filter(Boolean)
+      if (!meta.inserts_desc && insertDescs.length > 0) meta.inserts_desc = insertDescs.join(" + ")
+    }
+
+    // --- Mailing class: from postage item label/description ---
+    const postageItems = items.filter((it) => it.category === "postage")
+    if (postageItems.length > 0 && !meta.mailing_class) {
+      const pDesc = postageItems[0].description || postageItems[0].label || ""
+      // Look for class: "First Class", "Standard", "Marketing", "Priority"
+      const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted"]
+      const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
+      meta.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").trim() || ""
+    }
+
+    // --- Printed by: if there's an OHP item, use its label ---
+    const ohpItems = items.filter((it) => it.category === "ohp")
+    if (ohpItems.length > 0 && !meta.printed_by) {
+      meta.printed_by = ohpItems[0].label?.replace(/Out of House\s*[-–:]\s*/i, "").trim() || "Out of House"
+    } else if (printingItems.length > 0 && !meta.printed_by) {
+      meta.printed_by = "In-House"
+    }
+
+    // Get the first job board column
     const res = await fetch("/api/board-columns?type=job")
     const jobCols: BoardColumn[] = await res.json()
     const firstJobCol = jobCols?.[0]?.id || null
-    await fetch(`/api/quotes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ is_job: true, converted_at: new Date().toISOString(), column_id: firstJobCol }) })
+
+    await fetch(`/api/quotes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        is_job: true,
+        converted_at: new Date().toISOString(),
+        column_id: firstJobCol,
+        job_meta: meta,
+      }),
+    })
     refreshAll(); globalMutate(`/api/quotes?is_job=true&archived=false`); globalMutate(`/api/quotes?is_job=false&archived=false`)
-  }, [refreshAll])
+  }, [refreshAll, quotes])
 
   const addColumn = useCallback(async () => {
     await fetch("/api/board-columns", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "New Stage", board_type: boardType }) })
