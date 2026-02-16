@@ -4,7 +4,8 @@ import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, X, FileText, Loader2, CheckCircle, AlertTriangle } from "lucide-react"
+import { Upload, X, FileText, Loader2, CheckCircle } from "lucide-react"
+import { createClient, supabaseClientReady } from "@/lib/supabase/client"
 
 interface Props {
   onClose: () => void
@@ -160,27 +161,35 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
       customers.push(customer)
     }
 
-    // Bulk import in batches of 100
+    // Direct client-side Supabase insert (bypasses server route cache issues)
     let success = 0
+
+    if (!supabaseClientReady()) {
+      console.log("[v0] Supabase env vars not available, cannot import")
+      errors += customers.length
+      setResult({ success: 0, errors: customers.length })
+      setImporting(false)
+      return
+    }
+
+    const supabase = createClient()
     const BATCH_SIZE = 100
     for (let i = 0; i < customers.length; i += BATCH_SIZE) {
       const batch = customers.slice(i, i + BATCH_SIZE)
       try {
-        const res = await fetch("/api/customers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(batch),
-        })
-        const data = await res.json()
-        console.log("[v0] Batch import response:", res.status, JSON.stringify(data).slice(0, 200))
-        if (res.ok && !data.error) {
-          success += data.inserted || batch.length
+        const { data, error: insertError } = await supabase
+          .from("customers")
+          .insert(batch)
+          .select()
+        console.log("[v0] Batch", Math.floor(i / BATCH_SIZE) + 1, "result:", data?.length ?? 0, "inserted, error:", insertError?.message ?? "none")
+        if (!insertError && data) {
+          success += data.length
         } else {
-          console.log("[v0] Batch failed:", data.error || res.statusText)
+          console.log("[v0] Batch insert error:", insertError?.message)
           errors += batch.length
         }
       } catch (err) {
-        console.log("[v0] Batch fetch error:", err)
+        console.log("[v0] Batch exception:", err)
         errors += batch.length
       }
     }
