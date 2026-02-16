@@ -69,14 +69,23 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   }
 
   // Pull REAL in-house cost from quote line items for a piece
+  // Labels look like: "1,500 - 8.5x11 Flat Prints" or "500 - 16pg Booklet 5.5x8.5 Self-Cover"
   const getInhouseCost = useCallback((piece: MailPiece): number | null => {
-    const meta = PIECE_TYPE_META[piece.type]
-    const cat = meta.calc === "booklet" ? "booklet" : meta.calc === "envelope" ? "flat" : "flat"
-    const sizeStr = piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : ""
-    // Search for matching in-house quote item by size string in the flat/booklet category
-    const match = quote.items.find((i) =>
-      (i.category === cat || i.category === "flat" || i.category === "booklet") && i.label.includes(sizeStr)
+    if (!piece.width || !piece.height) return null
+    const w = piece.width
+    const h = piece.height
+    // Try multiple dimension formats to match
+    const patterns = [
+      `${w}x${h}`,          // 8.5x11
+      `${h}x${w}`,          // 11x8.5
+      `${w}" x ${h}"`,      // 8.5" x 11"
+      `${h}" x ${w}"`,      // 11" x 8.5"
+    ]
+    const matchingCats = ["flat", "booklet"]
+    const match = quote.items.find((item) =>
+      matchingCats.includes(item.category) && patterns.some((pat) => item.label.includes(pat))
     )
+    console.log("[v0] getInhouseCost", { w, h, patterns, quoteLabels: quote.items.map(i => `[${i.category}] ${i.label}`), matchLabel: match?.label, matchAmount: match?.amount })
     return match ? match.amount : null
   }, [quote.items])
 
