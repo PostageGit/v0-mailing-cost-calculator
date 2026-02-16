@@ -155,39 +155,68 @@ function daysOverdue(meta?: JobMeta) {
 }
 
 /* ════════════════════════════════════════════════════
-   INLINE EDITABLE FIELD
+   HELPERS: Field, Select, Checkbox, Overdue
    ════════════════════════════════════════════════════ */
 
-function InlineField({ label, value, onChange, type = "text", isDerived }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string; isDerived?: boolean
+function FieldInput({ label, value, onChange, placeholder, type = "text" }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string
 }) {
-  const [editing, setEditing] = useState(false)
   const [local, setLocal] = useState(value)
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => { setLocal(value) }, [value])
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-  const commit = () => { setEditing(false); if (local !== value) onChange(local) }
+  const commit = () => { if (local !== value) onChange(local) }
 
   return (
     <div className="min-w-0">
-      <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider font-medium">{label}</span>
-      {editing ? (
-        <input ref={ref} type={type} value={local}
-          onChange={(e) => setLocal(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setLocal(value); setEditing(false) } }}
-          className="w-full text-[11px] font-medium text-foreground bg-transparent border-b border-foreground/20 outline-none py-0.5 focus:border-foreground/40"
-        />
-      ) : (
-        <button onClick={() => setEditing(true)}
-          className={cn("w-full text-left text-[11px] py-0.5 border-b border-transparent hover:border-border transition-colors truncate min-h-[18px]",
-            value ? (isDerived ? "font-normal text-muted-foreground italic" : "font-medium text-foreground") : ""
-          )}>
-          {value || <span className="text-muted-foreground/30 font-normal">--</span>}
-        </button>
-      )}
+      <span className="text-[10px] text-muted-foreground font-medium mb-1 block">{label}</span>
+      <input ref={ref} type={type} value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") { commit(); ref.current?.blur() } }}
+        placeholder={placeholder || label}
+        className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all placeholder:text-muted-foreground/30"
+      />
     </div>
   )
+}
+
+function FieldSelect({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]
+}) {
+  return (
+    <div className="min-w-0">
+      <span className="text-[10px] text-muted-foreground font-medium mb-1 block">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+      >
+        <option value="">--</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  )
+}
+
+function MetaCheck({ label, checked, onChange, bold }: {
+  label: string; checked: boolean; onChange: (c: boolean) => void; bold?: boolean
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer group/chk py-0.5">
+      <Checkbox checked={checked} onCheckedChange={(c) => onChange(!!c)} className="h-4 w-4 rounded data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500" />
+      <span className={cn("text-[11px] transition-colors select-none", bold ? "font-bold text-foreground" : "font-medium text-muted-foreground", checked && "text-emerald-600 dark:text-emerald-400")}>
+        {label}
+      </span>
+    </label>
+  )
+}
+
+function isOverdue(meta: JobMeta) {
+  if (!meta.due_date) return false
+  return new Date(meta.due_date) < new Date()
+}
+function daysOverdue(meta: JobMeta) {
+  if (!meta.due_date) return 0
+  return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
 /* ════════════════════════════════════════════════════
@@ -534,140 +563,162 @@ function QuoteCard({
       )}
     >
       {/* ── COLLAPSED HEADER ── */}
-      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 px-3 py-2 text-left select-none">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-start gap-3 px-4 py-3 text-left select-none hover:bg-secondary/30 transition-colors">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-semibold text-foreground truncate leading-tight">{quote.project_name || "Untitled"}</span>
-            {listColumn && (
-              <span className="flex items-center gap-1 shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: listColumn.color }} />
-                <span className="text-[8px] text-muted-foreground font-medium">{listColumn.title}</span>
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-            {quote.contact_name && <span className="text-[10px] text-muted-foreground">{quote.contact_name}</span>}
+          {/* Title + Subtitle */}
+          <p className="text-sm font-semibold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
+          {quote.contact_name && <p className="text-xs text-muted-foreground mt-0.5">{quote.contact_name}</p>}
+
+          {/* Badges row */}
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {overdue && (
-              <span className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1 py-px rounded bg-destructive/10 text-destructive leading-tight">
-                <AlertCircle className="h-2 w-2" /> OVERDUE ({days}d)
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-destructive/10 text-destructive">
+                <CalendarDays className="h-3 w-3" /> OVERDUE ({days}d)
               </span>
             )}
             {meta.assignee && (
-              <span className="text-[8px] font-medium px-1.5 py-px rounded-full border border-border text-muted-foreground">{meta.assignee}</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{meta.assignee}
+              </span>
+            )}
+            {listColumn && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-secondary text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: listColumn.color }} />{listColumn.title}
+              </span>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            {quote.quote_number && <span className="text-[9px] font-mono text-muted-foreground/60">Q-{quote.quote_number}</span>}
-            {quote.reference_number && <span className="text-[9px] font-mono text-muted-foreground/60">{quote.reference_number}</span>}
-            {quote.created_at && <span className="text-[9px] text-muted-foreground/50">{fmtDate(quote.created_at)}</span>}
+
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mt-1.5">
+            {quote.quote_number && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                <FileText className="h-3 w-3" />Q-{quote.quote_number}
+              </span>
+            )}
+            {quote.reference_number && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                <ClipboardCopy className="h-3 w-3" />{quote.reference_number}
+              </span>
+            )}
           </div>
         </div>
-        <span className="text-[12px] font-bold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(quote.total)}</span>
-        <ChevronDown className={cn("h-3 w-3 text-muted-foreground/40 transition-transform duration-150 shrink-0", open && "rotate-180")} />
+        <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+          <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
+          {quote.created_at && <span className="text-[10px] text-muted-foreground">{fmtDate(quote.created_at)}</span>}
+        </div>
+        <div className="shrink-0 pt-1">
+          <div className={cn("h-6 w-6 rounded-md flex items-center justify-center bg-secondary/80 transition-all", open && "bg-foreground/10")}>
+            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
+          </div>
+        </div>
       </button>
 
       {/* ── EXPANDED DETAIL ── */}
       {open && (
         <div className="border-t border-border">
-          <div className="px-3 py-2.5 flex flex-col gap-2">
-
-            {/* Action bar */}
-            <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
-              <div className="flex items-center gap-0.5">
-                {canL && (
-                  <button onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx - 1].id) }}
-                    className="flex items-center gap-0.5 h-5 px-1.5 rounded text-[9px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                    <ChevronLeft className="h-2.5 w-2.5" />{columns[colIdx - 1].title}
-                  </button>
-                )}
-                {canR && (
-                  <button onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx + 1].id) }}
-                    className="flex items-center gap-0.5 h-5 px-1.5 rounded text-[9px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                    {columns[colIdx + 1].title}<ChevronRight className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-px">
-                {isArchived && (
-                  <button onClick={(e) => { e.stopPropagation(); onRestore(quote.id) }}
-                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-emerald-600 hover:bg-secondary" title="Restore">
-                    <ArchiveRestore className="h-2.5 w-2.5" />
-                  </button>
-                )}
-                {!isArchived && boardType === "quote" && onConvertToJob && (
-                  <button onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Convert to Job">
-                    <Briefcase className="h-2.5 w-2.5" />
-                  </button>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); setShowFiles(true) }}
-                  className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Files">
-                  <Paperclip className="h-2.5 w-2.5" />
+          {/* Action toolbar */}
+          <div className="flex items-center justify-between px-4 py-2 bg-secondary/30">
+            <div className="flex items-center gap-1">
+              {canL && (
+                <button onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx - 1].id) }}
+                  className="flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border transition-all">
+                  <ChevronLeft className="h-3 w-3" />{columns[colIdx - 1].title}
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
-                  className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary" title="Edit">
-                  <Pencil className="h-2.5 w-2.5" />
+              )}
+              {canR && (
+                <button onClick={(e) => { e.stopPropagation(); onColumnChange(quote.id, columns[colIdx + 1].id) }}
+                  className="flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border transition-all">
+                  {columns[colIdx + 1].title}<ChevronRight className="h-3 w-3" />
                 </button>
-                {!isArchived && (
-                  <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
-                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-amber-600 hover:bg-secondary" title="Archive">
-                    <Archive className="h-2.5 w-2.5" />
-                  </button>
-                )}
-                {confirmDel ? (
-                  <div className="flex items-center gap-0.5 ml-0.5">
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(quote.id) }}
-                      className="h-5 px-1.5 text-[9px] font-semibold text-destructive-foreground bg-destructive rounded hover:bg-destructive/90">Yes</button>
-                    <button onClick={(e) => { e.stopPropagation(); setConfirmDel(false) }}
-                      className="h-5 px-1.5 text-[9px] text-muted-foreground hover:text-foreground rounded hover:bg-secondary">No</button>
-                  </div>
-                ) : (
-                  <button onClick={(e) => { e.stopPropagation(); setConfirmDel(true) }}
-                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Delete">
-                    <Trash2 className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+            <div className="flex items-center gap-1">
+              {isArchived && (
+                <button onClick={(e) => { e.stopPropagation(); onRestore(quote.id) }}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-emerald-600 hover:bg-background border border-transparent hover:border-border" title="Restore">
+                  <ArchiveRestore className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {!isArchived && boardType === "quote" && onConvertToJob && (
+                <button onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Convert to Job">
+                  <Briefcase className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button onClick={(e) => { e.stopPropagation(); setShowFiles(true) }}
+                className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Files">
+                <Paperclip className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
+                className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Edit Quote">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              {!isArchived && (
+                <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-background border border-transparent hover:border-border" title="Archive">
+                  <Archive className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {confirmDel ? (
+                <div className="flex items-center gap-1 ml-1">
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(quote.id) }}
+                    className="h-7 px-2 text-[11px] font-semibold text-destructive-foreground bg-destructive rounded-md hover:bg-destructive/90">Delete</button>
+                  <button onClick={(e) => { e.stopPropagation(); setConfirmDel(false) }}
+                    className="h-7 px-2 text-[11px] text-muted-foreground rounded-md hover:bg-background">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={(e) => { e.stopPropagation(); setConfirmDel(true) }}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20" title="Delete">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
 
-            {/* ── ROW 1: Job Details + Postage Details ── */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg border border-border p-2">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Job Details</p>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                  <InlineField label="Quantity" value={String(quote.quantity || "")} onChange={(v) => onPatch(quote.id, { quantity: parseInt(v) || 0 })} />
-                  <InlineField label="Mail Piece Desc." value={meta.piece_desc || ""} isDerived={!rawMeta.piece_desc && !!derived.piece_desc} onChange={(v) => updateMeta({ piece_desc: v })} />
-                  <InlineField label="Insert Count" value={String(meta.insert_count || "")} isDerived={!rawMeta.insert_count && !!derived.insert_count} onChange={(v) => updateMeta({ insert_count: parseInt(v) || 0 })} />
-                  <InlineField label="Inserts Desc." value={meta.inserts_desc || ""} isDerived={!rawMeta.inserts_desc && !!derived.inserts_desc} onChange={(v) => updateMeta({ inserts_desc: v })} />
+          {/* Info sections on gray bg like PostFlow reference */}
+          <div className="bg-secondary/20 px-4 py-3 flex flex-col gap-3">
+
+            {/* ── ROW 1: Job Details + Postage Details (2 col) ── */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Job Details</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <FieldInput label="Quantity" value={String(quote.quantity || "")} placeholder="0" onChange={(v) => onPatch(quote.id, { quantity: parseInt(v) || 0 })} />
+                  <FieldInput label="Mail Piece Desc." value={meta.piece_desc || ""} placeholder="e.g. 6x9 Postcard" onChange={(v) => updateMeta({ piece_desc: v })} />
+                  <FieldInput label="Insert Count" value={String(meta.insert_count || "")} placeholder="0" onChange={(v) => updateMeta({ insert_count: parseInt(v) || 0 })} />
+                  <FieldInput label="Inserts Desc." value={meta.inserts_desc || ""} placeholder="e.g. Flyer + Card" onChange={(v) => updateMeta({ inserts_desc: v })} />
                 </div>
               </div>
-              <div className="rounded-lg border border-border p-2">
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Postage Details</p>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                  <InlineField label="Mailing Class" value={meta.mailing_class || ""} isDerived={!rawMeta.mailing_class && !!derived.mailing_class} onChange={(v) => updateMeta({ mailing_class: v })} />
-                  <InlineField label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })} />
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Postage Details</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <FieldSelect label="Mailing Class" value={meta.mailing_class || ""} onChange={(v) => updateMeta({ mailing_class: v })}
+                    options={["1st Class", "Marketing", "Non Profit", "Single Piece", "Stamps"]} />
+                  <FieldSelect label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })}
+                    options={["Brooklyn", "Monsey", "KJ", "Lakewood"]} />
                 </div>
-                <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer">
-                  <Checkbox checked={!!meta.international} onCheckedChange={(c) => updateMeta({ international: !!c })} className="h-3 w-3 rounded-[3px]" />
-                  <span className="text-[9px] text-muted-foreground font-medium">Mail International</span>
+                <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                  <Checkbox checked={!!meta.international} onCheckedChange={(c) => updateMeta({ international: !!c })} className="h-4 w-4 rounded" />
+                  <span className="text-[11px] text-muted-foreground font-medium select-none">Mail International</span>
                 </label>
               </div>
             </div>
 
-            {/* ── ROW 2: Printing + List/Mail + Billing ── */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* ── ROW 2: Printing + List/Mail + Billing (3 col) ── */}
+            <div className="grid grid-cols-3 gap-3">
               {/* PRINTING DETAILS */}
-              <div className={cn("rounded-lg border p-2 transition-colors", printDone ? "border-emerald-400/50 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-border")}>
-                <p className={cn("text-[9px] font-bold uppercase tracking-widest mb-1.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 mb-1.5">
-                  <InlineField label="Printed By" value={meta.printed_by || ""} isDerived={!rawMeta.printed_by && !!derived.printed_by} onChange={(v) => updateMeta({ printed_by: v })} />
-                  <InlineField label="Vendor Job #" value={meta.vendor_job || ""} onChange={(v) => updateMeta({ vendor_job: v })} />
+              <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
+                <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-2.5">
+                  <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
+                    options={["In-House", "PrintOut", "4 Over", "Jacky", "Provided", "Split Vendors"]} />
+                  <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
                 </div>
                 <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
               </div>
               {/* LIST / MAIL STATUS */}
-              <div className={cn("rounded-lg border p-2 transition-colors", mailDone ? "border-emerald-400/50 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-border")}>
-                <p className={cn("text-[9px] font-bold uppercase tracking-widest mb-1.5", mailDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>List / Mail Status</p>
+              <div className={cn("rounded-lg border bg-card p-3 transition-colors", mailDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
+                <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", mailDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>List / Mail Status</p>
                 <div className="flex flex-col gap-1">
                   <MetaCheck label="BCC Done" checked={!!meta.bcc_done} onChange={(c) => updateMeta({ bcc_done: c })} />
                   <MetaCheck label="Paperwork Done" checked={!!meta.paperwork_done} onChange={(c) => updateMeta({ paperwork_done: c })} />
@@ -676,8 +727,8 @@ function QuoteCard({
                 </div>
               </div>
               {/* BILLING STATUS */}
-              <div className={cn("rounded-lg border p-2 transition-colors", billDone ? "border-emerald-400/50 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-border")}>
-                <p className={cn("text-[9px] font-bold uppercase tracking-widest mb-1.5", billDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Billing Status</p>
+              <div className={cn("rounded-lg border bg-card p-3 transition-colors", billDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
+                <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", billDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Billing Status</p>
                 <div className="flex flex-col gap-1">
                   <MetaCheck label="Invoice Updated" checked={!!meta.invoice_updated} onChange={(c) => updateMeta({ invoice_updated: c })} />
                   <MetaCheck label="Invoice Emailed" checked={!!meta.invoice_emailed} onChange={(c) => updateMeta({ invoice_emailed: c })} />
@@ -688,35 +739,35 @@ function QuoteCard({
             </div>
 
             {/* ── Assignee + Due Date ── */}
-            <div className="grid grid-cols-2 gap-2">
-              <InlineField label="Assignee" value={meta.assignee || ""} onChange={(v) => updateMeta({ assignee: v })} />
-              <InlineField label="Due Date" value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} type="date" />
+            <div className="grid grid-cols-2 gap-3">
+              <FieldInput label="Assignee" value={meta.assignee || ""} placeholder="Assign to..." onChange={(v) => updateMeta({ assignee: v })} />
+              <FieldInput label="Due Date" value={meta.due_date || ""} type="date" onChange={(v) => updateMeta({ due_date: v })} />
             </div>
 
-            {/* ── Files (inline + panel trigger) ── */}
+            {/* ── Files ── */}
             <JobFilesInline quoteId={quote.id} onOpenPanel={() => setShowFiles(true)} />
 
-            {/* ── Quote line items ── */}
+            {/* ── Line items ── */}
             {(quote.items || []).length > 0 && (
-              <div className="border-t border-border/50 pt-2">
-                <p className="text-[8px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-1">Line Items</p>
-                <div className="flex flex-col gap-px">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Line Items</p>
+                <div className="flex flex-col gap-1">
                   {(quote.items || []).map((it, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground truncate flex-1">{it.label || it.description || it.category}</span>
-                      <span className="text-[10px] font-mono text-foreground/70 tabular-nums shrink-0 ml-2">{formatCurrency(it.amount)}</span>
+                    <div key={i} className="flex items-center justify-between py-0.5">
+                      <span className="text-xs text-foreground/80 truncate flex-1">{it.label || it.description || it.category}</span>
+                      <span className="text-xs font-mono text-foreground font-medium tabular-nums shrink-0 ml-3">{formatCurrency(it.amount)}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/50">
-                  <span className="text-[10px] font-semibold text-foreground">Total</span>
-                  <span className="text-[12px] font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                  <span className="text-xs font-bold text-foreground">Total</span>
+                  <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
                 </div>
               </div>
             )}
 
             {quote.notes && (
-              <p className="text-[9px] text-muted-foreground leading-relaxed line-clamp-3 border-t border-border/50 pt-1.5 italic">{quote.notes}</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-card rounded-lg border border-border p-3">{quote.notes}</p>
             )}
           </div>
         </div>
@@ -880,7 +931,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════��
    DROPPABLE COLUMN
    ════════════════════════════════════════════════════ */
 
