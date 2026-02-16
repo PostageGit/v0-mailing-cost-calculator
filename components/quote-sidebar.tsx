@@ -17,7 +17,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
 import { buildQuoteText } from "@/lib/build-quote-text"
 
-const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "postage", "listwork", "item", "ohp"]
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "envelope", "postage", "listwork", "item", "ohp"]
 
 /* ── Inline-editable item row ─────────────────────────── */
 function QuoteItemRow({
@@ -58,46 +58,46 @@ function QuoteItemRow({
 
   if (editing) {
     return (
-      <div className="rounded-xl border border-foreground/10 bg-background p-4 flex flex-col gap-3">
+      <div className="rounded-xl border border-border/60 bg-background p-3.5 flex flex-col gap-2.5">
         <div>
-          <label className="text-xs font-semibold text-muted-foreground mb-1 block">Label</label>
+          <label className="text-[11px] font-medium text-muted-foreground/70 mb-1 block">Label</label>
           <Input
             ref={labelRef}
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="h-10 text-sm font-semibold rounded-xl"
+            className="h-9 text-[13px] font-medium rounded-lg"
             onKeyDown={(e) => e.key === "Enter" && save()}
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-muted-foreground mb-1 block">Description</label>
+          <label className="text-[11px] font-medium text-muted-foreground/70 mb-1 block">Description</label>
           <Input
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            className="h-10 text-sm rounded-xl"
+            className="h-9 text-[13px] rounded-lg"
             placeholder="Optional details..."
             onKeyDown={(e) => e.key === "Enter" && save()}
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-muted-foreground mb-1 block">Amount</label>
+          <label className="text-[11px] font-medium text-muted-foreground/70 mb-1 block">Amount</label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-medium text-muted-foreground/60">$</span>
             <Input
               type="number"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="h-10 text-sm font-mono font-bold rounded-xl pl-7"
+              className="h-9 text-[13px] font-mono font-semibold rounded-lg pl-7"
               onKeyDown={(e) => e.key === "Enter" && save()}
             />
           </div>
         </div>
-        <div className="flex gap-2 pt-1">
-          <Button size="sm" className="flex-1 h-9 text-sm rounded-xl font-semibold gap-1.5" onClick={save}>
-            <Check className="h-4 w-4" /> Save
+        <div className="flex gap-2 pt-0.5">
+          <Button size="sm" className="flex-1 h-8 text-[12px] rounded-lg font-semibold gap-1.5" onClick={save}>
+            <Check className="h-3.5 w-3.5" /> Save
           </Button>
-          <Button size="sm" variant="ghost" className="h-9 text-sm rounded-xl" onClick={cancel}>
+          <Button size="sm" variant="ghost" className="h-8 text-[12px] rounded-lg font-medium" onClick={cancel}>
             Cancel
           </Button>
         </div>
@@ -106,38 +106,38 @@ function QuoteItemRow({
   }
 
   return (
-    <div className="group flex items-start gap-3 py-3 px-3.5 rounded-xl hover:bg-secondary/50 transition-colors">
+    <div className="group flex items-start gap-3 py-2.5 px-3 rounded-xl hover:bg-secondary/30 transition-colors">
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground leading-snug">
+        <p className="text-[13px] font-medium text-foreground/90 leading-snug">
           {item.label}
         </p>
         {item.description && (
-          <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">
+          <p className="text-[11px] text-muted-foreground/60 leading-relaxed mt-0.5 line-clamp-2 font-normal">
             {item.description}
           </p>
         )}
       </div>
 
       {/* Amount + hover actions */}
-      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-        <span className="text-sm font-mono font-bold text-foreground tabular-nums">
+      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+        <span className="text-[13px] font-mono font-semibold text-foreground/80 tabular-nums">
           {formatCurrency(item.amount)}
         </span>
         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
           <button
             onClick={() => setEditing(true)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="p-1 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
             aria-label={`Edit ${item.label}`}
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-3 w-3" />
           </button>
           <button
             onClick={() => onRemove(item.id)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
             aria-label={`Remove ${item.label}`}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -188,23 +188,23 @@ export function QuoteSidebar() {
   return (
     <div className="rounded-2xl bg-card border border-border flex flex-col h-full overflow-hidden">
       {/* ── Header ── */}
-      <div className="px-5 py-4 border-b border-border/50 shrink-0">
+      <div className="px-5 pt-5 pb-4 border-b border-border/40 shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-base font-bold text-foreground tracking-tight">Quote</h2>
+          <div className="flex items-baseline gap-2.5">
+            <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Quote</h2>
             {quoteNumber && (
-              <span className="text-xs font-mono font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-mono font-medium text-muted-foreground/70 bg-secondary/60 px-2 py-0.5 rounded-md">
                 Q-{quoteNumber}
               </span>
             )}
           </div>
           <div className="flex items-center gap-3">
             {saveText && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70 font-normal">
                 {isSaving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <Cloud className="h-3.5 w-3.5 text-green-500" />
+                  <Cloud className="h-3 w-3 text-emerald-500/70" />
                 )}
                 {saveText}
               </span>
@@ -212,22 +212,22 @@ export function QuoteSidebar() {
             {hasItems && !confirmClear && (
               <button
                 onClick={() => setConfirmClear(true)}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium"
+                className="text-[11px] text-muted-foreground/60 hover:text-destructive transition-colors font-medium"
               >
-                Clear all
+                Clear
               </button>
             )}
             {confirmClear && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => { clearAll(); setConfirmClear(false) }}
-                  className="text-xs font-bold text-destructive hover:underline"
+                  className="text-[11px] font-semibold text-destructive hover:underline"
                 >
-                  Yes, clear
+                  Confirm
                 </button>
                 <button
                   onClick={() => setConfirmClear(false)}
-                  className="text-xs text-muted-foreground hover:underline"
+                  className="text-[11px] text-muted-foreground/60 hover:underline"
                 >
                   Cancel
                 </button>
@@ -244,11 +244,11 @@ export function QuoteSidebar() {
       >
         {!hasItems ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="rounded-2xl bg-secondary/50 p-5 mb-5">
-              <FileText className="h-8 w-8 text-muted-foreground/30" />
+            <div className="rounded-2xl bg-secondary/40 p-5 mb-4">
+              <FileText className="h-7 w-7 text-muted-foreground/25" />
             </div>
-            <p className="text-base font-bold text-foreground mb-1">No items yet</p>
-            <p className="text-sm text-muted-foreground max-w-[240px] leading-relaxed">
+            <p className="text-sm font-semibold text-foreground/80 mb-1">No items yet</p>
+            <p className="text-[13px] text-muted-foreground/60 max-w-[220px] leading-relaxed">
               Add items from any calculator to start building your quote.
             </p>
           </div>
@@ -265,22 +265,22 @@ export function QuoteSidebar() {
                   {/* Category header */}
                   <button
                     onClick={() => toggleCat(cat)}
-                    className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2">
                       {collapsed ? (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50" />
                       )}
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${getCategoryColor(cat)}`}>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${getCategoryColor(cat)}`}>
                         {getCategoryLabel(cat)}
                       </span>
-                      <span className="text-xs text-muted-foreground tabular-nums font-medium">
-                        {catItems.length} item{catItems.length !== 1 ? "s" : ""}
+                      <span className="text-[11px] text-muted-foreground/50 tabular-nums font-normal">
+                        {catItems.length}
                       </span>
                     </div>
-                    <span className="text-sm font-mono font-bold text-foreground tabular-nums">
+                    <span className="text-[13px] font-mono font-semibold text-foreground/80 tabular-nums">
                       {formatCurrency(catTotal)}
                     </span>
                   </button>
@@ -307,39 +307,39 @@ export function QuoteSidebar() {
 
       {/* ── Footer with total ── */}
       {hasItems && (
-        <div className="shrink-0 border-t border-border/50 px-5 py-5">
+        <div className="shrink-0 border-t border-border/40 px-5 py-4">
           {/* Total */}
           <div className="flex items-center justify-between mb-4">
-            <span className="text-base font-bold text-foreground">Total</span>
-            <span className="text-2xl font-black font-mono text-foreground tabular-nums tracking-tight">
+            <span className="text-[13px] font-semibold text-foreground/70">Total</span>
+            <span className="text-xl font-bold font-mono text-foreground tabular-nums tracking-tight">
               {formatCurrency(total)}
             </span>
           </div>
 
           {/* Activity Log */}
           {activityLog.length > 0 && (
-            <div className="mb-4">
+            <div className="mb-3.5">
               <button
                 onClick={() => setShowLog(!showLog)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-2"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/60 hover:text-foreground transition-colors mb-2"
               >
-                <Clock className="h-3.5 w-3.5" />
+                <Clock className="h-3 w-3" />
                 Activity ({activityLog.length})
-                {showLog ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                {showLog ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}
               </button>
               {showLog && (
-                <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto rounded-xl bg-secondary/30 p-3">
+                <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-lg bg-secondary/20 p-2.5">
                   {activityLog.map((entry) => (
                     <div key={entry.id} className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/25 mt-1.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-foreground font-medium leading-snug">
+                        <p className="text-[11px] text-foreground/80 font-medium leading-snug">
                           {formatEvent(entry.event)}
                         </p>
                         {entry.detail && (
-                          <p className="text-[11px] text-muted-foreground truncate">{entry.detail}</p>
+                          <p className="text-[10px] text-muted-foreground/50 truncate font-normal">{entry.detail}</p>
                         )}
-                        <p className="text-[10px] text-muted-foreground/60 tabular-nums">
+                        <p className="text-[10px] text-muted-foreground/40 tabular-nums font-normal">
                           {formatLogDate(entry.created_at)}
                         </p>
                       </div>
@@ -351,26 +351,26 @@ export function QuoteSidebar() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-2.5">
+          <div className="flex gap-2">
             <Button
               variant={copied ? "default" : "secondary"}
               size="sm"
-              className="flex-1 gap-2 text-sm h-10 rounded-xl font-semibold"
+              className="flex-1 gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
               onClick={handleCopy}
             >
               {copied ? (
-                <><Check className="h-4 w-4" /> Copied</>
+                <><Check className="h-3.5 w-3.5" /> Copied</>
               ) : (
-                <><ClipboardCopy className="h-4 w-4" /> Copy</>
+                <><ClipboardCopy className="h-3.5 w-3.5" /> Copy</>
               )}
             </Button>
             <Button
               variant="secondary"
               size="sm"
-              className="gap-2 text-sm h-10 rounded-xl font-semibold"
+              className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
               onClick={newQuote}
             >
-              <FilePlus className="h-4 w-4" /> New
+              <FilePlus className="h-3.5 w-3.5" /> New
             </Button>
           </div>
         </div>
