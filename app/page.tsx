@@ -41,6 +41,7 @@ const STEP_CATS: Record<StepId, string[]> = {
   printing: ["flat"], booklet: ["booklet"], ohp: ["ohp"], items: ["item"],
 }
 
+/* Error boundary for step-level crash catching */
 class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string }, { error: Error | null }> {
   state: { error: Error | null } = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
