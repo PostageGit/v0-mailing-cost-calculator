@@ -253,14 +253,14 @@ export function USPSPostageCalculator() {
       )}
 
       {/* ── All inputs ── */}
-      <div className="rounded-2xl border border-border bg-card p-6 flex flex-col gap-6">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col gap-5 sm:gap-6">
 
         {/* Mail Service */}
         <div>
           <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
             Mail Service
           </label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <Pill active={inputs.service === "FCM_COMM"} onClick={() => update({ service: "FCM_COMM" })} label="FC Presort" sub="500+ pc" />
             <Pill active={inputs.service === "FCM_RETAIL"} onClick={() => update({ service: "FCM_RETAIL" })} label="FC Retail" sub="Stamps" />
             <Pill active={inputs.service === "MKT_COMM"} onClick={() => update({ service: "MKT_COMM" })} label="Marketing" sub="Commercial" />
@@ -310,7 +310,7 @@ export function USPSPostageCalculator() {
         <hr className="border-border" />
 
         {/* Quantity + Weight + Saturation */}
-        <div className={`grid gap-4 ${showSaturation ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className={`grid gap-4 ${showSaturation ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
           <div>
             <label htmlFor="usps-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
               Quantity
@@ -374,7 +374,7 @@ export function USPSPostageCalculator() {
         {showSortSlider && (
           <>
             <hr className="border-border" />
-            <div className={`grid gap-6 ${showEntryPoint ? "grid-cols-[1fr_180px]" : "grid-cols-1"}`}>
+            <div className={`grid gap-6 ${showEntryPoint ? "grid-cols-1 sm:grid-cols-[1fr_180px]" : "grid-cols-1"}`}>
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sort Level</label>
@@ -382,7 +382,7 @@ export function USPSPostageCalculator() {
                     Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong>
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {([1, 2, 3] as SortLevel[]).map((level) => (
                     <SortBtn
                       key={level}
@@ -467,40 +467,33 @@ export function USPSPostageCalculator() {
 
       {/* ── Sticky results bar ── */}
       <div className="sticky bottom-4 z-20">
-        <div className="bg-foreground text-background rounded-2xl shadow-2xl px-6 py-5 flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-8">
+        <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex items-baseline gap-6 sm:gap-8">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
                 Per Piece
               </span>
-              <span className="text-3xl font-bold font-mono tabular-nums leading-none">
+              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatPostageRate(result.avgPerPiece) : "---"}
               </span>
             </div>
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
                 Total
               </span>
-              <span className="text-xl font-bold font-mono tabular-nums leading-none">
+              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
                 {result.isValid ? formatCurrency(result.total) : "$0.00"}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-background/60 max-w-[200px] truncate hidden sm:block">
-              {result.isValid && result.description
-                ? `${inputs.quantity.toLocaleString()} @ ${formatPostageRate(result.avgPerPiece)} (${result.description})`
-                : ""}
-            </span>
-            <button
-              onClick={handleAddToQuote}
-              disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
-              className="flex items-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              Add to Quote
-            </button>
-          </div>
+          <button
+            onClick={handleAddToQuote}
+            disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
+            className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" />
+            Add to Quote
+          </button>
         </div>
       </div>
     </div>

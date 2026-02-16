@@ -136,7 +136,7 @@ function AppContent() {
             ]).map((n) => (
               <button key={n.v} onClick={() => setView(n.v)}
                 className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-lg transition-colors",
+                  "px-3.5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors min-h-[44px] flex items-center",
                   view === n.v ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}>
                 {n.label}
@@ -186,7 +186,7 @@ function AppContent() {
               <div className="flex items-center gap-1 py-1.5 overflow-x-auto no-scrollbar">
                 {/* Back to planner */}
                 <button onClick={() => setJobPhase("planner")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1">
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1 min-h-[44px]">
                   <Layers className="h-3.5 w-3.5" /> Planner
                 </button>
                 <div className="w-px h-4 bg-border shrink-0" />
@@ -198,7 +198,7 @@ function AppContent() {
                   return (
                     <button key={step.id} onClick={() => setCurrentStep(step.id)}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0",
+                        "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap shrink-0 min-h-[44px]",
                         active ? "bg-foreground text-background shadow-sm"
                           : done ? "bg-secondary text-foreground hover:bg-secondary/80"
                           : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -319,12 +319,12 @@ function MobileBar() {
       {!open && count > 0 && (
         <div className="fixed bottom-4 left-4 right-4 z-40 lg:hidden">
           <button onClick={() => setOpen(true)}
-            className="w-full flex items-center justify-between bg-foreground text-background px-5 py-3 rounded-2xl shadow-xl">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 opacity-60" />
-              <span className="text-sm font-semibold">{count} item{count !== 1 ? "s" : ""}</span>
+            className="w-full flex items-center justify-between bg-foreground text-background px-5 py-4 rounded-2xl shadow-xl min-h-[56px]">
+            <div className="flex items-center gap-2.5">
+              <FileText className="h-5 w-5 opacity-60" />
+              <span className="text-base font-semibold">{count} item{count !== 1 ? "s" : ""}</span>
             </div>
-            <span className="text-sm font-bold font-mono">${total.toFixed(2)}</span>
+            <span className="text-base font-bold font-mono">${total.toFixed(2)}</span>
           </button>
         </div>
       )}

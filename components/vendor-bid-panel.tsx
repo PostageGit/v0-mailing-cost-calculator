@@ -305,9 +305,9 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
         </div>
       )}
 
-      {/* COLUMN LABELS */}
+      {/* COLUMN LABELS -- desktop only */}
       {(prices?.length ?? 0) > 0 && (
-        <div className="px-5 pt-3 pb-1 flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
+        <div className="hidden sm:flex px-5 pt-3 pb-1 items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
           <span className="w-32 shrink-0">Vendor</span>
           <span className="w-16 shrink-0 text-center">Qty</span>
           <span className="w-20 shrink-0">Ref #</span>
@@ -338,9 +338,9 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
       </div>
 
       {/* ADD VENDOR -- always available, no "all added" blocking */}
-      <div className="px-5 py-2.5 border-t border-border/40 bg-secondary/5 flex items-center gap-2">
+      <div className="px-4 sm:px-5 py-2.5 border-t border-border/40 bg-secondary/5 flex items-center gap-2">
         <Select value="" onValueChange={(v) => quickAddVendor(v)}>
-          <SelectTrigger className="h-9 text-sm flex-1 rounded-xl max-w-[16rem]">
+          <SelectTrigger className="h-10 sm:h-9 text-sm flex-1 rounded-xl sm:max-w-[16rem]">
             <SelectValue placeholder={addingVendor ? "Adding..." : "+ Add vendor"} />
           </SelectTrigger>
           <SelectContent>
@@ -354,38 +354,34 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
 
       {/* PUSH TO QUOTE BAR -- auto shows when there's a best price, no "award" needed */}
       {bestPrice != null && (
-        <div className="px-5 py-3.5 bg-foreground text-background border-t border-foreground/10">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-4 text-sm">
+        <div className="px-4 sm:px-5 py-3.5 bg-foreground text-background border-t border-foreground/10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Best</span>
                 <span className="text-lg font-black font-mono tabular-nums">{formatCurrency(bestPrice)}</span>
               </div>
-              <ArrowRight className="h-3.5 w-3.5 text-background/20" />
+              <ArrowRight className="h-3.5 w-3.5 text-background/20 hidden sm:block" />
               <div className="flex items-center gap-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-background/40">+</span>
                 <input type="number" step="1" min="0" max="200" value={markupPct}
                   onChange={(e) => setMarkupPct(parseFloat(e.target.value) || 0)}
-                  className="w-12 h-7 text-xs text-center rounded-md bg-background/10 border border-background/20 text-background font-mono font-bold" />
+                  className="w-14 h-8 text-sm text-center rounded-md bg-background/10 border border-background/20 text-background font-mono font-bold" />
                 <span className="text-xs text-background/50 font-bold">%</span>
               </div>
               {bestPickup > 0 && (
-                <>
-                  <ArrowRight className="h-3.5 w-3.5 text-background/20" />
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Pickup</span>
-                    <span className="text-sm font-mono font-bold text-background/70">{formatCurrency(bestPickup)}</span>
-                  </div>
-                </>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Pickup</span>
+                  <span className="text-sm font-mono font-bold text-background/70">{formatCurrency(bestPickup)}</span>
+                </div>
               )}
-              <ArrowRight className="h-3.5 w-3.5 text-background/20" />
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Customer</span>
                 <span className="text-xl font-black font-mono tabular-nums">{bestCustomerTotal != null ? formatCurrency(bestCustomerTotal) : "---"}</span>
               </div>
             </div>
             <button onClick={handlePushToQuote} disabled={pushed}
-              className="h-10 px-5 rounded-xl bg-background text-foreground text-sm font-black flex items-center gap-2 hover:bg-background/90 disabled:opacity-50 transition-all shrink-0">
+              className="h-11 px-5 rounded-xl bg-background text-foreground text-sm font-black flex items-center justify-center gap-2 hover:bg-background/90 disabled:opacity-50 transition-all w-full sm:w-auto min-h-[44px]">
               {pushed ? <><Check className="h-4 w-4" /> Added</> : <><ShoppingCart className="h-4 w-4" /> Add to Quote</>}
             </button>
           </div>
@@ -413,57 +409,90 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
   }
 
   return (
-    <div className={`px-5 py-3 flex items-center gap-3 transition-colors ${isBest ? "bg-emerald-50" : ""}`}>
-      {/* Vendor name */}
-      <div className="min-w-0 w-32 shrink-0">
-        <div className="flex items-center gap-1.5">
-          {isBest && <Star className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600 shrink-0" />}
-          <span className="text-sm font-bold text-foreground truncate">{vendorName}</span>
+    <div className={`px-4 sm:px-5 py-3 transition-colors ${isBest ? "bg-emerald-50" : ""}`}>
+      {/* DESKTOP: single row */}
+      <div className="hidden sm:flex items-center gap-3">
+        <div className="min-w-0 w-32 shrink-0">
+          <div className="flex items-center gap-1.5">
+            {isBest && <Star className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600 shrink-0" />}
+            <span className="text-sm font-bold text-foreground truncate">{vendorName}</span>
+          </div>
+          {pickupCost > 0 && <span className="text-[11px] text-muted-foreground">+{formatCurrency(pickupCost)} pickup</span>}
         </div>
-        {pickupCost > 0 && <span className="text-[11px] text-muted-foreground">+{formatCurrency(pickupCost)} pickup</span>}
-      </div>
-
-      {/* Qty -- editable, defaults to order qty */}
-      <div className="w-16 shrink-0">
-        <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
-          className="h-8 w-full text-xs text-center rounded-lg border border-border bg-background px-1 font-mono font-bold tabular-nums" />
-      </div>
-
-      {/* Vendor Quote Ref */}
-      <div className="w-20 shrink-0">
-        <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
-          onBlur={handleSave} placeholder="Ref #"
-          className="h-8 w-full text-xs rounded-lg border border-border bg-background px-2 font-mono placeholder:text-muted-foreground/40" />
-      </div>
-
-      {/* Price */}
-      <div className="w-24 shrink-0">
-        <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-          <input type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
-            onBlur={handleSave} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="0"
-            className={`h-8 w-full text-sm text-right rounded-lg border bg-background pl-5 pr-2 font-mono font-bold tabular-nums ${
-              isBest ? "border-emerald-300 bg-emerald-50" : "border-border"
-            }`} />
+        <div className="w-16 shrink-0">
+          <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
+            className="h-8 w-full text-xs text-center rounded-lg border border-border bg-background px-1 font-mono font-bold tabular-nums" />
+        </div>
+        <div className="w-20 shrink-0">
+          <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
+            onBlur={handleSave} placeholder="Ref #"
+            className="h-8 w-full text-xs rounded-lg border border-border bg-background px-2 font-mono placeholder:text-muted-foreground/40" />
+        </div>
+        <div className="w-24 shrink-0">
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+            <input type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+              onBlur={handleSave} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="0"
+              className={`h-8 w-full text-sm text-right rounded-lg border bg-background pl-5 pr-2 font-mono font-bold tabular-nums ${isBest ? "border-emerald-300 bg-emerald-50" : "border-border"}`} />
+          </div>
+        </div>
+        <div className="w-24 text-right shrink-0">
+          <p className={`text-sm font-black font-mono tabular-nums ${isBest ? "text-emerald-700" : "text-foreground"}`}>
+            {customerTotal != null ? formatCurrency(customerTotal) : "---"}
+          </p>
+          <p className="text-[10px] text-muted-foreground">customer</p>
+        </div>
+        <div className="flex items-center gap-1 ml-auto">
+          {isBest && <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase tracking-wider">Best</span>}
+          <button onClick={onRemove} className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
-      {/* Customer price */}
-      <div className="w-24 text-right shrink-0">
-        <p className={`text-sm font-black font-mono tabular-nums ${isBest ? "text-emerald-700" : "text-foreground"}`}>
-          {customerTotal != null ? formatCurrency(customerTotal) : "---"}
-        </p>
-        <p className="text-[10px] text-muted-foreground">customer</p>
-      </div>
-
-      {/* Best badge or remove */}
-      <div className="flex items-center gap-1 ml-auto">
-        {isBest && (
-          <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase tracking-wider">Best</span>
-        )}
-        <button onClick={onRemove} className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors">
-          <X className="h-3.5 w-3.5" />
-        </button>
+      {/* MOBILE: stacked card */}
+      <div className="flex sm:hidden flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {isBest && <Star className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600 shrink-0" />}
+            <span className="text-sm font-bold text-foreground">{vendorName}</span>
+            {pickupCost > 0 && <span className="text-[11px] text-muted-foreground ml-1">+{formatCurrency(pickupCost)}</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            {isBest && <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase">Best</span>}
+            <button onClick={onRemove} className="p-2 rounded-lg text-muted-foreground/40 hover:text-destructive min-h-[44px] min-w-[44px] flex items-center justify-center">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Qty</label>
+            <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
+              className="h-10 w-full text-sm text-center rounded-lg border border-border bg-background px-1 font-mono font-bold tabular-nums" />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Ref #</label>
+            <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
+              onBlur={handleSave} placeholder="---"
+              className="h-10 w-full text-sm rounded-lg border border-border bg-background px-2 font-mono" />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Price</label>
+            <div className="relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+              <input type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+                onBlur={handleSave} onKeyDown={(e) => e.key === "Enter" && handleSave()} placeholder="0"
+                className={`h-10 w-full text-sm text-right rounded-lg border bg-background pl-6 pr-2 font-mono font-bold tabular-nums ${isBest ? "border-emerald-300 bg-emerald-50" : "border-border"}`} />
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xs text-muted-foreground">Customer total:</span>
+          <span className={`text-base font-black font-mono tabular-nums ${isBest ? "text-emerald-700" : "text-foreground"}`}>
+            {customerTotal != null ? formatCurrency(customerTotal) : "---"}
+          </span>
+        </div>
       </div>
     </div>
   )

@@ -115,8 +115,8 @@ function EnvelopePriceCard({ pieceId }: { pieceId: string }) {
       )}
 
       {/* Pricing row */}
-      <div className="px-5 py-4 flex items-end gap-4">
-        <div className="flex flex-col gap-1 w-32">
+      <div className="px-4 sm:px-5 py-4 flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1 w-full sm:w-32">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Cost / each</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
@@ -128,17 +128,17 @@ function EnvelopePriceCard({ pieceId }: { pieceId: string }) {
             />
           </div>
         </div>
-        <div className="flex flex-col gap-1 min-w-[100px]">
+        <div className="flex flex-col gap-1">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Total</label>
           <span className="text-lg font-bold font-mono text-foreground tabular-nums h-10 flex items-center">
             {formatCurrency(total)}
           </span>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto w-full sm:w-auto">
           <button
             onClick={handleAdd}
             disabled={cost <= 0 || added}
-            className="flex items-center gap-2 bg-foreground text-background text-xs font-semibold px-5 py-2.5 rounded-full hover:bg-foreground/90 disabled:opacity-30 transition-all"
+            className="flex items-center justify-center gap-2 bg-foreground text-background text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-foreground/90 disabled:opacity-30 transition-all w-full sm:w-auto min-h-[44px]"
           >
             {added ? <><Check className="h-3.5 w-3.5" />Added</> : <><Plus className="h-3.5 w-3.5" />Add to Quote</>}
           </button>
