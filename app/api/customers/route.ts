@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
+function supabaseReady() {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
 export async function GET(req: Request) {
+  if (!supabaseReady()) return NextResponse.json([])
   const supabase = await createClient()
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search")
@@ -23,8 +28,20 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!supabaseReady()) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 })
   const supabase = await createClient()
   const body = await req.json()
+
+  // Support bulk import: array of customers
+  if (Array.isArray(body)) {
+    const { data, error } = await supabase
+      .from("customers")
+      .insert(body)
+      .select()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ inserted: data?.length || 0 })
+  }
+
   const { data, error } = await supabase
     .from("customers")
     .insert(body)

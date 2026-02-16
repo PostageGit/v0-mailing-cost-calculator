@@ -120,8 +120,10 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
 
   const handleImport = async () => {
     setImporting(true)
-    let success = 0
     let errors = 0
+
+    // Build all customer objects first
+    const customers: Record<string, string | boolean | Record<string, string>>[] = []
 
     for (const row of rows) {
       const customer: Record<string, string | boolean | Record<string, string>> = {
@@ -133,7 +135,6 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
         if (!value) continue
         const dbField = FIELD_MAP[csvKey.toLowerCase().trim()]
         if (!dbField) continue
-        // QB-specific fields go into custom_fields
         if (dbField === "customer_type_qb") {
           extras["QB Customer Type"] = value
         } else if (dbField === "open_balance_qb") {
@@ -148,9 +149,7 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
         customer.custom_fields = extras
       }
 
-      // Require company_name
       if (!customer.company_name) {
-        // Try to use contact_name as company_name if no company
         if (customer.contact_name) {
           customer.company_name = customer.contact_name as string
         } else {
@@ -158,17 +157,28 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
           continue
         }
       }
+      customers.push(customer)
+    }
 
+    // Bulk import in batches of 100
+    let success = 0
+    const BATCH_SIZE = 100
+    for (let i = 0; i < customers.length; i += BATCH_SIZE) {
+      const batch = customers.slice(i, i + BATCH_SIZE)
       try {
         const res = await fetch("/api/customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(customer),
+          body: JSON.stringify(batch),
         })
-        if (res.ok) success++
-        else errors++
+        if (res.ok) {
+          const data = await res.json()
+          success += data.inserted || batch.length
+        } else {
+          errors += batch.length
+        }
       } catch {
-        errors++
+        errors += batch.length
       }
     }
 
