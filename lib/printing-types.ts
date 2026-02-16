@@ -45,6 +45,14 @@ export interface PrintingInputs {
   levelOverride?: number
   /** Extra percentage on printing cost (default 10) */
   printingMarkupPct: number
+  /** Lamination settings */
+  lamination?: {
+    enabled: boolean
+    type: "Gloss" | "Matte" | "Silk" | "Leather" | "Linen"
+    sides: "S/S" | "D/S"
+    markupPct: number
+    brokerDiscountPct: number
+  }
 }
 
 export interface PrintingCalcResult {
@@ -88,6 +96,14 @@ export interface ScoreFoldCostLine {
   suggestion?: string
 }
 
+export interface LaminationCostLine {
+  type: string
+  sides: string
+  cost: number
+  isMinimumApplied: boolean
+  timeMinutes: number
+}
+
 export interface FullPrintingResult {
   printingCost: number
   printingCostPlus10: number
@@ -97,6 +113,7 @@ export interface FullPrintingResult {
   finishingCosts: FinishingCostLine[]
   totalFinishing: number
   scoreFoldCost: ScoreFoldCostLine | null
+  laminationCost: LaminationCostLine | null
   /** Costs from custom finishing calculators */
   finishingCalcCosts: { id: string; name: string; cost: number }[]
   totalFinishingCalcCost: number

@@ -43,6 +43,13 @@ const EMPTY_INPUTS: PrintingInputs = {
   scoreFoldOperation: "",
   scoreFoldType: "",
   printingMarkupPct: 10,
+  lamination: {
+    enabled: false,
+    type: "Gloss",
+    sides: "S/S",
+    markupPct: 225,
+    brokerDiscountPct: 30,
+  },
 }
 
 export function PrintingCalculator() {
@@ -142,6 +149,11 @@ export function PrintingCalculator() {
     inputs.addOnCharge,
     inputs.addOnDescription,
     inputs.isBroker,
+    inputs.lamination?.enabled,
+    inputs.lamination?.type,
+    inputs.lamination?.sides,
+    inputs.lamination?.markupPct,
+    inputs.lamination?.brokerDiscountPct,
     selectedOption,
     showResults,
     getFinCalcCosts,

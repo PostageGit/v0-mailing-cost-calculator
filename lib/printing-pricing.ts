@@ -7,9 +7,12 @@ import type {
   PrintingCalcResult,
   SheetOptionRow,
   FullPrintingResult,
+  FinishingCostLine,
+  ScoreFoldCostLine,
+  LaminationCostLine,
 } from "./printing-types"
 import { getActiveConfig, calculateFinishingCost, calculateScoreFoldCost } from "./pricing-config"
-import type { FinishingCostLine, ScoreFoldCostLine } from "./printing-types"
+import { calculateLamination, LAMINATION_DEFAULTS } from "./lamination-pricing"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -328,7 +331,10 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
     const sfCost = getScoreFoldCost(inputs)
-    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + (sfCost?.cost || 0)
+    const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
+    const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
+    const lamCost = lamResult?.total || 0
+    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + (sfCost?.cost || 0) + lamCost
     const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
 
     results.push({
@@ -354,9 +360,16 @@ export function buildFullResult(
   const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
   const scoreFoldCost = getScoreFoldCost(inputs)
+  // Lamination cost (per parent sheet)
+  const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
+  const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
+  const laminationCost: LaminationCostLine | null = lamResult
+    ? { type: lamInputs.type, sides: lamInputs.sides, cost: lamResult.total, isMinimumApplied: lamResult.isMinimumApplied, timeMinutes: lamResult.timeMinutes }
+    : null
+
   const fcCosts = finishingCalcCosts || []
   const totalFinishingCalcCost = fcCosts.reduce((sum, c) => sum + c.cost, 0)
-  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost
+  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0)
   const grandTotal = subtotal
 
   return {
@@ -368,6 +381,7 @@ export function buildFullResult(
     finishingCosts,
     totalFinishing,
     scoreFoldCost,
+    laminationCost,
     finishingCalcCosts: fcCosts,
     totalFinishingCalcCost,
     subtotal,

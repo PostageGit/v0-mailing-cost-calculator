@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -18,6 +19,8 @@ import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 
 import { FinishingAddOns } from "@/components/finishing-add-ons"
 import { useFormValidation } from "@/hooks/use-form-validation"
+import { LAMINATION_TYPES, LAMINATION_DEFAULTS, toLaminationPaperCategory } from "@/lib/lamination-pricing"
+import type { LaminationType, LaminationSides } from "@/lib/lamination-pricing"
 
 interface PrintingFormProps {
   inputs: PrintingInputs
@@ -302,9 +305,140 @@ function FinishingsSection({
   onInputsChange: (i: PrintingInputs) => void
   currentResult?: FullPrintingResult | null
 }) {
+  const lam = inputs.lamination || LAMINATION_DEFAULTS
+  const [showLamSettings, setShowLamSettings] = useState(false)
+
+  function updateLam(patch: Partial<typeof lam>) {
+    onInputsChange({ ...inputs, lamination: { ...lam, ...patch } })
+  }
+
+  const paperCat = inputs.paperName ? toLaminationPaperCategory(inputs.paperName) : null
+  const isTextPaper = paperCat === "100 Text/80 Cover"
+
   return (
     <div className="mb-5 rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-4">
       <h3 className="text-sm font-semibold text-foreground">Finishings</h3>
+
+      {/* ── Lamination ── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="lam-enabled"
+              checked={lam.enabled}
+              onCheckedChange={(checked) => updateLam({ enabled: checked === true })}
+            />
+            <label htmlFor="lam-enabled" className="text-[13px] font-semibold text-foreground cursor-pointer">
+              Lamination
+            </label>
+          </div>
+          {lam.enabled && (
+            <button
+              type="button"
+              onClick={() => setShowLamSettings(!showLamSettings)}
+              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              {showLamSettings ? "Hide settings" : "Settings"}
+            </button>
+          )}
+        </div>
+
+        {lam.enabled && (
+          <div className="flex flex-col gap-3 pl-1">
+            {/* Type selector -- pill buttons */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground">Type</label>
+              <div className="flex flex-wrap gap-1.5">
+                {LAMINATION_TYPES.map((t) => {
+                  const selected = lam.type === t
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => updateLam({ type: t as LaminationType })}
+                      className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all ${
+                        selected
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-card text-foreground hover:border-foreground/40"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Sides */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-medium text-muted-foreground">Sides</label>
+              <div className="flex gap-1.5">
+                {(["S/S", "D/S"] as LaminationSides[]).map((s) => {
+                  const selected = lam.sides === s
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => updateLam({ sides: s })}
+                      className={`px-4 py-1.5 rounded-lg text-[12px] font-semibold border transition-all ${
+                        selected
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border bg-card text-foreground hover:border-foreground/40"
+                      }`}
+                    >
+                      {s === "S/S" ? "Single Side" : "Both Sides"}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Paper warning for text weight */}
+            {isTextPaper && (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+                  Text-weight paper is harder to laminate. Consider card stock for best results.
+                </p>
+              </div>
+            )}
+
+            {/* Collapsible settings */}
+            {showLamSettings && (
+              <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-3">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Lamination Settings</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Markup %</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={lam.markupPct}
+                      onChange={(e) => updateLam({ markupPct: parseFloat(e.target.value) || 0 })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">Broker Discount %</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={lam.brokerDiscountPct}
+                      onChange={(e) => updateLam({ brokerDiscountPct: parseFloat(e.target.value) || 0 })}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-border" />
 
       {/* Custom Finishing Calculators (from Settings) */}
       <FinishingAddOns

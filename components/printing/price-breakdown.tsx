@@ -24,7 +24,7 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
   const {
     result, inputs, printingCostPlus10, cuttingCost,
     addOnCharge, addOnDescription,
-    finishingCosts, scoreFoldCost, finishingCalcCosts,
+    finishingCosts, scoreFoldCost, laminationCost, finishingCalcCosts,
     subtotal, grandTotal,
   } = data
 
@@ -59,6 +59,13 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
     costLines.push({
       label: `${scoreFoldCost.operation} (${scoreFoldCost.foldType})${scoreFoldCost.isMinApplied ? " min." : ""}`,
       value: scoreFoldCost.cost,
+      accent: true,
+    })
+  }
+  if (laminationCost) {
+    costLines.push({
+      label: `${laminationCost.type} Lamination (${laminationCost.sides})${laminationCost.isMinimumApplied ? " min." : ""}`,
+      value: laminationCost.cost,
       accent: true,
     })
   }
