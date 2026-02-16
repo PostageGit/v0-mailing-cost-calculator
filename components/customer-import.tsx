@@ -11,82 +11,92 @@ interface Props {
   onImported: () => void
 }
 
-// Minimal CSV parser
+// Robust CSV parser that handles multiline quoted fields (QB Online exports
+// addresses with embedded line breaks inside double-quoted cells).
 function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim())
-  if (lines.length < 2) return []
-
-  const headers = parseLine(lines[0])
-  return lines.slice(1).map((line) => {
-    const vals = parseLine(line)
-    const row: Record<string, string> = {}
-    headers.forEach((h, i) => {
-      row[h.trim()] = (vals[i] || "").trim()
-    })
-    return row
-  })
-}
-
-function parseLine(line: string): string[] {
-  const result: string[] = []
-  let current = ""
+  const records: string[][] = []
+  let current: string[] = []
+  let cell = ""
   let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i]
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+
     if (inQuotes) {
-      if (c === '"' && line[i + 1] === '"') {
-        current += '"'
-        i++
-      } else if (c === '"') {
-        inQuotes = false
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
       } else {
-        current += c
+        // Collapse embedded newlines to a single space for clean display
+        cell += c === "\r" ? "" : c === "\n" ? " " : c
       }
     } else {
       if (c === '"') {
         inQuotes = true
       } else if (c === ",") {
-        result.push(current)
-        current = ""
-      } else {
-        current += c
+        current.push(cell)
+        cell = ""
+      } else if (c === "\n" || (c === "\r" && text[i + 1] === "\n")) {
+        if (c === "\r") i++ // skip \r in \r\n
+        current.push(cell)
+        cell = ""
+        if (current.some((v) => v.trim())) records.push(current)
+        current = []
+      } else if (c !== "\r") {
+        cell += c
       }
     }
   }
-  result.push(current)
-  return result
+  // Flush last record
+  current.push(cell)
+  if (current.some((v) => v.trim())) records.push(current)
+
+  if (records.length < 2) return []
+
+  const headers = records[0].map((h) => h.trim())
+  return records.slice(1).map((vals) => {
+    const row: Record<string, string> = {}
+    headers.forEach((h, i) => {
+      row[h] = (vals[i] || "").trim()
+    })
+    return row
+  })
 }
 
 // QB Online CSV headers mapped to our DB columns
+// Keys are lowercased + trimmed for case-insensitive matching
 const FIELD_MAP: Record<string, string> = {
-  "Name": "contact_name",
-  "Company": "company_name",
+  "name": "contact_name",
   "company": "company_name",
+  "company name": "company_name",
   "company_name": "company_name",
-  "Email": "email",
   "email": "email",
-  "Phone": "office_phone",
+  "e-mail": "email",
   "phone": "office_phone",
   "office_phone": "office_phone",
-  "Mobile": "cell_phone",
   "mobile": "cell_phone",
   "cell_phone": "cell_phone",
-  "Website": "website",
   "website": "website",
-  "Street": "street",
   "street": "street",
-  "City": "city",
+  "street address": "street",
+  "address": "street",
+  "billing street": "street",
   "city": "city",
-  "State": "state",
   "state": "state",
-  "PostalCode": "postal_code",
+  "state/province": "state",
+  "postalcode": "postal_code",
   "postal_code": "postal_code",
-  "Zip": "postal_code",
-  "Country": "country",
+  "zip": "postal_code",
+  "zip code": "postal_code",
   "country": "country",
-  "Notes": "notes",
   "notes": "notes",
   "contact_name": "contact_name",
+  "customer type": "customer_type_qb",
+  "open balance": "open_balance_qb",
 }
 
 export function CustomerImportModal({ onClose, onImported }: Props) {
@@ -114,15 +124,28 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
     let errors = 0
 
     for (const row of rows) {
-      const customer: Record<string, string | boolean> = {
+      const customer: Record<string, string | boolean | Record<string, string>> = {
         billing_same_as_primary: true,
       }
+      const extras: Record<string, string> = {}
 
       for (const [csvKey, value] of Object.entries(row)) {
-        const dbField = FIELD_MAP[csvKey]
-        if (dbField && value) {
+        if (!value) continue
+        const dbField = FIELD_MAP[csvKey.toLowerCase().trim()]
+        if (!dbField) continue
+        // QB-specific fields go into custom_fields
+        if (dbField === "customer_type_qb") {
+          extras["QB Customer Type"] = value
+        } else if (dbField === "open_balance_qb") {
+          const parsed = parseFloat(value.replace(/[,"]/g, ""))
+          if (parsed !== 0) extras["QB Open Balance"] = value.replace(/"/g, "")
+        } else {
           customer[dbField] = value
         }
+      }
+
+      if (Object.keys(extras).length > 0) {
+        customer.custom_fields = extras
       }
 
       // Require company_name
@@ -175,8 +198,9 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground text-pretty">
-            Upload a CSV file exported from QuickBooks Online or any spreadsheet. Supported columns:
-            Name, Company, Email, Phone, Mobile, Website, Street, City, State, PostalCode, Country, Notes.
+            Upload a CSV exported from QuickBooks Online (Customers export). Supported columns:
+            Name, Company name, Street Address, City, State, Zip, Country, Phone, Email, Customer type, Open balance.
+            Also accepts generic CSVs with similar headers.
           </p>
 
           {/* File picker */}
@@ -203,14 +227,18 @@ export function CustomerImportModal({ onClose, onImported }: Props) {
           {rows.length > 0 && !result && (
             <div className="rounded-lg border border-border bg-muted/30 p-3 max-h-48 overflow-y-auto">
               <p className="text-xs font-semibold text-muted-foreground mb-2">Preview (first 5 rows)</p>
-              {rows.slice(0, 5).map((row, i) => (
-                <div key={i} className="text-xs text-foreground py-1 border-b border-border last:border-0">
-                  <span className="font-medium">{row.Company || row.company_name || row.Name || "?"}</span>
-                  {(row.Email || row.email) && (
-                    <span className="text-muted-foreground ml-2">{row.Email || row.email}</span>
-                  )}
-                </div>
-              ))}
+              {rows.slice(0, 5).map((row, i) => {
+                const name = row["Company name"] || row["Company"] || row["company_name"] || row["Name"] || "?"
+                const email = row["Email"] || row["email"] || ""
+                const phone = row["Phone"] || row["phone"] || ""
+                return (
+                  <div key={i} className="text-xs text-foreground py-1.5 border-b border-border last:border-0 flex items-baseline gap-2">
+                    <span className="font-medium truncate flex-1">{name}</span>
+                    {email && <span className="text-muted-foreground text-[11px] truncate max-w-[160px]">{email}</span>}
+                    {!email && phone && <span className="text-muted-foreground text-[11px]">{phone}</span>}
+                  </div>
+                )
+              })}
             </div>
           )}
 
