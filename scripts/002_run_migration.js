@@ -1,6 +1,11 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 import pg from 'pg'
 
-const client = new pg.Client({ connectionString: process.env.POSTGRES_URL })
+const url = process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL
+console.log('Using URL prefix:', url ? url.substring(0, 30) + '...' : 'NONE FOUND')
+console.log('Available PG vars:', Object.keys(process.env).filter(k => k.includes('POSTGRES') || k.includes('DATABASE') || k.includes('SUPABASE')).join(', '))
+
+const client = new pg.Client({ connectionString: url })
 await client.connect()
 
 try {

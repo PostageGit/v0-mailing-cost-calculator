@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
-  FilePlus, Cloud, Loader2, Pencil, Trash2,
+  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -148,13 +148,14 @@ function QuoteItemRow({
 /* ── Main sidebar ─────────────────────────────────────── */
 export function QuoteSidebar() {
   const {
-    items, projectName, savedId, isSaving, lastSavedAt,
+    items, projectName, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
   const [confirmClear, setConfirmClear] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showLog, setShowLog] = useState(false)
 
   const toggleCat = (cat: QuoteCategory) => {
     setCollapsedCats((p) => {
@@ -189,7 +190,14 @@ export function QuoteSidebar() {
       {/* ── Header ── */}
       <div className="px-5 py-4 border-b border-border/50 shrink-0">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-foreground tracking-tight">Quote</h2>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-base font-bold text-foreground tracking-tight">Quote</h2>
+            {quoteNumber && (
+              <span className="text-xs font-mono font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded-md">
+                Q-{quoteNumber}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             {saveText && (
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -308,6 +316,40 @@ export function QuoteSidebar() {
             </span>
           </div>
 
+          {/* Activity Log */}
+          {activityLog.length > 0 && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowLog(!showLog)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-2"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                Activity ({activityLog.length})
+                {showLog ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+              {showLog && (
+                <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto rounded-xl bg-secondary/30 p-3">
+                  {activityLog.map((entry) => (
+                    <div key={entry.id} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-foreground font-medium leading-snug">
+                          {formatEvent(entry.event)}
+                        </p>
+                        {entry.detail && (
+                          <p className="text-[11px] text-muted-foreground truncate">{entry.detail}</p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground/60 tabular-nums">
+                          {formatLogDate(entry.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-2.5">
             <Button
@@ -335,6 +377,28 @@ export function QuoteSidebar() {
       )}
     </div>
   )
+}
+
+function formatEvent(event: string): string {
+  switch (event) {
+    case "created": return "Quote created"
+    case "item_added": return "Item added"
+    case "item_removed": return "Item removed"
+    case "sent": return "Quote sent"
+    case "copied": return "Quote copied"
+    case "status_changed": return "Status changed"
+    default: return event.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  }
+}
+
+function formatLogDate(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diff = now.getTime() - d.getTime()
+  if (diff < 60000) return "Just now"
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
 function timeSince(ts: number): string {

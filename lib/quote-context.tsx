@@ -4,6 +4,14 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, ty
 import { mutate as globalMutate } from "swr"
 import type { QuoteLineItem, QuoteCategory } from "./quote-types"
 
+export interface ActivityLogEntry {
+  id: number
+  quote_id: string
+  event: string
+  detail: string | null
+  created_at: string
+}
+
 interface QuoteContextValue {
   items: QuoteLineItem[]
   projectName: string
@@ -11,8 +19,10 @@ interface QuoteContextValue {
   contactName: string
   referenceNumber: string
   savedId: string | null
+  quoteNumber: number | null
   isSaving: boolean
   lastSavedAt: number | null
+  activityLog: ActivityLogEntry[]
   setProjectName: (name: string) => void
   setCustomerId: (id: string | null) => void
   setContactName: (name: string) => void
@@ -28,6 +38,8 @@ interface QuoteContextValue {
   ensureSaved: () => Promise<string>
   loadQuote: (quoteId: string) => Promise<void>
   newQuote: () => void
+  logActivity: (event: string, detail?: string) => Promise<void>
+  refreshLog: () => Promise<void>
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
@@ -41,8 +53,10 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [contactName, setContactNameRaw] = useState("")
   const [referenceNumber, setReferenceNumberRaw] = useState("")
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [quoteNumber, setQuoteNumber] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
 
   // Track whether there are unsaved changes
   const dirtyRef = useRef(false)
@@ -90,6 +104,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         if (data.id) {
           id = data.id
           setSavedId(id)
+          if (data.quote_number) setQuoteNumber(data.quote_number)
         }
       }
 
@@ -150,6 +165,17 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     const newItem: QuoteLineItem = { ...item, id: Date.now() + Math.random() }
     setItems((prev) => [...prev, newItem])
     scheduleSave()
+    // Log after save completes (async, non-blocking)
+    setTimeout(() => {
+      const id = savedIdRef.current
+      if (id) {
+        fetch(`/api/quotes/${id}/log`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: "item_added", detail: item.label }),
+        }).catch(() => {})
+      }
+    }, AUTO_SAVE_DELAY + 500)
   }, [scheduleSave])
 
   const removeItem = useCallback((id: number) => {
@@ -197,6 +223,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     const data = await res.json()
     if (data.id) {
       setSavedId(data.id)
+      setQuoteNumber(data.quote_number || null)
       setProjectNameRaw(data.project_name || "")
       setCustomerIdRaw(data.customer_id || null)
       setContactNameRaw(data.contact_name || "")
@@ -204,17 +231,48 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setItems(data.items || [])
       dirtyRef.current = false
       setLastSavedAt(Date.now())
+      // Load activity log
+      try {
+        const logRes = await fetch(`/api/quotes/${data.id}/log`)
+        const logData = await logRes.json()
+        if (Array.isArray(logData)) setActivityLog(logData)
+      } catch { /* ignore */ }
     }
   }, [])
+
+  const refreshLog = useCallback(async () => {
+    const id = savedIdRef.current
+    if (!id) return
+    try {
+      const res = await fetch(`/api/quotes/${id}/log`)
+      const data = await res.json()
+      if (Array.isArray(data)) setActivityLog(data)
+    } catch { /* ignore */ }
+  }, [])
+
+  const logActivity = useCallback(async (event: string, detail?: string) => {
+    const id = savedIdRef.current
+    if (!id) return
+    try {
+      await fetch(`/api/quotes/${id}/log`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event, detail }),
+      })
+      refreshLog()
+    } catch { /* ignore */ }
+  }, [refreshLog])
 
   const newQuote = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     setSavedId(null)
+    setQuoteNumber(null)
     setProjectNameRaw("")
     setCustomerIdRaw(null)
     setContactNameRaw("")
     setReferenceNumberRaw("")
     setItems([])
+    setActivityLog([])
     dirtyRef.current = false
     setLastSavedAt(null)
   }, [])
@@ -228,8 +286,10 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         contactName,
         referenceNumber,
         savedId,
+        quoteNumber,
         isSaving,
         lastSavedAt,
+        activityLog,
         setProjectName,
         setCustomerId,
         setContactName,
@@ -244,6 +304,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         ensureSaved,
         loadQuote,
         newQuote,
+        logActivity,
+        refreshLog,
       }}
     >
       {children}

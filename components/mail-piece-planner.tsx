@@ -174,8 +174,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             const isOuter = piece.position === 1
             const outerW = m.mailerWidth
             const outerH = m.mailerHeight
-            // Inner pieces must be at least 0.5" smaller per side (1" total) than outer
-            const minClearance = 1 // 0.5" per side = 1" total
+            // Inner pieces must be at least 0.25" total (both sides) smaller than outer
+            const minClearance = 0.25
             const tooWide = !isOuter && piece.width && outerW && piece.width > (outerW - minClearance)
             const tooTall = !isOuter && piece.height && outerH && piece.height > (outerH - minClearance)
             const sizeWarn = tooWide || tooTall
@@ -356,11 +356,11 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                       )
                     })()}
 
-                    {/* Size warning -- must be 0.5" smaller per side than outer */}
+                    {/* Size warning -- must be 0.25" total smaller than outer */}
                     {sizeWarn && (
                       <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium mb-3">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                        Must be 0.5" smaller per side than outer.{" "}
+                        {"Must be 0.25\" total smaller than outer. "}
                         {maxInnerW && maxInnerH && <span className="font-mono font-bold">Max: {maxInnerW}" x {maxInnerH}"</span>}
                       </div>
                     )}
