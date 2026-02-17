@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
-  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, ArrowRight,
+  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, Send,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -154,13 +154,26 @@ interface QuoteSidebarProps {
 export function QuoteSidebar({ onGoToExport }: QuoteSidebarProps = {}) {
   const {
     items, projectName, customerId, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
-    removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote,
+    removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote, ensureSaved,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
   const [confirmClear, setConfirmClear] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showLog, setShowLog] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const handleFinishAndSend = async () => {
+    if (!items.length) return
+    setSending(true)
+    try {
+      await ensureSaved()
+      newQuote()
+      onGoToExport?.()
+    } finally {
+      setSending(false)
+    }
+  }
 
   const toggleCat = (cat: QuoteCategory) => {
     setCollapsedCats((p) => {
@@ -357,13 +370,18 @@ export function QuoteSidebar({ onGoToExport }: QuoteSidebarProps = {}) {
 
           {/* Actions */}
           <div className="flex flex-col gap-2">
-            {onGoToExport && savedId && (
+            {onGoToExport && items.length > 0 && (
               <Button
                 size="sm"
                 className="w-full gap-1.5 text-[12px] h-10 rounded-lg font-semibold bg-foreground text-background hover:bg-foreground/90"
-                onClick={onGoToExport}
+                onClick={handleFinishAndSend}
+                disabled={sending}
               >
-                <ArrowRight className="h-3.5 w-3.5" /> Ready to Export
+                {sending ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
+                ) : (
+                  <><Send className="h-3.5 w-3.5" /> Finish &amp; Send to Export</>
+                )}
               </Button>
             )}
             <div className="flex gap-2">
