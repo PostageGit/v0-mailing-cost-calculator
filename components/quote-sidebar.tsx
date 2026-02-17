@@ -167,6 +167,7 @@ export function QuoteSidebar() {
 
   const total = getTotal()
   const hasItems = items.length > 0
+  console.log("[v0] QuoteSidebar render - items:", items.length, "hasItems:", hasItems, "savedId:", savedId)
 
   const handleCopy = useCallback(async () => {
     const text = buildQuoteText(items, projectName || undefined)
