@@ -330,26 +330,9 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   let totalSheetsPerBooklet: number
 
   if (separateCover) {
-    const insidePages = pagesPerBook - 4
-    if (insidePages < 4) {
-      return invalidResult("Booklets with a separate cover must have at least 8 pages total (4 inside pages).")
-    }
-    const insideSheetsPerBooklet = insidePages / 4
-    totalSheetsPerBooklet = insideSheetsPerBooklet + 1
-    console.log("[v0] separateCover=true, pages:", pagesPerBook, "insidePages:", insidePages, "insideSheetsPerBooklet:", insideSheetsPerBooklet, "totalSheetsPerBooklet:", totalSheetsPerBooklet)
-
-    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, insideSheetsPerBooklet, false, forcedLevel, "inside")
-    if (insideResult.error) return invalidResult("Inside Pages: " + insideResult.error)
-    console.log("[v0] insideResult.sheets:", insideResult.sheets, "maxUps:", insideResult.maxUps)
-  } else {
-    totalSheetsPerBooklet = pagesPerBook / 4
-    console.log("[v0] separateCover=false, totalSheetsPerBooklet:", totalSheetsPerBooklet)
-    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, totalSheetsPerBooklet, false, forcedLevel, "inside")
-    if (insideResult.error) return invalidResult(insideResult.error)
-    console.log("[v0] insideResult.sheets:", insideResult.sheets, "maxUps:", insideResult.maxUps)
-  }
-    const insideSheetsPerBooklet = insidePages / 4
-    totalSheetsPerBooklet = insideSheetsPerBooklet + 1
+    // "pagesPerBook" is the INSIDE page count; cover is additional (1 sheet = 4 cover pages)
+    const insideSheetsPerBooklet = pagesPerBook / 4
+    totalSheetsPerBooklet = insideSheetsPerBooklet + 1  // +1 for the cover sheet
 
     insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, insideSheetsPerBooklet, false, forcedLevel, "inside")
     if (insideResult.error) return invalidResult("Inside Pages: " + insideResult.error)
@@ -358,6 +341,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     coverResult = calculatePartCost(coverPaper, coverSides, coverBleed, coverSheetSize, bookQty, spreadWidth, spreadHeight, 1, hasLamination, coverForcedLevel, "cover")
     if (coverResult.error) return invalidResult("Cover: " + coverResult.error)
   } else {
+    // No separate cover: all pages (including cover) share the same stock
     totalSheetsPerBooklet = pagesPerBook / 4
     insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, totalSheetsPerBooklet, false, forcedLevel, "inside")
     if (insideResult.error) return invalidResult(insideResult.error)
@@ -374,8 +358,8 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     let insideLvl5: PartCalcResult
     let coverLvl5: PartCalcResult
 
-    if (separateCover) {
-      insideLvl5 = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, (pagesPerBook - 4) / 4, false, 5, "inside")
+  if (separateCover) {
+    insideLvl5 = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, pagesPerBook / 4, false, 5, "inside")
       coverLvl5 = calculatePartCost(coverPaper, coverSides, coverBleed, coverSheetSize, bookQty, spreadWidth, spreadHeight, 1, hasLamination, 5, "cover")
     } else {
       insideLvl5 = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, pagesPerBook / 4, false, 5, "inside")

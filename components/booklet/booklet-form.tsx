@@ -49,12 +49,13 @@ export function BookletForm({
   const canLam = inputs.separateCover && inputs.coverPaper ? canPaperLaminate(inputs.coverPaper) : false
   const v = useFormValidation()
 
+  const minPages = inputs.separateCover ? 4 : 8
   const pagesError = inputs.pagesPerBook > 0 && inputs.pagesPerBook % 4 !== 0
     ? `Must be a multiple of 4. Try ${Math.ceil(inputs.pagesPerBook / 4) * 4}.`
     : inputs.pagesPerBook > 172
       ? "Max 172 pages."
-      : inputs.pagesPerBook > 0 && inputs.pagesPerBook < 8
-        ? "Minimum 8 pages."
+      : inputs.pagesPerBook > 0 && inputs.pagesPerBook < minPages
+        ? `Minimum ${minPages} pages.`
         : null
 
   function handleSubmit(e: React.FormEvent) {
@@ -89,9 +90,9 @@ export function BookletForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="pages-per-book" className="text-sm font-medium text-foreground">
-            Page Amount{v.req(!inputs.pagesPerBook) && <span className="text-destructive text-xs ml-0.5">*</span>}
-          </label>
+<label htmlFor="pages-per-book" className="text-sm font-medium text-foreground">
+{inputs.separateCover ? "Inside Pages" : "Page Amount"}{v.req(!inputs.pagesPerBook) && <span className="text-destructive text-xs ml-0.5">*</span>}
+</label>
           <Input
             id="pages-per-book" type="number" inputMode="numeric"
             min={8} max={172} step={4} autoComplete="off"
