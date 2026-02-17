@@ -18,7 +18,7 @@ import {
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
-  Hash, GripVertical, Copy,
+  Hash, GripVertical, NotepadText, ExternalLink,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -36,6 +36,7 @@ interface JobMeta {
   bcc_done?: boolean; paperwork_done?: boolean; folder_archived?: boolean; job_mailed?: boolean
   invoice_updated?: boolean; invoice_emailed?: boolean; paid_postage?: boolean; paid_full?: boolean
   assignee?: string; due_date?: string
+  zendesk_ticket?: string; next_step?: string; quick_notes?: string
 }
 interface Quote {
   id: string; project_name: string; status: string; column_id: string | null
@@ -502,6 +503,181 @@ function JobFilesPanel({ quoteId, projectName, onClose }: { quoteId: string; pro
 }
 
 /* ════════════════════════════════════════════════════
+   DEFAULT NEXT STEPS (fallback if not configured)
+   ════════════════════════════════════════════════════ */
+const DEFAULT_NEXT_STEPS = [
+  "Working on Quote",
+  "Waiting for Approval",
+  "Waiting for Customer Reply",
+  "Waiting for List",
+  "Ready to Print",
+  "Printing in Progress",
+  "Prints Arrived",
+  "Working on Mailing",
+  "Ready to Mail",
+  "Out for Delivery",
+  "Brand New",
+]
+
+const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
+
+/* ════════════════════════════════════════════════════
+   QUICK NOTES POPUP (like PostFlow)
+   ════════════════════════════════════════════════════ */
+function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { ref.current?.focus() }, [])
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        if (draft !== value) onChange(draft)
+        onClose()
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [draft, value, onChange, onClose])
+
+  const wordCount = draft.trim() ? draft.trim().split(/\s+/).length : 0
+
+  return (
+    <div ref={containerRef} className="absolute right-0 top-0 z-20 w-56 rounded-lg border border-border bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="px-3 py-2 border-b border-border">
+        <p className="text-[11px] font-semibold text-foreground">Quick Notes</p>
+      </div>
+      <textarea
+        ref={ref}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Add a note..."
+        className="w-full px-3 py-2 text-xs text-foreground bg-transparent resize-none outline-none min-h-[80px]"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") { onClose(); return }
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { if (draft !== value) onChange(draft); onClose() }
+        }}
+      />
+      <div className="px-3 py-1.5 border-t border-border flex items-center justify-between">
+        <span className="text-[9px] text-muted-foreground">{wordCount} word{wordCount !== 1 ? "s" : ""}</span>
+        <button onClick={() => { if (draft !== value) onChange(draft); onClose() }}
+          className="text-[10px] font-medium text-foreground hover:text-foreground/70 transition-colors">Done</button>
+      </div>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════
+   EDITABLE ZD# INLINE (click to edit, links to Zendesk)
+   ════════════════════════════════════════════════════ */
+function ZendeskField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setDraft(value) }, [value])
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+
+  const commit = () => { setEditing(false); if (draft !== value) onChange(draft) }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px]" onClick={(e) => e.stopPropagation()}>
+        <FileText className="h-3 w-3 text-muted-foreground/50" />
+        <span className="text-muted-foreground/50">ZD#</span>
+        <input ref={ref} value={draft} onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false) } }}
+          className="w-16 text-[11px] font-mono text-foreground bg-transparent border-b border-foreground/20 outline-none"
+          placeholder="10558"
+        />
+      </span>
+    )
+  }
+
+  if (value) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] group/zd">
+        <FileText className="h-3 w-3 text-emerald-500" />
+        <span className="text-muted-foreground/50">ZD#</span>
+        <a href={`${ZENDESK_BASE}${value}`} target="_blank" rel="noopener noreferrer"
+          className="font-mono text-emerald-600 dark:text-emerald-400 font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+          {value}
+        </a>
+        <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/zd:text-emerald-500 transition-colors" />
+        <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+          className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground opacity-0 group-hover/zd:opacity-100 transition-opacity">
+          <Pencil className="h-2.5 w-2.5" />
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
+      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+      <FileText className="h-3 w-3" />ZD# <span className="font-mono">---</span>
+    </button>
+  )
+}
+
+/* ════════════════════════════════════════════════════
+   NEXT STEP SELECTOR
+   ════════════════════════════════════════════════════ */
+function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (v: string) => void; steps: string[] }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [isOpen])
+
+  // Determine dot color based on step keywords
+  const getDotColor = (step: string) => {
+    const s = step.toLowerCase()
+    if (s.includes("wait")) return "bg-amber-500"
+    if (s.includes("ready") || s.includes("done") || s.includes("arrived")) return "bg-emerald-500"
+    if (s.includes("work") || s.includes("progress")) return "bg-sky-500"
+    if (s.includes("brand new")) return "bg-violet-500"
+    if (s.includes("deliver") || s.includes("mail")) return "bg-blue-500"
+    return "bg-orange-500"
+  }
+
+  return (
+    <div ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/80 hover:text-foreground transition-colors w-full">
+        <span className={cn("h-2 w-2 rounded-full shrink-0", getDotColor(value || ""))} />
+        <span className="truncate">{value || "Set status..."}</span>
+        <ChevronDown className={cn("h-3 w-3 text-muted-foreground/40 shrink-0 ml-auto transition-transform", isOpen && "rotate-180")} />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-1 w-56 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
+          {steps.map((step) => (
+            <button key={step} onClick={() => { onChange(step); setIsOpen(false) }}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors",
+                step === value ? "font-semibold text-foreground" : "text-muted-foreground"
+              )}>
+              <span className={cn("h-2 w-2 rounded-full shrink-0", getDotColor(step))} />
+              {step}
+              {step === value && <Check className="h-3 w-3 ml-auto text-foreground" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════
    POSTFLOW TOGGLE CARD
    ════════════════════════════════════════════════════ */
 
@@ -523,6 +699,9 @@ function QuoteCard({
   const [open, setOpen] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
+  const [showQuickNotes, setShowQuickNotes] = useState(false)
+  const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const nextSteps: string[] = (appSettings?.next_steps as string[] | undefined) || DEFAULT_NEXT_STEPS
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
   const canL = !isArchived && colIdx > 0
   const canR = !isArchived && colIdx < columns.length - 1
@@ -553,31 +732,41 @@ function QuoteCard({
       )}
     >
       {/* ── CARD CONTENT (PostFlow style) ── */}
-      <div className="px-4 pt-3 pb-2.5">
+      <div className="px-4 pt-3 pb-3">
         {/* Row 1: Title + icons */}
-        <div className="flex items-start justify-between gap-2 mb-0.5">
+        <div className="flex items-start justify-between gap-2 mb-0.5 relative">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 cursor-grab" />
             <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`${quote.project_name} - ${quote.contact_name || ""}`) }}
-              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors" title="Copy">
-              <Copy className="h-3.5 w-3.5" />
+            <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
+              className={cn("h-6 w-6 flex items-center justify-center rounded transition-colors",
+                showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/40 hover:text-foreground"
+              )} title="Quick Notes">
+              <NotepadText className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setOpen(!open)}
               className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors" title="Expand">
               <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
             </button>
           </div>
+          {/* Quick Notes popup */}
+          {showQuickNotes && (
+            <QuickNotesPopup
+              value={meta.quick_notes || quote.notes || ""}
+              onChange={(v) => updateMeta({ quick_notes: v })}
+              onClose={() => setShowQuickNotes(false)}
+            />
+          )}
         </div>
 
-        {/* Row 2: Subtitle / description */}
+        {/* Row 2: Subtitle / project description */}
         <p className="text-[13px] text-muted-foreground ml-6 mb-2.5 truncate">{quote.contact_name || "\u00A0"}</p>
 
         {/* Row 3: Mail Date + Assignee badges */}
         <div className="flex items-center gap-2 ml-6 mb-3 flex-wrap">
-          <button onClick={() => setOpen(true)}
+          <button onClick={(e) => { e.stopPropagation(); setOpen(true) }}
             className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground px-2.5 py-1 rounded-md border border-border hover:bg-secondary transition-colors">
             <CalendarDays className="h-3 w-3" />
             {meta.due_date ? new Date(meta.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Set Mail Date"}
@@ -587,7 +776,7 @@ function QuoteCard({
               <span className="h-2 w-2 rounded-full bg-orange-500" />{meta.assignee}
             </span>
           ) : (
-            <button onClick={() => setOpen(true)}
+            <button onClick={(e) => { e.stopPropagation(); setOpen(true) }}
               className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-foreground/20 hover:text-muted-foreground transition-colors">
               Assign
             </button>
@@ -604,11 +793,9 @@ function QuoteCard({
           )}
         </div>
 
-        {/* Row 4: ZD# + INV inline fields */}
+        {/* Row 4: ZD# (editable, links to Zendesk) + INV */}
         <div className="flex items-center gap-4 ml-6 mb-2">
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50">
-            <FileText className="h-3 w-3" />ZD# <span className="font-mono text-foreground/70">{quote.quote_number || "---"}</span>
-          </span>
+          <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50">
             <Hash className="h-3 w-3" />INV <span className="font-mono text-foreground/70">{quote.reference_number || "---"}</span>
           </span>
@@ -616,17 +803,26 @@ function QuoteCard({
 
         {/* Row 5: Add note / notes preview */}
         <div className="ml-6 mb-3">
-          {quote.notes ? (
-            <p className="text-[11px] text-muted-foreground italic line-clamp-1">{quote.notes}</p>
+          {(meta.quick_notes || quote.notes) ? (
+            <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
+              className="text-[11px] text-muted-foreground italic line-clamp-1 text-left hover:text-foreground transition-colors">
+              {meta.quick_notes || quote.notes}
+            </button>
           ) : (
-            <button onClick={() => setOpen(true)} className="text-[11px] text-muted-foreground/30 hover:text-muted-foreground transition-colors italic">
+            <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
+              className="text-[11px] text-muted-foreground/30 hover:text-muted-foreground transition-colors italic">
               Add note...
             </button>
           )}
         </div>
 
-        {/* Row 6: Stage + Total */}
-        <div className="flex items-center justify-between ml-6 mb-2">
+        {/* Row 6: Next Step status dropdown */}
+        <div className="ml-6 mb-2">
+          <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
+        </div>
+
+        {/* Row 7: Stage + Total */}
+        <div className="flex items-center justify-between ml-6 pt-2 border-t border-border/40">
           <div className="flex items-center gap-2">
             {listColumn && (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
@@ -638,9 +834,9 @@ function QuoteCard({
           <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
         </div>
 
-        {/* Row 7: Convert to Job (only on quote board) */}
+        {/* Row 8: Convert to Job (only on quote board) */}
         {!isArchived && boardType === "quote" && onConvertToJob && (
-          <div className="ml-6 pt-2 border-t border-border/50">
+          <div className="ml-6 pt-2">
             <button
               onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
               className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors"
@@ -1068,7 +1264,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ════════════════════════���═══════════════════════════
    MAIN KANBAN BOARD
    ════════════════════════════════════��═══════════════ */
 

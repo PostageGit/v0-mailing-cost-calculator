@@ -161,6 +161,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <DollarSign className="h-3.5 w-3.5" />
                 Pricing
               </TabsTrigger>
+              <TabsTrigger value="steps" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <ListPlus className="h-3.5 w-3.5" />
+                Job Steps
+              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Activity className="h-3.5 w-3.5" />
                 System
@@ -190,6 +194,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="pricing">
               <PricingSettingsTab />
+            </TabsContent>
+            <TabsContent value="steps">
+              <JobStepsTab />
             </TabsContent>
             <TabsContent value="system">
               <SystemDashboardTab />
@@ -1259,6 +1266,137 @@ const WARNING_STYLES: Record<string, { bg: string; border: string; icon: string;
   info: { bg: "bg-blue-500/10", border: "border-blue-500/30", icon: "text-blue-500", text: "text-blue-700 dark:text-blue-300" },
   warning: { bg: "bg-amber-500/10", border: "border-amber-500/30", icon: "text-amber-500", text: "text-amber-700 dark:text-amber-300" },
   critical: { bg: "bg-red-500/10", border: "border-red-500/30", icon: "text-red-500", text: "text-red-700 dark:text-red-300" },
+}
+
+// ---------- JOB STEPS TAB ----------
+const DEFAULT_STEPS = [
+  "Working on Quote",
+  "Waiting for Approval",
+  "Waiting for Customer Reply",
+  "Waiting for List",
+  "Ready to Print",
+  "Printing in Progress",
+  "Prints Arrived",
+  "Working on Mailing",
+  "Ready to Mail",
+  "Out for Delivery",
+  "Brand New",
+]
+
+function JobStepsTab() {
+  const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [steps, setSteps] = useState<string[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [newStep, setNewStep] = useState("")
+
+  if (appSettings && !loaded) {
+    const saved = appSettings.next_steps as string[] | undefined
+    setSteps(saved && saved.length > 0 ? saved : DEFAULT_STEPS)
+    setLoaded(true)
+  }
+
+  const saveSteps = async () => {
+    setSaving(true)
+    await fetch("/api/app-settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ next_steps: steps }),
+    })
+    globalMutate("/api/app-settings")
+    setSaving(false)
+  }
+
+  const addStep = () => {
+    if (!newStep.trim()) return
+    if (steps.some((s) => s.toLowerCase() === newStep.trim().toLowerCase())) return
+    setSteps((p) => [...p, newStep.trim()])
+    setNewStep("")
+  }
+
+  const removeStep = (idx: number) => setSteps((p) => p.filter((_, i) => i !== idx))
+
+  const moveUp = (idx: number) => {
+    if (idx === 0) return
+    setSteps((p) => {
+      const copy = [...p]
+      ;[copy[idx - 1], copy[idx]] = [copy[idx], copy[idx - 1]]
+      return copy
+    })
+  }
+
+  const moveDown = (idx: number) => {
+    if (idx >= steps.length - 1) return
+    setSteps((p) => {
+      const copy = [...p]
+      ;[copy[idx], copy[idx + 1]] = [copy[idx + 1], copy[idx]]
+      return copy
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Loading...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-muted-foreground text-pretty">
+        Configure the steps / statuses that appear in the Next Step dropdown on every job and quote card.
+        Drag to reorder. These are shown to all users.
+      </p>
+
+      <div className="flex flex-col gap-1">
+        {steps.map((step, idx) => (
+          <div key={step} className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 group">
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
+            <span className="text-sm text-foreground flex-1">{step}</span>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => moveUp(idx)} disabled={idx === 0}
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-20 transition-colors">
+                <ChevronUp className="h-3 w-3" />
+              </button>
+              <button onClick={() => moveDown(idx)} disabled={idx >= steps.length - 1}
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-20 transition-colors">
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              <button onClick={() => removeStep(idx)}
+                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <Input
+          value={newStep}
+          onChange={(e) => setNewStep(e.target.value)}
+          placeholder="New step name..."
+          className="h-8 text-sm flex-1"
+          onKeyDown={(e) => e.key === "Enter" && addStep()}
+        />
+        <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={addStep} disabled={!newStep.trim()}>
+          <Plus className="h-3.5 w-3.5" /> Add
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button size="sm" className="gap-1.5 text-xs h-9 w-fit" onClick={saveSteps} disabled={saving}>
+          <Save className="h-3.5 w-3.5" />
+          {saving ? "Saving..." : "Save Steps"}
+        </Button>
+        <Button variant="outline" size="sm" className="text-xs h-9" onClick={() => setSteps(DEFAULT_STEPS)}>
+          Reset to Defaults
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 function SystemDashboardTab() {
