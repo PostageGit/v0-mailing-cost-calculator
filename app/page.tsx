@@ -18,6 +18,7 @@ import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
 import { ItemTemplatesScreen } from "@/components/item-templates"
+import { QuickQuoteScreen } from "@/components/quick-quote"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { DeliveryReportPanel } from "@/components/delivery-report-panel"
@@ -31,7 +32,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Activity,
+  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Activity, Zap,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -70,7 +71,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 // ---- Sidebar nav sections ----
 type Section =
   | "quotes-board" | "jobs-board"
-  | "customers" | "invoices" | "vendors" | "templates"
+  | "customers" | "invoices" | "vendors" | "templates" | "quick-quote"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
@@ -193,8 +194,8 @@ function AppContent() {
             </button>
           </div>
 
-          {/* New Job button */}
-          <div className="px-2 pt-3 pb-1">
+          {/* New Job + Quick Quote buttons */}
+          <div className="px-2 pt-3 pb-1 flex flex-col gap-1">
             <Button onClick={handleNewJob}
               className={cn(
                 "w-full gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -202,6 +203,19 @@ function AppContent() {
               )}>
               <Plus className="h-4 w-4 shrink-0" />
               {sidebarOpen && "New Quote"}
+            </Button>
+            <Button
+              variant={section === "quick-quote" ? "default" : "outline"}
+              onClick={() => { newQuote(); setSection("quick-quote") }}
+              className={cn(
+                "w-full gap-2 rounded-lg font-semibold",
+                section === "quick-quote"
+                  ? "bg-foreground text-background hover:bg-foreground/90"
+                  : "border-dashed",
+                sidebarOpen ? "h-9 text-xs px-3 justify-start" : "h-9 w-9 p-0 justify-center mx-auto"
+              )}>
+              <Zap className="h-4 w-4 shrink-0" />
+              {sidebarOpen && "Quick Quote"}
             </Button>
           </div>
 
@@ -396,6 +410,13 @@ function AppContent() {
           {section === "templates" && (
             <div className="flex-1 overflow-hidden">
               <ItemTemplatesScreen />
+            </div>
+          )}
+
+          {/* == QUICK QUOTE == */}
+          {section === "quick-quote" && (
+            <div className="flex-1 overflow-hidden">
+              <QuickQuoteScreen />
             </div>
           )}
 
