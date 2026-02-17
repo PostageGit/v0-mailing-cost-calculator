@@ -439,7 +439,7 @@ function AppContent() {
                   </div>
                   {rightOpen ? (
                     <aside className="hidden lg:block w-[22rem] shrink-0 border-l border-border overflow-y-auto">
-                      <QuoteSidebar />
+                      <QuoteSidebar onGoToExport={() => setSection("export-qb")} />
                     </aside>
                   ) : (
                     <aside className="hidden lg:flex flex-col items-center pt-2 px-1 shrink-0 border-l border-border">
@@ -451,7 +451,7 @@ function AppContent() {
                   )}
                 </div>
 
-                <MobileBar />
+                <MobileBar onGoToExport={() => setSection("export-qb")} />
               </div>
             </StepErrorBoundary>
           )}
@@ -463,7 +463,7 @@ function AppContent() {
   )
 }
 
-function MobileBar() {
+function MobileBar({ onGoToExport }: { onGoToExport?: () => void }) {
   const [open, setOpen] = useState(false)
   const { items, getTotal } = useQuote()
   const total = getTotal()
@@ -479,7 +479,7 @@ function MobileBar() {
               <span className="text-sm font-semibold text-foreground">Quote ({count})</span>
               <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-secondary"><X className="h-4 w-4 text-muted-foreground" /></button>
             </div>
-            <div className="flex-1 overflow-y-auto"><QuoteSidebar /></div>
+            <div className="flex-1 overflow-y-auto"><QuoteSidebar onGoToExport={onGoToExport} /></div>
           </div>
         </div>
       )}

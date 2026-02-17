@@ -174,12 +174,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((item: Omit<QuoteLineItem, "id">) => {
     const newItem: QuoteLineItem = { ...item, id: Date.now() + Math.random() }
-    console.log("[v0] addItem called:", newItem.label, "amount:", newItem.amount, "category:", newItem.category)
-    setItems((prev) => {
-      const next = [...prev, newItem]
-      console.log("[v0] items after add:", next.length)
-      return next
-    })
+    setItems((prev) => [...prev, newItem])
     scheduleSave()
     // Log after save completes (async, non-blocking)
     setTimeout(() => {
@@ -237,7 +232,6 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const loadQuote = useCallback(async (quoteId: string) => {
     const res = await fetch(`/api/quotes/${quoteId}`)
     const data = await res.json()
-    console.log("[v0] loadQuote response:", JSON.stringify({ id: data.id, items_count: data.items?.length, items: data.items?.slice(0, 2) }))
     if (data.id) {
       setSavedId(data.id)
       setQuoteNumber(data.quote_number || null)
@@ -247,7 +241,6 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setReferenceNumberRaw(data.reference_number || "")
       setQuantityRaw(data.quantity || 0)
       setItems(data.items || [])
-      console.log("[v0] loadQuote set items:", data.items?.length, "items")
       dirtyRef.current = false
       setLastSavedAt(Date.now())
       // Load activity log

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
-  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock,
+  FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, ArrowRight,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -146,7 +146,12 @@ function QuoteItemRow({
 }
 
 /* ── Main sidebar ─────────────────────────────────────── */
-export function QuoteSidebar() {
+interface QuoteSidebarProps {
+  /** Navigate the user to the Export to QB page */
+  onGoToExport?: () => void
+}
+
+export function QuoteSidebar({ onGoToExport }: QuoteSidebarProps = {}) {
   const {
     items, projectName, customerId, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote,
@@ -167,7 +172,6 @@ export function QuoteSidebar() {
 
   const total = getTotal()
   const hasItems = items.length > 0
-  console.log("[v0] QuoteSidebar render - items:", items.length, "hasItems:", hasItems, "savedId:", savedId)
 
   const handleCopy = useCallback(async () => {
     const text = buildQuoteText(items, projectName || undefined)
@@ -352,27 +356,38 @@ export function QuoteSidebar() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              variant={copied ? "default" : "secondary"}
-              size="sm"
-              className="flex-1 gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
-              onClick={handleCopy}
-            >
-              {copied ? (
-                <><Check className="h-3.5 w-3.5" /> Copied</>
-              ) : (
-                <><ClipboardCopy className="h-3.5 w-3.5" /> Copy</>
-              )}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
-              onClick={newQuote}
-            >
-              <FilePlus className="h-3.5 w-3.5" /> New
-            </Button>
+          <div className="flex flex-col gap-2">
+            {onGoToExport && savedId && (
+              <Button
+                size="sm"
+                className="w-full gap-1.5 text-[12px] h-10 rounded-lg font-semibold bg-foreground text-background hover:bg-foreground/90"
+                onClick={onGoToExport}
+              >
+                <ArrowRight className="h-3.5 w-3.5" /> Ready to Export
+              </Button>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant={copied ? "default" : "secondary"}
+                size="sm"
+                className="flex-1 gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <><Check className="h-3.5 w-3.5" /> Copied</>
+                ) : (
+                  <><ClipboardCopy className="h-3.5 w-3.5" /> Copy</>
+                )}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                onClick={newQuote}
+              >
+                <FilePlus className="h-3.5 w-3.5" /> New
+              </Button>
+            </div>
           </div>
         </div>
       )}
