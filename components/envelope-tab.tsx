@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useQuote } from "@/lib/quote-context"
-import { SaveAsTemplateDialog } from "@/components/item-templates"
 import { useMailing } from "@/lib/mailing-context"
 import { formatCurrency } from "@/lib/pricing"
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
@@ -24,7 +23,7 @@ import {
   type InkJetPrintType,
   type LaserPrintType,
 } from "@/lib/envelope-pricing"
-import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle, Layers } from "lucide-react"
+import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 
 import { STANDARD_ENVELOPES } from "@/lib/mailing-context"
 
@@ -105,7 +104,6 @@ export function EnvelopeTab() {
   const [error, setError] = useState("")
   const [effectiveTotal, setEffectiveTotal] = useState(0)
   const [showSettings, setShowSettings] = useState(false)
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [settings, setSettings] = useState<EnvelopeSettings>(() => structuredClone(DEFAULT_ENVELOPE_SETTINGS))
 
   // Auto-calculate on input change
@@ -412,20 +410,6 @@ export function EnvelopeTab() {
               <Plus className="h-4 w-4" />
               Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
             </Button>
-            <Button variant="outline" size="sm" className="w-full gap-2 rounded-full text-xs" onClick={() => setShowSaveTemplate(true)}>
-              <Layers className="h-3.5 w-3.5" /> Save as Template
-            </Button>
-            <SaveAsTemplateDialog
-              open={showSaveTemplate}
-              onClose={() => setShowSaveTemplate(false)}
-              defaults={{
-                name: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
-                category: "envelope",
-                description: `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`,
-                specs: { qty: calcResult.quantity, envelope: inputs.itemName, ink: inputs.inkType, print: inputs.printType, bleed: inputs.hasBleed ? "Yes" : "No" },
-                amount: effectiveTotal > 0 ? effectiveTotal : calcResult.price,
-              }}
-            />
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-secondary/20 flex flex-col items-center justify-center py-16 px-6 text-center">

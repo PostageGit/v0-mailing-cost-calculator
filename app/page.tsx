@@ -17,8 +17,6 @@ import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
-import { ItemTemplatesScreen } from "@/components/item-templates"
-import { QuickQuoteScreen } from "@/components/quick-quote"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { DeliveryReportPanel } from "@/components/delivery-report-panel"
@@ -28,7 +26,12 @@ import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
-import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, BarChart3, Layers, X, Stamp, BookOpen, Disc3, Send, Receipt, Briefcase, PanelRightOpen, ArrowLeft, PenLine, LayoutDashboard } from "@/lib/safe-icons"
+import {
+  Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
+  Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
+  PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
+  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Activity,
+} from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
 type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "ohp" | "items"
@@ -66,7 +69,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 // ---- Sidebar nav sections ----
 type Section =
   | "quotes-board" | "jobs-board"
-  | "customers" | "invoices" | "vendors" | "templates" | "quick-quote"
+  | "customers" | "invoices" | "vendors"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
@@ -76,7 +79,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "vendors",      label: "Vendors",     icon: <Truck className="h-4 w-4" />,            group: "data" },
-  { id: "templates",    label: "Templates",   icon: <Layers className="h-4 w-4" />,           group: "data" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -189,8 +191,8 @@ function AppContent() {
             </button>
           </div>
 
-          {/* New Job + Quick Quote buttons */}
-          <div className="px-2 pt-3 pb-1 flex flex-col gap-1">
+          {/* New Job button */}
+          <div className="px-2 pt-3 pb-1">
             <Button onClick={handleNewJob}
               className={cn(
                 "w-full gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -198,19 +200,6 @@ function AppContent() {
               )}>
               <Plus className="h-4 w-4 shrink-0" />
               {sidebarOpen && "New Quote"}
-            </Button>
-            <Button
-              variant={section === "quick-quote" ? "default" : "outline"}
-              onClick={() => { newQuote(); setSection("quick-quote") }}
-              className={cn(
-                "w-full gap-2 rounded-lg font-semibold",
-                section === "quick-quote"
-                  ? "bg-foreground text-background hover:bg-foreground/90"
-                  : "border-dashed",
-                sidebarOpen ? "h-9 text-xs px-3 justify-start" : "h-9 w-9 p-0 justify-center mx-auto"
-              )}>
-              <Zap className="h-4 w-4 shrink-0" />
-              {sidebarOpen && "Quick Quote"}
             </Button>
           </div>
 
@@ -272,7 +261,7 @@ function AppContent() {
                 sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
               )}
               title={!sidebarOpen ? "Activity Log" : undefined}>
-              <BarChart3 className="h-4 w-4 shrink-0" />
+              <Activity className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Activity</span>}
             </button>
             <button onClick={() => setShowSettings(true)}
@@ -330,8 +319,7 @@ function AppContent() {
   </button>
   <button onClick={() => { setShowActivity(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
-<BarChart3 className="h-4 w-4 shrink-0" />
-                  Activity
+  <Activity className="h-4 w-4 shrink-0" /> Activity
   </button>
   <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
@@ -399,20 +387,6 @@ function AppContent() {
           {section === "vendors" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
               <VendorList />
-            </div>
-          )}
-
-          {/* == TEMPLATES == */}
-          {section === "templates" && (
-            <div className="flex-1 overflow-hidden">
-              <ItemTemplatesScreen />
-            </div>
-          )}
-
-          {/* == QUICK QUOTE == */}
-          {section === "quick-quote" && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <QuickQuoteScreen />
             </div>
           )}
 

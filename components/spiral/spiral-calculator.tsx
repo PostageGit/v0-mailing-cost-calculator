@@ -10,9 +10,8 @@ import { calculateSpiral } from "@/lib/spiral-pricing"
 import { defaultSpiralInputs } from "@/lib/spiral-types"
 import type { SpiralInputs, SpiralCalcResult } from "@/lib/spiral-types"
 import { useQuote } from "@/lib/quote-context"
-import { SaveAsTemplateDialog } from "@/components/item-templates"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus, ArrowDown, Layers } from "lucide-react"
+import { Plus, ArrowDown } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 export function SpiralCalculator() {
@@ -88,8 +87,6 @@ export function SpiralCalculator() {
     setValidationError(null)
   }
 
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
-
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const extras: string[] = []
@@ -112,7 +109,7 @@ export function SpiralCalculator() {
   const hasBack = calcResult?.backResult != null
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
       <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
         <h2 className="text-base font-semibold text-foreground mb-2">Spiral Binding Calculator</h2>
 
@@ -215,25 +212,11 @@ export function SpiralCalculator() {
                   <Plus className="h-4 w-4" />
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                 </Button>
-                <Button variant="outline" size="sm" className="w-full gap-2 rounded-full text-xs" onClick={() => setShowSaveTemplate(true)}>
-                  <Layers className="h-3.5 w-3.5" /> Save as Template
-                </Button>
               </div>
             </div>
           </div>
         )}
       </div>
-      <SaveAsTemplateDialog
-        open={showSaveTemplate}
-        onClose={() => setShowSaveTemplate(false)}
-        defaults={{
-          name: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral ${inputs.pageWidth}x${inputs.pageHeight}`,
-          category: "spiral",
-          description: `${inputs.insidePaper}, ${inputs.insideSides}`,
-          specs: { qty: inputs.bookQty, pages: inputs.pagesPerBook, width: inputs.pageWidth, height: inputs.pageHeight, paper: inputs.insidePaper, sides: inputs.insideSides },
-          amount: effectiveTotal > 0 ? effectiveTotal : (calcResult?.grandTotal ?? 0),
-        }}
-      />
     </div>
   )
 }

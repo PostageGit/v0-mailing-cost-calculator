@@ -9,9 +9,8 @@ import { BookletDetails } from "./booklet-details"
 import { calculateBooklet } from "@/lib/booklet-pricing"
 import type { BookletInputs, BookletCalcResult } from "@/lib/booklet-types"
 import { useQuote } from "@/lib/quote-context"
-import { SaveAsTemplateDialog } from "@/components/item-templates"
 import { formatCurrency } from "@/lib/pricing"
-import { AlertTriangle, Plus, ArrowDown, Layers } from "lucide-react"
+import { AlertTriangle, Plus, ArrowDown } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 const EMPTY_INPUTS: BookletInputs = {
@@ -96,8 +95,6 @@ export function BookletCalculator() {
     setValidationError(null)
   }
 
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
-
   const handleAddToQuote = useCallback(() => {
     if (!calcResult || !calcResult.isValid) return
     const coverDesc = inputs.separateCover ? `w/ ${calcResult.coverResult.paper} Cover` : "Self-Cover"
@@ -111,7 +108,7 @@ export function BookletCalculator() {
   }, [calcResult, inputs, quote, effectiveTotal])
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
       <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
         <h2 className="text-base font-semibold text-foreground mb-2">Saddle Stitch Booklet Calculator</h2>
 
@@ -217,25 +214,11 @@ export function BookletCalculator() {
                     <Plus className="h-4 w-4" />
                     Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full gap-2 rounded-full text-xs" onClick={() => setShowSaveTemplate(true)}>
-                    <Layers className="h-3.5 w-3.5" /> Save as Template
-                  </Button>
                 </div>
               </div>
             </div>
           )}
         </div>
-        <SaveAsTemplateDialog
-          open={showSaveTemplate}
-          onClose={() => setShowSaveTemplate(false)}
-          defaults={{
-            name: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight}`,
-            category: "booklet",
-            description: `${inputs.insidePaper}, ${inputs.insideSides}`,
-            specs: { qty: inputs.bookQty, pages: inputs.pagesPerBook, width: inputs.pageWidth, height: inputs.pageHeight, paper: inputs.insidePaper, sides: inputs.insideSides },
-            amount: effectiveTotal > 0 ? effectiveTotal : (calcResult?.grandTotal ?? 0),
-          }}
-        />
     </div>
   )
 }

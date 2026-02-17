@@ -109,7 +109,7 @@ export function PrintOrdersPanel({ open, onClose }: { open: boolean; onClose: ()
         body: JSON.stringify({ status: next }),
       })
     }
-    globalMutate("/api/purchase-orders")
+    globalMutate((key: string) => typeof key === "string" && key.startsWith("/api/purchase-orders"))
   }
 
   const handlePrint = (po: PO) => {
