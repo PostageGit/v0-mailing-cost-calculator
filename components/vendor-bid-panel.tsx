@@ -98,10 +98,16 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
     let match: typeof quote.items[0] | undefined
 
     if (meta.calc === "envelope") {
-      // Envelopes: category "item" with "Envelope" in label
+      // Envelopes: category "envelope" (or legacy "item") with "envelope" in label
+      // First try dimension match, then fall back to just finding ANY envelope item
       match = quote.items.find((item) =>
-        item.category === "item" && item.label.toLowerCase().includes("envelope") && hasDim(item.label)
+        (item.category === "envelope" || item.category === "item") && item.label.toLowerCase().includes("envelope") && hasDim(item.label)
       )
+      if (!match) {
+        match = quote.items.find((item) =>
+          item.category === "envelope" && item.label.toLowerCase().includes("envelope")
+        )
+      }
     } else if (meta.calc === "booklet") {
       match = quote.items.find((item) => item.category === "booklet" && hasDim(item.label))
     } else if (meta.calc === "spiral") {
