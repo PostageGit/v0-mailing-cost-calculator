@@ -95,7 +95,7 @@ export function PerfectCalculator() {
   }, [calcResult, inputs, quote, effectiveTotal])
 
   return (
-    <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
+    <div className="flex flex-col gap-5 w-full">
       <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
         <h2 className="text-base font-semibold text-foreground mb-2">Perfect Binding Calculator</h2>
 

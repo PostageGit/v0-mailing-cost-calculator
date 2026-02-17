@@ -259,10 +259,12 @@ export function QuickQuoteScreen() {
 
       {/* Content + Sidebar */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Calculator content */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <div className="px-4 sm:px-6 pt-4 pb-8">
-            {renderCalc()}
+        {/* Calculator content -- uses block layout so calculators use natural height and scroll works */}
+        <div className="flex-1 min-w-0 overflow-y-auto [&>div]:block">
+          <div className="px-4 sm:px-6 pt-4 pb-24">
+            <div className="max-w-4xl">
+              {renderCalc()}
+            </div>
           </div>
         </div>
 
