@@ -110,6 +110,7 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
           estimateDate: today,
           items: qbItems,
           memo: memo || undefined,
+          message: notes || undefined,
         }
         const csv = generateEstimateCSV([est])
         downloadCSV(csv, `Estimate_Q${q.quoteNumber || "draft"}_${resolvedCustomer.replace(/\s/g, "_")}.csv`)
@@ -132,9 +133,10 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
       terms,
       items: qbItems,
       memo: memo || undefined,
+      message: notes || undefined,
     }
     const csv = generateInvoiceCSV([inv])
-    downloadCSV(csv, `Invoice_${createdInvoiceNumber || "draft"}_${resolvedCustomer.replace(/\s/g, "_")}.csv`)
+    downloadCSV(csv, `Invoice_INV-${createdInvoiceNumber || "draft"}_${resolvedCustomer.replace(/\s+/g, "_")}.csv`)
     q.logActivity("invoice_exported", `QB Invoice CSV #${createdInvoiceNumber}`)
   }
 
@@ -191,7 +193,7 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
                   onClick={handleDownloadInvoiceCSV}
                   className="gap-2 rounded-xl h-11 text-sm font-semibold bg-foreground text-background hover:bg-foreground/90 w-full"
                 >
-                  <Download className="h-4 w-4" /> Download QB Invoice CSV
+                  <Download className="h-4 w-4" /> Export QB CSV (Transaction Pro)
                 </Button>
               )}
               <Button

@@ -70,80 +70,88 @@ async function generateInvoicePDF(inv: Invoice) {
   const doc = new jsPDF({ unit: "mm", format: "letter" })
 
   const pageW = doc.internal.pageSize.getWidth()
-  const margin = 20
+  const pageH = doc.internal.pageSize.getHeight()
+  const margin = 18
   const contentW = pageW - margin * 2
   let y = margin
 
-  // ── Colors
-  const dark = [24, 24, 27] as const      // zinc-900
-  const mid = [113, 113, 122] as const    // zinc-500
-  const light = [228, 228, 231] as const  // zinc-200
-  const accent = [16, 185, 129] as const  // emerald-500
+  // Colors
+  const dark = [24, 24, 27] as const
+  const mid = [113, 113, 122] as const
+  const light = [228, 228, 231] as const
+  const accent = [16, 185, 129] as const
+  const softBg = [248, 248, 248] as const
+
+  // ── Top accent line
+  doc.setFillColor(...accent)
+  doc.rect(0, 0, pageW, 2.5, "F")
+
+  y = 12
 
   // ── Company letterhead (left)
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(22)
+  doc.setFontSize(20)
   doc.setTextColor(...dark)
   doc.text(COMPANY.name.toUpperCase(), margin, y)
 
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(8.5)
+  doc.setFontSize(8)
   doc.setTextColor(...mid)
-  y += 6
+  y += 5.5
   doc.text(COMPANY.address, margin, y)
-  y += 4
+  y += 3.5
   doc.text(`${COMPANY.city}, ${COMPANY.state} ${COMPANY.zip}`, margin, y)
-  y += 4
-  doc.text(COMPANY.phone, margin, y)
-  y += 4
-  doc.text(COMPANY.email, margin, y)
+  y += 3.5
+  doc.text(`${COMPANY.phone}  |  ${COMPANY.email}`, margin, y)
 
-  // ── INVOICE badge (right)
-  const badgeText = "INVOICE"
+  // ── INVOICE title (right)
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(28)
-  doc.setTextColor(...dark)
-  const badgeW = doc.getTextWidth(badgeText)
-  doc.text(badgeText, pageW - margin - badgeW, margin)
+  doc.setFontSize(32)
+  doc.setTextColor(...accent)
+  const invTitle = "INVOICE"
+  doc.text(invTitle, pageW - margin - doc.getTextWidth(invTitle), 14)
 
-  // ── Invoice details (right-aligned)
+  // ── Invoice details box (right-aligned)
   const rightCol = pageW - margin
-  let ry = margin + 10
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(9)
+  let ry = 22
+  doc.setFontSize(8.5)
 
-  const detailLines = [
-    { label: "Invoice #:", value: `INV-${inv.invoice_number}` },
-    { label: "Date:", value: new Date(inv.invoice_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) },
-    ...(inv.due_date ? [{ label: "Due:", value: new Date(inv.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) }] : []),
-    { label: "Terms:", value: inv.terms },
+  const detailPairs = [
+    ["Invoice #", `INV-${inv.invoice_number}`],
+    ["Date", new Date(inv.invoice_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })],
+    ...(inv.due_date ? [["Due Date", new Date(inv.due_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })]] : []),
+    ["Terms", inv.terms],
+    ...(inv.reference_number ? [["PO / Ref #", inv.reference_number]] : []),
   ]
 
-  for (const dl of detailLines) {
-    doc.setTextColor(...mid)
+  for (const [label, value] of detailPairs) {
     doc.setFont("helvetica", "normal")
-    const labelW = doc.getTextWidth(dl.label + " ")
-    doc.text(dl.label, rightCol - doc.getTextWidth(dl.value) - labelW, ry)
-    doc.setTextColor(...dark)
+    doc.setTextColor(...mid)
+    const valW = doc.getTextWidth(value)
     doc.setFont("helvetica", "bold")
-    doc.text(dl.value, rightCol - doc.getTextWidth(dl.value), ry)
-    ry += 5
+    doc.setTextColor(...dark)
+    doc.text(value, rightCol - valW, ry)
+    doc.setFont("helvetica", "normal")
+    doc.setTextColor(...mid)
+    doc.text(label + ":", rightCol - valW - doc.getTextWidth(label + ":  "), ry)
+    ry += 4.5
   }
 
-  y = Math.max(y, ry) + 10
+  y = Math.max(y, ry) + 6
 
   // ── Divider
   doc.setDrawColor(...light)
-  doc.setLineWidth(0.5)
+  doc.setLineWidth(0.4)
   doc.line(margin, y, pageW - margin, y)
-  y += 8
+  y += 7
 
-  // ── Bill To
+  // ── Bill To section
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(8)
+  doc.setFontSize(7)
   doc.setTextColor(...accent)
   doc.text("BILL TO", margin, y)
-  y += 5
+  y += 4.5
+
   doc.setFont("helvetica", "bold")
   doc.setFontSize(11)
   doc.setTextColor(...dark)
@@ -154,133 +162,142 @@ async function generateInvoicePDF(inv: Invoice) {
     doc.setFontSize(9)
     doc.setTextColor(...mid)
     doc.text(inv.contact_name, margin, y)
-    y += 5
-  }
-  if (inv.reference_number) {
-    doc.setFont("helvetica", "normal")
-    doc.setFontSize(9)
-    doc.setTextColor(...mid)
-    doc.text(`PO/Ref: ${inv.reference_number}`, margin, y)
-    y += 5
+    y += 4.5
   }
   if (inv.project_name) {
     doc.setFont("helvetica", "normal")
-    doc.setFontSize(9)
+    doc.setFontSize(8.5)
     doc.setTextColor(...mid)
     doc.text(`Project: ${inv.project_name}`, margin, y)
-    y += 5
+    y += 4.5
   }
+  y += 6
 
-  y += 8
+  // ── Line items table
+  const colDescX = margin
+  const colAmtX = pageW - margin
 
-  // ── Line Items table header
-  const colDesc = margin
-  const colAmt = pageW - margin
-
+  // Table header
   doc.setFillColor(...dark)
-  doc.roundedRect(margin, y, contentW, 8, 1, 1, "F")
+  doc.roundedRect(margin, y, contentW, 7.5, 1.2, 1.2, "F")
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(8)
+  doc.setFontSize(7.5)
   doc.setTextColor(255, 255, 255)
-  doc.text("DESCRIPTION", colDesc + 4, y + 5.5)
-  const amtHeader = "AMOUNT"
-  doc.text(amtHeader, colAmt - doc.getTextWidth(amtHeader) - 4, y + 5.5)
-  y += 10
+  doc.text("DESCRIPTION", colDescX + 4, y + 5)
+  const amtH = "AMOUNT"
+  doc.text(amtH, colAmtX - doc.getTextWidth(amtH) - 4, y + 5)
+  y += 9
 
-  // ── Line items rows
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(9)
-
+  // Rows
+  doc.setFontSize(8.5)
   for (let i = 0; i < inv.items.length; i++) {
     const item = inv.items[i]
-    const rowH = 8
+    const rowH = 7
 
-    // Alternate row background
+    // Check page break
+    if (y + rowH > pageH - 35) {
+      doc.addPage()
+      y = margin
+    }
+
+    // Alternate background
     if (i % 2 === 0) {
-      doc.setFillColor(250, 250, 250)
+      doc.setFillColor(...softBg)
       doc.rect(margin, y, contentW, rowH, "F")
     }
 
+    // Description
+    doc.setFont("helvetica", "normal")
     doc.setTextColor(...dark)
     const labelText = item.label || item.description || item.category
-    const maxLabelW = contentW - 50
-    const truncated = doc.getTextWidth(labelText) > maxLabelW
-      ? labelText.substring(0, Math.floor(maxLabelW / doc.getTextWidth("W") * labelText.length)) + "..."
+    const maxLblW = contentW - 45
+    const displayText = doc.getTextWidth(labelText) > maxLblW
+      ? labelText.substring(0, Math.floor(maxLblW / doc.getTextWidth("M") * labelText.length)) + "..."
       : labelText
-    doc.text(truncated, colDesc + 4, y + 5.5)
+    doc.text(displayText, colDescX + 4, y + 4.8)
 
+    // Amount
     const amtText = formatCurrency(item.amount)
     doc.setFont("helvetica", "bold")
-    doc.text(amtText, colAmt - doc.getTextWidth(amtText) - 4, y + 5.5)
-    doc.setFont("helvetica", "normal")
+    doc.text(amtText, colAmtX - doc.getTextWidth(amtText) - 4, y + 4.8)
 
     y += rowH
   }
 
-  // ── Bottom divider
+  // Bottom line
   doc.setDrawColor(...light)
-  doc.line(margin, y + 2, pageW - margin, y + 2)
-  y += 8
+  doc.setLineWidth(0.3)
+  doc.line(margin, y + 1, pageW - margin, y + 1)
+  y += 6
 
-  // ── Totals (right-aligned)
-  const totalsX = pageW - margin - 70
-  const totalsValX = pageW - margin
+  // ── Totals box
+  const totalsBoxW = 75
+  const totalsX = pageW - margin - totalsBoxW
 
-  const totalLines = [
-    { label: "Subtotal", value: formatCurrency(inv.subtotal) },
-    ...(inv.tax_amount > 0 ? [{ label: "Tax", value: formatCurrency(inv.tax_amount) }] : []),
-  ]
+  // Subtotal
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  doc.setTextColor(...mid)
+  doc.text("Subtotal", totalsX + 4, y)
+  doc.setTextColor(...dark)
+  doc.setFont("helvetica", "bold")
+  const subText = formatCurrency(inv.subtotal)
+  doc.text(subText, colAmtX - doc.getTextWidth(subText) - 4, y)
+  y += 5
 
-  doc.setFontSize(9)
-  for (const tl of totalLines) {
-    doc.setTextColor(...mid)
+  // Tax (if any)
+  if (inv.tax_amount > 0) {
     doc.setFont("helvetica", "normal")
-    doc.text(tl.label, totalsX, y)
+    doc.setTextColor(...mid)
+    doc.text("Tax", totalsX + 4, y)
     doc.setTextColor(...dark)
     doc.setFont("helvetica", "bold")
-    doc.text(tl.value, totalsValX - doc.getTextWidth(tl.value), y)
-    y += 6
+    const taxText = formatCurrency(inv.tax_amount)
+    doc.text(taxText, colAmtX - doc.getTextWidth(taxText) - 4, y)
+    y += 5
   }
 
-  // ── Grand Total with accent bar
   y += 2
-  doc.setFillColor(...accent)
-  doc.roundedRect(totalsX - 4, y - 4, contentW - (totalsX - margin) + 4, 10, 1, 1, "F")
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(11)
-  doc.setTextColor(255, 255, 255)
-  doc.text("TOTAL", totalsX, y + 3)
-  const totalText = formatCurrency(inv.total)
-  doc.text(totalText, totalsValX - doc.getTextWidth(totalText), y + 3)
 
-  y += 16
+  // Grand total bar
+  doc.setFillColor(...accent)
+  doc.roundedRect(totalsX, y - 4, totalsBoxW, 10, 1.2, 1.2, "F")
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(10)
+  doc.setTextColor(255, 255, 255)
+  doc.text("TOTAL DUE", totalsX + 4, y + 3)
+  const totalText = formatCurrency(inv.total)
+  doc.text(totalText, colAmtX - doc.getTextWidth(totalText) - 4, y + 3)
+  y += 14
 
   // ── Notes
   if (inv.notes) {
-    doc.setFont("helvetica", "italic")
+    doc.setFont("helvetica", "normal")
     doc.setFontSize(8)
     doc.setTextColor(...mid)
+    doc.text("Notes:", margin, y)
+    y += 3.5
+    doc.setFont("helvetica", "italic")
     const noteLines = doc.splitTextToSize(inv.notes, contentW)
     doc.text(noteLines, margin, y)
-    y += noteLines.length * 4 + 4
+    y += noteLines.length * 3.5 + 4
   }
 
   // ── Footer
-  const footerY = doc.internal.pageSize.getHeight() - 15
+  const footerY = pageH - 12
   doc.setDrawColor(...light)
-  doc.line(margin, footerY - 4, pageW - margin, footerY - 4)
+  doc.setLineWidth(0.3)
+  doc.line(margin, footerY - 5, pageW - margin, footerY - 5)
+
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(7.5)
+  doc.setFontSize(7)
   doc.setTextColor(...mid)
   doc.text("Thank you for your business!", margin, footerY)
-  doc.text(
-    `${COMPANY.name}  |  ${COMPANY.fullAddress}  |  ${COMPANY.phone}`,
-    pageW - margin - doc.getTextWidth(`${COMPANY.name}  |  ${COMPANY.fullAddress}  |  ${COMPANY.phone}`),
-    footerY
-  )
+  const footerRight = `${COMPANY.name}  |  ${COMPANY.phone}  |  ${COMPANY.email}`
+  doc.text(footerRight, pageW - margin - doc.getTextWidth(footerRight), footerY)
 
-  // ── Download
-  doc.save(`Invoice_${inv.invoice_number}_${inv.customer_name.replace(/\s/g, "_")}.pdf`)
+  // Save
+  doc.save(`Invoice_INV-${inv.invoice_number}_${inv.customer_name.replace(/\s+/g, "_")}.pdf`)
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -295,6 +312,7 @@ export function InvoiceList() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [pdfGenerating, setPdfGenerating] = useState<string | null>(null)
   const [qbExporting, setQbExporting] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     if (!invoices) return []
@@ -329,6 +347,7 @@ export function InvoiceList() {
     }
   }
 
+  /* ── Batch QB Export (Transaction Pro CSV) ── */
   const handleExportSelected = async () => {
     if (selectedIds.size === 0) return
     setExporting(true)
@@ -347,10 +366,11 @@ export function InvoiceList() {
         terms: inv.terms,
         items: quoteItemsToQBLines(inv.items),
         memo: inv.memo || undefined,
+        message: inv.notes || undefined,
       }))
       const csv = generateInvoiceCSV(qbInvoices)
       const filename = data.length === 1
-        ? `Invoice_${data[0].invoice_number}_${data[0].customer_name.replace(/\s/g, "_")}.csv`
+        ? `Invoice_${data[0].invoice_number}_${data[0].customer_name.replace(/\s+/g, "_")}.csv`
         : `Invoices_batch_${new Date().toISOString().slice(0, 10)}.csv`
       downloadCSV(csv, filename)
       globalMutate("/api/invoices")
@@ -360,6 +380,7 @@ export function InvoiceList() {
     }
   }
 
+  /* ── Single QB Export ── */
   const handleExportSingle = useCallback(async (inv: Invoice) => {
     setQbExporting(inv.id)
     try {
@@ -371,9 +392,10 @@ export function InvoiceList() {
         terms: inv.terms,
         items: quoteItemsToQBLines(inv.items),
         memo: inv.memo || undefined,
+        message: inv.notes || undefined,
       }
       const csv = generateInvoiceCSV([qbInv])
-      downloadCSV(csv, `Invoice_${inv.invoice_number}_${inv.customer_name.replace(/\s/g, "_")}.csv`)
+      downloadCSV(csv, `Invoice_INV-${inv.invoice_number}_${inv.customer_name.replace(/\s+/g, "_")}.csv`)
       await fetch(`/api/invoices/${inv.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -385,6 +407,7 @@ export function InvoiceList() {
     }
   }, [])
 
+  /* ── PDF Download ── */
   const handleDownloadPDF = useCallback(async (inv: Invoice) => {
     setPdfGenerating(inv.id)
     try {
@@ -404,12 +427,26 @@ export function InvoiceList() {
   }
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/invoices/${id}`, { method: "DELETE" })
-    globalMutate("/api/invoices")
-    setExpandedId(null)
+    setDeletingId(id)
+    try {
+      await fetch(`/api/invoices/${id}`, { method: "DELETE" })
+      globalMutate("/api/invoices")
+      if (expandedId === id) setExpandedId(null)
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const totalSelected = filtered.filter((i) => selectedIds.has(i.id)).reduce((s, i) => s + i.total, 0)
+
+  /* ── Summary stats ── */
+  const stats = useMemo(() => {
+    if (!invoices) return null
+    const total = invoices.reduce((s, i) => s + i.total, 0)
+    const paid = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0)
+    const outstanding = invoices.filter((i) => i.status !== "paid" && i.status !== "void").reduce((s, i) => s + i.total, 0)
+    return { count: invoices.length, total, paid, outstanding }
+  }, [invoices])
 
   return (
     <div className="flex flex-col gap-4">
@@ -418,10 +455,29 @@ export function InvoiceList() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Invoices</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage invoices, download PDFs, and export to QuickBooks.
+            Manage invoices, download PDFs, and export to QuickBooks via Transaction Pro.
           </p>
         </div>
       </div>
+
+      {/* Summary cards */}
+      {stats && stats.count > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</p>
+            <p className="text-lg font-bold font-mono text-foreground mt-0.5">{formatCurrency(stats.total)}</p>
+            <p className="text-[10px] text-muted-foreground">{stats.count} invoice{stats.count !== 1 ? "s" : ""}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Paid</p>
+            <p className="text-lg font-bold font-mono text-emerald-600 mt-0.5">{formatCurrency(stats.paid)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card px-4 py-3">
+            <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Outstanding</p>
+            <p className="text-lg font-bold font-mono text-amber-600 mt-0.5">{formatCurrency(stats.outstanding)}</p>
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -494,6 +550,7 @@ export function InvoiceList() {
             const isSelected = selectedIds.has(inv.id)
             const isPdfLoading = pdfGenerating === inv.id
             const isQbLoading = qbExporting === inv.id
+            const isDeleting = deletingId === inv.id
             return (
               <Card
                 key={inv.id}
@@ -550,16 +607,14 @@ export function InvoiceList() {
                       {isPdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
                     </button>
                     {/* Quick QB export */}
-                    {!inv.qb_exported && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleExportSingle(inv) }}
-                        disabled={isQbLoading}
-                        className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
-                        title="Convert to QB Invoice"
-                      >
-                        {isQbLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleExportSingle(inv) }}
+                      disabled={isQbLoading}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+                      title={inv.qb_exported ? "Re-export QB CSV" : "Export QB CSV"}
+                    >
+                      {isQbLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                    </button>
                     {/* Amount + date */}
                     <div className="text-right ml-1">
                       <span className="text-sm font-bold font-mono text-foreground">{formatCurrency(inv.total)}</span>
@@ -604,7 +659,7 @@ export function InvoiceList() {
                           </div>
                         )}
                         <div className="flex items-center justify-between mt-1 pt-1 border-t border-border/30">
-                          <span className="text-xs font-bold text-foreground">Total</span>
+                          <span className="text-xs font-bold text-foreground">Total Due</span>
                           <span className="text-sm font-bold font-mono text-foreground">{formatCurrency(inv.total)}</span>
                         </div>
                       </div>
@@ -624,7 +679,7 @@ export function InvoiceList() {
                     {inv.qb_exported && inv.qb_exported_at && (
                       <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 mb-3">
                         <CheckCircle2 className="h-3 w-3" />
-                        QB exported on {new Date(inv.qb_exported_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                        Exported to QB on {new Date(inv.qb_exported_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
                       </div>
                     )}
 
@@ -650,7 +705,7 @@ export function InvoiceList() {
                         disabled={isQbLoading}
                       >
                         {isQbLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
-                        {inv.qb_exported ? "Re-export to QB" : "Convert to QB Invoice"}
+                        {inv.qb_exported ? "Re-export QB CSV" : "Convert to QB Invoice"}
                       </Button>
 
                       {/* Status dropdown */}
@@ -671,8 +726,10 @@ export function InvoiceList() {
                         variant="ghost"
                         className="h-8 text-xs gap-1.5 rounded-lg text-destructive hover:bg-destructive/10 ml-auto"
                         onClick={() => handleDelete(inv.id)}
+                        disabled={isDeleting}
                       >
-                        <Trash2 className="h-3 w-3" /> Delete
+                        {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        Delete
                       </Button>
                     </div>
                   </div>
