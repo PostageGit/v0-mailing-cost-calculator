@@ -153,7 +153,7 @@ function QuoteItemRow({
 /* ── Main sidebar ─────────────────────────────────────── */
 export function QuoteSidebar() {
   const {
-    items, projectName, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
+    items, projectName, customerId, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote,
   } = useQuote()
 
