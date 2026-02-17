@@ -20,6 +20,7 @@ import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { DeliveryReportPanel } from "@/components/delivery-report-panel"
+import { ActivityLogPanel } from "@/components/activity-log-panel"
 import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -28,7 +29,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList,
+  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Activity,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -88,6 +89,7 @@ function AppContent() {
   const [jobView, setJobView] = useState<"board" | "list">("board")
   const [showSettings, setShowSettings] = useState(false)
   const [showDelivery, setShowDelivery] = useState(false)
+  const [showActivity, setShowActivity] = useState(false)
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
@@ -242,6 +244,15 @@ function AppContent() {
               <ClipboardList className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Deliveries</span>}
             </button>
+            <button onClick={() => setShowActivity(true)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
+                sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
+              )}
+              title={!sidebarOpen ? "Activity Log" : undefined}>
+              <Activity className="h-4 w-4 shrink-0" />
+              {sidebarOpen && <span>Activity</span>}
+            </button>
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
@@ -290,6 +301,10 @@ function AppContent() {
   <button onClick={() => { setShowDelivery(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
   <ClipboardList className="h-4 w-4 shrink-0" /> Deliveries
+  </button>
+  <button onClick={() => { setShowActivity(true); setSidebarOpen(false) }}
+  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
+  <Activity className="h-4 w-4 shrink-0" /> Activity
   </button>
   <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
@@ -468,6 +483,7 @@ function AppContent() {
 
   {showSettings && <MailClassSettingsPanel onClose={() => setShowSettings(false)} />}
   <DeliveryReportPanel open={showDelivery} onClose={() => setShowDelivery(false)} />
+  <ActivityLogPanel open={showActivity} onClose={() => setShowActivity(false)} />
   </div>
   )
 }

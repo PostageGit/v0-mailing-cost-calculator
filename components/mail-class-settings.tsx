@@ -63,6 +63,7 @@ import {
   Mail,
   Activity,
   Zap,
+  Calendar,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -149,7 +150,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
               </TabsTrigger>
               <TabsTrigger value="terms" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <CreditCard className="h-3.5 w-3.5" />
-                Payment Terms
+                Dropdowns
               </TabsTrigger>
               <TabsTrigger value="items" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Package className="h-3.5 w-3.5" />
@@ -1173,22 +1174,38 @@ function AddMailClassForm({
   )
 }
 
-// ---------- PAYMENT TERMS TAB ----------
+// ---------- DROPDOWN FIELDS TAB ----------
 const APP_SETTINGS_KEY = "/api/app-settings"
 
-function PaymentTermsTab() {
+function DropdownListEditor({
+  settingsKey,
+  title,
+  description,
+  placeholder,
+  icon,
+  protectedValues = [],
+  uppercase = false,
+}: {
+  settingsKey: string
+  title: string
+  description: string
+  placeholder: string
+  icon: React.ReactNode
+  protectedValues?: string[]
+  uppercase?: boolean
+}) {
   const { data: settings, mutate } = useSWR<Record<string, unknown>>(APP_SETTINGS_KEY, fetcher)
-  const terms = (settings?.payment_terms ?? []) as string[]
-  const [newTerm, setNewTerm] = useState("")
+  const items = (settings?.[settingsKey] ?? []) as string[]
+  const [newItem, setNewItem] = useState("")
   const [saving, setSaving] = useState(false)
 
-  const saveterms = async (updated: string[]) => {
+  const saveItems = async (updated: string[]) => {
     setSaving(true)
     try {
       await fetch("/api/app-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payment_terms: updated }),
+        body: JSON.stringify({ [settingsKey]: updated }),
       })
       mutate()
     } finally {
@@ -1196,65 +1213,80 @@ function PaymentTermsTab() {
     }
   }
 
-  const addTerm = async () => {
-    const trimmed = newTerm.trim().toUpperCase()
-    if (!trimmed || terms.includes(trimmed)) return
-    await saveterms([...terms, trimmed])
-    setNewTerm("")
+  const addItem = async () => {
+    const trimmed = uppercase ? newItem.trim().toUpperCase() : newItem.trim()
+    if (!trimmed || items.includes(trimmed)) return
+    await saveItems([...items, trimmed])
+    setNewItem("")
   }
 
-  const removeTerm = async (term: string) => {
-    await saveterms(terms.filter((t) => t !== term))
+  const removeItem = async (item: string) => {
+    await saveItems(items.filter((i) => i !== item))
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">Payment Terms</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Manage payment terms options available when editing customers. Default is COD.
-        </p>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>
-
       <div className="flex flex-wrap gap-2">
-        {terms.map((term) => (
-          <div
-            key={term}
-            className="group flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5"
-          >
-            <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">{term}</span>
-            {term !== "COD" && (
-              <button
-                onClick={() => removeTerm(term)}
-                className="ml-1 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                aria-label={`Remove ${term}`}
-              >
+        {items.map((item) => (
+          <div key={item} className="group flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
+            {icon}
+            <span className="text-sm font-medium text-foreground">{item}</span>
+            {!protectedValues.includes(item) && (
+              <button onClick={() => removeItem(item)} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100" aria-label={`Remove ${item}`}>
                 <X className="h-3 w-3" />
               </button>
             )}
           </div>
         ))}
+        {items.length === 0 && <p className="text-xs text-muted-foreground italic">No options added yet</p>}
       </div>
-
       <div className="flex items-center gap-2">
-        <Input
-          value={newTerm}
-          onChange={(e) => setNewTerm(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addTerm()}
-          placeholder="New term (e.g. NET 60)"
-          className="h-9 text-sm w-48"
-        />
-        <Button
-          size="sm"
-          className="h-9 gap-1.5 text-xs"
-          onClick={addTerm}
-          disabled={saving || !newTerm.trim()}
-        >
+        <Input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder={placeholder} className="h-9 text-sm w-48" />
+        <Button size="sm" className="h-9 gap-1.5 text-xs" onClick={addItem} disabled={saving || !newItem.trim()}>
           <Plus className="h-3.5 w-3.5" />
-          {saving ? "Adding..." : "Add Term"}
+          {saving ? "Saving..." : "Add"}
         </Button>
       </div>
+    </div>
+  )
+}
+
+function PaymentTermsTab() {
+  return (
+    <div className="flex flex-col gap-8">
+      <DropdownListEditor
+        settingsKey="payment_terms"
+        title="Payment Terms"
+        description="Options for the Terms dropdown on customer records."
+        placeholder="New term (e.g. NET 60)"
+        icon={<CreditCard className="h-3.5 w-3.5 text-muted-foreground" />}
+        protectedValues={["COD"]}
+        uppercase
+      />
+
+      <Separator />
+
+      <DropdownListEditor
+        settingsKey="billing_methods"
+        title="Billing Methods"
+        description="Payment method options in the Billing & Tax tab."
+        placeholder="New method (e.g. PayPal)"
+        icon={<CreditCard className="h-3.5 w-3.5 text-muted-foreground" />}
+      />
+
+      <Separator />
+
+      <DropdownListEditor
+        settingsKey="billing_frequencies"
+        title="Billing Frequencies"
+        description="How often to bill a customer."
+        placeholder="New frequency (e.g. Annually)"
+        icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
+      />
     </div>
   )
 }
