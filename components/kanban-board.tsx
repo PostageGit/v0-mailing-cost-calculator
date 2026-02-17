@@ -18,7 +18,7 @@ import {
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
-  Hash, GripVertical, NotepadText, ExternalLink,
+  Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -35,7 +35,7 @@ interface JobMeta {
   printed_by?: string; vendor_name?: string; vendor_job?: string; prints_arrived?: boolean
   bcc_done?: boolean; paperwork_done?: boolean; folder_archived?: boolean; job_mailed?: boolean
   invoice_updated?: boolean; invoice_emailed?: boolean; paid_postage?: boolean; paid_full?: boolean
-  assignee?: string; due_date?: string
+  assignee?: string; due_date?: string; expected_date?: string
   zendesk_ticket?: string; next_step?: string; quick_notes?: string
 }
 interface Quote {
@@ -623,7 +623,7 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ════════════════════════════════��═══════════════════
    NEXT STEP SELECTOR
    ════════════════════════════════════════════════════ */
 function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (v: string) => void; steps: string[] }) {
@@ -671,6 +671,81 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
               {step === value && <Check className="h-3 w-3 ml-auto text-foreground" />}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════
+   MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
+   ════════════════════════════════════════════════════ */
+function getDateLabel(dateStr: string | undefined) {
+  if (!dateStr) return null
+  const d = new Date(dateStr + "T12:00:00")
+  const today = new Date(); today.setHours(12, 0, 0, 0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  if (diff === 0) return { label: "TODAY", color: "text-sky-700 bg-sky-100 dark:text-sky-400 dark:bg-sky-900/30 border-sky-200/50 dark:border-sky-800/30" }
+  if (diff === 1) return { label: "TOMORROW", color: "text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-900/30 border-emerald-200/50 dark:border-emerald-800/30" }
+  if (diff === -1) return { label: "YESTERDAY", color: "text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/30 border-amber-200/50 dark:border-amber-800/30" }
+  if (diff < -1) return { label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), color: "text-destructive bg-destructive/10 border-destructive/20" }
+  return { label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), color: "text-foreground/70 bg-secondary border-border" }
+}
+
+function toISO(date: Date) { return date.toISOString().split("T")[0] }
+
+function MailDatePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [showPicker, setShowPicker] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showPicker) return
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShowPicker(false)
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [showPicker])
+
+  const today = new Date(); today.setHours(12, 0, 0, 0)
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const info = getDateLabel(value)
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setShowPicker(!showPicker)}
+        className={cn(
+          "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors",
+          info ? info.color : "text-muted-foreground bg-transparent border-border hover:bg-secondary"
+        )}>
+        <CalendarDays className="h-3 w-3" />
+        {info ? info.label : "Set Mail Date"}
+      </button>
+      {showPicker && (
+        <div className="absolute top-full left-0 mt-1 z-30 w-48 rounded-lg border border-border bg-card shadow-xl py-1">
+          {[
+            { label: "Yesterday", date: yesterday },
+            { label: "Today", date: today },
+            { label: "Tomorrow", date: tomorrow },
+          ].map((opt) => {
+            const iso = toISO(opt.date)
+            return (
+              <button key={opt.label} onClick={() => { onChange(iso); setShowPicker(false) }}
+                className={cn("w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors",
+                  value === iso ? "font-semibold text-foreground" : "text-muted-foreground"
+                )}>
+                {opt.label}
+                {value === iso && <Check className="h-3 w-3 ml-auto text-foreground" />}
+              </button>
+            )
+          })}
+          <div className="border-t border-border mt-1 pt-1 px-3 pb-1">
+            <label className="text-[10px] text-muted-foreground font-medium block mb-1">Custom date</label>
+            <input type="date" value={value || ""} onChange={(e) => { onChange(e.target.value); setShowPicker(false) }}
+              className="w-full text-[11px] text-foreground bg-secondary rounded-md px-2 py-1 border border-border outline-none" />
+          </div>
         </div>
       )}
     </div>
@@ -761,34 +836,25 @@ function QuoteCard({
           )}
         </div>
 
-        {/* Row 2: Subtitle / project description */}
+        {/* Row 2: Subtitle (contact name) */}
         <p className="text-[13px] text-muted-foreground ml-6 mb-2.5 truncate">{quote.contact_name || "\u00A0"}</p>
 
-        {/* Row 3: Mail Date + Assignee badges */}
+        {/* Row 3: Mail Date picker + Assignee badge */}
         <div className="flex items-center gap-2 ml-6 mb-3 flex-wrap">
-          <button onClick={(e) => { e.stopPropagation(); setOpen(true) }}
-            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground px-2.5 py-1 rounded-md border border-border hover:bg-secondary transition-colors">
-            <CalendarDays className="h-3 w-3" />
-            {meta.due_date ? new Date(meta.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Set Mail Date"}
-          </button>
+          <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
           {meta.assignee ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
-              <span className="h-2 w-2 rounded-full bg-orange-500" />{meta.assignee}
+              <User className="h-3 w-3" />{meta.assignee}
             </span>
           ) : (
             <button onClick={(e) => { e.stopPropagation(); setOpen(true) }}
               className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-foreground/20 hover:text-muted-foreground transition-colors">
-              Assign
+              <User className="h-3 w-3" /> Assign
             </button>
           )}
           {overdue && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-destructive/10 text-destructive">
               OVERDUE ({days}d)
-            </span>
-          )}
-          {meta.vendor_name && (meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/50 dark:border-sky-800/30">
-              <Briefcase className="h-2.5 w-2.5" />{meta.vendor_name}
             </span>
           )}
         </div>
@@ -817,31 +883,18 @@ function QuoteCard({
         </div>
 
         {/* Row 6: Next Step status dropdown */}
-        <div className="ml-6 mb-2">
+        <div className="ml-6 pt-2 border-t border-border/40">
           <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
         </div>
 
-        {/* Row 7: Stage + Total */}
-        <div className="flex items-center justify-between ml-6 pt-2 border-t border-border/40">
-          <div className="flex items-center gap-2">
-            {listColumn && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: listColumn.color }} />
-                {listColumn.title}
-              </span>
-            )}
-          </div>
-          <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
-        </div>
-
-        {/* Row 8: Convert to Job (only on quote board) */}
+        {/* Row 7: + Add step link (only on quote board) */}
         {!isArchived && boardType === "quote" && onConvertToJob && (
-          <div className="ml-6 pt-2">
+          <div className="ml-6 pt-1.5">
             <button
               onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-              className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors"
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/40 hover:text-foreground transition-colors font-medium"
             >
-              <Briefcase className="h-3 w-3" /> Convert to Job
+              <CirclePlus className="h-3 w-3" /> Convert to Job
             </button>
           </div>
         )}
@@ -912,14 +965,40 @@ function QuoteCard({
           {/* Info sections on gray bg */}
           <div className="bg-secondary/20 px-4 py-3 flex flex-col gap-3">
 
-            {/* ── MAIL PIECES: full-width, wrapping grid ── */}
+            {/* ── MAIL PIECES: simplified for jobs (type + vendor only), full for quotes ── */}
             {(() => {
-              // Gather mail pieces from items: printing items (flat, booklet etc) + OHP + envelope
               const pieces = (quote.items || []).filter((it) =>
                 ["flat", "booklet", "spiral", "perfect", "ohp", "envelope"].includes(it.category)
               )
               if (pieces.length === 0) return null
-              // Max 3 per row, 1 piece = full width, 2 = 2 col, 3+ = 3 col then wraps
+              const typeHints = ["Postcard", "Flat", "Booklet", "Letter", "Self-Mailer", "Spiral", "Envelope", "Card"]
+
+              if (boardType === "job") {
+                // Job view: compact -- just type tags + vendor
+                return (
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Mail Pieces</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {pieces.map((pc, i) => {
+                        const label = pc.label || pc.description || pc.category
+                        const isOHP = pc.category === "ohp"
+                        const vendorName = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
+                        const foundType = typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
+                        return (
+                          <span key={i} className={cn("inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md border",
+                            isOHP ? "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800/40" : "bg-card text-foreground border-border"
+                          )}>
+                            {foundType}
+                            {isOHP && vendorName && <span className="text-[10px] text-sky-500 dark:text-sky-400">{vendorName}</span>}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              }
+
+              // Quote view: full detail cards with price
               const cols = pieces.length === 1 ? 1 : pieces.length === 2 ? 2 : 3
               return (
                 <div>
@@ -931,11 +1010,8 @@ function QuoteCard({
                       const sizeStr = sizeMatch ? `${sizeMatch[1]}" x ${sizeMatch[2]}"` : null
                       const isOHP = pc.category === "ohp"
                       const vendorName = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
-                      // Extract the qty from label like "5,750 - 11x8.5..."
                       const qtyMatch = label.match(/([\d,]+)\s*[-–]/)
                       const qtyStr = qtyMatch ? qtyMatch[1] : ""
-                      // Extract type hint
-                      const typeHints = ["Postcard", "Flat", "Booklet", "Letter", "Self-Mailer", "Spiral", "Envelope", "Card"]
                       const foundType = typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
 
                       return (
@@ -952,7 +1028,6 @@ function QuoteCard({
                             {sizeStr && <span className="text-[10px] text-muted-foreground">{sizeStr}</span>}
                             {isOHP && vendorName && <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">{vendorName}</span>}
                           </div>
-                          <p className="text-[9px] text-muted-foreground/60 mt-1 truncate">{label}</p>
                         </div>
                       )
                     })}
@@ -991,7 +1066,7 @@ function QuoteCard({
             <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
               <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
               <div className={cn("grid gap-x-4 gap-y-2 mb-2.5",
-                (meta.printed_by === "Out of House" || meta.printed_by === "Both") ? "grid-cols-3" : "grid-cols-2"
+                (meta.printed_by === "Out of House" || meta.printed_by === "Both") ? "grid-cols-4" : "grid-cols-3"
               )}>
                 <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
                   options={["In-House", "Out of House", "Both"]} />
@@ -999,6 +1074,7 @@ function QuoteCard({
                   <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="e.g. PrintOut" onChange={(v) => updateMeta({ vendor_name: v })} />
                 )}
                 <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
+                <FieldInput label="Expected Date" value={meta.expected_date || ""} type="date" onChange={(v) => updateMeta({ expected_date: v })} />
               </div>
               <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
             </div>
@@ -1028,14 +1104,14 @@ function QuoteCard({
             {/* ── Assignee + Due Date ── */}
             <div className="grid grid-cols-2 gap-3">
               <FieldInput label="Assignee" value={meta.assignee || ""} placeholder="Assign to..." onChange={(v) => updateMeta({ assignee: v })} />
-              <FieldInput label="Due Date" value={meta.due_date || ""} type="date" onChange={(v) => updateMeta({ due_date: v })} />
+              <FieldInput label="Mail Date" value={meta.due_date || ""} type="date" onChange={(v) => updateMeta({ due_date: v })} />
             </div>
 
             {/* ── Files ── */}
             <JobFilesInline quoteId={quote.id} onOpenPanel={() => setShowFiles(true)} />
 
-            {/* ── Line items ── */}
-            {(quote.items || []).length > 0 && (
+            {/* ── Line items (only on quote board) ── */}
+            {boardType === "quote" && (quote.items || []).length > 0 && (
               <div className="rounded-lg border border-border bg-card p-3">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Line Items</p>
                 <div className="flex flex-col gap-1">
