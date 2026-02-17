@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
+import { logActivityServer } from "@/lib/audit-server"
 
 /*
  * QBO Customer CSV columns -- maps exactly to QuickBooks Online import wizard.
@@ -99,6 +100,13 @@ export async function GET(req: NextRequest) {
     }
     csv = rows.join("\n")
   }
+
+  // Audit log
+  logActivityServer({
+    entity_type: "system",
+    event: "customer_exported",
+    detail: `Exported ${customers.length} customers (${format}, ${filter})${markSynced ? " + marked synced" : ""}`,
+  })
 
   const tag = filter === "new_only" ? "new" : filter === "since" ? "since-" + since : "all"
   const filename = `customers-${format}-${tag}-${new Date().toISOString().split("T")[0]}.csv`

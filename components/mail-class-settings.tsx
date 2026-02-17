@@ -61,6 +61,8 @@ import {
   Package,
   Users,
   Mail,
+  Activity,
+  Zap,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -1258,6 +1260,10 @@ function PaymentTermsTab() {
 }
 
 // ---------- SYSTEM DASHBOARD TAB ----------
+interface ActivityEntry {
+  id: string; quote_id: string | null; entity_type: string; entity_id: string | null
+  event: string; detail: string; user_name: string; created_at: string
+}
 interface SystemStats {
   connection: boolean
   supabase_url: string | null
@@ -1269,15 +1275,32 @@ interface SystemStats {
   env_status: Record<string, { set: boolean; preview: string }>
   warnings: { level: "info" | "warning" | "critical"; message: string }[]
   checked_at: string
+  activity: {
+    events_24h: number; events_7d: number
+    top_events: { event: string; count: number }[]
+    active_users: string[]
+    feed: ActivityEntry[]
+  }
+  features: {
+    active_quotes: number; active_jobs: number; total_converted: number
+    total_customers: number; synced_customers: number
+    total_files: number; total_vendor_bids: number; total_users: number
+    overdue_deliveries: number; today_deliveries: number
+  }
 }
 
 const TABLE_LABELS: Record<string, string> = {
   customers: "Customers",
   customer_contacts: "Contacts",
   delivery_addresses: "Delivery Addresses",
-  quotes: "Quotes",
+  quotes: "Quotes / Jobs",
   mail_class_settings: "Mail Class Settings",
   app_settings: "App Settings",
+  quote_activity_log: "Activity Log",
+  board_columns: "Board Columns",
+  app_users: "Users",
+  vendor_bids: "Vendor Bids",
+  quote_files: "Files",
 }
 
 const WARNING_STYLES: Record<string, { bg: string; border: string; icon: string; text: string }> = {
@@ -1589,6 +1612,102 @@ function SystemDashboardTab() {
           </table>
         </div>
       </section>
+
+      {/* ── Feature Health Grid ── */}
+      <section>
+        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <Activity className="h-3 w-3" /> Feature Health
+        </h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+          {[
+            { label: "Active Quotes", value: data.features.active_quotes, sub: `${data.features.total_converted} converted`, color: "text-blue-600 dark:text-blue-400" },
+            { label: "Active Jobs", value: data.features.active_jobs, sub: data.features.overdue_deliveries > 0 ? `${data.features.overdue_deliveries} overdue!` : `${data.features.today_deliveries} due today`, color: data.features.overdue_deliveries > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400" },
+            { label: "Customers", value: data.features.total_customers, sub: `${data.features.synced_customers} synced to QBO`, color: "text-foreground" },
+            { label: "Deliveries", value: data.features.today_deliveries, sub: data.features.overdue_deliveries > 0 ? `${data.features.overdue_deliveries} overdue` : "none overdue", color: data.features.overdue_deliveries > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400" },
+            { label: "Files Uploaded", value: data.features.total_files, sub: `across all jobs`, color: "text-foreground" },
+            { label: "Vendor Bids", value: data.features.total_vendor_bids, sub: `${data.features.total_users} users`, color: "text-foreground" },
+          ].map((card) => (
+            <div key={card.label} className="rounded-lg border border-border bg-card p-2.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{card.label}</p>
+              <p className={`text-lg font-bold tabular-nums ${card.color}`}>{card.value.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">{card.sub}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Activity Metrics ── */}
+      <section>
+        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <Zap className="h-3 w-3" /> Activity (Last 7 Days)
+        </h4>
+        <div className="grid grid-cols-3 gap-2.5 mb-3">
+          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+            <p className="text-lg font-bold tabular-nums text-foreground">{data.activity.events_24h}</p>
+            <p className="text-[10px] text-muted-foreground">Last 24h</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+            <p className="text-lg font-bold tabular-nums text-foreground">{data.activity.events_7d}</p>
+            <p className="text-[10px] text-muted-foreground">Last 7 days</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+            <p className="text-lg font-bold tabular-nums text-foreground">{data.activity.active_users.length}</p>
+            <p className="text-[10px] text-muted-foreground">Active users</p>
+          </div>
+        </div>
+        {data.activity.top_events.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {data.activity.top_events.map((e) => (
+              <span key={e.event} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-secondary text-foreground tabular-nums">
+                {e.event.replace(/_/g, " ")} <span className="text-muted-foreground ml-0.5">{e.count}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Live Activity Feed ── */}
+      {data.activity.feed.length > 0 && (
+        <section>
+          <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            Recent Activity
+          </h4>
+          <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+            {data.activity.feed.map((entry, i) => {
+              const time = new Date(entry.created_at)
+              const isToday = time.toDateString() === new Date().toDateString()
+              return (
+                <div key={entry.id || i} className="flex items-start gap-2.5 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                  <div className="flex flex-col items-center mt-0.5">
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      entry.event.includes("overdue") || entry.event.includes("delete") ? "bg-red-500"
+                      : entry.event.includes("created") || entry.event.includes("converted") ? "bg-emerald-500"
+                      : entry.event.includes("moved") || entry.event.includes("updated") ? "bg-blue-500"
+                      : "bg-muted-foreground/40"
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-foreground truncate">
+                        {entry.event.replace(/_/g, " ")}
+                      </span>
+                      {entry.user_name && (
+                        <span className="text-[9px] px-1.5 py-0 rounded-full bg-secondary text-muted-foreground shrink-0">
+                          {entry.user_name}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate">{entry.detail}</p>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground tabular-nums shrink-0 mt-0.5">
+                    {isToday ? time.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : time.toLocaleDateString([], { month: "short", day: "numeric" })}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Environment variables */}
       <section>

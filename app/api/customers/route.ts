@@ -1,5 +1,6 @@
 import { createClient, supabaseReady } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { logActivityServer } from "@/lib/audit-server"
 
 export async function GET(req: Request) {
   if (!supabaseReady()) return NextResponse.json([])
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
       .insert(body)
       .select()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    logActivityServer({ entity_type: "customer", event: "customers_imported", detail: `Imported ${data?.length || 0} customers` })
     return NextResponse.json({ inserted: data?.length || 0 })
   }
 
@@ -112,5 +114,6 @@ export async function POST(req: Request) {
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  logActivityServer({ entity_type: "customer", entity_id: data?.id, event: "customer_created", detail: `New customer: ${data?.company_name || ""}` })
   return NextResponse.json(data)
 }

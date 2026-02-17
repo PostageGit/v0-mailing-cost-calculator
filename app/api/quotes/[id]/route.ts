@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { logActivityServer } from "@/lib/audit-server"
 
 // GET single quote
 export async function GET(
@@ -62,6 +63,26 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Audit logging -- fire and forget
+  const entityType = data?.is_job ? "job" : "quote"
+  const name = data?.project_name || id.slice(0, 8)
+  const userName = body._user_name || ""
+
+  if (body.is_job === true) {
+    logActivityServer({ entity_type: entityType, entity_id: id, event: "quote_converted", detail: `Converted "${name}" to job`, user_name: userName })
+  }
+  if (body.column_id !== undefined) {
+    logActivityServer({ entity_type: entityType, entity_id: id, event: "job_column_moved", detail: `"${name}" moved to column`, user_name: userName })
+  }
+  if (body.archived !== undefined) {
+    logActivityServer({ entity_type: entityType, entity_id: id, event: body.archived ? "archived" : "unarchived", detail: `"${name}" ${body.archived ? "archived" : "restored"}`, user_name: userName })
+  }
+  if (body.job_meta !== undefined) {
+    const changedKeys = Object.keys(body.job_meta).filter((k) => k !== "_user_name").join(", ")
+    logActivityServer({ entity_type: entityType, entity_id: id, event: "job_meta_updated", detail: `"${name}": ${changedKeys}`, user_name: userName })
+  }
+
   return NextResponse.json(data)
 }
 

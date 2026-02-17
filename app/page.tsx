@@ -20,6 +20,7 @@ import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { DeliveryReportPanel } from "@/components/delivery-report-panel"
+import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
@@ -92,6 +93,7 @@ function AppContent() {
   const [rightOpen, setRightOpen] = useState(true)
   const { loadQuote, items, newQuote } = useQuote()
   const mailing = useMailing()
+  const realtimeStatus = useRealtimeSync()
   usePricingConfig()
 
   const visibleSteps = useMemo(() => {

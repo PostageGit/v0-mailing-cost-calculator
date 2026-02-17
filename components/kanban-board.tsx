@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatCurrency } from "@/lib/pricing"
+import { logActivity, getCurrentUserName } from "@/lib/audit"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { buildQuoteText } from "@/lib/build-quote-text"
 import { cn } from "@/lib/utils"
@@ -1596,7 +1597,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const archivedUrl = `/api/quotes?is_job=${isJob}&archived=true`
 
   const { data: columns, isLoading: colsLoading } = useSWR<BoardColumn[]>(colsUrl, fetcher)
-  const { data: quotes, error, isLoading: quotesLoading } = useSWR<Quote[]>(quotesUrl, fetcher, { refreshInterval: 10000 })
+  const { data: quotes, error, isLoading: quotesLoading } = useSWR<Quote[]>(quotesUrl, fetcher)
   const { data: archivedQuotes } = useSWR<Quote[]>(archivedUrl, fetcher)
 
   const [showSettings, setShowSettings] = useState(false)
