@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient as createBrowserClient } from "@/lib/supabase/client"
-import { X, BarChart3, ChevronDown, Filter } from "lucide-react"
+import { X, BarChart3, ChevronDown, Filter } from "@/lib/safe-icons"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 

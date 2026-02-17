@@ -28,7 +28,7 @@ import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
-import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, BarChart3, Layers, X, Stamp, BookOpen, Disc3, Send, Receipt, Briefcase, PanelRightOpen, ArrowLeft, PenLine, LayoutDashboard } from "lucide-react"
+import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, BarChart3, Layers, X, Stamp, BookOpen, Disc3, Send, Receipt, Briefcase, PanelRightOpen, ArrowLeft, PenLine, LayoutDashboard } from "@/lib/safe-icons"
 
 // ---- Calculator Steps (after planner) ----
 type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "ohp" | "items"

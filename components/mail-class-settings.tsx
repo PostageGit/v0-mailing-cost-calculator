@@ -31,7 +31,7 @@ import {
   type ScoreFoldConfig,
   type ScoreFoldEntry,
 } from "@/lib/pricing-config"
-import { Settings, Plus, X, Save, Trash2, Loader2, ChevronDown, ChevronUp, DollarSign, AlertTriangle, GripVertical, Lock, Palette, ListPlus, Wrench, CreditCard, BarChart3, Calculator, Database, KeyRound, CheckCircle2, XCircle, RefreshCw, HardDrive, ShieldAlert, Info, Package, Users, Mail, Zap, Calendar, Factory, Layers } from "lucide-react"
+import { Settings, Plus, X, Save, Trash2, Loader2, ChevronDown, ChevronUp, DollarSign, AlertTriangle, GripVertical, Lock, Palette, ListPlus, Wrench, CreditCard, BarChart3, Calculator, Database, KeyRound, CheckCircle2, XCircle, RefreshCw, HardDrive, ShieldAlert, Info, Package, Users, Mail, Zap, Calendar, Factory, Layers } from "@/lib/safe-icons"
 
 // ---------- types ----------
 export interface LaborItem {
