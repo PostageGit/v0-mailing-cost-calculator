@@ -30,7 +30,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Activity,
+  Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, BarChart3,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -261,7 +261,7 @@ function AppContent() {
                 sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
               )}
               title={!sidebarOpen ? "Activity Log" : undefined}>
-              <Activity className="h-4 w-4 shrink-0" />
+              <BarChart3 className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Activity</span>}
             </button>
             <button onClick={() => setShowSettings(true)}
@@ -319,7 +319,7 @@ function AppContent() {
   </button>
   <button onClick={() => { setShowActivity(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
-  <Activity className="h-4 w-4 shrink-0" /> Activity
+  <BarChart3 className="h-4 w-4 shrink-0" /> Activity
   </button>
   <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
