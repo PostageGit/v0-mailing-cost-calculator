@@ -31,7 +31,7 @@ import {
   type ScoreFoldConfig,
   type ScoreFoldEntry,
 } from "@/lib/pricing-config"
-import { Settings, Plus, X, Save, Trash2, Loader2, ChevronDown, ChevronUp, DollarSign, AlertTriangle, GripVertical, Lock, Palette, ListPlus, Wrench, CreditCard, Pulse, Calculator, Database, KeyRound, CheckCircle2, XCircle, RefreshCw, HardDrive, ShieldAlert, Info, Package, Users, Mail, Zap, Calendar, Factory, Layers } from "@/lib/icons"
+import { Settings, Plus, X, Save, Trash2, Loader2, ChevronDown, ChevronUp, DollarSign, AlertTriangle, GripVertical, Lock, Palette, ListPlus, Wrench, CreditCard, HeartPulse, Calculator, Database, KeyRound, CheckCircle2, XCircle, RefreshCw, HardDrive, ShieldAlert, Info, Package, Users, Mail, Zap, Calendar, Factory, Layers } from "@/lib/icons"
 
 // ---------- types ----------
 export interface LaborItem {
@@ -148,7 +148,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 Email
               </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Pulse className="h-3.5 w-3.5" />
+                <HeartPulse className="h-3.5 w-3.5" />
                 System
               </TabsTrigger>
             </TabsList>
@@ -1649,7 +1649,7 @@ function SystemDashboardTab() {
       {/* ── Feature Health Grid ── */}
       <section>
         <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <Pulse className="h-3 w-3" /> Feature Health
+          <HeartPulse className="h-3 w-3" /> Feature Health
         </h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
           {[

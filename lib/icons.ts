@@ -1,7 +1,7 @@
 // Re-export lucide icons used across the app.
 // We intentionally do NOT export "Activity" because React 19.2 has a built-in
 // <Activity> component that causes a name collision with Turbopack.
-// Use "Pulse" instead wherever you need an activity/heartbeat icon.
+// Use "HeartPulse" instead wherever you need an activity/heartbeat icon.
 export {
   Settings,
   Plus,
@@ -19,7 +19,7 @@ export {
   ListPlus,
   Wrench,
   CreditCard,
-  Pulse,
+  HeartPulse,
   Calculator,
   Database,
   KeyRound,

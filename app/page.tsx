@@ -28,7 +28,7 @@ import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
-import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Pulse, Layers, X } from "@/lib/icons"
+import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, HeartPulse, Layers, X } from "@/lib/icons"
 import { Stamp, BookOpen, Disc3, Send, Receipt, Briefcase, PanelRightOpen, ArrowLeft, PenLine, LayoutDashboard } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -273,7 +273,7 @@ function AppContent() {
                 sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
               )}
               title={!sidebarOpen ? "Activity Log" : undefined}>
-              <Pulse className="h-4 w-4 shrink-0" />
+              <HeartPulse className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Activity</span>}
             </button>
             <button onClick={() => setShowSettings(true)}
@@ -331,7 +331,7 @@ function AppContent() {
   </button>
   <button onClick={() => { setShowActivity(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
-  <Pulse className="h-4 w-4 shrink-0" /> Activity
+  <HeartPulse className="h-4 w-4 shrink-0" /> Activity
   </button>
   <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
