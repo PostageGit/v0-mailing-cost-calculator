@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient as createBrowserClient } from "@/lib/supabase/client"
-import { X, Activity, ChevronDown, Filter } from "lucide-react"
+import { X, Activity as ActivityIcon, ChevronDown, Filter } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -145,7 +145,7 @@ export function ActivityLogPanel({ open, onClose }: { open: boolean; onClose: ()
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-foreground" />
+            <ActivityIcon className="h-4 w-4 text-foreground" />
             <h2 className="text-sm font-bold text-foreground">Activity Log</h2>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
@@ -180,7 +180,7 @@ export function ActivityLogPanel({ open, onClose }: { open: boolean; onClose: ()
             </div>
           ) : entries.length === 0 ? (
             <div className="text-center py-12 px-4">
-              <Activity className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <ActivityIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">No activity yet</p>
               <p className="text-xs text-muted-foreground/60 mt-1">Events will appear here as you work</p>
             </div>

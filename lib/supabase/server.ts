@@ -18,10 +18,12 @@ function getSupabaseKey() {
 }
 
 export async function createClient() {
-  // When env vars are missing, return a safe stub that won't throw.
+  // When env vars are missing or empty, return a safe stub that won't throw.
   // This prevents the entire server from crashing during development
   // or in v0 preview when Supabase isn't configured yet.
-  if (!supabaseReady()) {
+  const url = getSupabaseUrl()
+  const key = getSupabaseKey()
+  if (!url || !key) {
     const noop = () => stub
     const stub: Record<string, unknown> = {
       from: () => stub,
@@ -40,27 +42,44 @@ export async function createClient() {
     return stub as unknown as ReturnType<typeof createServerClient>
   }
 
-  const cookieStore = await cookies()
+  try {
+    const cookieStore = await cookies()
 
-  return createServerClient(
-    getSupabaseUrl(),
-    getSupabaseKey(),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            )
-          } catch {
-            // The "setAll" method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
-          }
+    return createServerClient(
+      url,
+      key,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options),
+              )
+            } catch {
+              // The "setAll" method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing user sessions.
+            }
+          },
         },
       },
-    },
-  )
+    )
+  } catch (e) {
+    console.error("[v0] createClient failed:", e)
+    // Return stub on failure
+    const noop = () => stub
+    const stub: Record<string, unknown> = {
+      from: () => stub,
+      select: noop, insert: noop, update: noop, upsert: noop, delete: noop,
+      eq: noop, neq: noop, single: noop, order: noop, limit: noop,
+      ilike: noop, or: noop, in: noop, is: noop, match: noop, maybeSingle: noop,
+      then: (resolve: (v: { data: null; error: { message: string } }) => void) =>
+        Promise.resolve().then(() => resolve({ data: null, error: { message: 'Supabase client error' } })),
+      data: null,
+      error: { message: 'Supabase client error' },
+    }
+    return stub as unknown as ReturnType<typeof createServerClient>
+  }
 }
