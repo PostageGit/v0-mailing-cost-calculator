@@ -17,10 +17,12 @@ import {
   Upload,
   Loader2,
   ChevronRight,
+  CheckCircle2,
 } from "lucide-react"
 import type { Customer, DepartmentColors } from "@/lib/customer-types"
 import { CustomerDetail } from "./customer-detail"
 import { CustomerImportModal } from "./customer-import"
+import { CustomerExportDialog } from "./customer-export-dialog"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -29,6 +31,7 @@ export function CustomerList() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showExport, setShowExport] = useState(false)
 
   const { data: customers, isLoading } = useSWR<Customer[]>(
     `/api/customers${search ? `?search=${encodeURIComponent(search)}` : ""}`,
@@ -49,9 +52,7 @@ export function CustomerList() {
     globalMutate((key: string) => typeof key === "string" && key.startsWith("/api/customers"))
   }, [])
 
-  const handleExport = () => {
-    window.open("/api/customers/export", "_blank")
-  }
+  const handleExport = () => setShowExport(true)
 
   return (
     <div className="flex flex-col gap-5">
@@ -122,6 +123,9 @@ export function CustomerList() {
                     <p className="text-sm font-semibold text-foreground truncate">
                       {c.company_name}
                     </p>
+                    {c.qbo_synced && (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" title={`Synced to QBO${c.qbo_synced_at ? ` on ${new Date(c.qbo_synced_at).toLocaleDateString()}` : ""}`} />
+                    )}
                     {c.terms && (
                       <Badge variant="outline" className="text-[9px] font-semibold tracking-wide px-1.5 py-0 shrink-0">
                         {c.terms}
@@ -177,6 +181,15 @@ export function CustomerList() {
           }}
         />
       )}
+
+      {/* Export Dialog */}
+      <CustomerExportDialog
+        open={showExport}
+        onClose={() => {
+          setShowExport(false)
+          globalMutate((key: string) => typeof key === "string" && key.startsWith("/api/customers"))
+        }}
+      />
     </div>
   )
 }

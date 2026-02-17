@@ -18,6 +18,8 @@ export interface Customer {
   terms: string
   notes: string | null
   custom_fields: Record<string, string>
+  qbo_synced: boolean
+  qbo_synced_at: string | null
   created_at: string
   updated_at: string
 }
