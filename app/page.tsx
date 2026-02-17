@@ -12,8 +12,7 @@ import { MailPiecePlanner } from "@/components/mail-piece-planner"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
 import { MailingProvider, useMailing, PIECE_TYPE_META } from "@/lib/mailing-context"
 import { KanbanBoard } from "@/components/kanban-board"
-import dynamic from "next/dynamic"
-const MailClassSettingsPanel = dynamic(() => import("@/components/mail-class-settings").then(m => m.MailClassSettingsPanel), { ssr: false })
+import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
@@ -29,7 +28,7 @@ import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
-import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, HeartPulse, Layers, X, Stamp, BookOpen, Disc3, Send, Receipt, Briefcase, PanelRightOpen, ArrowLeft, PenLine, LayoutDashboard } from "@/lib/icons"
+import { Plus, Settings, Mail, Zap, Wrench, Printer, Package, Check, ChevronRight, FileText, Users, Truck, Menu, ChevronLeft, Columns3, List, ClipboardList, Activity, Layers, X, Stamp, BookOpen, Disc3, Send, Receipt, Briefcase, PanelRightOpen, ArrowLeft, PenLine, LayoutDashboard } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
 type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "ohp" | "items"
@@ -273,7 +272,7 @@ function AppContent() {
                 sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
               )}
               title={!sidebarOpen ? "Activity Log" : undefined}>
-              <HeartPulse className="h-4 w-4 shrink-0" />
+              <Activity className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Activity</span>}
             </button>
             <button onClick={() => setShowSettings(true)}
@@ -331,7 +330,7 @@ function AppContent() {
   </button>
   <button onClick={() => { setShowActivity(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
-  <HeartPulse className="h-4 w-4 shrink-0" /> Activity
+  <Activity className="h-4 w-4 shrink-0" /> Activity
   </button>
   <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
