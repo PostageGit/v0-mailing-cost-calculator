@@ -142,21 +142,23 @@ export function PrintingCalculator() {
   }, [])
 
   const handleLevelChange = useCallback((delta: number) => {
-    if (!selectedOption) return
-    const newOverride = levelOverride + delta
-    setLevelOverride(newOverride)
-    // Re-calculate with adjusted inputs
-    const adjusted = { ...inputs, qty: Math.max(1, inputs.qty + (delta > 0 ? 500 : -500)) }
+    if (!selectedOption || !fullResult) return
+    // Adjust the level bracket (1-10), not the quantity
+    const currentLevel = fullResult.result.level
+    const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
+    if (newLevel === currentLevel) return
+    // Re-calculate with level override
+    const adjusted = { ...inputs, levelOverride: newLevel }
     const result = calculatePrintingCost(adjusted, selectedOption.size)
     if (result) {
       let finCalcCosts: { id: string; name: string; cost: number }[] = []
       if (finCalcs && finRates && inputs.finishingCalcIds?.length) {
-        finCalcCosts = computeFinishingCalcTotals(finCalcs, finRates, inputs.finishingCalcIds, adjusted.qty)
+        finCalcCosts = computeFinishingCalcTotals(finCalcs, finRates, inputs.finishingCalcIds, inputs.qty)
       }
       const full = buildFullResult(adjusted, result, finCalcCosts)
       setFullResult(full)
     }
-  }, [inputs, selectedOption, levelOverride, finCalcs, finRates])
+  }, [inputs, selectedOption, fullResult, finCalcs, finRates])
 
   // Add to order
   function resetForm() {
