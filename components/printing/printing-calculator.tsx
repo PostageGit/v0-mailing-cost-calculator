@@ -81,6 +81,82 @@ export function PrintingCalculator() {
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [levelOverride, setLevelOverride] = useState<number>(0)
+
+  // Load a piece from the mailing planner into the form
+  function loadPiece(piece: MailPiece) {
+    const flat = getFlatSize(piece)
+    setInputs((prev) => ({
+      ...prev,
+      qty: mailing.quantity || prev.qty,
+      width: flat.w || piece.width || prev.width,
+      height: flat.h || piece.height || prev.height,
+    }))
+    setSheetOptions([])
+    setSelectedOption(null)
+    setFullResult(null)
+    setHasCalculated(false)
+    setShowResults(false)
+  }
+
+  // Calculate all sheet options for the given inputs
+  const handleCalculate = useCallback(() => {
+    if (inputs.qty <= 0 || inputs.width <= 0 || inputs.height <= 0) return
+    const options = calculateAllSheetOptions(inputs)
+    setSheetOptions(options)
+    setHasCalculated(true)
+    setShowResults(false)
+    setSelectedOption(null)
+    setFullResult(null)
+    setLevelOverride(0)
+
+    // Auto-select if only one option
+    if (options.length === 1) {
+      selectSheet(options[0])
+    }
+  }, [inputs])
+
+  function selectSheet(option: SheetOptionRow) {
+    setSelectedOption(option)
+    const result = calculatePrintingCost(inputs, option.size)
+    if (result) {
+      // Compute finishing calculator costs
+      let finCalcCosts: { id: string; name: string; cost: number }[] = []
+      if (finCalcs && finRates && inputs.finishingCalcIds?.length) {
+        finCalcCosts = computeFinishingCalcTotals(finCalcs, finRates, inputs.finishingCalcIds, inputs.qty)
+      }
+      const full = buildFullResult(inputs, result, finCalcCosts)
+      setFullResult(full)
+      setShowResults(true)
+    }
+  }
+
+  const handleSelectSheet = useCallback((option: SheetOptionRow) => {
+    selectSheet(option)
+  }, [inputs, finCalcs, finRates])
+
+  const handleChangeSheet = useCallback(() => {
+    setShowResults(false)
+    setSelectedOption(null)
+    setFullResult(null)
+  }, [])
+
+  const handleLevelChange = useCallback((delta: number) => {
+    if (!selectedOption) return
+    const newOverride = levelOverride + delta
+    setLevelOverride(newOverride)
+    // Re-calculate with adjusted inputs
+    const adjusted = { ...inputs, qty: Math.max(1, inputs.qty + (delta > 0 ? 500 : -500)) }
+    const result = calculatePrintingCost(adjusted, selectedOption.size)
+    if (result) {
+      let finCalcCosts: { id: string; name: string; cost: number }[] = []
+      if (finCalcs && finRates && inputs.finishingCalcIds?.length) {
+        finCalcCosts = computeFinishingCalcTotals(finCalcs, finRates, inputs.finishingCalcIds, adjusted.qty)
+      }
+      const full = buildFullResult(adjusted, result, finCalcCosts)
+      setFullResult(full)
+    }
+  }, [inputs, selectedOption, levelOverride, finCalcs, finRates])
 
   // Add to order
   function resetForm() {
