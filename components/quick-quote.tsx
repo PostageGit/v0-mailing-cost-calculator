@@ -260,8 +260,10 @@ export function QuickQuoteScreen() {
       {/* Content + Sidebar */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Calculator content */}
-        <div className="flex-1 min-w-0 overflow-auto px-4 sm:px-6 pt-4 pb-8">
-          {renderCalc()}
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="px-4 sm:px-6 pt-4 pb-8">
+            {renderCalc()}
+          </div>
         </div>
 
         {/* Quote sidebar */}
