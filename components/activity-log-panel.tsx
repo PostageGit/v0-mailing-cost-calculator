@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { createBrowserClient } from "@/lib/supabase/client"
+import { createClient as createBrowserClient } from "@/lib/supabase/client"
 import { X, Activity, ChevronDown, Filter } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
