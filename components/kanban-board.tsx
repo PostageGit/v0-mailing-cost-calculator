@@ -625,8 +625,8 @@ function QuoteCard({
           )}
         </div>
 
-        {/* Row 6: Stage dropdown */}
-        <div className="flex items-center justify-between ml-6">
+        {/* Row 6: Stage + Total */}
+        <div className="flex items-center justify-between ml-6 mb-2">
           <div className="flex items-center gap-2">
             {listColumn && (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
@@ -637,6 +637,18 @@ function QuoteCard({
           </div>
           <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
         </div>
+
+        {/* Row 7: Convert to Job (only on quote board) */}
+        {!isArchived && boardType === "quote" && onConvertToJob && (
+          <div className="ml-6 pt-2 border-t border-border/50">
+            <button
+              onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
+              className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors"
+            >
+              <Briefcase className="h-3 w-3" /> Convert to Job
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── EXPANDED DETAIL ── */}
@@ -1058,7 +1070,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
 
 /* ════════════════════════════════════════════════════
    MAIN KANBAN BOARD
-   ════════════════════════════════════════════════════ */
+   ════════════════════════════════════��═══════════════ */
 
 export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote }: {
   boardType?: "quote" | "job"; viewMode?: "board" | "list"; onLoadQuote: (quoteId: string) => void
