@@ -18,6 +18,7 @@ import {
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
+  Hash, GripVertical, Copy,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -546,67 +547,97 @@ function QuoteCard({
       onDragStart={(e) => { e.dataTransfer.setData("text/plain", quote.id); e.dataTransfer.effectAllowed = "move"; (e.currentTarget as HTMLElement).style.opacity = "0.4" }}
       onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1" }}
       className={cn(
-        "rounded-lg border bg-card transition-all",
-        isArchived ? "opacity-50 border-border" : "border-border hover:border-foreground/15",
-        open ? "shadow-md" : "shadow-sm",
-        !open && !isArchived && "cursor-grab active:cursor-grabbing"
+        "rounded-xl border bg-card transition-all",
+        isArchived ? "opacity-50 border-border" : "border-border hover:border-foreground/20 hover:shadow-md",
+        open ? "shadow-md ring-1 ring-foreground/5" : "shadow-sm"
       )}
     >
-      {/* ── COLLAPSED HEADER ── */}
-      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-start gap-3 px-4 py-3 text-left select-none hover:bg-secondary/30 transition-colors">
-        <div className="flex-1 min-w-0">
-          {/* Title + Subtitle */}
-          <p className="text-sm font-semibold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
-          {quote.contact_name && <p className="text-xs text-muted-foreground mt-0.5">{quote.contact_name}</p>}
+      {/* ── CARD CONTENT (PostFlow style) ── */}
+      <div className="px-4 pt-3 pb-2.5">
+        {/* Row 1: Title + icons */}
+        <div className="flex items-start justify-between gap-2 mb-0.5">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 cursor-grab" />
+            <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`${quote.project_name} - ${quote.contact_name || ""}`) }}
+              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors" title="Copy">
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setOpen(!open)}
+              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors" title="Expand">
+              <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
+            </button>
+          </div>
+        </div>
 
-          {/* Badges row */}
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {overdue && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-destructive/10 text-destructive">
-                <CalendarDays className="h-3 w-3" /> OVERDUE ({days}d)
-              </span>
-            )}
-            {meta.assignee && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{meta.assignee}
-              </span>
-            )}
-            {meta.vendor_name && (meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/50 dark:border-sky-800/30">
-                <Briefcase className="h-2.5 w-2.5" />{meta.vendor_name}
-              </span>
-            )}
+        {/* Row 2: Subtitle / description */}
+        <p className="text-[13px] text-muted-foreground ml-6 mb-2.5 truncate">{quote.contact_name || "\u00A0"}</p>
+
+        {/* Row 3: Mail Date + Assignee badges */}
+        <div className="flex items-center gap-2 ml-6 mb-3 flex-wrap">
+          <button onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground px-2.5 py-1 rounded-md border border-border hover:bg-secondary transition-colors">
+            <CalendarDays className="h-3 w-3" />
+            {meta.due_date ? new Date(meta.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Set Mail Date"}
+          </button>
+          {meta.assignee ? (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
+              <span className="h-2 w-2 rounded-full bg-orange-500" />{meta.assignee}
+            </span>
+          ) : (
+            <button onClick={() => setOpen(true)}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-foreground/20 hover:text-muted-foreground transition-colors">
+              Assign
+            </button>
+          )}
+          {overdue && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-destructive/10 text-destructive">
+              OVERDUE ({days}d)
+            </span>
+          )}
+          {meta.vendor_name && (meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/50 dark:border-sky-800/30">
+              <Briefcase className="h-2.5 w-2.5" />{meta.vendor_name}
+            </span>
+          )}
+        </div>
+
+        {/* Row 4: ZD# + INV inline fields */}
+        <div className="flex items-center gap-4 ml-6 mb-2">
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50">
+            <FileText className="h-3 w-3" />ZD# <span className="font-mono text-foreground/70">{quote.quote_number || "---"}</span>
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50">
+            <Hash className="h-3 w-3" />INV <span className="font-mono text-foreground/70">{quote.reference_number || "---"}</span>
+          </span>
+        </div>
+
+        {/* Row 5: Add note / notes preview */}
+        <div className="ml-6 mb-3">
+          {quote.notes ? (
+            <p className="text-[11px] text-muted-foreground italic line-clamp-1">{quote.notes}</p>
+          ) : (
+            <button onClick={() => setOpen(true)} className="text-[11px] text-muted-foreground/30 hover:text-muted-foreground transition-colors italic">
+              Add note...
+            </button>
+          )}
+        </div>
+
+        {/* Row 6: Stage dropdown */}
+        <div className="flex items-center justify-between ml-6">
+          <div className="flex items-center gap-2">
             {listColumn && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-secondary text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: listColumn.color }} />{listColumn.title}
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: listColumn.color }} />
+                {listColumn.title}
               </span>
             )}
           </div>
-
-          {/* Meta row */}
-          <div className="flex items-center gap-3 mt-1.5">
-            {quote.quote_number && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
-                <FileText className="h-3 w-3" />Q-{quote.quote_number}
-              </span>
-            )}
-            {quote.reference_number && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
-                <ClipboardCopy className="h-3 w-3" />{quote.reference_number}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
           <span className="text-sm font-bold font-mono text-foreground tabular-nums">{formatCurrency(quote.total)}</span>
-          {quote.created_at && <span className="text-[10px] text-muted-foreground">{fmtDate(quote.created_at)}</span>}
         </div>
-        <div className="shrink-0 pt-1">
-          <div className={cn("h-6 w-6 rounded-md flex items-center justify-center bg-secondary/80 transition-all", open && "bg-foreground/10")}>
-            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
-          </div>
-        </div>
-      </button>
+      </div>
 
       {/* ── EXPANDED DETAIL ── */}
       {open && (
@@ -993,7 +1024,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
   const colTotal = quotes.reduce((s, q) => s + Number(q.total), 0)
 
   return (
-    <div className="flex flex-col min-w-[240px] w-[260px] shrink-0 lg:min-w-0 lg:w-auto lg:flex-1 min-h-0">
+    <div className="flex flex-col min-w-[280px] w-[320px] shrink-0 lg:min-w-0 lg:w-auto lg:flex-1 min-h-0">
       <div className="flex items-center justify-between px-1 pb-1.5 shrink-0">
         <div className="flex items-center gap-1.5">
           <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
@@ -1006,7 +1037,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setDragOver(false); const id = e.dataTransfer.getData("text/plain"); if (id) onColumnChange(id, col.id) }}
-        className={cn("flex-1 flex flex-col gap-1.5 p-1 rounded-lg overflow-y-auto transition-colors min-h-0",
+        className={cn("flex-1 flex flex-col gap-2.5 p-1.5 rounded-lg overflow-y-auto transition-colors min-h-0",
           dragOver ? "bg-foreground/[0.03] ring-1 ring-foreground/10" : "bg-secondary/20"
         )}
       >
