@@ -154,11 +154,19 @@ export function CalcPriceCard({
           </div>
           <div className="mt-2 flex gap-1">
             {Array.from({ length: level.maxLevel }, (_, i) => i + 1).map((lvl) => (
-              <div
+              <button
                 key={lvl}
-                className={`flex-1 h-1.5 rounded-full transition-colors ${
-                  lvl <= level.level ? "bg-foreground" : "bg-border"
+                type="button"
+                onClick={() => {
+                  if (level.onLevelChange && lvl !== level.level) {
+                    level.onLevelChange(lvl - level.level)
+                  }
+                }}
+                className={`flex-1 h-2.5 rounded-full transition-colors cursor-pointer hover:opacity-80 ${
+                  lvl <= level.level ? "bg-foreground" : "bg-border hover:bg-muted-foreground/30"
                 }`}
+                aria-label={`Set level ${lvl}`}
+                title={`Level ${lvl}`}
               />
             ))}
           </div>

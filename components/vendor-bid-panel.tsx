@@ -40,13 +40,6 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   const [autoCreating, setAutoCreating] = useState<Set<string>>(new Set())
   const existingLabels = useMemo(() => new Set(bids?.map((b) => b.item_label) ?? []), [bids])
 
-  console.log("[v0] OHP Debug - all pieces:", mailing.pieces.map(p => ({ id: p.id, type: p.type, production: p.production, label: p.label })))
-  console.log("[v0] OHP Debug - ohpPieces:", ohpPieces.length, ohpPieces.map(p => ({ id: p.id, type: p.type, production: p.production })))
-  console.log("[v0] OHP Debug - mailing.quantity:", mailing.quantity)
-  console.log("[v0] OHP Debug - quote.items:", quote.items.map(i => ({ cat: i.category, label: i.label?.substring(0, 40), amount: i.amount })))
-  console.log("[v0] OHP Debug - existingLabels:", [...existingLabels])
-  console.log("[v0] OHP Debug - bids:", bids?.map(b => ({ id: b.id, label: b.item_label })))
-
   const autoCreateBid = async (piece: MailPiece) => {
     const { label, desc, category } = describePiece(piece, mailing.quantity)
     if (existingLabels.has(label)) return
