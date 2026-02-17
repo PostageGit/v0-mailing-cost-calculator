@@ -18,6 +18,7 @@ interface QuoteContextValue {
   customerId: string | null
   contactName: string
   referenceNumber: string
+  quantity: number
   savedId: string | null
   quoteNumber: number | null
   isSaving: boolean
@@ -27,6 +28,7 @@ interface QuoteContextValue {
   setCustomerId: (id: string | null) => void
   setContactName: (name: string) => void
   setReferenceNumber: (ref: string) => void
+  setQuantity: (qty: number) => void
   addItem: (item: Omit<QuoteLineItem, "id">) => void
   removeItem: (id: number) => void
   updateItem: (id: number, updates: Partial<Omit<QuoteLineItem, "id">>) => void
@@ -52,6 +54,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [customerId, setCustomerIdRaw] = useState<string | null>(null)
   const [contactName, setContactNameRaw] = useState("")
   const [referenceNumber, setReferenceNumberRaw] = useState("")
+  const [quantity, setQuantityRaw] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [quoteNumber, setQuoteNumber] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -84,6 +87,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         customer_id: customerIdRef.current || null,
         contact_name: contactNameRef.current || "",
         reference_number: referenceNumberRef.current || "",
+        quantity: quantityRef.current || 0,
       }
 
       let id = savedIdRef.current
@@ -124,12 +128,14 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const customerIdRef = useRef(customerId)
   const contactNameRef = useRef(contactName)
   const referenceNumberRef = useRef(referenceNumber)
+  const quantityRef = useRef(quantity)
 
   useEffect(() => { itemsRef.current = items }, [items])
   useEffect(() => { projectNameRef.current = projectName }, [projectName])
   useEffect(() => { customerIdRef.current = customerId }, [customerId])
   useEffect(() => { contactNameRef.current = contactName }, [contactName])
   useEffect(() => { referenceNumberRef.current = referenceNumber }, [referenceNumber])
+  useEffect(() => { quantityRef.current = quantity }, [quantity])
 
   // Schedule auto-save
   const scheduleSave = useCallback(() => {
@@ -158,6 +164,11 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
 
   const setReferenceNumber = useCallback((ref: string) => {
     setReferenceNumberRaw(ref)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const setQuantity = useCallback((qty: number) => {
+    setQuantityRaw(qty)
     scheduleSave()
   }, [scheduleSave])
 
@@ -228,6 +239,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setCustomerIdRaw(data.customer_id || null)
       setContactNameRaw(data.contact_name || "")
       setReferenceNumberRaw(data.reference_number || "")
+      setQuantityRaw(data.quantity || 0)
       setItems(data.items || [])
       dirtyRef.current = false
       setLastSavedAt(Date.now())
@@ -271,8 +283,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setCustomerIdRaw(null)
     setContactNameRaw("")
     setReferenceNumberRaw("")
+    setQuantityRaw(0)
     setItems([])
-    setActivityLog([])
     dirtyRef.current = false
     setLastSavedAt(null)
   }, [])
@@ -285,6 +297,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         customerId,
         contactName,
         referenceNumber,
+        quantity,
         savedId,
         quoteNumber,
         isSaving,
@@ -294,6 +307,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         setCustomerId,
         setContactName,
         setReferenceNumber,
+        setQuantity,
         addItem,
         removeItem,
         updateItem,

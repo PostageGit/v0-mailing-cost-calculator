@@ -67,8 +67,10 @@ export async function POST(request: Request) {
       column_id: body.column_id || defaultColumnId,
       items: body.items || [],
       total: body.total || 0,
+      quantity: body.quantity || 0,
       notes: body.notes || null,
       customer_id: body.customer_id || null,
+      contact_name: body.contact_name || "",
       reference_number: body.reference_number || "",
     })
     .select()

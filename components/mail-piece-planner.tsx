@@ -22,6 +22,13 @@ const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "pos
 export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   const m = useMailing()
   const q = useQuote()
+
+  // Sync: if quote context has a saved quantity and mailing context doesn't, hydrate it
+  const [hydrated, setHydrated] = useState(false)
+  if (!hydrated && q.quantity > 0 && m.quantity === 0) {
+    m.setQuantity(q.quantity)
+    setHydrated(true)
+  }
   const { data: customers } = useSWR<Customer[]>("/api/customers", fetcher)
   const { data: contacts, mutate: mutateContacts } = useSWR<Contact[]>(
     q.customerId ? `/api/customers/${q.customerId}/contacts` : null, fetcher,
@@ -190,7 +197,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
-                <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => m.setQuantity(parseInt(e.target.value) || 0)} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
+                <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => { const v = parseInt(e.target.value) || 0; m.setQuantity(v); q.setQuantity(v) }} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>
