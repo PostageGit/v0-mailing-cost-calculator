@@ -53,7 +53,7 @@ interface Quote {
   id: string; project_name: string; status: string; column_id: string | null
   items: QuoteItem[]; total: number; notes: string | null
   quote_number: number | null; mailing_date: string | null; quantity?: number
-  mailing_pieces?: unknown[]
+  mailing_pieces?: unknown[]; mailing_class?: string
   customer_id?: string | null; contact_name?: string | null
   reference_number?: string | null
   lights: Record<string, string> | null
@@ -196,8 +196,10 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
     }
   }
 
-  // Postage: mailing class from item labels
-  if (!derived.mailing_class) {
+  // Mailing class: prefer quote-level field, fallback to postage item labels
+  if (quote.mailing_class) {
+    derived.mailing_class = quote.mailing_class
+  } else if (!derived.mailing_class) {
     const postageItems = items.filter((it) => it.category === "postage")
     if (postageItems.length > 0) {
       const pDesc = postageItems[0].description || postageItems[0].label || ""

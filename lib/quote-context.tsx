@@ -21,6 +21,8 @@ interface QuoteContextValue {
   referenceNumber: string
   quantity: number
   mailingPieces: unknown[]
+  mailingDate: string
+  mailingClass: string
   savedId: string | null
   quoteNumber: number | null
   isSaving: boolean
@@ -32,6 +34,8 @@ interface QuoteContextValue {
   setReferenceNumber: (ref: string) => void
   setQuantity: (qty: number) => void
   setMailingPieces: (pieces: unknown[]) => void
+  setMailingDate: (date: string) => void
+  setMailingClass: (cls: string) => void
   addItem: (item: Omit<QuoteLineItem, "id">) => void
   removeItem: (id: number) => void
   updateItem: (id: number, updates: Partial<Omit<QuoteLineItem, "id">>) => void
@@ -59,6 +63,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [referenceNumber, setReferenceNumberRaw] = useState("")
   const [quantity, setQuantityRaw] = useState(0)
   const [mailingPieces, setMailingPiecesRaw] = useState<unknown[]>([])
+  const [mailingDate, setMailingDateRaw] = useState("")
+  const [mailingClass, setMailingClassRaw] = useState("")
   const [savedId, setSavedId] = useState<string | null>(null)
   const [quoteNumber, setQuoteNumber] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -91,9 +97,11 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         customer_id: customerIdRef.current || null,
         contact_name: contactNameRef.current || "",
         reference_number: referenceNumberRef.current || "",
-        quantity: quantityRef.current || 0,
-        mailing_pieces: mailingPiecesRef.current || [],
-      }
+  quantity: quantityRef.current || 0,
+  mailing_pieces: mailingPiecesRef.current || [],
+  mailing_date: mailingDateRef.current || "",
+  mailing_class: mailingClassRef.current || "",
+  }
 
       let id = savedIdRef.current
 
@@ -135,7 +143,9 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const referenceNumberRef = useRef(referenceNumber)
   const quantityRef = useRef(quantity)
   const mailingPiecesRef = useRef(mailingPieces)
-
+  const mailingDateRef = useRef(mailingDate)
+  const mailingClassRef = useRef(mailingClass)
+  
   useEffect(() => { itemsRef.current = items }, [items])
   useEffect(() => { projectNameRef.current = projectName }, [projectName])
   useEffect(() => { customerIdRef.current = customerId }, [customerId])
@@ -143,7 +153,9 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   useEffect(() => { referenceNumberRef.current = referenceNumber }, [referenceNumber])
   useEffect(() => { quantityRef.current = quantity }, [quantity])
   useEffect(() => { mailingPiecesRef.current = mailingPieces }, [mailingPieces])
-
+  useEffect(() => { mailingDateRef.current = mailingDate }, [mailingDate])
+  useEffect(() => { mailingClassRef.current = mailingClass }, [mailingClass])
+  
   // Schedule auto-save
   const scheduleSave = useCallback(() => {
     dirtyRef.current = true
@@ -181,6 +193,16 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
 
   const setMailingPieces = useCallback((pieces: unknown[]) => {
     setMailingPiecesRaw(pieces)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const setMailingDate = useCallback((date: string) => {
+    setMailingDateRaw(date)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const setMailingClass = useCallback((cls: string) => {
+    setMailingClassRaw(cls)
     scheduleSave()
   }, [scheduleSave])
 
@@ -256,6 +278,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setReferenceNumberRaw(data.reference_number || "")
       setQuantityRaw(data.quantity || 0)
       setMailingPiecesRaw(data.mailing_pieces || [])
+      setMailingDateRaw(data.mailing_date || "")
+      setMailingClassRaw(data.mailing_class || "")
       setItems(data.items || [])
       dirtyRef.current = false
       setLastSavedAt(Date.now())
@@ -301,6 +325,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setReferenceNumberRaw("")
     setQuantityRaw(0)
     setMailingPiecesRaw([])
+    setMailingDateRaw("")
+    setMailingClassRaw("")
     setItems([])
     dirtyRef.current = false
     setLastSavedAt(null)
@@ -315,8 +341,10 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         contactName,
         referenceNumber,
         quantity,
-        mailingPieces,
-        savedId,
+    mailingPieces,
+    mailingDate,
+    mailingClass,
+    savedId,
         quoteNumber,
         isSaving,
         lastSavedAt,
@@ -326,8 +354,10 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         setContactName,
         setReferenceNumber,
         setQuantity,
-        setMailingPieces,
-        addItem,
+    setMailingPieces,
+    setMailingDate,
+    setMailingClass,
+    addItem,
         removeItem,
         updateItem,
         clearCategory,

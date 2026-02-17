@@ -34,6 +34,10 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
     if (Array.isArray(q.mailingPieces) && q.mailingPieces.length > 0 && m.pieces.length === 0) {
       m.setPieces(q.mailingPieces as MailPiece[])
     }
+    // Restore mailing class
+    if (q.mailingClass && !m.className) {
+      m.setClassName(q.mailingClass)
+    }
     hydratedRef.current = true
   }
 
@@ -46,6 +50,15 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
       q.setMailingPieces(m.pieces)
     }
   }, [m.pieces, q])
+
+  // ─── Sync mailing className -> quote context ───
+  const prevClassName = useRef("")
+  useEffect(() => {
+    if (m.className && m.className !== prevClassName.current) {
+      prevClassName.current = m.className
+      q.setMailingClass(m.className)
+    }
+  }, [m.className, q])
   const { data: customers } = useSWR<Customer[]>("/api/customers", fetcher)
   const { data: contacts, mutate: mutateContacts } = useSWR<Contact[]>(
     q.customerId ? `/api/customers/${q.customerId}/contacts` : null, fetcher,
@@ -216,11 +229,15 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                 <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
                 <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => { const v = parseInt(e.target.value) || 0; m.setQuantity(v); q.setQuantity(v) }} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>
-                <Input placeholder="Optional" value={q.referenceNumber} onChange={(e) => q.setReferenceNumber(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
-              </div>
-            </div>
+  <div>
+  <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>
+  <Input placeholder="Optional" value={q.referenceNumber} onChange={(e) => q.setReferenceNumber(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+  </div>
+  <div>
+  <label className="text-xs text-muted-foreground mb-1 block">Mail Date</label>
+  <Input type="date" value={q.mailingDate} onChange={(e) => q.setMailingDate(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+  </div>
+  </div>
           </div>
         </div>
       </div>

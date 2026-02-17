@@ -73,6 +73,8 @@ export async function POST(request: Request) {
       customer_id: body.customer_id || null,
       contact_name: body.contact_name || "",
       reference_number: body.reference_number || "",
+      mailing_date: body.mailing_date || "",
+      mailing_class: body.mailing_class || "",
     })
     .select()
     .single()
