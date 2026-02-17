@@ -25,6 +25,59 @@ import {
 } from "@/lib/envelope-pricing"
 import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 
+import { STANDARD_ENVELOPES } from "@/lib/mailing-context"
+
+/** Match a planner envelope piece to the best envelope pricing item name */
+function matchPlannerEnvelope(
+  envelopeId: string | undefined,
+  width: number | null,
+  height: number | null,
+  items: { name: string }[]
+): string | null {
+  if (!envelopeId && !width) return null
+
+  // Build a map of standard envelope id -> dimensions
+  const stdEnv = STANDARD_ENVELOPES.find((e) => e.id === envelopeId)
+  const w = width ?? stdEnv?.width ?? 0
+  const h = height ?? stdEnv?.height ?? 0
+  if (!w || !h) return null
+
+  // Dimension-based matching patterns for settings item names
+  const dimPatterns = [
+    `${w}x${h}`,                           // "9x12"
+    `${h}x${w}`,                           // "12x9"
+    `${w} x ${h}`,                         // not common in names but check
+    `${w}"x${h}"`,                         // with quotes
+  ]
+
+  // Also match by standard envelope name patterns
+  const namePatterns: string[] = []
+  if (stdEnv) {
+    // e.g. "#10" for no10/no10win, "A-7" for a7, "6x9" for 6x9
+    const stdName = stdEnv.name.replace(/\s/g, "").toLowerCase()
+    namePatterns.push(stdName)
+    // Map specific standard IDs to settings item names
+    if (envelopeId === "no10") namePatterns.push("#10 no window", "#10")
+    if (envelopeId === "no10win") namePatterns.push("#10 with window", "#10 win")
+    if (envelopeId === "6.5") namePatterns.push("#6")
+    if (envelopeId === "a7") namePatterns.push("a-7")
+    if (envelopeId === "a2") namePatterns.push("a-2")
+  }
+
+  for (const item of items) {
+    const lower = item.name.toLowerCase().replace(/\s/g, "")
+    // Check dimension patterns
+    for (const dp of dimPatterns) {
+      if (lower.includes(dp.toLowerCase().replace(/\s/g, ""))) return item.name
+    }
+    // Check name patterns
+    for (const np of namePatterns) {
+      if (lower.includes(np.toLowerCase().replace(/\s/g, ""))) return item.name
+    }
+  }
+  return null
+}
+
 export function EnvelopeTab() {
   const quote = useQuote()
   const mailing = useMailing()
@@ -34,6 +87,17 @@ export function EnvelopeTab() {
     const def = defaultEnvelopeInputs()
     // Pre-fill amount from planner quantity
     if (mailing.quantity > 0) def.amount = mailing.quantity
+    // Pre-select envelope from planner's envelope piece
+    const envPiece = mailing.pieces.find((p) => p.type === "envelope")
+    if (envPiece) {
+      const matched = matchPlannerEnvelope(
+        envPiece.envelopeId,
+        envPiece.width,
+        envPiece.height,
+        DEFAULT_ENVELOPE_SETTINGS.items
+      )
+      if (matched) def.itemName = matched
+    }
     return def
   })
   const [calcResult, setCalcResult] = useState<EnvelopeCalcResult | null>(null)
@@ -106,11 +170,17 @@ export function EnvelopeTab() {
     v.reset()
     const def = defaultEnvelopeInputs()
     if (mailing.quantity > 0) def.amount = mailing.quantity
+    // Re-match planner envelope on reset too
+    const envPiece = mailing.pieces.find((p) => p.type === "envelope")
+    if (envPiece) {
+      const matched = matchPlannerEnvelope(envPiece.envelopeId, envPiece.width, envPiece.height, DEFAULT_ENVELOPE_SETTINGS.items)
+      if (matched) def.itemName = matched
+    }
     setInputs(def)
     setCalcResult(null)
     setError("")
     setSettings(structuredClone(DEFAULT_ENVELOPE_SETTINGS))
-  }, [mailing.quantity, v])
+  }, [mailing.quantity, mailing.pieces, v])
 
   // Current item's bleed capability
   const currentItem = settings.items.find((i) => i.name === inputs.itemName)
