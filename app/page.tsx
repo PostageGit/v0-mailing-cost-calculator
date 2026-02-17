@@ -341,7 +341,7 @@ function AppContent() {
           {/* == EXPORT TO QB == */}
           {section === "export-qb" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
-              <ExportToQB />
+              <ExportToQB onOpenQuote={handleLoadQuote} />
             </div>
           )}
 

@@ -12,10 +12,15 @@ import type { Customer } from "@/lib/customer-types"
 import type { QuoteLineItem } from "@/lib/quote-types"
 import {
   Search, Receipt, FileCheck, Loader2, ArrowRight,
-  CheckCircle2, FileText, Download,
+  CheckCircle2, FileText, Download, ExternalLink,
 } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+interface ExportToQBProps {
+  /** Called when the user wants to open/activate a quote in the pricing panel */
+  onOpenQuote?: (quoteId: string) => void
+}
 
 interface Quote {
   id: string
@@ -36,7 +41,7 @@ interface Quote {
 
 type Tab = "ready" | "exported"
 
-export function ExportToQB() {
+export function ExportToQB({ onOpenQuote }: ExportToQBProps) {
   const { data: quotes, isLoading: quotesLoading, mutate: mutateQuotes } = useSWR<Quote[]>("/api/quotes", fetcher)
   const { data: customers } = useSWR<Customer[]>("/api/customers", fetcher)
   const [search, setSearch] = useState("")
@@ -255,11 +260,21 @@ export function ExportToQB() {
                     </div>
                   </div>
 
-                  {/* Amount + action */}
-                  <div className="flex items-center gap-3 shrink-0">
+                  {/* Amount + actions */}
+                  <div className="flex items-center gap-2 shrink-0">
                     <span className="text-sm font-bold font-mono text-foreground tabular-nums">
                       {formatCurrency(quote.total)}
                     </span>
+                    {onOpenQuote && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onOpenQuote(quote.id)}
+                        className="h-8 gap-1.5 text-xs rounded-lg font-semibold"
+                      >
+                        <ExternalLink className="h-3 w-3" /> Open
+                      </Button>
+                    )}
                     {!isExported && (
                       <Button
                         size="sm"
