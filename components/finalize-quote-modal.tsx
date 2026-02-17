@@ -14,6 +14,7 @@ import {
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
+import type { QuoteLineItem } from "@/lib/quote-types"
 import {
   generateEstimateCSV,
   generateInvoiceCSV,
@@ -28,11 +29,28 @@ import {
 } from "lucide-react"
 import { mutate as globalMutate } from "swr"
 
+/** Standalone quote data -- when provided, the modal uses this instead of the QuoteContext */
+export interface StandaloneQuoteData {
+  savedId: string
+  quoteNumber: number | null
+  customerId: string | null
+  customerName: string
+  contactName: string
+  projectName: string
+  referenceNumber: string
+  items: QuoteLineItem[]
+  total: number
+}
+
 interface Props {
   open: boolean
   onClose: () => void
   /** Customer name resolved from the customer record */
   customerName?: string
+  /** When provided, the modal operates independently of the active QuoteContext */
+  standaloneData?: StandaloneQuoteData
+  /** Called after a successful conversion (for refreshing lists, etc.) */
+  onConverted?: () => void
 }
 
 const TERMS_OPTIONS = [
@@ -45,7 +63,7 @@ const TERMS_OPTIONS = [
 
 type Action = "estimate" | "invoice"
 
-export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
+export function FinalizeQuoteModal({ open, onClose, customerName, standaloneData, onConverted }: Props) {
   const q = useQuote()
   const [action, setAction] = useState<Action>("invoice")
   const [terms, setTerms] = useState("Due on receipt")
@@ -58,15 +76,23 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
 
   if (!open) return null
 
-  const total = q.getTotal()
+  // Resolve data source: standalone props or QuoteContext
+  const sd = standaloneData
+  const modalItems = sd ? sd.items : q.items
+  const modalQuoteNumber = sd ? sd.quoteNumber : q.quoteNumber
+  const modalCustomerId = sd ? sd.customerId : q.customerId
+  const modalContactName = sd ? sd.contactName : q.contactName
+  const modalProjectName = sd ? sd.projectName : q.projectName
+  const modalReferenceNumber = sd ? sd.referenceNumber : q.referenceNumber
+  const total = sd ? sd.total : q.getTotal()
   const today = new Date().toISOString().slice(0, 10)
-  const resolvedCustomer = customerName || "Customer"
+  const resolvedCustomer = sd ? sd.customerName : (customerName || "Customer")
 
   const handleCreate = async () => {
     setSaving(true)
     try {
-      // Ensure quote is saved first
-      const quoteId = await q.ensureSaved()
+      // Get quote ID -- standalone already has it, otherwise ensure saved via context
+      const quoteId = sd ? sd.savedId : await q.ensureSaved()
 
       if (action === "invoice") {
         // Create invoice in DB
@@ -75,22 +101,22 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             quote_id: quoteId || null,
-            customer_id: q.customerId,
+            customer_id: modalCustomerId,
             customer_name: resolvedCustomer,
-            contact_name: q.contactName || null,
+            contact_name: modalContactName || null,
             status: "pending",
             invoice_date: today,
             due_date: dueDate || null,
             terms,
-            items: q.items,
+            items: modalItems,
             subtotal: total,
             tax_rate: 0,
             tax_amount: 0,
             total,
             notes: notes || null,
             memo: memo || null,
-            reference_number: q.referenceNumber || null,
-            project_name: q.projectName || null,
+            reference_number: modalReferenceNumber || null,
+            project_name: modalProjectName || null,
           }),
         })
         const data = await res.json()
@@ -98,34 +124,49 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
           setCreatedInvoiceNumber(data.invoice_number)
         }
         globalMutate("/api/invoices")
+        globalMutate("/api/quotes")
 
         // Log activity
-        q.logActivity("invoice_created", `Invoice #${data.invoice_number || ""}`)
+        if (sd) {
+          // Standalone mode: log via API directly
+          if (quoteId) {
+            fetch(`/api/quotes/${quoteId}/log`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ event: "invoice_created", detail: `Invoice #${data.invoice_number || ""}` }),
+            }).catch(() => {})
+          }
+        } else {
+          q.logActivity("invoice_created", `Invoice #${data.invoice_number || ""}`)
+        }
       } else {
         // Export as QB Estimate CSV (no DB record, just download)
-        const qbItems = quoteItemsToQBLines(q.items)
+        const qbItems = quoteItemsToQBLines(modalItems)
         const est: QBEstimateData = {
-          estimateNumber: q.quoteNumber || "DRAFT",
+          estimateNumber: modalQuoteNumber || "DRAFT",
           customerName: resolvedCustomer,
           estimateDate: today,
           items: qbItems,
           memo: memo || undefined,
         }
         const csv = generateEstimateCSV([est])
-        downloadCSV(csv, `Estimate_Q${q.quoteNumber || "draft"}_${resolvedCustomer.replace(/\s/g, "_")}.csv`)
-        q.logActivity("estimate_exported", `QB Estimate CSV for ${resolvedCustomer}`)
+        downloadCSV(csv, `Estimate_Q${modalQuoteNumber || "draft"}_${resolvedCustomer.replace(/\s/g, "_")}.csv`)
+        if (!sd) {
+          q.logActivity("estimate_exported", `QB Estimate CSV for ${resolvedCustomer}`)
+        }
       }
 
       setDone(true)
+      onConverted?.()
     } finally {
       setSaving(false)
     }
   }
 
   const handleDownloadInvoiceCSV = () => {
-    const qbItems = quoteItemsToQBLines(q.items)
+    const qbItems = quoteItemsToQBLines(modalItems)
     const inv: QBInvoiceData = {
-      invoiceNumber: createdInvoiceNumber || q.quoteNumber || "DRAFT",
+      invoiceNumber: createdInvoiceNumber || modalQuoteNumber || "DRAFT",
       customerName: resolvedCustomer,
       invoiceDate: today,
       dueDate: dueDate || undefined,
@@ -135,7 +176,9 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
     }
     const csv = generateInvoiceCSV([inv])
     downloadCSV(csv, `Invoice_${createdInvoiceNumber || "draft"}_${resolvedCustomer.replace(/\s/g, "_")}.csv`)
-    q.logActivity("invoice_exported", `QB Invoice CSV #${createdInvoiceNumber}`)
+    if (!sd) {
+      q.logActivity("invoice_exported", `QB Invoice CSV #${createdInvoiceNumber}`)
+    }
   }
 
   const handleClose = () => {
@@ -210,14 +253,14 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
               <div className="rounded-xl bg-secondary/30 border border-border/40 p-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium text-muted-foreground">
-                    {q.quoteNumber ? `Quote Q-${q.quoteNumber}` : "Draft Quote"}
+                    {modalQuoteNumber ? `Quote Q-${modalQuoteNumber}` : "Draft Quote"}
                   </span>
                   <span className="text-lg font-bold font-mono text-foreground">{formatCurrency(total)}</span>
                 </div>
                 <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                   <span><strong className="text-foreground">{resolvedCustomer}</strong></span>
-                  {q.projectName && <span>{q.projectName}</span>}
-                  <span>{q.items.length} line item{q.items.length !== 1 ? "s" : ""}</span>
+                  {modalProjectName && <span>{modalProjectName}</span>}
+                  <span>{modalItems.length} line item{modalItems.length !== 1 ? "s" : ""}</span>
                 </div>
               </div>
             </div>
@@ -313,10 +356,10 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
             {/* Line items preview */}
             <div className="px-6 pb-4">
               <Label className="text-xs font-medium text-muted-foreground mb-2 block">
-                Line Items ({q.items.length})
+                Line Items ({modalItems.length})
               </Label>
               <div className="rounded-xl border border-border/40 bg-secondary/20 max-h-40 overflow-y-auto">
-                {q.items.map((item, idx) => (
+                {modalItems.map((item, idx) => (
                   <div key={item.id} className={`flex items-center justify-between px-3 py-2 ${idx > 0 ? "border-t border-border/20" : ""}`}>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-foreground truncate">{item.label}</p>
@@ -336,7 +379,7 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
             <div className="px-6 pb-6 pt-2">
               <Button
                 onClick={handleCreate}
-                disabled={saving || q.items.length === 0}
+                disabled={saving || modalItems.length === 0}
                 className="w-full h-11 gap-2 rounded-xl text-sm font-semibold bg-foreground text-background hover:bg-foreground/90"
               >
                 {saving ? (

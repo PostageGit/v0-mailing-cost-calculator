@@ -19,6 +19,7 @@ import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
+import { ExportToQB } from "@/components/export-to-qb"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
@@ -26,7 +27,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft, Columns3, List,
+  Users, Truck, Menu, ChevronLeft, Columns3, List, Download,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -65,7 +66,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 // ---- Sidebar nav sections ----
 type Section =
   | "quotes-board" | "jobs-board"
-  | "customers" | "invoices" | "vendors"
+  | "customers" | "invoices" | "export-qb" | "vendors"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
@@ -74,6 +75,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "jobs-board",   label: "Jobs",        icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
+  { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
   { id: "vendors",      label: "Vendors",     icon: <Truck className="h-4 w-4" />,            group: "data" },
 ]
 
@@ -333,6 +335,13 @@ function AppContent() {
           {section === "invoices" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
               <InvoiceList />
+            </div>
+          )}
+
+          {/* == EXPORT TO QB == */}
+          {section === "export-qb" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
+              <ExportToQB />
             </div>
           )}
 
