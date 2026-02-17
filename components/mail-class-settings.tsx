@@ -64,6 +64,7 @@ import {
   Zap,
   Calendar,
   Factory,
+  Layers,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -1307,6 +1308,16 @@ function PaymentTermsTab() {
         placeholder="New email (e.g. orders@ohp.com)"
         icon={<Mail className="h-3.5 w-3.5 text-muted-foreground" />}
       />
+
+      <Separator />
+
+      <DropdownListEditor
+        settingsKey="template_groups"
+        title="Template Groups"
+        description="Groups for organizing saved item templates (e.g. Business Cards, Postcards)."
+        placeholder="New group (e.g. Letterhead)"
+        icon={<Layers className="h-3.5 w-3.5 text-muted-foreground" />}
+      />
     </div>
   )
 }
@@ -1339,6 +1350,7 @@ interface SystemStats {
     total_files: number; total_vendor_bids: number; total_users: number
     overdue_deliveries: number; today_deliveries: number
     total_pos: number; pending_pos: number; received_pos: number
+    total_templates: number; active_templates: number
   }
 }
 
@@ -1355,6 +1367,7 @@ const TABLE_LABELS: Record<string, string> = {
   vendor_bids: "Vendor Bids",
   quote_files: "Files",
   purchase_orders: "Purchase Orders",
+  item_templates: "Item Templates",
 }
 
 const WARNING_STYLES: Record<string, { bg: string; border: string; icon: string; text: string }> = {
@@ -1681,6 +1694,7 @@ function SystemDashboardTab() {
             { label: "Files Uploaded", value: data.features.total_files, sub: `across all jobs`, color: "text-foreground" },
             { label: "Vendor Bids", value: data.features.total_vendor_bids, sub: `${data.features.total_users} users`, color: "text-foreground" },
             { label: "Purchase Orders", value: data.features.total_pos, sub: `${data.features.pending_pos} pending, ${data.features.received_pos} received`, color: data.features.pending_pos > 0 ? "text-blue-600 dark:text-blue-400" : "text-foreground" },
+            { label: "Item Templates", value: data.features.total_templates, sub: `${data.features.active_templates} active`, color: "text-foreground" },
           ].map((card) => (
             <div key={card.label} className="rounded-lg border border-border bg-card p-2.5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{card.label}</p>

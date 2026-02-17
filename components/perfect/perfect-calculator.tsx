@@ -10,8 +10,9 @@ import { calculatePerfect } from "@/lib/perfect-pricing"
 import { defaultPerfectInputs } from "@/lib/perfect-types"
 import type { PerfectInputs, PerfectCalcResult } from "@/lib/perfect-types"
 import { useQuote } from "@/lib/quote-context"
+import { SaveAsTemplateDialog } from "@/components/item-templates"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus, ArrowDown } from "lucide-react"
+import { Plus, ArrowDown, Layers } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 export function PerfectCalculator() {
@@ -73,6 +74,8 @@ export function PerfectCalculator() {
     setCalcResult(null)
     setValidationError(null)
   }
+
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
 
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
@@ -182,11 +185,25 @@ export function PerfectCalculator() {
                   <Plus className="h-4 w-4" />
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                 </Button>
+                <Button variant="outline" size="sm" className="w-full gap-2 rounded-full text-xs" onClick={() => setShowSaveTemplate(true)}>
+                  <Layers className="h-3.5 w-3.5" /> Save as Template
+                </Button>
               </div>
             </div>
           </div>
         )}
       </div>
+      <SaveAsTemplateDialog
+        open={showSaveTemplate}
+        onClose={() => setShowSaveTemplate(false)}
+        defaults={{
+          name: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Perfect Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
+          category: "perfect",
+          description: `Cover: ${inputs.cover.paperName}, ${inputs.cover.sides} | Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`,
+          specs: { qty: inputs.bookQty, pages: inputs.pagesPerBook, width: inputs.pageWidth, height: inputs.pageHeight, coverPaper: inputs.cover.paperName, insidePaper: inputs.inside.paperName },
+          amount: effectiveTotal > 0 ? effectiveTotal : (calcResult?.grandTotal ?? 0),
+        }}
+      />
     </div>
   )
 }

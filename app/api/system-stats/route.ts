@@ -131,7 +131,12 @@ export async function GET() {
     const { count: receivedPOs } = await supabase.from("purchase_orders").select("*", { count: "exact", head: true }).eq("status", "received")
     rowCounts["purchase_orders"] = totalPOs ?? 0
 
-    // 10. Supabase connection health
+    // 10. Item template stats
+    const { count: totalTemplates } = await supabase.from("item_templates").select("*", { count: "exact", head: true })
+    const { count: activeTemplates } = await supabase.from("item_templates").select("*", { count: "exact", head: true }).eq("is_active", true)
+    rowCounts["item_templates"] = totalTemplates ?? 0
+
+    // 11. Supabase connection health
     let connectionOk = false
     try {
       const { error } = await supabase.from("app_settings").select("id").limit(1)
@@ -214,6 +219,8 @@ export async function GET() {
         total_pos: totalPOs ?? 0,
         pending_pos: pendingPOs ?? 0,
         received_pos: receivedPOs ?? 0,
+        total_templates: totalTemplates ?? 0,
+        active_templates: activeTemplates ?? 0,
       },
     })
   } catch (err) {

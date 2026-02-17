@@ -17,6 +17,7 @@ import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
+import { ItemTemplatesScreen } from "@/components/item-templates"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { DeliveryReportPanel } from "@/components/delivery-report-panel"
@@ -69,7 +70,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 // ---- Sidebar nav sections ----
 type Section =
   | "quotes-board" | "jobs-board"
-  | "customers" | "invoices" | "vendors"
+  | "customers" | "invoices" | "vendors" | "templates"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
@@ -79,6 +80,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "vendors",      label: "Vendors",     icon: <Truck className="h-4 w-4" />,            group: "data" },
+  { id: "templates",    label: "Templates",   icon: <Layers className="h-4 w-4" />,           group: "data" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -387,6 +389,13 @@ function AppContent() {
           {section === "vendors" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
               <VendorList />
+            </div>
+          )}
+
+          {/* == TEMPLATES == */}
+          {section === "templates" && (
+            <div className="flex-1 overflow-hidden">
+              <ItemTemplatesScreen />
             </div>
           )}
 

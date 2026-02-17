@@ -20,7 +20,8 @@ import type {
 
 } from "@/lib/printing-types"
 import { useQuote } from "@/lib/quote-context"
-import { Plus, ArrowDown } from "lucide-react"
+import { SaveAsTemplateDialog } from "@/components/item-templates"
+import { Plus, ArrowDown, Layers } from "lucide-react"
 import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { FinishingCalculator, FinishingGlobalRates } from "@/lib/finishing-calculator-types"
@@ -79,119 +80,7 @@ export function PrintingCalculator() {
   // Order state
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-
-  // Load a planner piece into the form
-  const loadPiece = useCallback((piece: MailPiece) => {
-    const flat = getFlatSize(piece)
-    setInputs((prev) => ({
-      ...prev,
-      qty: mailing.quantity || prev.qty,
-      width: flat.w || piece.width || prev.width,
-      height: flat.h || piece.height || prev.height,
-    }))
-    // Reset calculation state since inputs changed
-    setSheetOptions([])
-    setSelectedOption(null)
-    setFullResult(null)
-    setHasCalculated(false)
-    setShowResults(false)
-  }, [mailing.quantity])
-
-  // Helper to compute finishing calculator costs
-  const getFinCalcCosts = useCallback(
-    (qty: number, sheets: number, broker: boolean) => {
-      const ids = inputs.finishingCalcIds || []
-      if (!finCalcs || !finRates || ids.length === 0) return []
-      return computeFinishingCalcTotals(finCalcs, finRates, ids, qty, sheets, broker).map((c) => ({
-        id: c.id,
-        name: c.name,
-        cost: c.total,
-      }))
-    },
-    [finCalcs, finRates, inputs.finishingCalcIds],
-  )
-
-  // Validation
-  const isFormValid =
-    inputs.qty > 0 &&
-    inputs.width > 0 &&
-    inputs.height > 0 &&
-    inputs.paperName !== "" &&
-    inputs.sidesValue !== ""
-
-  // Calculate
-  const handleCalculate = useCallback(() => {
-    if (!isFormValid) return
-
-    const options = calculateAllSheetOptions(inputs)
-    if (options.length === 0) return
-
-    setSheetOptions(options)
-    setSelectedOption(null)
-    setFullResult(null)
-    setShowResults(false)
-    setHasCalculated(true)
-  }, [inputs, isFormValid])
-
-  // Reactively rebuild result when inputs change while a sheet is selected
-  // (e.g. user toggles lamination or score/fold after picking a sheet)
-  useEffect(() => {
-    if (selectedOption && showResults) {
-      const fcCosts = getFinCalcCosts(inputs.qty, selectedOption.result.sheets, inputs.isBroker || false)
-      const result = buildFullResult(inputs, selectedOption.result, fcCosts)
-      setFullResult(result)
-    }
-  }, [
-    inputs.finishingIds?.join(","),
-    inputs.finishingCalcIds?.join(","),
-    inputs.scoreFoldOperation,
-    inputs.scoreFoldType,
-    inputs.addOnCharge,
-    inputs.addOnDescription,
-    inputs.isBroker,
-    inputs.lamination?.enabled,
-    inputs.lamination?.type,
-    inputs.lamination?.sides,
-    inputs.lamination?.markupPct,
-    inputs.lamination?.brokerDiscountPct,
-    selectedOption,
-    showResults,
-    getFinCalcCosts,
-  ])
-
-  // Select a sheet size from the table
-  const handleSelectSheet = useCallback(
-    (option: SheetOptionRow) => {
-      setSelectedOption(option)
-      const fcCosts = getFinCalcCosts(inputs.qty, option.result.sheets, inputs.isBroker || false)
-      const result = buildFullResult(inputs, option.result, fcCosts)
-      setFullResult(result)
-      setShowResults(true)
-    },
-    [inputs, getFinCalcCosts]
-  )
-
-  // Change pricing level override
-  const handleLevelChange = useCallback((delta: number) => {
-    if (!fullResult || !selectedOption) return
-    const currentLevel = fullResult.result.level
-    const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
-    if (newLevel === currentLevel) return
-    const updatedInputs = { ...inputs, levelOverride: newLevel }
-    const newCalcResult = calculatePrintingCost(updatedInputs, selectedOption.size)
-    if (!newCalcResult) return
-    const fcCosts = getFinCalcCosts(inputs.qty, newCalcResult.sheets, inputs.isBroker || false)
-    const result = buildFullResult(updatedInputs, newCalcResult, fcCosts)
-    setInputs(updatedInputs)
-    setFullResult(result)
-  }, [fullResult, selectedOption, inputs, getFinCalcCosts])
-
-  // Change sheet size (go back to table)
-  const handleChangeSheet = useCallback(() => {
-  setShowResults(false)
-  setSelectedOption(null)
-  setFullResult(null)
-  }, [])
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
 
   // Add to order
   function resetForm() {
@@ -292,11 +181,31 @@ export function PrintingCalculator() {
                     <Plus className="h-4 w-4" />
                     Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2 rounded-full text-xs"
+                    onClick={() => setShowSaveTemplate(true)}
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    Save as Template
+                  </Button>
                 </div>
               </div>
             </div>
           )}
         </div>
+        <SaveAsTemplateDialog
+          open={showSaveTemplate}
+          onClose={() => setShowSaveTemplate(false)}
+          defaults={{
+            name: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
+            category: "flat",
+            description: `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`,
+            specs: { qty: inputs.qty, width: inputs.width, height: inputs.height, paper: inputs.paperName, sides: inputs.sidesValue, bleed: inputs.hasBleed ? "Yes" : "No" },
+            amount: effectiveTotal > 0 ? effectiveTotal : (fullResult?.grandTotal ?? 0),
+          }}
+        />
     </div>
   )
 }
