@@ -1289,7 +1289,7 @@ function PaymentTermsTab() {
 }
 
 // ---------- SYSTEM DASHBOARD TAB ----------
-interface ActivityEntry {
+interface LogEntry {
   id: string; quote_id: string | null; entity_type: string; entity_id: string | null
   event: string; detail: string; user_name: string; created_at: string
 }
@@ -1308,7 +1308,7 @@ interface SystemStats {
     events_24h: number; events_7d: number
     top_events: { event: string; count: number }[]
     active_users: string[]
-    feed: ActivityEntry[]
+    feed: LogEntry[]
   }
   features: {
     active_quotes: number; active_jobs: number; total_converted: number
@@ -1327,7 +1327,7 @@ const TABLE_LABELS: Record<string, string> = {
   quotes: "Quotes / Jobs",
   mail_class_settings: "Mail Class Settings",
   app_settings: "App Settings",
-  quote_activity_log: "Activity Log",
+  quote_activity_log: "System Log",
   board_columns: "Board Columns",
   app_users: "Users",
   vendor_bids: "Vendor Bids",
@@ -1671,10 +1671,10 @@ function SystemDashboardTab() {
         </div>
       </section>
 
-      {/* ── Activity Metrics ── */}
+      {/* ── System Metrics ── */}
       <section>
         <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <Zap className="h-3 w-3" /> Activity (Last 7 Days)
+          <Zap className="h-3 w-3" /> Usage (Last 7 Days)
         </h4>
         <div className="grid grid-cols-3 gap-2.5 mb-3">
           <div className="rounded-lg border border-border bg-card p-2.5 text-center">
@@ -1701,11 +1701,11 @@ function SystemDashboardTab() {
         )}
       </section>
 
-      {/* ── Live Activity Feed ── */}
+      {/* ── Live Feed ── */}
       {data.activity.feed.length > 0 && (
         <section>
           <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Recent Activity
+            Recent Events
           </h4>
           <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
             {data.activity.feed.map((entry, i) => {
