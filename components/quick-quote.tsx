@@ -220,7 +220,7 @@ export function QuickQuoteScreen() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Top bar with tabs */}
       <div className="shrink-0 bg-background border-b border-border/40">
         <div className="px-4 sm:px-6">
@@ -258,13 +258,11 @@ export function QuickQuoteScreen() {
       </div>
 
       {/* Content + Sidebar */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Calculator content -- uses block layout so calculators use natural height and scroll works */}
-        <div className="flex-1 min-w-0 overflow-y-auto [&>div]:block">
-          <div className="px-4 sm:px-6 pt-4 pb-24">
-            <div className="max-w-4xl">
-              {renderCalc()}
-            </div>
+      <div className="flex-1 flex min-h-0">
+        {/* Calculator content */}
+        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+          <div className="px-4 sm:px-6 pt-4 pb-24 max-w-4xl">
+            {renderCalc()}
           </div>
         </div>
 
