@@ -25,6 +25,7 @@ export function useRealtimeSync() {
       customers: ["/api/customers"],
       quote_activity_log: ["/api/activity-log", "/api/system-stats"],
       board_columns: ["/api/board-columns"],
+      purchase_orders: ["/api/purchase-orders"],
     }
     const keys = keyMap[table] || []
     for (const key of keys) {
@@ -60,6 +61,11 @@ export function useRealtimeSync() {
         setLastEvent(`columns:${payload.eventType}`)
         setEventCount((c) => c + 1)
         revalidateTable("board_columns")
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_orders" }, (payload) => {
+        setLastEvent(`purchase_orders:${payload.eventType}`)
+        setEventCount((c) => c + 1)
+        revalidateTable("purchase_orders")
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") setStatus("connected")

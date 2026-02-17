@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { formatCurrency } from "@/lib/pricing"
 import { logActivity, getCurrentUserName } from "@/lib/audit"
+import { PurchaseOrderSection, POStatusBadge } from "@/components/purchase-order-section"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { buildQuoteText } from "@/lib/build-quote-text"
 import { cn } from "@/lib/utils"
@@ -775,7 +776,7 @@ function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange
   )
 }
 
-/* ═���══════════════════════════════════════════════════
+/* ═���═════════════════════════════════════════���════════
    EDITABLE ZD# INLINE (click to edit, links to Zendesk)
    ════════════════════════════════════════════════════ */
 function ZendeskField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -1064,6 +1065,7 @@ function QuoteCard({
               OVERDUE ({days}d)
             </span>
           )}
+          {boardType === "job" && <POStatusBadge jobId={quote.id} />}
         </div>
 
         {/* Row 4: ZD# (editable, links to Zendesk) + INV */}
@@ -1322,6 +1324,13 @@ function QuoteCard({
                 )}
               </div>
             </div>
+
+            {/* ── Purchase Orders (only for jobs, shown when OHP or Both) ── */}
+            {boardType === "job" && (meta.printed_by === "OHP" || meta.printed_by === "Both") && (
+              <div className="rounded-xl border border-border bg-card p-3">
+                <PurchaseOrderSection jobId={quote.id} jobName={quote.project_name || "Untitled Job"} />
+              </div>
+            )}
 
             {/* ── ROW: List/Mail + Billing (2 col) ── */}
             <div className="grid grid-cols-2 gap-3">

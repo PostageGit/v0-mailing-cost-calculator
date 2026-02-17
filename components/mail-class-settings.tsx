@@ -64,6 +64,7 @@ import {
   Activity,
   Zap,
   Calendar,
+  Factory,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -1287,6 +1288,26 @@ function PaymentTermsTab() {
         placeholder="New frequency (e.g. Annually)"
         icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
       />
+
+      <Separator />
+
+      <DropdownListEditor
+        settingsKey="ohp_locations"
+        title="OHP Locations"
+        description="Print vendor locations for purchase orders."
+        placeholder="New location (e.g. OHP Downtown)"
+        icon={<Factory className="h-3.5 w-3.5 text-muted-foreground" />}
+      />
+
+      <Separator />
+
+      <DropdownListEditor
+        settingsKey="ohp_emails"
+        title="OHP Email Addresses"
+        description="Email addresses used when sending purchase orders to OHP."
+        placeholder="New email (e.g. orders@ohp.com)"
+        icon={<Mail className="h-3.5 w-3.5 text-muted-foreground" />}
+      />
     </div>
   )
 }
@@ -1318,6 +1339,7 @@ interface SystemStats {
     total_customers: number; synced_customers: number
     total_files: number; total_vendor_bids: number; total_users: number
     overdue_deliveries: number; today_deliveries: number
+    total_pos: number; pending_pos: number; received_pos: number
   }
 }
 
@@ -1333,6 +1355,7 @@ const TABLE_LABELS: Record<string, string> = {
   app_users: "Users",
   vendor_bids: "Vendor Bids",
   quote_files: "Files",
+  purchase_orders: "Purchase Orders",
 }
 
 const WARNING_STYLES: Record<string, { bg: string; border: string; icon: string; text: string }> = {
@@ -1658,6 +1681,7 @@ function SystemDashboardTab() {
             { label: "Deliveries", value: data.features.today_deliveries, sub: data.features.overdue_deliveries > 0 ? `${data.features.overdue_deliveries} overdue` : "none overdue", color: data.features.overdue_deliveries > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400" },
             { label: "Files Uploaded", value: data.features.total_files, sub: `across all jobs`, color: "text-foreground" },
             { label: "Vendor Bids", value: data.features.total_vendor_bids, sub: `${data.features.total_users} users`, color: "text-foreground" },
+            { label: "Purchase Orders", value: data.features.total_pos, sub: `${data.features.pending_pos} pending, ${data.features.received_pos} received`, color: data.features.pending_pos > 0 ? "text-blue-600 dark:text-blue-400" : "text-foreground" },
           ].map((card) => (
             <div key={card.label} className="rounded-lg border border-border bg-card p-2.5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{card.label}</p>

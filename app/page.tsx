@@ -21,6 +21,7 @@ import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { DeliveryReportPanel } from "@/components/delivery-report-panel"
 import { ActivityLogPanel } from "@/components/activity-log-panel"
+import { PrintOrdersPanel } from "@/components/print-orders-panel"
 import { useRealtimeSync } from "@/lib/use-realtime"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -90,6 +91,7 @@ function AppContent() {
   const [showSettings, setShowSettings] = useState(false)
   const [showDelivery, setShowDelivery] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+  const [showPrintOrders, setShowPrintOrders] = useState(false)
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
@@ -244,6 +246,15 @@ function AppContent() {
               <ClipboardList className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Deliveries</span>}
             </button>
+            <button onClick={() => setShowPrintOrders(true)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
+                sidebarOpen ? "px-2.5 py-2 text-sm w-full" : "px-0 py-2 justify-center w-full"
+              )}
+              title={!sidebarOpen ? "Print Orders" : undefined}>
+              <Package className="h-4 w-4 shrink-0" />
+              {sidebarOpen && <span>Print Orders</span>}
+            </button>
             <button onClick={() => setShowActivity(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
@@ -301,6 +312,10 @@ function AppContent() {
   <button onClick={() => { setShowDelivery(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
   <ClipboardList className="h-4 w-4 shrink-0" /> Deliveries
+  </button>
+  <button onClick={() => { setShowPrintOrders(true); setSidebarOpen(false) }}
+  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
+  <Package className="h-4 w-4 shrink-0" /> Print Orders
   </button>
   <button onClick={() => { setShowActivity(true); setSidebarOpen(false) }}
   className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
@@ -484,6 +499,7 @@ function AppContent() {
   {showSettings && <MailClassSettingsPanel onClose={() => setShowSettings(false)} />}
   <DeliveryReportPanel open={showDelivery} onClose={() => setShowDelivery(false)} />
   <ActivityLogPanel open={showActivity} onClose={() => setShowActivity(false)} />
+  <PrintOrdersPanel open={showPrintOrders} onClose={() => setShowPrintOrders(false)} />
   </div>
   )
 }
