@@ -31,13 +31,17 @@ interface BoardColumn {
 }
 interface JobMeta {
   piece_desc?: string; insert_count?: number; inserts_desc?: string
+  envelope_desc?: string; fold_type?: string
   mailing_class?: string; drop_off?: string; international?: boolean
-  printed_by?: string; vendor_name?: string; vendor_job?: string; prints_arrived?: boolean
+  printed_by?: string; inhouse_location?: string
+  vendor_name?: string; vendor_job?: string; prints_arrived?: boolean
   bcc_done?: boolean; paperwork_done?: boolean; folder_archived?: boolean; job_mailed?: boolean
   invoice_updated?: boolean; invoice_emailed?: boolean; paid_postage?: boolean; paid_full?: boolean
-  assignee?: string; due_date?: string; expected_date?: string
+  assignee?: string; due_date?: string; expected_date?: string; mail_date?: string
   zendesk_ticket?: string; next_step?: string; quick_notes?: string
 }
+
+const INHOUSE_LOCATIONS = ["RSH", "Main St", "Bedford"] as const
 interface Quote {
   id: string; project_name: string; status: string; column_id: string | null
   items: QuoteItem[]; total: number; notes: string | null
@@ -79,6 +83,9 @@ function matchesSearch(q: Quote, term: string): boolean {
     (q.job_meta?.assignee || "").toLowerCase().includes(s) ||
     (q.job_meta?.piece_desc || "").toLowerCase().includes(s) ||
     (q.job_meta?.printed_by || "").toLowerCase().includes(s) ||
+    (q.job_meta?.vendor_name || "").toLowerCase().includes(s) ||
+    (q.job_meta?.inhouse_location || "").toLowerCase().includes(s) ||
+    (q.job_meta?.envelope_desc || "").toLowerCase().includes(s) ||
     (q.items || []).some((it) => it.label.toLowerCase().includes(s) || it.description.toLowerCase().includes(s))
   )
 }
@@ -98,69 +105,124 @@ function sectionDone(meta: JobMeta | undefined, keys: (keyof JobMeta)[]) {
   return keys.every((k) => !!meta[k])
 }
 
-/** Derives job_meta field values from a quote's line items as fallback display values */
+/** Derives job_meta from mailing_pieces (primary) with item-label regex as fallback */
 function deriveMetaFromItems(quote: Quote): JobMeta {
   const items: QuoteItem[] = quote.items || []
+  const pieces = (quote.mailing_pieces || []) as Array<{
+    type?: string; width?: number; height?: number; foldType?: string
+    production?: string; envelopeId?: string; envelopeKind?: string
+    position?: number; label?: string
+  }>
   const derived: JobMeta = {}
 
-  // Printing items (flat, booklet, etc) contain piece descriptions
-  const printItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
-  if (printItems.length > 0) {
-    const desc = printItems[0].description || printItems[0].label || ""
-    const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
-    const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
-    const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
-    const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase()))
-    const fallbackType = printItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
-    derived.piece_desc = sizeStr && (foundType || fallbackType) ? `${sizeStr} ${foundType || fallbackType}` : (sizeStr || foundType || fallbackType || desc.split(",")[0]?.trim() || "")
-  }
-
-  // Inserts: additional printing items beyond the first
-  if (printItems.length > 1) {
-    derived.insert_count = printItems.length - 1
-    const insertDescs = printItems.slice(1).map((it) => {
-      const d = it.description || it.label || ""
-      const m = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
-      return m ? `${m[1]}x${m[2]}` : d.split(",")[0]?.trim() || ""
-    }).filter(Boolean)
-    if (insertDescs.length > 0) derived.inserts_desc = insertDescs.join(" + ")
-  }
-
-  // Postage items contain mailing class
-  const postageItems = items.filter((it) => it.category === "postage")
-  if (postageItems.length > 0) {
-    const pDesc = postageItems[0].description || postageItems[0].label || ""
-    const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted", "Letter Class"]
-    const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
-    derived.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").replace(/USPS\s*/i, "").trim() || ""
-  }
-
-  // OHP items: vendor name is in .description ("PrintOut | +15% markup"), piece info in .label ("OHP: 5,750 - 2.5x6.5 Postcard")
-  const ohpItems = items.filter((it) => it.category === "ohp")
-  if (ohpItems.length > 0) {
-    // Extract vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
-    const ohpDesc = ohpItems[0].description || ""
-    const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-    if (vendorFromDesc) {
-      derived.vendor_name = vendorFromDesc
+  // ── Use mailing_pieces as the primary source ──
+  if (pieces.length > 0) {
+    const TYPE_LABELS: Record<string, string> = {
+      postcard: "Postcard", flat_card: "Flat Card", folded_card: "Folded Card",
+      booklet: "Booklet", spiral_book: "Spiral Book", perfect_bound: "Perfect Bound",
+      self_mailer: "Self-Mailer", letter: "Letter", envelope: "Envelope", other: "Other",
     }
-    derived.printed_by = "Out of House"
-
-    // If no piece_desc yet, try to get it from OHP label: "OHP: 5,750 - 2.5" x 6.5" Postcard"
-    if (!derived.piece_desc) {
-      const ohpLabel = ohpItems[0].label || ""
-      const afterOHP = ohpLabel.replace(/^OHP[:\s]*/i, "").trim()
-      // Try to extract size from the label
-      const sizeM = afterOHP.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
-      if (sizeM) {
-        const afterSize = afterOHP.substring(afterOHP.indexOf(sizeM[0]) + sizeM[0].length).trim()
-        const pieceType = afterSize.split(",")[0]?.trim() || ""
-        derived.piece_desc = `${sizeM[1]}x${sizeM[2]}${pieceType ? " " + pieceType : ""}`
-      }
+    const FOLD_LABELS: Record<string, string> = {
+      none: "Flat", x2h: "Half Fold (H)", x2w: "Half Fold (W)",
+      x3h: "Tri-Fold (H)", x3w: "Tri-Fold (W)", custom: "Custom Fold",
     }
-  } else if (printItems.length > 0) {
-    derived.printed_by = "In-House"
+
+    // Outer piece = position 1, or first non-envelope
+    const outer = pieces.find((p) => p.position === 1 && p.type !== "envelope")
+      || pieces.find((p) => p.type !== "envelope")
+    if (outer) {
+      const sizeStr = outer.width && outer.height ? `${outer.width}x${outer.height}` : ""
+      const typeStr = TYPE_LABELS[outer.type || ""] || outer.label || ""
+      derived.piece_desc = [sizeStr, typeStr].filter(Boolean).join(" ")
+      derived.fold_type = FOLD_LABELS[outer.foldType || "none"] || ""
+    }
+
+    // Envelope info
+    const envPiece = pieces.find((p) => p.type === "envelope")
+    if (envPiece) {
+      const envSize = envPiece.width && envPiece.height ? `${envPiece.width}x${envPiece.height}` : (envPiece.envelopeId || "")
+      const envKind = envPiece.envelopeKind ? ` (${envPiece.envelopeKind})` : ""
+      derived.envelope_desc = `${envSize}${envKind}`.trim()
+    }
+
+    // Inserts: positions > 1 (non-envelope)
+    const inserts = pieces.filter((p) => (p.position || 0) > 1 && p.type !== "envelope")
+    if (inserts.length > 0) {
+      derived.insert_count = inserts.length
+      derived.inserts_desc = inserts.map((p) => {
+        const s = p.width && p.height ? `${p.width}x${p.height}` : ""
+        const t = TYPE_LABELS[p.type || ""] || ""
+        return [s, t].filter(Boolean).join(" ")
+      }).join(" + ")
+    }
+
+    // Printed By: derive from production routes
+    const productions = pieces.filter((p) => p.type !== "envelope").map((p) => p.production)
+    const hasInhouse = productions.some((p) => p === "inhouse" || p === "both")
+    const hasOHP = productions.some((p) => p === "ohp" || p === "both")
+    if (hasInhouse && hasOHP) derived.printed_by = "Both"
+    else if (hasOHP) derived.printed_by = "OHP"
+    else if (hasInhouse) derived.printed_by = "PrintOut"
+
+    // Default in-house location
+    if (hasInhouse) derived.inhouse_location = "RSH"
   }
+
+  // ── Fallback: regex from item labels (for older quotes without mailing_pieces) ──
+  if (!derived.piece_desc) {
+    const printItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
+    if (printItems.length > 0) {
+      const desc = printItems[0].description || printItems[0].label || ""
+      const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
+      const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
+      const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
+      const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase())) || ""
+      derived.piece_desc = [sizeStr, foundType].filter(Boolean).join(" ") || desc.split(",")[0]?.trim() || ""
+    }
+    if (printItems.length > 1 && !derived.insert_count) {
+      derived.insert_count = printItems.length - 1
+      derived.inserts_desc = printItems.slice(1).map((it) => {
+        const d = it.description || it.label || ""
+        const m = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
+        return m ? `${m[1]}x${m[2]}` : d.split(",")[0]?.trim() || ""
+      }).filter(Boolean).join(" + ")
+    }
+  }
+
+  // Postage: mailing class from item labels
+  if (!derived.mailing_class) {
+    const postageItems = items.filter((it) => it.category === "postage")
+    if (postageItems.length > 0) {
+      const pDesc = postageItems[0].description || postageItems[0].label || ""
+      const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted"]
+      const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
+      derived.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").replace(/USPS\s*/i, "").trim() || ""
+    }
+  }
+
+  // OHP vendor name from item descriptions
+  if (!derived.vendor_name) {
+    const ohpItems = items.filter((it) => it.category === "ohp")
+    if (ohpItems.length > 0) {
+      const ohpDesc = ohpItems[0].description || ""
+      const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
+      if (vendorFromDesc) derived.vendor_name = vendorFromDesc
+      if (!derived.printed_by) derived.printed_by = "OHP"
+    }
+  }
+
+  // Fallback printed_by if nothing else set it
+  if (!derived.printed_by) {
+    const hasPrintItems = items.some((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
+    if (hasPrintItems) { derived.printed_by = "PrintOut"; derived.inhouse_location = "RSH" }
+  }
+
+  // Mail date from quote.mailing_date
+  if (quote.mailing_date) derived.mail_date = quote.mailing_date
+
+  // Normalize legacy values
+  if (derived.printed_by === "In-House") { derived.printed_by = "PrintOut"; derived.inhouse_location = derived.inhouse_location || "RSH" }
+  if (derived.printed_by === "Out of House") derived.printed_by = "OHP"
 
   return derived
 }
@@ -1050,7 +1112,9 @@ function QuoteCard({
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Job Details</p>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                   <FieldInput label="Quantity" value={String(quote.quantity || "")} placeholder="0" onChange={(v) => onPatch(quote.id, { quantity: parseInt(v) || 0 })} />
-                  <FieldInput label="Mail Piece Desc." value={meta.piece_desc || ""} placeholder="e.g. 6x9 Postcard" onChange={(v) => updateMeta({ piece_desc: v })} />
+                  <FieldInput label="Mail Piece" value={meta.piece_desc || ""} placeholder="e.g. 6x9 Postcard" onChange={(v) => updateMeta({ piece_desc: v })} />
+                  <FieldInput label="Envelope" value={meta.envelope_desc || ""} placeholder="e.g. 6x9 (paper)" onChange={(v) => updateMeta({ envelope_desc: v })} />
+                  <FieldInput label="Fold" value={meta.fold_type || ""} placeholder="e.g. Half Fold" onChange={(v) => updateMeta({ fold_type: v })} />
                   <FieldInput label="Insert Count" value={String(meta.insert_count || "")} placeholder="0" onChange={(v) => updateMeta({ insert_count: parseInt(v) || 0 })} />
                   <FieldInput label="Inserts Desc." value={meta.inserts_desc || ""} placeholder="e.g. Flyer + Card" onChange={(v) => updateMeta({ inserts_desc: v })} />
                 </div>
@@ -1062,6 +1126,7 @@ function QuoteCard({
                     options={["1st Class", "Marketing", "Non Profit", "Single Piece", "Stamps"]} />
                   <FieldSelect label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })}
                     options={["Brooklyn", "Monsey", "KJ", "Lakewood"]} />
+                  <FieldInput label="Mail Date" value={meta.mail_date || ""} type="date" onChange={(v) => updateMeta({ mail_date: v })} />
                 </div>
                 <label className="flex items-center gap-2 mt-3 cursor-pointer">
                   <Checkbox checked={!!meta.international} onCheckedChange={(c) => updateMeta({ international: !!c })} className="h-4 w-4 rounded" />
@@ -1073,15 +1138,23 @@ function QuoteCard({
             {/* ── ROW: Printing Details (full width) ── */}
             <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
               <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
-              <div className={cn("grid gap-x-4 gap-y-2 mb-2.5",
-                (meta.printed_by === "Out of House" || meta.printed_by === "Both") ? "grid-cols-4" : "grid-cols-3"
-              )}>
-                <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
-                  options={["In-House", "Out of House", "Both"]} />
-                {(meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
-                  <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="e.g. PrintOut" onChange={(v) => updateMeta({ vendor_name: v })} />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2.5">
+                <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => {
+                  const patch: Partial<JobMeta> = { printed_by: v }
+                  if (v === "PrintOut" && !meta.inhouse_location) patch.inhouse_location = "RSH"
+                  updateMeta(patch)
+                }}
+                  options={["PrintOut", "OHP", "Both"]} />
+                {(meta.printed_by === "PrintOut" || meta.printed_by === "Both") && (
+                  <FieldSelect label="PrintOut Location" value={meta.inhouse_location || "RSH"} onChange={(v) => updateMeta({ inhouse_location: v })}
+                    options={[...INHOUSE_LOCATIONS]} />
                 )}
-                <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
+                {(meta.printed_by === "OHP" || meta.printed_by === "Both") && (
+                  <FieldInput label="OHP Vendor" value={meta.vendor_name || ""} placeholder="e.g. Advantage" onChange={(v) => updateMeta({ vendor_name: v })} />
+                )}
+                {(meta.printed_by === "OHP" || meta.printed_by === "Both") && (
+                  <FieldInput label="OHP Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
+                )}
                 <FieldInput label="Expected Date" value={meta.expected_date || ""} type="date" onChange={(v) => updateMeta({ expected_date: v })} />
               </div>
               <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
@@ -1112,7 +1185,7 @@ function QuoteCard({
             {/* ── Assignee + Due Date ── */}
             <div className="grid grid-cols-2 gap-3">
               <FieldInput label="Assignee" value={meta.assignee || ""} placeholder="Assign to..." onChange={(v) => updateMeta({ assignee: v })} />
-              <FieldInput label="Mail Date" value={meta.due_date || ""} type="date" onChange={(v) => updateMeta({ due_date: v })} />
+              <FieldInput label="Due Date" value={meta.due_date || ""} type="date" onChange={(v) => updateMeta({ due_date: v })} />
             </div>
 
             {/* ── Files ── */}
@@ -1435,76 +1508,16 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   }, [quotes, refreshAll])
 
   const handleConvertToJob = useCallback(async (id: string) => {
-    // Find the quote to extract data from
     const quote = (quotes || []).find((q) => q.id === id)
-    const items: QuoteItem[] = quote?.items || []
+    if (!quote) return
 
-    // Smart extraction: build job_meta from existing quote data
-    const meta: JobMeta = { ...(quote?.job_meta || {}) }
+    // Start with any existing job_meta, then layer derived data on top
+    const derived = deriveMetaFromItems(quote)
+    const meta: JobMeta = { ...derived, ...(quote.job_meta || {}) }
 
-    // --- Piece description: from the first printing item (flat/booklet/etc) label/description ---
-    const printingItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
-    if (printingItems.length > 0 && !meta.piece_desc) {
-      // The label or description usually contains the piece spec, e.g. "1,000 - 4x6 Flat Prints, 10pt Gloss"
-      const desc = printingItems[0].description || printingItems[0].label || ""
-      // Extract size pattern like "4x6", "6x9", "8.5x11" from the text
-      const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
-      const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
-      // Extract piece type hint
-      const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
-      const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase())) || printingItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
-      meta.piece_desc = sizeStr && foundType ? `${sizeStr} ${foundType}` : (sizeStr || foundType || desc.split(",")[0]?.trim() || "")
-    }
-
-    // --- Inserts: count non-first printing items ---
-    if (printingItems.length > 1 && !meta.insert_count) {
-      meta.insert_count = printingItems.length - 1
-      const insertDescs = printingItems.slice(1).map((it) => {
-        const d = it.description || it.label || ""
-        const m = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
-        return m ? `${m[1]}x${m[2]}` : d.split(",")[0]?.trim() || ""
-      }).filter(Boolean)
-      if (!meta.inserts_desc && insertDescs.length > 0) meta.inserts_desc = insertDescs.join(" + ")
-    }
-
-    // --- Mailing class: from postage item label/description ---
-    const postageItems = items.filter((it) => it.category === "postage")
-    if (postageItems.length > 0 && !meta.mailing_class) {
-      const pDesc = postageItems[0].description || postageItems[0].label || ""
-      // Look for class: "First Class", "Standard", "Marketing", "Priority"
-      const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted"]
-      const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
-      meta.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").trim() || ""
-    }
-
-    // --- Printed by + Vendor: from OHP items ---
-    const ohpItems = items.filter((it) => it.category === "ohp")
-    if (ohpItems.length > 0 && !meta.printed_by) {
-      // Vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
-      const ohpDesc = ohpItems[0].description || ""
-      const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-      if (vendorFromDesc && !meta.vendor_name) meta.vendor_name = vendorFromDesc
-
-      // Check if there are ALSO in-house printing items
-      if (printingItems.length > 0) {
-        meta.printed_by = "Both"
-      } else {
-        meta.printed_by = "Out of House"
-      }
-
-      // Try piece desc from OHP label if not set: "OHP: 5,750 - 2.5x6.5 Postcard"
-      if (!meta.piece_desc) {
-        const ohpLabel = ohpItems[0].label || ""
-        const afterOHP = ohpLabel.replace(/^OHP[:\s]*/i, "").trim()
-        const sizeM = afterOHP.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
-        if (sizeM) {
-          const afterSize = afterOHP.substring(afterOHP.indexOf(sizeM[0]) + sizeM[0].length).trim()
-          const pieceType = afterSize.split(",")[0]?.trim() || ""
-          meta.piece_desc = `${sizeM[1]}x${sizeM[2]}${pieceType ? " " + pieceType : ""}`
-        }
-      }
-    } else if (printingItems.length > 0 && !meta.printed_by) {
-      meta.printed_by = "In-House"
+    // Fill empty fields from derived (don't overwrite user edits)
+    for (const key of Object.keys(derived) as (keyof JobMeta)[]) {
+      if (!meta[key] && derived[key]) (meta as Record<string, unknown>)[key] = derived[key]
     }
 
     // Get the first job board column
