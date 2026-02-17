@@ -1,5 +1,4 @@
 /** @type {import('next').NextConfig} */
-// Cache bust: env vars reloaded
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -7,6 +6,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Force full rebuild - cache key v3
+  generateBuildId: async () => `build-${Date.now()}`,
 }
 
 export default nextConfig
