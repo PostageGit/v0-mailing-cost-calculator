@@ -70,68 +70,7 @@ export async function GET() {
       }
     }
 
-    // 6. Add more tables to row counts
-    const extraTables = ["quote_activity_log", "board_columns", "app_users", "vendor_bids", "quote_files"]
-    for (const table of extraTables) {
-      const { count, error: tErr } = await supabase.from(table).select("*", { count: "exact", head: true })
-      rowCounts[table] = tErr ? -1 : (count ?? 0)
-    }
-
-    // 7. Activity metrics
-    const now = new Date()
-    const _24hAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-    const _7dAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
-    const { count: events24h } = await supabase.from("quote_activity_log").select("*", { count: "exact", head: true }).gte("created_at", _24hAgo)
-    const { count: events7d } = await supabase.from("quote_activity_log").select("*", { count: "exact", head: true }).gte("created_at", _7dAgo)
-
-    // Top events last 7d
-    const { data: recentEvents } = await supabase.from("quote_activity_log").select("event, user_name").gte("created_at", _7dAgo)
-    const eventCounts: Record<string, number> = {}
-    const activeUsers = new Set<string>()
-    for (const e of recentEvents || []) {
-      eventCounts[e.event] = (eventCounts[e.event] || 0) + 1
-      if (e.user_name) activeUsers.add(e.user_name)
-    }
-    const topEvents = Object.entries(eventCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([event, count]) => ({ event, count }))
-
-    // Last 20 events for activity feed
-    const { data: activityFeed } = await supabase.from("quote_activity_log").select("*").order("created_at", { ascending: false }).limit(20)
-
-    // 8. Feature health metrics
-    const { count: activeQuotes } = await supabase.from("quotes").select("*", { count: "exact", head: true }).eq("is_job", false).eq("archived", false)
-    const { count: activeJobs } = await supabase.from("quotes").select("*", { count: "exact", head: true }).eq("is_job", true).eq("archived", false)
-    const { count: totalConverted } = await supabase.from("quotes").select("*", { count: "exact", head: true }).eq("is_job", true)
-    const { count: totalCustomers } = await supabase.from("customers").select("*", { count: "exact", head: true })
-    const { count: syncedCustomers } = await supabase.from("customers").select("*", { count: "exact", head: true }).eq("qbo_synced", true)
-    const { count: totalFiles } = await supabase.from("quote_files").select("*", { count: "exact", head: true })
-    const { count: totalVendorBids } = await supabase.from("vendor_bids").select("*", { count: "exact", head: true })
-    const { count: usersCount } = await supabase.from("app_users").select("*", { count: "exact", head: true })
-
-    // Overdue deliveries (jobs where delivery date < today and not arrived)
-    const todayStr = now.toISOString().split("T")[0]
-    const { data: jobsWithMeta } = await supabase.from("quotes").select("job_meta").eq("is_job", true).eq("archived", false)
-    let overdueDeliveries = 0
-    let todayDeliveries = 0
-    for (const j of jobsWithMeta || []) {
-      const m = j.job_meta as Record<string, unknown> | null
-      if (!m) continue
-      for (const key of ["inhouse_delivery", "ohp_delivery"]) {
-        const d = m[key] as { date?: string; arrived?: boolean } | undefined
-        if (d?.date && !d.arrived) {
-          if (d.date < todayStr) overdueDeliveries++
-          else if (d.date === todayStr) todayDeliveries++
-        }
-      }
-    }
-
-    // 9. Purchase order stats
-    const { count: totalPOs } = await supabase.from("purchase_orders").select("*", { count: "exact", head: true })
-    const { count: pendingPOs } = await supabase.from("purchase_orders").select("*", { count: "exact", head: true }).neq("status", "received")
-    const { count: receivedPOs } = await supabase.from("purchase_orders").select("*", { count: "exact", head: true }).eq("status", "received")
-    rowCounts["purchase_orders"] = totalPOs ?? 0
-
-    // 10. Supabase connection health
+    // 6. Supabase connection health
     let connectionOk = false
     try {
       const { error } = await supabase.from("app_settings").select("id").limit(1)
@@ -177,44 +116,17 @@ export async function GET() {
       }
     }
 
-    // Recalculate total after extra tables
-    const finalTotal = Object.values(rowCounts).reduce((s, v) => s + (v > 0 ? v : 0), 0)
-
     return NextResponse.json({
       connection: connectionOk,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL || null,
       row_counts: rowCounts,
-      total_rows: finalTotal,
+      total_rows: totalRows,
       db_size_bytes: dbSizeBytes,
       db_size_formatted: dbSizeFormatted,
       table_sizes: tableSizes,
       env_status: envStatus,
       warnings,
       checked_at: new Date().toISOString(),
-      // Activity metrics
-      activity: {
-        events_24h: events24h ?? 0,
-        events_7d: events7d ?? 0,
-        top_events: topEvents,
-        active_users: Array.from(activeUsers),
-        feed: activityFeed || [],
-      },
-      // Feature health
-      features: {
-        active_quotes: activeQuotes ?? 0,
-        active_jobs: activeJobs ?? 0,
-        total_converted: totalConverted ?? 0,
-        total_customers: totalCustomers ?? 0,
-        synced_customers: syncedCustomers ?? 0,
-        total_files: totalFiles ?? 0,
-        total_vendor_bids: totalVendorBids ?? 0,
-        total_users: usersCount ?? 0,
-        overdue_deliveries: overdueDeliveries,
-        today_deliveries: todayDeliveries,
-        total_pos: totalPOs ?? 0,
-        pending_pos: pendingPOs ?? 0,
-        received_pos: receivedPOs ?? 0,
-      },
     })
   } catch (err) {
     console.error("System stats error:", err)

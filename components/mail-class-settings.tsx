@@ -18,8 +18,6 @@ import {
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
-import { UserManagementTab } from "@/components/user-management-tab"
-import { EmailSettingsTab } from "@/components/email-settings-tab"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -48,7 +46,7 @@ import {
   ListPlus,
   Wrench,
   CreditCard,
-  BarChart3,
+  Activity,
   Calculator,
   Database,
   KeyRound,
@@ -59,11 +57,6 @@ import {
   ShieldAlert,
   Info,
   Package,
-  Users,
-  Mail,
-  Zap,
-  Calendar,
-  Factory,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -150,7 +143,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
               </TabsTrigger>
               <TabsTrigger value="terms" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <CreditCard className="h-3.5 w-3.5" />
-                Dropdowns
+                Payment Terms
               </TabsTrigger>
               <TabsTrigger value="items" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Package className="h-3.5 w-3.5" />
@@ -172,16 +165,8 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <ListPlus className="h-3.5 w-3.5" />
                 Job Steps
               </TabsTrigger>
-              <TabsTrigger value="users" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Users className="h-3.5 w-3.5" />
-                Users
-              </TabsTrigger>
-              <TabsTrigger value="email" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Mail className="h-3.5 w-3.5" />
-                Email
-              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <BarChart3 className="h-3.5 w-3.5" />
+                <Activity className="h-3.5 w-3.5" />
                 System
               </TabsTrigger>
             </TabsList>
@@ -212,12 +197,6 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="steps">
               <JobStepsTab />
-            </TabsContent>
-            <TabsContent value="users">
-              <UserManagementTab />
-            </TabsContent>
-            <TabsContent value="email">
-              <EmailSettingsTab />
             </TabsContent>
             <TabsContent value="system">
               <SystemDashboardTab />
@@ -1174,38 +1153,22 @@ function AddMailClassForm({
   )
 }
 
-// ---------- DROPDOWN FIELDS TAB ----------
+// ---------- PAYMENT TERMS TAB ----------
 const APP_SETTINGS_KEY = "/api/app-settings"
 
-function DropdownListEditor({
-  settingsKey,
-  title,
-  description,
-  placeholder,
-  icon,
-  protectedValues = [],
-  uppercase = false,
-}: {
-  settingsKey: string
-  title: string
-  description: string
-  placeholder: string
-  icon: React.ReactNode
-  protectedValues?: string[]
-  uppercase?: boolean
-}) {
+function PaymentTermsTab() {
   const { data: settings, mutate } = useSWR<Record<string, unknown>>(APP_SETTINGS_KEY, fetcher)
-  const items = (settings?.[settingsKey] ?? []) as string[]
-  const [newItem, setNewItem] = useState("")
+  const terms = (settings?.payment_terms ?? []) as string[]
+  const [newTerm, setNewTerm] = useState("")
   const [saving, setSaving] = useState(false)
 
-  const saveItems = async (updated: string[]) => {
+  const saveterms = async (updated: string[]) => {
     setSaving(true)
     try {
       await fetch("/api/app-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [settingsKey]: updated }),
+        body: JSON.stringify({ payment_terms: updated }),
       })
       mutate()
     } finally {
@@ -1213,109 +1176,70 @@ function DropdownListEditor({
     }
   }
 
-  const addItem = async () => {
-    const trimmed = uppercase ? newItem.trim().toUpperCase() : newItem.trim()
-    if (!trimmed || items.includes(trimmed)) return
-    await saveItems([...items, trimmed])
-    setNewItem("")
+  const addTerm = async () => {
+    const trimmed = newTerm.trim().toUpperCase()
+    if (!trimmed || terms.includes(trimmed)) return
+    await saveterms([...terms, trimmed])
+    setNewTerm("")
   }
 
-  const removeItem = async (item: string) => {
-    await saveItems(items.filter((i) => i !== item))
+  const removeTerm = async (term: string) => {
+    await saveterms(terms.filter((t) => t !== term))
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        <h3 className="text-sm font-semibold text-foreground">Payment Terms</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Manage payment terms options available when editing customers. Default is COD.
+        </p>
       </div>
+
       <div className="flex flex-wrap gap-2">
-        {items.map((item) => (
-          <div key={item} className="group flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
-            {icon}
-            <span className="text-sm font-medium text-foreground">{item}</span>
-            {!protectedValues.includes(item) && (
-              <button onClick={() => removeItem(item)} className="ml-1 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100" aria-label={`Remove ${item}`}>
+        {terms.map((term) => (
+          <div
+            key={term}
+            className="group flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5"
+          >
+            <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">{term}</span>
+            {term !== "COD" && (
+              <button
+                onClick={() => removeTerm(term)}
+                className="ml-1 p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                aria-label={`Remove ${term}`}
+              >
                 <X className="h-3 w-3" />
               </button>
             )}
           </div>
         ))}
-        {items.length === 0 && <p className="text-xs text-muted-foreground italic">No options added yet</p>}
       </div>
+
       <div className="flex items-center gap-2">
-        <Input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addItem()} placeholder={placeholder} className="h-9 text-sm w-48" />
-        <Button size="sm" className="h-9 gap-1.5 text-xs" onClick={addItem} disabled={saving || !newItem.trim()}>
+        <Input
+          value={newTerm}
+          onChange={(e) => setNewTerm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addTerm()}
+          placeholder="New term (e.g. NET 60)"
+          className="h-9 text-sm w-48"
+        />
+        <Button
+          size="sm"
+          className="h-9 gap-1.5 text-xs"
+          onClick={addTerm}
+          disabled={saving || !newTerm.trim()}
+        >
           <Plus className="h-3.5 w-3.5" />
-          {saving ? "Saving..." : "Add"}
+          {saving ? "Adding..." : "Add Term"}
         </Button>
       </div>
     </div>
   )
 }
 
-function PaymentTermsTab() {
-  return (
-    <div className="flex flex-col gap-8">
-      <DropdownListEditor
-        settingsKey="payment_terms"
-        title="Payment Terms"
-        description="Options for the Terms dropdown on customer records."
-        placeholder="New term (e.g. NET 60)"
-        icon={<CreditCard className="h-3.5 w-3.5 text-muted-foreground" />}
-        protectedValues={["COD"]}
-        uppercase
-      />
-
-      <Separator />
-
-      <DropdownListEditor
-        settingsKey="billing_methods"
-        title="Billing Methods"
-        description="Payment method options in the Billing & Tax tab."
-        placeholder="New method (e.g. PayPal)"
-        icon={<CreditCard className="h-3.5 w-3.5 text-muted-foreground" />}
-      />
-
-      <Separator />
-
-      <DropdownListEditor
-        settingsKey="billing_frequencies"
-        title="Billing Frequencies"
-        description="How often to bill a customer."
-        placeholder="New frequency (e.g. Annually)"
-        icon={<Calendar className="h-3.5 w-3.5 text-muted-foreground" />}
-      />
-
-      <Separator />
-
-      <DropdownListEditor
-        settingsKey="ohp_locations"
-        title="OHP Locations"
-        description="Print vendor locations for purchase orders."
-        placeholder="New location (e.g. OHP Downtown)"
-        icon={<Factory className="h-3.5 w-3.5 text-muted-foreground" />}
-      />
-
-      <Separator />
-
-      <DropdownListEditor
-        settingsKey="ohp_emails"
-        title="OHP Email Addresses"
-        description="Email addresses used when sending purchase orders to OHP."
-        placeholder="New email (e.g. orders@ohp.com)"
-        icon={<Mail className="h-3.5 w-3.5 text-muted-foreground" />}
-      />
-    </div>
-  )
-}
-
 // ---------- SYSTEM DASHBOARD TAB ----------
-interface ActivityEntry {
-  id: string; quote_id: string | null; entity_type: string; entity_id: string | null
-  event: string; detail: string; user_name: string; created_at: string
-}
 interface SystemStats {
   connection: boolean
   supabase_url: string | null
@@ -1327,34 +1251,15 @@ interface SystemStats {
   env_status: Record<string, { set: boolean; preview: string }>
   warnings: { level: "info" | "warning" | "critical"; message: string }[]
   checked_at: string
-  activity: {
-    events_24h: number; events_7d: number
-    top_events: { event: string; count: number }[]
-    active_users: string[]
-    feed: ActivityEntry[]
-  }
-  features: {
-    active_quotes: number; active_jobs: number; total_converted: number
-    total_customers: number; synced_customers: number
-    total_files: number; total_vendor_bids: number; total_users: number
-    overdue_deliveries: number; today_deliveries: number
-    total_pos: number; pending_pos: number; received_pos: number
-  }
 }
 
 const TABLE_LABELS: Record<string, string> = {
   customers: "Customers",
   customer_contacts: "Contacts",
   delivery_addresses: "Delivery Addresses",
-  quotes: "Quotes / Jobs",
+  quotes: "Quotes",
   mail_class_settings: "Mail Class Settings",
   app_settings: "App Settings",
-  quote_activity_log: "Activity Log",
-  board_columns: "Board Columns",
-  app_users: "Users",
-  vendor_bids: "Vendor Bids",
-  quote_files: "Files",
-  purchase_orders: "Purchase Orders",
 }
 
 const WARNING_STYLES: Record<string, { bg: string; border: string; icon: string; text: string }> = {
@@ -1666,103 +1571,6 @@ function SystemDashboardTab() {
           </table>
         </div>
       </section>
-
-      {/* ── Feature Health Grid ── */}
-      <section>
-        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <BarChart3 className="h-3 w-3" /> Feature Health
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-          {[
-            { label: "Active Quotes", value: data.features.active_quotes, sub: `${data.features.total_converted} converted`, color: "text-blue-600 dark:text-blue-400" },
-            { label: "Active Jobs", value: data.features.active_jobs, sub: data.features.overdue_deliveries > 0 ? `${data.features.overdue_deliveries} overdue!` : `${data.features.today_deliveries} due today`, color: data.features.overdue_deliveries > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400" },
-            { label: "Customers", value: data.features.total_customers, sub: `${data.features.synced_customers} synced to QBO`, color: "text-foreground" },
-            { label: "Deliveries", value: data.features.today_deliveries, sub: data.features.overdue_deliveries > 0 ? `${data.features.overdue_deliveries} overdue` : "none overdue", color: data.features.overdue_deliveries > 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400" },
-            { label: "Files Uploaded", value: data.features.total_files, sub: `across all jobs`, color: "text-foreground" },
-            { label: "Vendor Bids", value: data.features.total_vendor_bids, sub: `${data.features.total_users} users`, color: "text-foreground" },
-            { label: "Purchase Orders", value: data.features.total_pos, sub: `${data.features.pending_pos} pending, ${data.features.received_pos} received`, color: data.features.pending_pos > 0 ? "text-blue-600 dark:text-blue-400" : "text-foreground" },
-          ].map((card) => (
-            <div key={card.label} className="rounded-lg border border-border bg-card p-2.5">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{card.label}</p>
-              <p className={`text-lg font-bold tabular-nums ${card.color}`}>{card.value.toLocaleString()}</p>
-              <p className="text-[10px] text-muted-foreground">{card.sub}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Activity Metrics ── */}
-      <section>
-        <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <Zap className="h-3 w-3" /> Activity (Last 7 Days)
-        </h4>
-        <div className="grid grid-cols-3 gap-2.5 mb-3">
-          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
-            <p className="text-lg font-bold tabular-nums text-foreground">{data.activity.events_24h}</p>
-            <p className="text-[10px] text-muted-foreground">Last 24h</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
-            <p className="text-lg font-bold tabular-nums text-foreground">{data.activity.events_7d}</p>
-            <p className="text-[10px] text-muted-foreground">Last 7 days</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-2.5 text-center">
-            <p className="text-lg font-bold tabular-nums text-foreground">{data.activity.active_users.length}</p>
-            <p className="text-[10px] text-muted-foreground">Active users</p>
-          </div>
-        </div>
-        {data.activity.top_events.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {data.activity.top_events.map((e) => (
-              <span key={e.event} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-secondary text-foreground tabular-nums">
-                {e.event.replace(/_/g, " ")} <span className="text-muted-foreground ml-0.5">{e.count}</span>
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* ── Live Activity Feed ── */}
-      {data.activity.feed.length > 0 && (
-        <section>
-          <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Recent Activity
-          </h4>
-          <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
-            {data.activity.feed.map((entry, i) => {
-              const time = new Date(entry.created_at)
-              const isToday = time.toDateString() === new Date().toDateString()
-              return (
-                <div key={entry.id || i} className="flex items-start gap-2.5 px-3 py-2 border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                  <div className="flex flex-col items-center mt-0.5">
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      entry.event.includes("overdue") || entry.event.includes("delete") ? "bg-red-500"
-                      : entry.event.includes("created") || entry.event.includes("converted") ? "bg-emerald-500"
-                      : entry.event.includes("moved") || entry.event.includes("updated") ? "bg-blue-500"
-                      : "bg-muted-foreground/40"
-                    }`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold text-foreground truncate">
-                        {entry.event.replace(/_/g, " ")}
-                      </span>
-                      {entry.user_name && (
-                        <span className="text-[9px] px-1.5 py-0 rounded-full bg-secondary text-muted-foreground shrink-0">
-                          {entry.user_name}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate">{entry.detail}</p>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground tabular-nums shrink-0 mt-0.5">
-                    {isToday ? time.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : time.toLocaleDateString([], { month: "short", day: "numeric" })}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Environment variables */}
       <section>

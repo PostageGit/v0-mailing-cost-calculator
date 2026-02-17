@@ -9,8 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -67,8 +65,6 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
   const customerCustomFields = (settings?.customer_custom_fields ?? []) as { name: string }[]
   const contactCustomFields = (settings?.contact_custom_fields ?? []) as { name: string }[]
   const paymentTerms = (settings?.payment_terms ?? ["COD", "BILL 30", "CCOF", "ACH"]) as string[]
-  const billingMethods = (settings?.billing_methods ?? ["Check", "ACH", "Credit Card", "Wire Transfer"]) as string[]
-  const billingFrequencies = (settings?.billing_frequencies ?? ["Per Job", "Weekly", "Bi-Weekly", "Monthly", "Quarterly"]) as string[]
 
   // Form state
   const [form, setForm] = useState({
@@ -90,14 +86,6 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
     terms: "COD",
     notes: "",
     custom_fields: {} as Record<string, string>,
-    tax_exempt: false,
-    tax_id: "",
-    tax_rate: 0,
-    billing_method: "",
-    billing_frequency: "",
-    credit_limit: 0,
-    account_number: "",
-    billing_notes: "",
   })
 
   const [saving, setSaving] = useState(false)
@@ -152,19 +140,11 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
         terms: existing.terms || "COD",
         notes: existing.notes || "",
         custom_fields: existing.custom_fields || {},
-        tax_exempt: existing.tax_exempt ?? false,
-        tax_id: existing.tax_id || "",
-        tax_rate: existing.tax_rate ?? 0,
-        billing_method: existing.billing_method || "",
-        billing_frequency: existing.billing_frequency || "",
-        credit_limit: existing.credit_limit ?? 0,
-        account_number: existing.account_number || "",
-        billing_notes: existing.billing_notes || "",
       })
     }
   }, [existing])
 
-  const updateField = (key: string, value: string | boolean | number) =>
+  const updateField = (key: string, value: string | boolean) =>
     setForm((p) => ({ ...p, [key]: value }))
 
   const updateCustomField = (key: string, value: string) =>
@@ -423,9 +403,6 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
                 <TabsTrigger value="deliveries" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                   <Truck className="h-3.5 w-3.5" /> Deliveries ({deliveries?.length ?? 0})
                 </TabsTrigger>
-                <TabsTrigger value="billing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                  <CreditCard className="h-3.5 w-3.5" /> Billing & Tax
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="company" className="flex flex-col gap-5 mt-0">
@@ -668,95 +645,6 @@ export function CustomerDetail({ customerId, isNew, deptColors, onClose, onCreat
                     <p className="text-xs">Add a delivery location for this customer above.</p>
                   </div>
                 )}
-              </TabsContent>
-
-              {/* ── Billing & Tax ── */}
-              <TabsContent value="billing" className="flex flex-col gap-5 mt-0">
-                {/* Tax Info */}
-                <section>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                    <Receipt className="h-3.5 w-3.5" /> Tax Information
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-                      <Label className="text-xs text-muted-foreground">Tax Exempt</Label>
-                      <Switch checked={!!form.tax_exempt} onCheckedChange={(v) => updateField("tax_exempt", v)} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Tax ID / EIN</Label>
-                      <Input value={form.tax_id} onChange={(e) => updateField("tax_id", e.target.value)} placeholder="e.g. 12-3456789" className="h-9 text-sm rounded-xl border-border" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Tax Rate (%)</Label>
-                      <Input type="number" step="0.001" min={0} max={100} value={form.tax_rate || ""} onChange={(e) => updateField("tax_rate", e.target.value)} placeholder="0.000" className="h-9 text-sm rounded-xl border-border" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Account Number</Label>
-                      <Input value={form.account_number} onChange={(e) => updateField("account_number", e.target.value)} placeholder="Internal acct #" className="h-9 text-sm rounded-xl border-border" />
-                    </div>
-                  </div>
-                </section>
-
-                {/* Billing Preferences */}
-                <Separator />
-                <section>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                    <CreditCard className="h-3.5 w-3.5" /> Billing Preferences
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Billing Method</Label>
-                      <Select value={form.billing_method || ""} onValueChange={(v) => updateField("billing_method", v)}>
-                        <SelectTrigger className="h-9 text-sm rounded-xl border-border">
-                          <SelectValue placeholder="Select method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {billingMethods.map((m) => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Billing Frequency</Label>
-                      <Select value={form.billing_frequency || ""} onValueChange={(v) => updateField("billing_frequency", v)}>
-                        <SelectTrigger className="h-9 text-sm rounded-xl border-border">
-                          <SelectValue placeholder="Select frequency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {billingFrequencies.map((f) => (
-                            <SelectItem key={f} value={f}>{f}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Credit Limit ($)</Label>
-                      <Input type="number" step="0.01" min={0} value={form.credit_limit || ""} onChange={(e) => updateField("credit_limit", e.target.value)} placeholder="0.00" className="h-9 text-sm rounded-xl border-border" />
-                    </div>
-                  </div>
-                </section>
-
-                {/* Billing Notes */}
-                <Separator />
-                <section>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Billing Notes</h3>
-                  <Textarea value={form.billing_notes} onChange={(e) => updateField("billing_notes", e.target.value)} placeholder="Special billing instructions, PO requirements, etc." className="min-h-[80px] text-sm rounded-xl border-border" />
-                </section>
-
-                <Separator />
-                <ActionBar
-                  isNew={isNew}
-                  saving={saving}
-                  deleting={deleting}
-                  confirmDelete={confirmDelete}
-                  disabled={!form.company_name.trim()}
-                  onSave={handleSave}
-                  onDelete={handleDelete}
-                  onConfirmDelete={() => setConfirmDelete(true)}
-                  onCancelDelete={() => setConfirmDelete(false)}
-                  customerId={customerId}
-                />
               </TabsContent>
             </Tabs>
           ) : (

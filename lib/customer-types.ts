@@ -18,16 +18,6 @@ export interface Customer {
   terms: string
   notes: string | null
   custom_fields: Record<string, string>
-  tax_exempt: boolean
-  tax_id: string | null
-  tax_rate: number
-  billing_method: string | null
-  billing_frequency: string | null
-  credit_limit: number
-  account_number: string | null
-  billing_notes: string | null
-  qbo_synced: boolean
-  qbo_synced_at: string | null
   created_at: string
   updated_at: string
 }
@@ -119,14 +109,6 @@ export const EMPTY_CUSTOMER: Omit<Customer, "id" | "created_at" | "updated_at"> 
   terms: "COD",
   notes: null,
   custom_fields: {},
-  tax_exempt: false,
-  tax_id: null,
-  tax_rate: 0,
-  billing_method: null,
-  billing_frequency: null,
-  credit_limit: 0,
-  account_number: null,
-  billing_notes: null,
 }
 
 export const EMPTY_CONTACT: Omit<CustomerContact, "id" | "customer_id" | "created_at" | "updated_at"> = {
