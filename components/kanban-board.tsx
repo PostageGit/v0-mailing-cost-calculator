@@ -18,7 +18,7 @@ import {
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
-  Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus, Copy,
+  Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus, Copy, Printer, Truck,
   } from "lucide-react"
 
 /* ── Types ── */
@@ -29,12 +29,19 @@ interface QuoteItem {
 interface BoardColumn {
   id: string; title: string; color: string; sort_order: number; board_type?: string
 }
+interface DeliverySchedule {
+  date?: string       // YYYY-MM-DD
+  time?: string       // HH:mm (24h for storage)
+  period?: "AM" | "PM"
+  arrived?: boolean
+}
 interface JobMeta {
   piece_desc?: string; insert_count?: number; inserts_desc?: string
   envelope_desc?: string; fold_type?: string
   mailing_class?: string; drop_off?: string; international?: boolean
   printed_by?: string; inhouse_location?: string
   vendor_name?: string; vendor_job?: string; prints_arrived?: boolean
+  inhouse_delivery?: DeliverySchedule; ohp_delivery?: DeliverySchedule
   bcc_done?: boolean; paperwork_done?: boolean; folder_archived?: boolean; job_mailed?: boolean
   invoice_updated?: boolean; invoice_emailed?: boolean; paid_postage?: boolean; paid_full?: boolean
   assignee?: string; due_date?: string; expected_date?: string; mail_date?: string
@@ -283,7 +290,140 @@ function MetaCheck({ label, checked, onChange, bold }: {
   )
 }
 
-function isOverdue(meta: JobMeta) {
+  /* ── Delivery Schedule Pill ── */
+  function getDeliveryStatus(d?: DeliverySchedule): { label: string; color: string; urgency: "overdue" | "today" | "tomorrow" | "upcoming" | "arrived" | "none" } {
+    if (!d?.date) return { label: "Not scheduled", color: "text-muted-foreground", urgency: "none" }
+    if (d.arrived) return { label: "Arrived", color: "text-emerald-600", urgency: "arrived" }
+
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const target = new Date(d.date + "T00:00:00")
+    const diffDays = Math.floor((target.getTime() - today.getTime()) / 86400000)
+
+    if (diffDays < 0) return { label: `Overdue (${Math.abs(diffDays)}d)`, color: "text-red-600", urgency: "overdue" }
+    if (diffDays === 0) return { label: "Today", color: "text-amber-600", urgency: "today" }
+    if (diffDays === 1) return { label: "Tomorrow", color: "text-blue-600", urgency: "tomorrow" }
+    const dateStr = target.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    return { label: dateStr, color: "text-foreground", urgency: "upcoming" }
+  }
+
+  function DeliveryPill({ label, icon, schedule, onChange }: {
+    label: string; icon: React.ReactNode; schedule: DeliverySchedule | undefined
+    onChange: (d: DeliverySchedule) => void
+  }) {
+    const status = getDeliveryStatus(schedule)
+    const [editing, setEditing] = useState(false)
+    const isArrived = !!schedule?.arrived
+
+    const timeDisplay = schedule?.time
+      ? `${schedule.period === "AM" || !schedule.period
+          ? parseInt(schedule.time.split(":")[0]) > 12
+            ? (parseInt(schedule.time.split(":")[0]) - 12) + ":" + schedule.time.split(":")[1] + " PM"
+            : schedule.time + " AM"
+          : schedule.period === "PM"
+            ? parseInt(schedule.time.split(":")[0]) > 12
+              ? (parseInt(schedule.time.split(":")[0]) - 12) + ":" + schedule.time.split(":")[1]
+              : schedule.time
+            : schedule.time
+        } ${schedule.period || ""}`
+      : ""
+
+    // Simpler time display
+    const formattedTime = schedule?.time
+      ? (() => {
+        const [h, m] = schedule.time.split(":").map(Number)
+        const period = schedule.period || (h >= 12 ? "PM" : "AM")
+        const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+        return `${h12}:${String(m).padStart(2, "0")} ${period}`
+      })()
+      : ""
+
+    return (
+      <div className={cn(
+        "rounded-lg border p-2.5 transition-all",
+        isArrived
+          ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+          : status.urgency === "overdue"
+            ? "border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20 animate-pulse"
+            : status.urgency === "today"
+              ? "border-amber-300 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/20"
+              : "border-border bg-background"
+      )}>
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            {icon}
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {/* Status badge */}
+            <span className={cn(
+              "text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+              status.urgency === "overdue" && "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+              status.urgency === "today" && "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+              status.urgency === "tomorrow" && "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+              status.urgency === "upcoming" && "bg-secondary text-foreground",
+              status.urgency === "arrived" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+              status.urgency === "none" && "bg-secondary text-muted-foreground",
+            )}>
+              {status.urgency === "overdue" && "!!! "}
+              {status.label}
+              {formattedTime && status.urgency !== "arrived" && ` @ ${formattedTime}`}
+            </span>
+            {/* Arrived toggle */}
+            <button
+              onClick={() => onChange({ ...schedule, arrived: !isArrived })}
+              className={cn(
+                "h-5 w-5 rounded flex items-center justify-center transition-all",
+                isArrived
+                  ? "bg-emerald-500 text-white"
+                  : "border border-border hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-muted-foreground hover:text-emerald-600"
+              )}
+              title={isArrived ? "Mark as not arrived" : "Mark as arrived"}
+            >
+              <Check className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Inline editor (always visible, compact) */}
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={schedule?.date || ""}
+            onChange={(e) => onChange({ ...schedule, date: e.target.value })}
+            className="flex-1 min-w-0 text-[11px] font-medium text-foreground bg-background border border-border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all"
+          />
+          <select
+            value={schedule?.time ? schedule.time.split(":")[0] : ""}
+            onChange={(e) => {
+              const h = e.target.value
+              if (!h) { onChange({ ...schedule, time: undefined, period: undefined }); return }
+              onChange({ ...schedule, time: `${h}:00`, period: parseInt(h) >= 12 ? "PM" : "AM" })
+            }}
+            className="w-[56px] text-[11px] font-medium text-foreground bg-background border border-border rounded-md px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer text-center"
+          >
+            <option value="">--</option>
+            {Array.from({ length: 12 }, (_, i) => i + 7).map((h) => (
+              <option key={h} value={String(h).padStart(2, "0")}>
+                {h > 12 ? h - 12 : h}{h >= 12 ? "p" : "a"}
+              </option>
+            ))}
+          </select>
+          <select
+            value={schedule?.period || ""}
+            onChange={(e) => onChange({ ...schedule, period: e.target.value as "AM" | "PM" })}
+            className="w-[48px] text-[11px] font-bold text-foreground bg-background border border-border rounded-md px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer text-center"
+          >
+            <option value="AM">AM</option>
+            <option value="PM">PM</option>
+          </select>
+        </div>
+      </div>
+    )
+  }
+
+  function isOverdue(meta: JobMeta) {
   if (!meta.due_date) return false
   return new Date(meta.due_date) < new Date()
 }
@@ -632,7 +772,7 @@ function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ═���══════════════════════════════════════════════════
    EDITABLE ZD# INLINE (click to edit, links to Zendesk)
    ════════════════════════════════════════════════════ */
 function ZendeskField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -1138,26 +1278,46 @@ function QuoteCard({
             {/* ── ROW: Printing Details (full width) ── */}
             <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
               <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-2.5">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
                 <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => {
                   const patch: Partial<JobMeta> = { printed_by: v }
                   if (v === "PrintOut" && !meta.inhouse_location) patch.inhouse_location = "RSH"
                   updateMeta(patch)
                 }}
                   options={["PrintOut", "OHP", "Both"]} />
-                {(meta.printed_by === "PrintOut" || meta.printed_by === "Both") && (
-                  <FieldSelect label="PrintOut Location" value={meta.inhouse_location || "RSH"} onChange={(v) => updateMeta({ inhouse_location: v })}
-                    options={[...INHOUSE_LOCATIONS]} />
-                )}
                 {(meta.printed_by === "OHP" || meta.printed_by === "Both") && (
                   <FieldInput label="OHP Vendor" value={meta.vendor_name || ""} placeholder="e.g. Advantage" onChange={(v) => updateMeta({ vendor_name: v })} />
                 )}
                 {(meta.printed_by === "OHP" || meta.printed_by === "Both") && (
                   <FieldInput label="OHP Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
                 )}
-                <FieldInput label="Expected Date" value={meta.expected_date || ""} type="date" onChange={(v) => updateMeta({ expected_date: v })} />
               </div>
-              <MetaCheck label="Prints Arrived" checked={!!meta.prints_arrived} onChange={(c) => updateMeta({ prints_arrived: c })} />
+
+              {/* ── Delivery Schedule Pills ── */}
+              <div className={cn("flex flex-col gap-2", meta.printed_by === "Both" ? "" : "")}>
+                {(meta.printed_by === "PrintOut" || meta.printed_by === "Both") && (
+                  <DeliveryPill
+                    label={`PrintOut ${meta.inhouse_location ? `(${meta.inhouse_location})` : "(RSH)"}`}
+                    icon={<Printer className="h-3 w-3 text-foreground/60" />}
+                    schedule={meta.inhouse_delivery}
+                    onChange={(d) => updateMeta({ inhouse_delivery: d, prints_arrived: d.arrived || !!meta.ohp_delivery?.arrived })}
+                  />
+                )}
+                {(meta.printed_by === "PrintOut" || meta.printed_by === "Both") && (
+                  <div className="pl-2">
+                    <FieldSelect label="Location" value={meta.inhouse_location || "RSH"} onChange={(v) => updateMeta({ inhouse_location: v })}
+                      options={[...INHOUSE_LOCATIONS]} />
+                  </div>
+                )}
+                {(meta.printed_by === "OHP" || meta.printed_by === "Both") && (
+                  <DeliveryPill
+                    label={`OHP ${meta.vendor_name ? `(${meta.vendor_name})` : ""}`}
+                    icon={<Truck className="h-3 w-3 text-foreground/60" />}
+                    schedule={meta.ohp_delivery}
+                    onChange={(d) => updateMeta({ ohp_delivery: d, prints_arrived: d.arrived || !!meta.inhouse_delivery?.arrived })}
+                  />
+                )}
+              </div>
             </div>
 
             {/* ── ROW: List/Mail + Billing (2 col) ── */}
