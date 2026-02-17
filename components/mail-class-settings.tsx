@@ -19,6 +19,7 @@ import {
 import { formatCurrency } from "@/lib/pricing"
 import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
 import { UserManagementTab } from "@/components/user-management-tab"
+import { EmailSettingsTab } from "@/components/email-settings-tab"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -59,6 +60,7 @@ import {
   Info,
   Package,
   Users,
+  Mail,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -171,6 +173,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Users className="h-3.5 w-3.5" />
                 Users
               </TabsTrigger>
+              <TabsTrigger value="email" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Mail className="h-3.5 w-3.5" />
+                Email
+              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Activity className="h-3.5 w-3.5" />
                 System
@@ -206,6 +212,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="users">
               <UserManagementTab />
+            </TabsContent>
+            <TabsContent value="email">
+              <EmailSettingsTab />
             </TabsContent>
             <TabsContent value="system">
               <SystemDashboardTab />

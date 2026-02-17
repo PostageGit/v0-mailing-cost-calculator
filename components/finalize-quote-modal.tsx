@@ -24,9 +24,10 @@ import {
 } from "@/lib/qb-export"
 import {
   X, FileText, FileCheck, Download, Loader2, Check,
-  ArrowRight, Receipt,
+  ArrowRight, Receipt, Mail, Send,
 } from "lucide-react"
 import { mutate as globalMutate } from "swr"
+import { toast } from "sonner"
 
 interface Props {
   open: boolean
@@ -123,6 +124,53 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
     }
   }
 
+  /* ── Send Invoice Email ── */
+  const [emailTo, setEmailTo] = useState("")
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [showEmailForm, setShowEmailForm] = useState(false)
+
+  const handleSendInvoiceEmail = async () => {
+    if (!emailTo.trim() || !emailTo.includes("@")) {
+      toast.error("Please enter a valid email address")
+      return
+    }
+    setEmailSending(true)
+    try {
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "invoice",
+          to: emailTo.trim(),
+          data: {
+            invoiceNumber: createdInvoiceNumber || 0,
+            customerName: resolvedCustomer,
+            contactName: q.contactName || undefined,
+            total,
+            dueDate: dueDate || undefined,
+            terms,
+            items: q.items.map((it) => ({
+              label: it.label,
+              description: it.description || it.label,
+              amount: it.amount,
+            })),
+          },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Failed to send email")
+        return
+      }
+      toast.success(`Invoice emailed to ${emailTo}`)
+      setEmailSent(true)
+      q.logActivity("invoice_emailed", `Invoice #${createdInvoiceNumber} emailed to ${emailTo}`)
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   const handleDownloadInvoiceCSV = () => {
     const qbItems = quoteItemsToQBLines(q.items)
     const inv: QBInvoiceData = {
@@ -145,6 +193,10 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
     setCreatedInvoiceNumber(null)
     setNotes("")
     setMemo("")
+    setEmailTo("")
+    setEmailSending(false)
+    setEmailSent(false)
+    setShowEmailForm(false)
     onClose()
   }
 
@@ -195,6 +247,48 @@ export function FinalizeQuoteModal({ open, onClose, customerName }: Props) {
                 >
                   <Download className="h-4 w-4" /> Export QB CSV (Transaction Pro)
                 </Button>
+              )}
+              {/* Send Email */}
+              {action === "invoice" && !showEmailForm && !emailSent && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEmailForm(true)}
+                  className="gap-2 rounded-xl h-10 text-sm font-medium w-full border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                >
+                  <Mail className="h-4 w-4" /> Send Invoice Email
+                </Button>
+              )}
+              {action === "invoice" && emailSent && (
+                <div className="flex items-center justify-center gap-2 h-10 text-sm text-emerald-600 font-medium">
+                  <Check className="h-4 w-4" /> Invoice emailed to {emailTo}
+                </div>
+              )}
+              {action === "invoice" && showEmailForm && !emailSent && (
+                <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 p-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      placeholder="recipient@email.com"
+                      value={emailTo}
+                      onChange={(e) => setEmailTo(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSendInvoiceEmail() }}
+                      className="h-9 text-sm rounded-lg flex-1"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleSendInvoiceEmail}
+                      disabled={emailSending || !emailTo.trim()}
+                      className="h-9 text-sm gap-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold shrink-0 px-4"
+                    >
+                      {emailSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                      Send
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                    A branded email with invoice details will be sent to this address.
+                  </p>
+                </div>
               )}
               <Button
                 variant="secondary"

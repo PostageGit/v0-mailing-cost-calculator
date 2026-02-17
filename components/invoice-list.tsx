@@ -24,8 +24,9 @@ import { COMPANY } from "@/lib/company"
 import {
   Search, Receipt, Download, Check, FileText,
   Loader2, Trash2, CheckCircle2,
-  Circle, Clock, Send, XCircle, ArrowRight,
+  Circle, Clock, Send, XCircle, ArrowRight, Mail, X,
 } from "lucide-react"
+import { toast } from "sonner"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -437,6 +438,76 @@ export function InvoiceList() {
     }
   }
 
+  /* ── Send Email ── */
+  const [emailingId, setEmailingId] = useState<string | null>(null)
+  const [emailTo, setEmailTo] = useState("")
+  const [emailSending, setEmailSending] = useState(false)
+
+  const openEmailForm = (inv: Invoice) => {
+    setEmailingId(inv.id)
+    // Try to pre-fill with customer email
+    setEmailTo("")
+    if (inv.customer_id) {
+      fetch(`/api/customers/${inv.customer_id}`)
+        .then((r) => r.json())
+        .then((c) => {
+          if (c?.email) setEmailTo(c.email)
+          else if (c?.billing_contact_email) setEmailTo(c.billing_contact_email)
+        })
+        .catch(() => {})
+    }
+  }
+
+  const handleSendEmail = async (inv: Invoice) => {
+    if (!emailTo.trim() || !emailTo.includes("@")) {
+      toast.error("Please enter a valid email address")
+      return
+    }
+    setEmailSending(true)
+    try {
+      const res = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "invoice",
+          to: emailTo.trim(),
+          data: {
+            invoiceNumber: inv.invoice_number,
+            customerName: inv.customer_name,
+            contactName: inv.contact_name || undefined,
+            total: inv.total,
+            dueDate: inv.due_date || undefined,
+            terms: inv.terms,
+            items: inv.items.map((it) => ({
+              label: it.label,
+              description: it.description,
+              amount: it.amount,
+            })),
+          },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Failed to send email")
+        return
+      }
+      toast.success(`Invoice emailed to ${emailTo}`)
+      // Update status to "sent" if it was draft/pending
+      if (inv.status === "draft" || inv.status === "pending") {
+        await fetch(`/api/invoices/${inv.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "sent" }),
+        })
+      }
+      globalMutate("/api/invoices")
+      setEmailingId(null)
+      setEmailTo("")
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   const totalSelected = filtered.filter((i) => selectedIds.has(i.id)).reduce((s, i) => s + i.total, 0)
 
   /* ── Summary stats ── */
@@ -606,6 +677,14 @@ export function InvoiceList() {
                     >
                       {isPdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
                     </button>
+                    {/* Quick send email */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openEmailForm(inv) }}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground/50 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      title="Send email"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </button>
                     {/* Quick QB export */}
                     <button
                       onClick={(e) => { e.stopPropagation(); handleExportSingle(inv) }}
@@ -683,8 +762,56 @@ export function InvoiceList() {
                       </div>
                     )}
 
+                    {/* ── Inline Email Form ── */}
+                    {emailingId === inv.id && (
+                      <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 p-3 mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5 text-blue-600" />
+                            Send Invoice Email
+                          </span>
+                          <button onClick={() => { setEmailingId(null); setEmailTo("") }} className="text-muted-foreground hover:text-foreground">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="email"
+                            placeholder="recipient@email.com"
+                            value={emailTo}
+                            onChange={(e) => setEmailTo(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleSendEmail(inv) }}
+                            className="h-8 text-sm rounded-lg flex-1"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleSendEmail(inv)}
+                            disabled={emailSending || !emailTo.trim()}
+                            className="h-8 text-xs gap-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold shrink-0"
+                          >
+                            {emailSending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                            Send
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                          Invoice details and line items will be included in the email body.
+                        </p>
+                      </div>
+                    )}
+
                     {/* ── Action Buttons ── */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      {/* Send Email */}
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs gap-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold"
+                        onClick={() => openEmailForm(inv)}
+                      >
+                        <Mail className="h-3 w-3" />
+                        Send Email
+                      </Button>
+
                       {/* Download PDF */}
                       <Button
                         size="sm"
