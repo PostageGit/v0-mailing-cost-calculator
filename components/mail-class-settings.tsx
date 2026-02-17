@@ -48,7 +48,7 @@ import {
   ListPlus,
   Wrench,
   CreditCard,
-  Activity as ActivityIcon,
+  Pulse,
   Calculator,
   Database,
   KeyRound,
@@ -182,7 +182,7 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 Email
               </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <ActivityIcon className="h-3.5 w-3.5" />
+                <Pulse className="h-3.5 w-3.5" />
                 System
               </TabsTrigger>
             </TabsList>
@@ -1683,7 +1683,7 @@ function SystemDashboardTab() {
       {/* ── Feature Health Grid ── */}
       <section>
         <h4 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <ActivityIcon className="h-3 w-3" /> Feature Health
+          <Pulse className="h-3 w-3" /> Feature Health
         </h4>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
           {[
