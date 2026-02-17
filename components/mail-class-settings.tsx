@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
+import { UserManagementTab } from "@/components/user-management-tab"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -57,6 +58,7 @@ import {
   ShieldAlert,
   Info,
   Package,
+  Users,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -165,6 +167,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <ListPlus className="h-3.5 w-3.5" />
                 Job Steps
               </TabsTrigger>
+              <TabsTrigger value="users" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Users className="h-3.5 w-3.5" />
+                Users
+              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Activity className="h-3.5 w-3.5" />
                 System
@@ -197,6 +203,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="steps">
               <JobStepsTab />
+            </TabsContent>
+            <TabsContent value="users">
+              <UserManagementTab />
             </TabsContent>
             <TabsContent value="system">
               <SystemDashboardTab />
