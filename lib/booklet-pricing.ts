@@ -336,6 +336,20 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     }
     const insideSheetsPerBooklet = insidePages / 4
     totalSheetsPerBooklet = insideSheetsPerBooklet + 1
+    console.log("[v0] separateCover=true, pages:", pagesPerBook, "insidePages:", insidePages, "insideSheetsPerBooklet:", insideSheetsPerBooklet, "totalSheetsPerBooklet:", totalSheetsPerBooklet)
+
+    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, insideSheetsPerBooklet, false, forcedLevel, "inside")
+    if (insideResult.error) return invalidResult("Inside Pages: " + insideResult.error)
+    console.log("[v0] insideResult.sheets:", insideResult.sheets, "maxUps:", insideResult.maxUps)
+  } else {
+    totalSheetsPerBooklet = pagesPerBook / 4
+    console.log("[v0] separateCover=false, totalSheetsPerBooklet:", totalSheetsPerBooklet)
+    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, totalSheetsPerBooklet, false, forcedLevel, "inside")
+    if (insideResult.error) return invalidResult(insideResult.error)
+    console.log("[v0] insideResult.sheets:", insideResult.sheets, "maxUps:", insideResult.maxUps)
+  }
+    const insideSheetsPerBooklet = insidePages / 4
+    totalSheetsPerBooklet = insideSheetsPerBooklet + 1
 
     insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, insideSheetsPerBooklet, false, forcedLevel, "inside")
     if (insideResult.error) return invalidResult("Inside Pages: " + insideResult.error)
