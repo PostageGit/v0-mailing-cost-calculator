@@ -12,11 +12,15 @@ export function VendorBidTab() {
 
   // Auto-save the quote when OHP tab opens
   useEffect(() => {
+    console.log("[v0] VendorBidTab useEffect - savedId:", savedId, "resolvedId:", resolvedId)
     if (savedId) { setResolvedId(savedId); return }
     let cancelled = false
     setEnsuring(true)
     ensureSaved().then((id) => {
+      console.log("[v0] VendorBidTab ensureSaved resolved:", id, "cancelled:", cancelled)
       if (!cancelled && id) setResolvedId(id)
+    }).catch((err) => {
+      console.log("[v0] VendorBidTab ensureSaved error:", err)
     }).finally(() => { if (!cancelled) setEnsuring(false) })
     return () => { cancelled = true }
   }, [savedId, ensureSaved])
