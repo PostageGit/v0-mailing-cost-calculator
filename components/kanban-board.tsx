@@ -18,8 +18,8 @@ import {
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
-  Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
-} from "lucide-react"
+  Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus, Copy,
+  } from "lucide-react"
 
 /* ── Types ── */
 
@@ -42,6 +42,7 @@ interface Quote {
   id: string; project_name: string; status: string; column_id: string | null
   items: QuoteItem[]; total: number; notes: string | null
   quote_number: number | null; mailing_date: string | null; quantity?: number
+  mailing_pieces?: unknown[]
   customer_id?: string | null; contact_name?: string | null
   reference_number?: string | null
   lights: Record<string, string> | null
@@ -623,7 +624,7 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
   )
 }
 
-/* ════════════════════════════════��═══════════════════
+/* ══════════════════��═════════════��═══════════════════
    NEXT STEP SELECTOR
    ════════════════════════════════════════════════════ */
 function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (v: string) => void; steps: string[] }) {
@@ -757,7 +758,7 @@ function MailDatePicker({ value, onChange }: { value: string; onChange: (v: stri
    ════════════════════════════════════════════════════ */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, boardType, isArchived, listColumn,
+  quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onDuplicate, onPatch, boardType, isArchived, listColumn,
 }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
@@ -766,6 +767,7 @@ function QuoteCard({
   onRestore: (id: string) => void
   onEdit: (id: string) => void
   onConvertToJob?: (id: string) => void
+  onDuplicate?: (id: string) => void
   onPatch: (id: string, patch: Record<string, unknown>) => void
   boardType: "quote" | "job"
   isArchived?: boolean
@@ -940,6 +942,12 @@ function QuoteCard({
                 className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Edit Quote">
                 <Pencil className="h-3.5 w-3.5" />
               </button>
+              {!isArchived && onDuplicate && (
+                <button onClick={(e) => { e.stopPropagation(); onDuplicate(quote.id) }}
+                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-blue-600 hover:bg-background border border-transparent hover:border-border" title="Duplicate Quote">
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              )}
               {!isArchived && (
                 <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
                   className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-background border border-transparent hover:border-border" title="Archive">
@@ -1298,11 +1306,11 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
    DROPPABLE COLUMN
    ════════════════════════════════════════════════════ */
 
-function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, boardType }: {
+function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onDuplicate, onPatch, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void; onDelete: (id: string) => void
   onArchive: (id: string) => void; onRestore: (id: string) => void; onEdit: (id: string) => void
-  onConvertToJob?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void; boardType: "quote" | "job"
+  onConvertToJob?: (id: string) => void; onDuplicate?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void; boardType: "quote" | "job"
 }) {
   const [dragOver, setDragOver] = useState(false)
   const colTotal = quotes.reduce((s, q) => s + Number(q.total), 0)
@@ -1333,7 +1341,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
           <QuoteCard key={q.id} quote={q} columns={allColumns}
             onColumnChange={onColumnChange} onDelete={onDelete} onArchive={onArchive}
             onRestore={onRestore} onEdit={onEdit} onConvertToJob={onConvertToJob}
-            onPatch={onPatch} boardType={boardType} />
+            onDuplicate={onDuplicate} onPatch={onPatch} boardType={boardType} />
         ))}
       </div>
     </div>
@@ -1393,9 +1401,38 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   }, [refreshAll])
 
   const handlePatch = useCallback(async (id: string, patch: Record<string, unknown>) => {
-    await fetch(`/api/quotes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
-    refreshAll()
+  await fetch(`/api/quotes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
+  refreshAll()
   }, [refreshAll])
+
+  const handleDuplicate = useCallback(async (id: string) => {
+    const source = (quotes || []).find((q) => q.id === id)
+    if (!source) return
+    const { toast } = await import("sonner")
+    const payload = {
+      project_name: `${source.project_name} (Copy)`,
+      items: source.items || [],
+      total: source.total || 0,
+      quantity: source.quantity || 0,
+      mailing_pieces: source.mailing_pieces || [],
+      customer_id: source.customer_id || null,
+      contact_name: source.contact_name || "",
+      reference_number: "",
+      notes: source.notes || null,
+      status: "draft",
+      column_id: source.column_id,
+    }
+    const res = await fetch("/api/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json()
+    if (data.id) {
+      toast.success("Quote duplicated", { description: payload.project_name })
+      refreshAll()
+    }
+  }, [quotes, refreshAll])
 
   const handleConvertToJob = useCallback(async (id: string) => {
     // Find the quote to extract data from
@@ -1559,6 +1596,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                   onRestore={handleRestore} onPatch={handlePatch}
                   onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                  onDuplicate={boardType === "quote" ? handleDuplicate : undefined}
                   boardType={boardType} isArchived />
               ))}
             </div>
@@ -1573,12 +1611,13 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             {cols.map((col) => {
               const colQuotes = filteredQuotes.filter((q) => q.column_id === col.id)
               return (
-                <DroppableColumn key={col.id} col={col} quotes={colQuotes} allColumns={cols}
-                  onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                  onRestore={handleRestore} onPatch={handlePatch}
-                  onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
-                  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                  boardType={boardType} />
+<DroppableColumn key={col.id} col={col} quotes={colQuotes} allColumns={cols}
+  onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
+  onRestore={handleRestore} onPatch={handlePatch}
+  onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
+  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+  onDuplicate={boardType === "quote" ? handleDuplicate : undefined}
+  boardType={boardType} />
               )
             })}
           </div>
@@ -1597,6 +1636,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                 onRestore={handleRestore} onPatch={handlePatch}
                 onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                 onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                onDuplicate={boardType === "quote" ? handleDuplicate : undefined}
                 boardType={boardType} listColumn={col} />
             )
           })}
@@ -1621,6 +1661,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                   onRestore={handleRestore} onPatch={handlePatch}
                   onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                  onDuplicate={boardType === "quote" ? handleDuplicate : undefined}
                   boardType={boardType} />
               ))}
             </div>

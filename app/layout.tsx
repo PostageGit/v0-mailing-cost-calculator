@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Toaster } from 'sonner'
 
 import './globals.css'
 
@@ -26,7 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="bg-background">
-      <body className={`${_inter.variable} ${_jetbrainsMono.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${_inter.variable} ${_jetbrainsMono.variable} font-sans antialiased`}>
+        {children}
+        <Toaster position="bottom-right" richColors closeButton />
+      </body>
     </html>
   )
 }

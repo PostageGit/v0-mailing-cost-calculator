@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       items: body.items || [],
       total: body.total || 0,
       quantity: body.quantity || 0,
+      mailing_pieces: body.mailing_pieces || [],
       notes: body.notes || null,
       customer_id: body.customer_id || null,
       contact_name: body.contact_name || "",
