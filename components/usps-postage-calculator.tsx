@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
 import {
   Select,
   SelectContent,
@@ -15,16 +14,23 @@ import { useMailing } from "@/lib/mailing-context"
 import { formatCurrency } from "@/lib/pricing"
 import {
   calculateUSPSPostage,
+  calculateTab2Postage,
   formatPostageRate,
-  SORT_LABELS,
+  getActiveTiers,
   ENTRY_LABELS,
   SHAPE_LABELS,
   SPECS,
   type USPSInputs,
   type USPSEntry,
-  type SortLevel,
+  type USPSMailType,
+  type Tab2Inputs,
+  type Tab2Service,
+  type Tab2PSEntry,
+  type Tab2BPMShape,
+  type Tab2BPMSort,
+  type Tab2BPMEntry,
 } from "@/lib/usps-rates"
-import { Plus, AlertTriangle, AlertCircle, Info, ChevronDown } from "lucide-react"
+import { Plus, AlertTriangle, AlertCircle, Info } from "lucide-react"
 
 /* ── Compact pill ── */
 function Pill({
@@ -68,15 +74,15 @@ function Pill({
 }
 
 /* ── Sort level button with big price ── */
-function SortBtn({
+function TierBtn({
   active,
   rate,
-  sortLabel,
+  label,
   onClick,
 }: {
   active: boolean
   rate: number
-  sortLabel: string
+  label: string
   onClick: () => void
 }) {
   return (
@@ -97,13 +103,286 @@ function SortBtn({
           active ? "text-background/60" : "text-muted-foreground"
         }`}
       >
-        {sortLabel}
+        {label}
       </span>
     </button>
   )
 }
 
-export function USPSPostageCalculator() {
+/* ── Alert bar ── */
+function AlertBar({ alerts }: { alerts: { type: "error" | "warning" | "info"; message: string }[] }) {
+  if (alerts.length === 0) return null
+  return (
+    <div className="flex flex-col gap-2">
+      {alerts.map((alert, idx) => (
+        <div
+          key={idx}
+          className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${
+            alert.type === "error"
+              ? "bg-destructive/10 text-destructive"
+              : alert.type === "warning"
+                ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
+                : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {alert.type === "error" ? (
+            <AlertCircle className="h-4 w-4 shrink-0" />
+          ) : alert.type === "warning" ? (
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+          ) : (
+            <Info className="h-4 w-4 shrink-0" />
+          )}
+          {alert.message}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ── Results bar ── */
+function ResultsBar({
+  isValid,
+  perPiece,
+  total,
+  disabled,
+  onAdd,
+}: {
+  isValid: boolean
+  perPiece: number
+  total: number
+  disabled: boolean
+  onAdd: () => void
+}) {
+  return (
+    <div className="sticky bottom-4 z-20">
+      <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-baseline gap-6 sm:gap-8">
+          <div>
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+              Per Piece
+            </span>
+            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
+              {isValid ? formatPostageRate(perPiece) : "---"}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+              Total
+            </span>
+            <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
+              {isValid ? formatCurrency(total) : "$0.00"}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={onAdd}
+          disabled={disabled}
+          className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
+        >
+          <Plus className="h-4 w-4" />
+          Add to Quote
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB 2 COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
+function Tab2Parcels() {
+  const [inputs, setInputs] = useState<Tab2Inputs>({
+    service: "PS",
+    quantity: 500,
+    weight: 1,
+    psEntry: "DDU",
+    psOversized: false,
+    bpmShape: "FL",
+    bpmSort: "NP",
+    bpmEntry: "NONE",
+  })
+
+  const result = useMemo(() => calculateTab2Postage(inputs), [inputs])
+  const quote = useQuote()
+
+  const update = useCallback((partial: Partial<Tab2Inputs>) => {
+    setInputs((prev) => {
+      const next = { ...prev, ...partial }
+      // Reset bpmEntry when switching to NP
+      if (partial.bpmSort === "NP") next.bpmEntry = "NONE"
+      return next
+    })
+  }, [])
+
+  const handleAddToQuote = useCallback(() => {
+    if (!result.isValid) return
+    quote.addItem({
+      category: "postage",
+      label: `USPS ${result.description} - ${inputs.quantity.toLocaleString()} pc`,
+      description: result.rateInfo,
+      amount: result.total,
+    })
+  }, [result, inputs.quantity, quote])
+
+  const svcOptions: { key: Tab2Service; label: string; sub: string }[] = [
+    { key: "PS", label: "Parcel Select", sub: "Destination Entry" },
+    { key: "MM", label: "Media Mail", sub: "Books, CDs, DVDs" },
+    { key: "LM", label: "Library Mail", sub: "Library Materials" },
+    { key: "BPM", label: "Bound Printed", sub: "Catalogs, Dirs" },
+  ]
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Service selector */}
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col gap-5">
+        <div>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+            Mail Class
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {svcOptions.map((s) => (
+              <Pill key={s.key} active={inputs.service === s.key} onClick={() => update({ service: s.key })} label={s.label} sub={s.sub} />
+            ))}
+          </div>
+        </div>
+
+        <hr className="border-border" />
+
+        {/* Parcel Select options */}
+        {inputs.service === "PS" && (
+          <div>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+              Entry Point
+            </label>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {(["DDU", "DHUB", "DSCF"] as Tab2PSEntry[]).map((e) => (
+                <Pill
+                  key={e}
+                  active={inputs.psEntry === e}
+                  onClick={() => update({ psEntry: e })}
+                  label={e}
+                  sub={{ DDU: "Carrier Unit", DHUB: "Hub Facility", DSCF: "Sect. Center" }[e]}
+                />
+              ))}
+            </div>
+            <label className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border cursor-pointer">
+              <input
+                type="checkbox"
+                checked={inputs.psOversized}
+                onChange={(e) => update({ psOversized: e.target.checked })}
+                className="accent-foreground w-4 h-4"
+              />
+              <div>
+                <span className="text-sm font-semibold">Oversized</span>
+                <span className="block text-xs text-muted-foreground">{'L+Girth 108"-130" (flat rate regardless of weight)'}</span>
+              </div>
+            </label>
+          </div>
+        )}
+
+        {/* BPM options */}
+        {inputs.service === "BPM" && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Shape</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Pill active={inputs.bpmShape === "FL"} onClick={() => update({ bpmShape: "FL" })} label="Flats" sub="Large Envelopes" />
+                <Pill active={inputs.bpmShape === "PC"} onClick={() => update({ bpmShape: "PC" })} label="Parcels" sub="Packages" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Sort Level</label>
+              <div className="grid grid-cols-3 gap-2">
+                <Pill active={inputs.bpmSort === "NP"} onClick={() => update({ bpmSort: "NP" })} label="Nonpresorted" />
+                <Pill active={inputs.bpmSort === "CR"} onClick={() => update({ bpmSort: "CR" })} label="Carrier Route" />
+                <Pill active={inputs.bpmSort === "PS"} onClick={() => update({ bpmSort: "PS" })} label="Presorted" />
+              </div>
+            </div>
+            {(inputs.bpmSort === "CR" || inputs.bpmSort === "PS") && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Entry Point</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["NONE", "DSCF", "DDU"] as Tab2BPMEntry[]).map((e) => (
+                    <Pill
+                      key={e}
+                      active={inputs.bpmEntry === e}
+                      onClick={() => update({ bpmEntry: e })}
+                      label={e === "NONE" ? "None" : e}
+                      sub={e === "NONE" ? "Origin" : e === "DSCF" ? "Sect. Center" : "Carrier Unit"}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <hr className="border-border" />
+
+        {/* Quantity + Weight */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="p2-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Quantity
+            </label>
+            <Input
+              id="p2-qty"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              autoComplete="off"
+              placeholder="500"
+              className="h-11 font-mono text-base"
+              value={inputs.quantity || ""}
+              onChange={(e) => update({ quantity: parseInt(e.target.value) || 0 })}
+            />
+          </div>
+          <div>
+            <label htmlFor="p2-wt" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+              Weight (lbs)
+            </label>
+            <Input
+              id="p2-wt"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min={0.01}
+              autoComplete="off"
+              placeholder="1"
+              className="h-11 font-mono text-base"
+              value={inputs.weight || ""}
+              onChange={(e) => update({ weight: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+        </div>
+
+        {/* Rate info */}
+        {result.rateInfo && (
+          <div className="bg-secondary/50 border border-border rounded-xl p-4 text-sm font-semibold text-foreground">
+            {result.rateInfo}
+          </div>
+        )}
+      </div>
+
+      <AlertBar alerts={result.alerts} />
+
+      <ResultsBar
+        isValid={result.isValid}
+        perPiece={result.perPiece}
+        total={result.total}
+        disabled={!result.isValid}
+        onAdd={handleAddToQuote}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB 1 COMPONENT (Letters & Flats)
+// ═══════════════════════════════════════════════════════════════
+
+function Tab1LettersFlats() {
   const [inputs, setInputs] = useState<USPSInputs>({
     service: "FCM_COMM",
     shape: "LETTER",
@@ -111,10 +390,13 @@ export function USPSPostageCalculator() {
     quantity: 5000,
     saturationQty: 0,
     weight: 1,
-    sortLevel: 1,
+    tierIndex: 0,
     entry: "ORIGIN",
+    mailType: "AUTO",
+    isNonMachinable: false,
   })
 
+  const tiers = useMemo(() => getActiveTiers(inputs.service, inputs.shape, inputs.mailType), [inputs.service, inputs.shape, inputs.mailType])
   const result = useMemo(() => calculateUSPSPostage(inputs), [inputs])
   const quote = useQuote()
   const mailing = useMailing()
@@ -179,14 +461,21 @@ export function USPSPostageCalculator() {
   const update = useCallback((partial: Partial<USPSInputs>) => {
     setInputs((prev) => {
       const next = { ...prev, ...partial }
-      if (
-        (next.service === "MKT_COMM" || next.service === "MKT_NP") &&
-        next.shape === "POSTCARD"
-      ) {
+      // Postcards are FCM only
+      if ((next.service === "MKT_COMM" || next.service === "MKT_NP") && next.shape === "POSTCARD") {
         next.shape = "LETTER"
       }
       if (next.service === "FCM_RETAIL") {
         next.saturationQty = 0
+      }
+      // Auto-detect NM from pack
+      if (partial.pack === "PLAS" && next.shape === "LETTER") {
+        next.isNonMachinable = true
+      }
+      // Clamp tier index when tiers change
+      const newTiers = getActiveTiers(next.service, next.shape, next.mailType)
+      if (newTiers.length > 0 && next.tierIndex >= newTiers.length) {
+        next.tierIndex = newTiers.length - 1
       }
       return next
     })
@@ -211,7 +500,7 @@ export function USPSPostageCalculator() {
 
   useEffect(() => {
     if (!hasDimensions || shapeOverride) return
-    if (suggestedShapes.length > 0 && !suggestedShapes.includes(inputs.shape as any)) {
+    if (suggestedShapes.length > 0 && !suggestedShapes.includes(inputs.shape as "POSTCARD" | "LETTER" | "FLAT")) {
       const isMktService = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
       const validShapes = isMktService
         ? suggestedShapes.filter((s) => s !== "POSTCARD")
@@ -232,12 +521,13 @@ export function USPSPostageCalculator() {
   const postcardDisabled = isShapeDisabled("POSTCARD")
   const showSaturation = isMkt
   const showEntryPoint = isMkt
-  const showSortSlider = !isRetail
+  const showSortSection = !isRetail
+  const showMailType = isMkt
   const remainingQty = inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
   const spec = SPECS[inputs.shape]
 
   return (
-    <div className="flex flex-col gap-5 max-w-3xl">
+    <div className="flex flex-col gap-5">
       {/* Planner detection banner */}
       {mailing.outerPiece && (
         <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3 flex items-center gap-3">
@@ -246,7 +536,7 @@ export function USPSPostageCalculator() {
             Auto-detected from planner:
             <strong className="text-foreground ml-1">{mailing.outerPiece.label}</strong>
             {mailing.outerPiece.width && mailing.outerPiece.height && (
-              <span className="font-mono ml-1 text-foreground">{mailing.outerPiece.width}" x {mailing.outerPiece.height}"</span>
+              <span className="font-mono ml-1 text-foreground">{mailing.outerPiece.width}{'" x '}{mailing.outerPiece.height}{'"'}</span>
             )}
           </p>
         </div>
@@ -306,6 +596,24 @@ export function USPSPostageCalculator() {
             </div>
           </div>
         </div>
+
+        {/* NM toggle for letters */}
+        {inputs.shape === "LETTER" && (
+          <div className="flex gap-4">
+            <label className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border cursor-pointer">
+              <input
+                type="checkbox"
+                checked={inputs.isNonMachinable}
+                onChange={(e) => update({ isNonMachinable: e.target.checked })}
+                className="accent-foreground w-4 h-4"
+              />
+              <div>
+                <span className="text-sm font-semibold">Non-Machinable</span>
+                <span className="block text-xs text-muted-foreground">Square, rigid, or poly-bagged letters</span>
+              </div>
+            </label>
+          </div>
+        )}
 
         <hr className="border-border" />
 
@@ -370,26 +678,44 @@ export function USPSPostageCalculator() {
           )}
         </div>
 
-        {/* Sort Level */}
-        {showSortSlider && (
+        {/* Sort Level & Entry */}
+        {showSortSection && (
           <>
             <hr className="border-border" />
+
+            {/* Auto / CR toggle (MKT/NP only) */}
+            {showMailType && (
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+                  Mail Preparation
+                </label>
+                <div className="grid grid-cols-2 gap-2 max-w-sm">
+                  <Pill active={inputs.mailType === "AUTO"} onClick={() => update({ mailType: "AUTO", tierIndex: 0 })} label="Automation" sub="Mixed/AADC/5-Digit" />
+                  <Pill active={inputs.mailType === "CR"} onClick={() => update({ mailType: "CR", tierIndex: 0 })} label="Carrier Route" sub="CR Basic/HD/HD+" />
+                </div>
+              </div>
+            )}
+
             <div className={`grid gap-6 ${showEntryPoint ? "grid-cols-1 sm:grid-cols-[1fr_180px]" : "grid-cols-1"}`}>
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sort Level</label>
-                  <span className="text-sm text-muted-foreground">
-                    Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong>
-                  </span>
+                  {showSaturation && (
+                    <span className="text-sm text-muted-foreground">
+                      Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong>
+                    </span>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {([1, 2, 3] as SortLevel[]).map((level) => (
-                    <SortBtn
-                      key={level}
-                      active={inputs.sortLevel === level}
-                      rate={result.rateAtLevel[level]}
-                      sortLabel={SORT_LABELS[level].split(" (")[0]}
-                      onClick={() => update({ sortLevel: level })}
+                <div className={`grid gap-2 ${tiers.length === 4 ? "grid-cols-2 sm:grid-cols-4" : `grid-cols-${Math.min(tiers.length, 3)} sm:grid-cols-${Math.min(tiers.length, 3)}`}`}
+                  style={{ gridTemplateColumns: `repeat(${Math.min(tiers.length || 1, 4)}, minmax(0, 1fr))` }}
+                >
+                  {result.tierPrices.map((tp, i) => (
+                    <TierBtn
+                      key={tp.tier.k}
+                      active={inputs.tierIndex === i}
+                      rate={tp.price}
+                      label={tp.tier.l}
+                      onClick={() => update({ tierIndex: i })}
                     />
                   ))}
                 </div>
@@ -426,76 +752,67 @@ export function USPSPostageCalculator() {
           {hasDimensions && suggestedShapes.length === 0 && (
             <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2.5 text-sm font-medium">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {mailing.mailerWidth}" x {mailing.mailerHeight}" is too small for any USPS mail shape. Check dimensions.
+              {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} is too small for any USPS mail shape. Check dimensions.
             </div>
           )}
-          {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as any) && (
+          {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as "POSTCARD" | "LETTER" | "FLAT") && (
             <div className="flex items-center gap-2 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2.5 text-sm font-medium">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              {mailing.mailerWidth}" x {mailing.mailerHeight}" does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
+              {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
             </div>
           )}
         </div>
       </div>
 
-      {/* Alerts */}
-      {result.alerts.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {result.alerts.map((alert, idx) => (
-            <div
-              key={idx}
-              className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${
-                alert.type === "error"
-                  ? "bg-destructive/10 text-destructive"
-                  : alert.type === "warning"
-                    ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
-                    : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {alert.type === "error" ? (
-                <AlertCircle className="h-4 w-4 shrink-0" />
-              ) : alert.type === "warning" ? (
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-              ) : (
-                <Info className="h-4 w-4 shrink-0" />
-              )}
-              {alert.message}
-            </div>
-          ))}
-        </div>
-      )}
+      <AlertBar alerts={result.alerts} />
 
-      {/* ── Sticky results bar ── */}
-      <div className="sticky bottom-4 z-20">
-        <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="flex items-baseline gap-6 sm:gap-8">
-            <div>
-              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-                Per Piece
-              </span>
-              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
-                {result.isValid ? formatPostageRate(result.avgPerPiece) : "---"}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-                Total
-              </span>
-              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
-                {result.isValid ? formatCurrency(result.total) : "$0.00"}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={handleAddToQuote}
-            disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
-            className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
-          >
-            <Plus className="h-4 w-4" />
-            Add to Quote
-          </button>
-        </div>
+      <ResultsBar
+        isValid={result.isValid}
+        perPiece={result.avgPerPiece}
+        total={result.total}
+        disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
+        onAdd={handleAddToQuote}
+      />
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN EXPORT -- Tab switcher
+// ═══════════════════════════════════════════════════════════════
+
+export function USPSPostageCalculator() {
+  const [activeTab, setActiveTab] = useState<1 | 2>(1)
+
+  return (
+    <div className="flex flex-col gap-4 max-w-3xl">
+      {/* Tab nav */}
+      <div className="flex gap-1 p-1 rounded-xl bg-secondary/50 border border-border">
+        <button
+          type="button"
+          onClick={() => setActiveTab(1)}
+          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 1
+              ? "bg-foreground text-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Letters & Flats
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab(2)}
+          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 2
+              ? "bg-foreground text-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Parcels & Special
+        </button>
       </div>
+
+      {activeTab === 1 ? <Tab1LettersFlats /> : <Tab2Parcels />}
     </div>
   )
 }
