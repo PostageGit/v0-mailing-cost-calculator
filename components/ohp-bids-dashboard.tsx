@@ -38,8 +38,20 @@ interface Vendor { id: string; company_name: string; is_internal: boolean; picku
 type StatusFilter = "all" | "open" | "awarded" | "closed"
 type SortField = "job" | "item" | "status" | "prices"
 
+const CATEGORY_LABELS: Record<string, string> = {
+  flat: "Flat / Card",
+  booklet: "Booklet",
+  spiral: "Spiral Bound",
+  perfect: "Perfect Bound",
+  envelope: "Envelope",
+  ohp: "OHP",
+}
+function categoryLabel(cat: string) { return CATEGORY_LABELS[cat] ?? cat.charAt(0).toUpperCase() + cat.slice(1) }
+
 const fetcher = async (url: string) => {
-  const r = await fetch(url); if (!r.ok) throw new Error("Fetch failed"); return r.json()
+  const r = await fetch(url)
+  if (!r.ok) throw new Error("Fetch failed")
+  return r.json()
 }
 
 /* ── In-house price matching ── */
@@ -203,7 +215,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
             className="h-9 text-sm font-medium bg-secondary/30 border border-border/50 rounded-lg px-3 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer">
             <option value="">All Types</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            {categories.map((c) => <option key={c} value={c}>{categoryLabel(c)}</option>)}
           </select>
         </div>
       </div>
