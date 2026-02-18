@@ -655,6 +655,23 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               </div>
             )}
           </div>
+          {shapes.includes("PARCEL") && !shapes.includes("POSTCARD") && !shapes.includes("LETTER") && !shapes.includes("FLAT") && (
+            <div className="mt-2 rounded-lg bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/20 px-3 py-2">
+              <p className="text-xs text-purple-800 dark:text-purple-300 font-medium mb-1">
+                This piece exceeds standard mail dimensions. Available shipping options:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {["Parcel Select", "Media Mail", "Library Mail", "Bound Printed Matter (BPM)"].map((svc) => (
+                  <span key={svc} className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-800/30 px-2.5 py-0.5 text-[10px] font-medium text-purple-700 dark:text-purple-300">
+                    {svc}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Use the "Parcels & Special" tab in postage pricing for rates.
+              </p>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground mt-2">Based on outer piece dimensions ({m.mailerWidth}" x {m.mailerHeight}")</p>
         </div>
       )}
