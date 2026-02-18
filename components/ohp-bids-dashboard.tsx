@@ -88,13 +88,18 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
       list = list.filter((b) => {
         const qNum = b.quotes?.quote_number ? `Q-${b.quotes.quote_number}` : ""
         const jNum = b.quotes?.job_number ? `J-${b.quotes.job_number}` : ""
+        const vendorNames = (b.vendor_bid_prices || [])
+          .map((p: any) => p.vendors?.company_name || "")
+          .join(" ")
+          .toLowerCase()
         return (
           b.item_label.toLowerCase().includes(q) ||
           b.item_description?.toLowerCase().includes(q) ||
           b.quotes?.project_name.toLowerCase().includes(q) ||
           b.quotes?.contact_name?.toLowerCase().includes(q) ||
           qNum.toLowerCase().includes(q) ||
-          jNum.toLowerCase().includes(q)
+          jNum.toLowerCase().includes(q) ||
+          vendorNames.includes(q)
         )
       })
     }
