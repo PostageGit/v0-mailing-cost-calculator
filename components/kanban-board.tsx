@@ -230,6 +230,56 @@ function FieldInput({ label, value, onChange, placeholder, type = "text" }: {
   )
 }
 
+/* ==== ETA Date Field with relative day badges ==== */
+function EtaDateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [local, setLocal] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { setLocal(value) }, [value])
+  const commit = () => { if (local !== value) onChange(local) }
+
+  const getRelative = (dateStr: string) => {
+    if (!dateStr) return null
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const d = new Date(dateStr + "T00:00:00"); d.setHours(0, 0, 0, 0)
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+    if (diff < -1) return { label: `${Math.abs(diff)}d overdue`, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200/50 dark:border-red-800/30" }
+    if (diff === -1) return { label: "Yesterday", color: "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 border-red-200/40 dark:border-red-800/30" }
+    if (diff === 0) return { label: "Today", color: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200/50 dark:border-amber-800/30" }
+    if (diff === 1) return { label: "Tomorrow", color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-800/30" }
+    if (diff <= 7) return { label: `In ${diff}d`, color: "bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border-teal-200/50 dark:border-teal-800/30" }
+    return null
+  }
+  const rel = getRelative(local)
+
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className="text-[10px] text-muted-foreground font-medium">ETA</span>
+        {rel && (
+          <span className={cn("text-[9px] font-semibold px-1.5 py-0 rounded border leading-relaxed", rel.color)}>
+            {rel.label}
+          </span>
+        )}
+      </div>
+      <input ref={ref} type="date" value={local}
+        onChange={(e) => { setLocal(e.target.value); }}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") { commit(); ref.current?.blur() } }}
+        className={cn(
+          "w-full text-xs font-medium bg-background border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all",
+          rel && (rel.label === "Yesterday" || rel.label.includes("overdue"))
+            ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
+            : rel && rel.label === "Today"
+              ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
+              : rel && rel.label === "Tomorrow"
+                ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
+                : "text-foreground border-border"
+        )}
+      />
+    </div>
+  )
+}
+
 function FieldSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: string[]
   }) {
@@ -1235,7 +1285,7 @@ function QuoteCard({
                                 )}
                               </select>
                             </div>
-                            <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
+                            <EtaDateField value={pm.expected_date || ""} onChange={(v) => setPm(i, { expected_date: v })} />
                           </div>
                           <div className="mt-2">
                             <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
