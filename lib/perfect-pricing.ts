@@ -1,6 +1,7 @@
 // ─── Perfect Binding Pricing Engine ──────────────────────
 import type { PerfectInputs, PerfectPartInputs, PerfectPartResult, PerfectCalcResult, PaperOption } from "./perfect-types"
 import { PAPER_OPTIONS } from "./perfect-types"
+import { SPECIALTY_SHEET_SIZES } from "./printing-pricing"
 
 // ─── Constants ───────────────────────────────────────────
 const BLEED_MARGIN = 0.25
@@ -176,7 +177,9 @@ function calculatePart(
   if (part.sheetSize === "cheapest") {
     let best: ReturnType<typeof calcForSize> = null
     let minCost = Infinity
-    for (const sz of paperData.availableSizes) {
+    // Exclude specialty/large-format sizes from auto "cheapest" pick
+    const standardSizes = paperData.availableSizes.filter((s) => !SPECIALTY_SHEET_SIZES.has(s))
+    for (const sz of standardSizes) {
       const r = calcForSize(sz)
       if (r && r.cost < minCost) { minCost = r.cost; best = r }
     }

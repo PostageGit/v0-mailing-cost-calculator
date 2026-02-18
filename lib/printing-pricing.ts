@@ -54,6 +54,13 @@ export const CLICK_COST_SHEET_MULTIPLIERS: Record<string, number> = {
   "13x26": 3,
 }
 
+/**
+ * Specialty / large-format sheet sizes that should NOT be auto-selected as
+ * "cheapest". They are still shown in the options table / dropdown for manual
+ * selection (e.g. large brochures, perfect-binding covers).
+ */
+export const SPECIALTY_SHEET_SIZES = new Set(["13x26"])
+
 export const SIDES_RULES: Record<string, { name: string; clickAmount: number; clickType: string; machineClickAmount: number }> = {
   "S/S": { name: "B&W - Front Only", clickAmount: 1, clickType: "BW", machineClickAmount: 1 },
   "D/S": { name: "B&W - Both Sides", clickAmount: 2, clickType: "BW", machineClickAmount: 2 },
@@ -354,7 +361,13 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     })
   }
 
-  return results.sort((a, b) => a.price - b.price)
+  // Sort standard sizes by price (cheapest first), specialty sizes always at the end
+  return results.sort((a, b) => {
+    const aSpec = SPECIALTY_SHEET_SIZES.has(a.size) ? 1 : 0
+    const bSpec = SPECIALTY_SHEET_SIZES.has(b.size) ? 1 : 0
+    if (aSpec !== bSpec) return aSpec - bSpec
+    return a.price - b.price
+  })
 }
 
 export function buildFullResult(

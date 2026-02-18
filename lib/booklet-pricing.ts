@@ -5,7 +5,7 @@ import type {
   BookletCalcResult,
 } from "./booklet-types"
 import { getActiveConfig, calculateFinishingCost } from "./pricing-config"
-import { CLICK_COST_SHEET_MULTIPLIERS } from "./printing-pricing"
+import { CLICK_COST_SHEET_MULTIPLIERS, SPECIALTY_SHEET_SIZES } from "./printing-pricing"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -245,7 +245,9 @@ function calculatePartCost(
   if (sheetSizeSelection === "cheapest") {
     let best: PartCalcResult | null = null
     let minCost = Infinity
-    for (const size of paperData.availableSizes) {
+    // Exclude specialty/large-format sizes from auto "cheapest" pick
+    const standardSizes = paperData.availableSizes.filter((s) => !SPECIALTY_SHEET_SIZES.has(s))
+    for (const size of standardSizes) {
       const result = calcForSize(size)
       if (result && result.cost < minCost) {
         minCost = result.cost

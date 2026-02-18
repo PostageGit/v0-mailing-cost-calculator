@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -9,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatCurrency } from "@/lib/printing-pricing"
+import { formatCurrency, SPECIALTY_SHEET_SIZES } from "@/lib/printing-pricing"
 import type { SheetOptionRow } from "@/lib/printing-types"
 
 interface SheetOptionsTableProps {
@@ -46,7 +47,16 @@ export function SheetOptionsTable({ options, onSelectSheet, selectedSize }: Shee
                   key={option.size}
                   className={isSelected ? "bg-primary/5 border-primary/20" : "hover:bg-muted/30"}
                 >
-                  <TableCell className="font-medium">{option.size}</TableCell>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      {option.size}
+                      {SPECIALTY_SHEET_SIZES.has(option.size) && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-normal text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700">
+                          Large Format
+                        </Badge>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell>{option.ups}</TableCell>
                   <TableCell>{option.sheets.toLocaleString()}</TableCell>
                   <TableCell>{option.totalCuts}</TableCell>

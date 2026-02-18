@@ -111,9 +111,15 @@ export function SpiralForm({
           <SelectTrigger><SelectValue placeholder="Sheet Size" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="cheapest">Cheapest</SelectItem>
-            {sizes.map((s) => (
+            {sizes.filter((s) => s !== "13x26").map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
+            {sizes.includes("13x26") && (
+              <>
+                <Separator className="my-1" />
+                <SelectItem value="13x26" className="text-amber-600 dark:text-amber-400">13x26 (Large Format)</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>

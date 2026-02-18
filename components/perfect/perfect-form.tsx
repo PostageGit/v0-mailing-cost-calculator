@@ -170,9 +170,15 @@ export function PerfectForm({
           <SelectContent>
             <SelectItem value="cheapest">Cheapest</SelectItem>
             {inputs.cover.paperName &&
-              getAvailableSizes(inputs.cover.paperName).map((s) => (
+              getAvailableSizes(inputs.cover.paperName).filter((s) => s !== "13x26").map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
+            {inputs.cover.paperName && getAvailableSizes(inputs.cover.paperName).includes("13x26") && (
+              <>
+                <Separator className="my-1" />
+                <SelectItem value="13x26" className="text-amber-600 dark:text-amber-400">13x26 (Large Format)</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -218,9 +224,15 @@ export function PerfectForm({
           <SelectContent>
             <SelectItem value="cheapest">Cheapest</SelectItem>
             {inputs.inside.paperName &&
-              getAvailableSizes(inputs.inside.paperName).map((s) => (
+              getAvailableSizes(inputs.inside.paperName).filter((s) => s !== "13x26").map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
+            {inputs.inside.paperName && getAvailableSizes(inputs.inside.paperName).includes("13x26") && (
+              <>
+                <Separator className="my-1" />
+                <SelectItem value="13x26" className="text-amber-600 dark:text-amber-400">13x26 (Large Format)</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
