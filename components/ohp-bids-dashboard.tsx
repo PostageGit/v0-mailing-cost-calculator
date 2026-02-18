@@ -5,8 +5,8 @@ import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/pricing"
 import {
-  Search, Send, ExternalLink, CheckCircle2, Clock, XCircle,
-  ChevronDown, ChevronRight, Award, Inbox, Tag,
+  Search, Send, ExternalLink, CheckCircle2, Clock,
+  Award, Inbox, Tag, ArrowUpDown,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -43,19 +43,7 @@ interface DashboardBid {
 }
 
 type StatusFilter = "all" | "open" | "awarded" | "closed"
-
-/* ── Grouped row ── */
-interface GroupedJob {
-  quoteId: string
-  name: string
-  customer: string
-  isJob: boolean
-  jobNumber: number | null
-  quoteNumber: number | null
-  bids: DashboardBid[]
-  openCount: number
-  awardedCount: number
-}
+type SortField = "job" | "item" | "status" | "prices"
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -63,21 +51,15 @@ const fetcher = async (url: string) => {
   return r.json()
 }
 
-const STATUS_CARDS: { key: StatusFilter; label: string; color: string; bg: string; border: string; Icon: typeof Inbox }[] = [
-  { key: "open",    label: "Open Bids",  color: "text-sky-700 dark:text-sky-400",     bg: "bg-sky-50 dark:bg-sky-950/20",     border: "border-sky-200 dark:border-sky-800/40",     Icon: Inbox },
-  { key: "awarded", label: "Awarded",    color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/20", border: "border-emerald-200 dark:border-emerald-800/40", Icon: Award },
-  { key: "closed",  label: "Closed",     color: "text-muted-foreground",              bg: "bg-secondary/40",                  border: "border-border",                              Icon: XCircle },
-]
-
 export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: string, step?: string) => void }) {
   const { data: bids } = useSWR<DashboardBid[]>("/api/vendor-bids/dashboard", fetcher, { refreshInterval: 15000 })
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [categoryFilter, setCategoryFilter] = useState("")
-  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
+  const [sortField, setSortField] = useState<SortField>("status")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 
-  // Counts for summary cards
   const counts = useMemo(() => {
     if (!bids) return { open: 0, awarded: 0, closed: 0, total: 0 }
     return {
@@ -88,72 +70,66 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
     }
   }, [bids])
 
-  // Unique categories
   const categories = useMemo(() => {
     if (!bids) return []
     return [...new Set(bids.map((b) => b.item_category))].sort()
   }, [bids])
 
-  // Group bids by quote
-  const grouped = useMemo(() => {
+  // Flatten bids into rows with job context
+  const rows = useMemo(() => {
     if (!bids) return []
 
-    let filtered = [...bids]
+    let list = [...bids]
 
-    // Status filter
-    if (statusFilter !== "all") filtered = filtered.filter((b) => b.status === statusFilter)
-
-    // Category filter
-    if (categoryFilter) filtered = filtered.filter((b) => b.item_category === categoryFilter)
-
-    // Search
+    if (statusFilter !== "all") list = list.filter((b) => b.status === statusFilter)
+    if (categoryFilter) list = list.filter((b) => b.item_category === categoryFilter)
     if (search) {
       const q = search.toLowerCase()
-      filtered = filtered.filter((b) =>
-        b.item_label.toLowerCase().includes(q) ||
-        b.item_description?.toLowerCase().includes(q) ||
-        b.quotes?.project_name.toLowerCase().includes(q) ||
-        b.quotes?.contact_name?.toLowerCase().includes(q)
-      )
+      list = list.filter((b) => {
+        const qNum = b.quotes?.quote_number ? `Q-${b.quotes.quote_number}` : ""
+        const jNum = b.quotes?.job_number ? `J-${b.quotes.job_number}` : ""
+        return (
+          b.item_label.toLowerCase().includes(q) ||
+          b.item_description?.toLowerCase().includes(q) ||
+          b.quotes?.project_name.toLowerCase().includes(q) ||
+          b.quotes?.contact_name?.toLowerCase().includes(q) ||
+          qNum.toLowerCase().includes(q) ||
+          jNum.toLowerCase().includes(q)
+        )
+      })
     }
 
-    // Group by quote_id
-    const map = new Map<string, GroupedJob>()
-    for (const bid of filtered) {
-      const qid = bid.quote_id || "no-quote"
-      if (!map.has(qid)) {
-        map.set(qid, {
-          quoteId: qid,
-          name: bid.quotes?.project_name || "No Quote",
-          customer: bid.quotes?.contact_name || "-",
-          isJob: !!bid.quotes?.is_job,
-          jobNumber: bid.quotes?.job_number ?? null,
-          quoteNumber: bid.quotes?.quote_number ?? null,
-          bids: [],
-          openCount: 0,
-          awardedCount: 0,
-        })
+    // Sort
+    const statusOrder = { open: 0, awarded: 1, closed: 2 }
+    list.sort((a, b) => {
+      let cmp = 0
+      switch (sortField) {
+        case "job":
+          cmp = (a.quotes?.project_name || "").localeCompare(b.quotes?.project_name || "")
+          break
+        case "item":
+          cmp = a.item_label.localeCompare(b.item_label)
+          break
+        case "status":
+          cmp = statusOrder[a.status] - statusOrder[b.status]
+          break
+        case "prices": {
+          const aR = a.vendor_bid_prices.filter((p) => p.status === "received").length
+          const bR = b.vendor_bid_prices.filter((p) => p.status === "received").length
+          cmp = aR - bR
+          break
+        }
       }
-      const g = map.get(qid)!
-      g.bids.push(bid)
-      if (bid.status === "open") g.openCount++
-      if (bid.status === "awarded") g.awardedCount++
-    }
-
-    // Sort: jobs with open bids first, then by open count desc
-    return [...map.values()].sort((a, b) => {
-      if (a.openCount > 0 && b.openCount === 0) return -1
-      if (a.openCount === 0 && b.openCount > 0) return 1
-      return b.openCount - a.openCount
+      return sortDir === "asc" ? cmp : -cmp
     })
-  }, [bids, search, statusFilter, categoryFilter])
 
-  const toggleExpand = (qid: string) =>
-    setExpandedJobs((prev) => {
-      const next = new Set(prev)
-      next.has(qid) ? next.delete(qid) : next.add(qid)
-      return next
-    })
+    return list
+  }, [bids, search, statusFilter, categoryFilter, sortField, sortDir])
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir((d) => d === "asc" ? "desc" : "asc")
+    else { setSortField(field); setSortDir("asc") }
+  }
 
   if (!bids) {
     return (
@@ -166,239 +142,206 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 px-4 sm:px-6 pt-5 pb-4 border-b border-border/40 bg-background">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-xl bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
-            <Send className="h-4 w-4 text-sky-700 dark:text-sky-400" />
+      <div className="shrink-0 px-4 sm:px-6 pt-4 pb-3 border-b border-border/40 bg-background">
+        {/* Title + stats inline */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-8 w-8 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
+            <Send className="h-3.5 w-3.5 text-sky-700 dark:text-sky-400" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-foreground leading-tight">OHP Bids</h1>
-            <p className="text-[11px] text-muted-foreground">{counts.total} total bids across {grouped.length} jobs</p>
+          <h1 className="text-base font-bold text-foreground">OHP Bids</h1>
+          {/* Inline stat pills */}
+          <div className="flex items-center gap-1.5 ml-auto">
+            {([
+              { key: "open" as StatusFilter, label: "Open", count: counts.open, color: "text-sky-700 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-950/30", border: "border-sky-200/60 dark:border-sky-800/40" },
+              { key: "awarded" as StatusFilter, label: "Awarded", count: counts.awarded, color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-200/60 dark:border-emerald-800/40" },
+              { key: "closed" as StatusFilter, label: "Closed", count: counts.closed, color: "text-muted-foreground", bg: "bg-secondary/40", border: "border-border" },
+            ]).map(({ key, label, count, color, bg, border }) => {
+              const active = statusFilter === key
+              return (
+                <button key={key} onClick={() => setStatusFilter(active ? "all" : key)}
+                  className={cn(
+                    "h-7 px-2.5 rounded-md border text-[10px] font-bold tabular-nums flex items-center gap-1.5 transition-all",
+                    active ? cn(bg, border, color, "ring-1 ring-ring/10") : "border-border bg-card text-muted-foreground/60 hover:bg-secondary/30"
+                  )}
+                >
+                  <span>{count}</span>
+                  <span className="font-semibold">{label}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {STATUS_CARDS.map(({ key, label, color, bg, border, Icon }) => {
-            const count = counts[key as keyof typeof counts] || 0
-            const active = statusFilter === key
-            return (
-              <button key={key}
-                onClick={() => setStatusFilter(active ? "all" : key)}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-left transition-all",
-                  active ? cn(bg, border, "ring-1 ring-offset-1 ring-ring/20") : "border-border bg-card hover:bg-secondary/30"
-                )}
-              >
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Icon className={cn("h-3 w-3", active ? color : "text-muted-foreground/50")} />
-                  <span className={cn("text-[10px] font-semibold uppercase tracking-wider", active ? color : "text-muted-foreground/60")}>{label}</span>
-                </div>
-                <span className={cn("text-xl font-black tabular-nums", active ? color : "text-foreground")}>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Filters */}
+        {/* Search + category */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
             <input
               type="text"
-              placeholder="Search job, customer, bid..."
+              placeholder="Search job name, customer, Q-number, bid item..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-8 pl-8 pr-3 text-[11px] bg-background border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 transition-all"
             />
           </div>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="h-8 text-[11px] font-medium bg-background border border-border rounded-lg px-2 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer"
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+            className="h-8 text-[11px] font-medium bg-background border border-border rounded-lg px-2 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer">
+            <option value="">All Types</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
       </div>
 
-      {/* Job groups list */}
+      {/* Table */}
       <div className="flex-1 overflow-auto">
-        {grouped.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
-            <Inbox className="h-10 w-10 mb-3" />
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/50">
+            <Inbox className="h-8 w-8 mb-2" />
             <p className="text-sm font-medium">No bids found</p>
-            <p className="text-xs mt-1">
+            <p className="text-[11px] mt-0.5">
               {statusFilter !== "all" || categoryFilter || search ? "Try adjusting your filters" : "Create bids from the OHP tab in a quote"}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-border/40">
-            {grouped.map((group) => {
-              const expanded = expandedJobs.has(group.quoteId)
-              const pricesReceived = group.bids.reduce(
-                (sum, b) => sum + b.vendor_bid_prices.filter((p) => p.status === "received").length, 0
-              )
-              const pricesTotal = group.bids.reduce((sum, b) => sum + b.vendor_bid_prices.length, 0)
+          <table className="w-full text-left">
+            <thead className="sticky top-0 z-10 bg-secondary/60 backdrop-blur-sm border-b border-border/40">
+              <tr className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                <th className="px-3 sm:px-4 py-2 w-8"></th>
+                <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("job")}>
+                  <span className="flex items-center gap-1">Job / Quote <ArrowUpDown className="h-2.5 w-2.5" /></span>
+                </th>
+                <th className="px-2 py-2">Customer</th>
+                <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("item")}>
+                  <span className="flex items-center gap-1">Bid Item <ArrowUpDown className="h-2.5 w-2.5" /></span>
+                </th>
+                <th className="px-2 py-2">Type</th>
+                <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("prices")}>
+                  <span className="flex items-center gap-1">Prices <ArrowUpDown className="h-2.5 w-2.5" /></span>
+                </th>
+                <th className="px-2 py-2">Best</th>
+                <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("status")}>
+                  <span className="flex items-center gap-1">Status <ArrowUpDown className="h-2.5 w-2.5" /></span>
+                </th>
+                <th className="px-2 py-2 w-14"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+              {rows.map((bid) => {
+                const received = bid.vendor_bid_prices.filter((p) => p.status === "received")
+                const pending = bid.vendor_bid_prices.filter((p) => p.status === "pending")
+                const bestPrice = received.length > 0 ? Math.min(...received.map((p) => p.price!)) : null
+                const winnerName = bid.status === "awarded"
+                  ? bid.vendor_bid_prices.find((p) => p.vendor_id === bid.winning_vendor_id)?.vendors?.company_name
+                  : null
+                const isJob = bid.quotes?.is_job
+                const num = isJob ? bid.quotes?.job_number : bid.quotes?.quote_number
+                const prefix = isJob ? "J" : "Q"
 
-              return (
-                <div key={group.quoteId}>
-                  {/* Job header row */}
-                  <button
-                    onClick={() => toggleExpand(group.quoteId)}
-                    className="w-full px-4 sm:px-6 py-3 flex items-center gap-3 hover:bg-secondary/20 transition-colors text-left"
-                  >
-                    {/* Expand icon */}
-                    <div className="shrink-0 text-muted-foreground/40">
-                      {expanded
-                        ? <ChevronDown className="h-4 w-4" />
-                        : <ChevronRight className="h-4 w-4" />
-                      }
-                    </div>
-
-                    {/* Job info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-foreground truncate">{group.name}</span>
-                        {group.isJob && group.jobNumber && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
-                            J-{group.jobNumber}
-                          </span>
-                        )}
-                        {!group.isJob && group.quoteNumber && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
-                            Q-{group.quoteNumber}
-                          </span>
+                return (
+                  <tr key={bid.id} className={cn(
+                    "hover:bg-secondary/20 transition-colors text-[11px]",
+                    bid.status === "open" && "bg-sky-50/30 dark:bg-sky-950/5"
+                  )}>
+                    {/* Status dot */}
+                    <td className="px-3 sm:px-4 py-2">
+                      <div className={cn("h-2 w-2 rounded-full mx-auto",
+                        bid.status === "open" ? "bg-sky-500"
+                        : bid.status === "awarded" ? "bg-emerald-500"
+                        : "bg-muted-foreground/25"
+                      )} />
+                    </td>
+                    {/* Job/Quote */}
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-foreground truncate max-w-[140px]">{bid.quotes?.project_name || "No Quote"}</span>
+                        {num && (
+                          <span className={cn(
+                            "text-[8px] font-bold px-1 py-px rounded shrink-0",
+                            isJob ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" : "bg-secondary text-muted-foreground"
+                          )}>{prefix}-{num}</span>
                         )}
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate">{group.customer}</p>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      {group.openCount > 0 && (
-                        <div className="flex items-center gap-1">
-                          <div className="h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
-                          <span className="text-[10px] font-bold text-sky-700 dark:text-sky-400">{group.openCount} open</span>
-                        </div>
+                    </td>
+                    {/* Customer */}
+                    <td className="px-2 py-2 text-muted-foreground truncate max-w-[120px]">
+                      {bid.quotes?.contact_name || "-"}
+                    </td>
+                    {/* Bid item */}
+                    <td className="px-2 py-2">
+                      <span className="font-semibold text-foreground truncate block max-w-[160px]">{bid.item_label}</span>
+                      {bid.item_description && (
+                        <span className="text-[9px] text-muted-foreground/50 truncate block max-w-[160px]">{bid.item_description}</span>
                       )}
-                      {group.awardedCount > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Award className="h-3 w-3 text-emerald-500" />
-                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{group.awardedCount}</span>
+                    </td>
+                    {/* Category */}
+                    <td className="px-2 py-2">
+                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary text-muted-foreground inline-flex items-center gap-0.5">
+                        <Tag className="h-2 w-2" />{bid.item_category}
+                      </span>
+                    </td>
+                    {/* Prices */}
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1.5">
+                        {received.length > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-emerald-700 dark:text-emerald-400 font-semibold">
+                            <CheckCircle2 className="h-3 w-3" />{received.length}
+                          </span>
+                        )}
+                        {pending.length > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-medium">
+                            <Clock className="h-3 w-3" />{pending.length}
+                          </span>
+                        )}
+                        {received.length === 0 && pending.length === 0 && (
+                          <span className="text-muted-foreground/30">-</span>
+                        )}
+                      </div>
+                    </td>
+                    {/* Best price */}
+                    <td className="px-2 py-2 font-mono font-bold tabular-nums text-foreground">
+                      {bid.status === "awarded" && bid.winning_price != null
+                        ? formatCurrency(bid.winning_price)
+                        : bestPrice != null
+                        ? formatCurrency(bestPrice)
+                        : <span className="text-muted-foreground/25">-</span>
+                      }
+                    </td>
+                    {/* Status */}
+                    <td className="px-2 py-2">
+                      {bid.status === "awarded" ? (
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40">
+                          <Award className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 truncate max-w-[80px]">
+                            {winnerName || "Awarded"}
+                          </span>
                         </div>
-                      )}
-                      {pricesTotal > 0 && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {pricesReceived}/{pricesTotal} prices
+                      ) : bid.status === "open" ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/40">
+                          Open
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
+                          Closed
                         </span>
                       )}
-                    </div>
-
+                    </td>
                     {/* Open button */}
-                    {onOpenQuote && group.quoteId !== "no-quote" && (
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); onOpenQuote(group.quoteId, "ohp") }}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onOpenQuote(group.quoteId, "ohp") } }}
-                        className="shrink-0 h-7 px-2.5 rounded-md bg-foreground text-background text-[10px] font-bold flex items-center gap-1 hover:opacity-80 transition-opacity"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Open
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Expanded bid rows */}
-                  {expanded && (
-                    <div className="bg-muted/15 border-t border-border/30">
-                      {group.bids.map((bid) => {
-                        const received = bid.vendor_bid_prices.filter((p) => p.status === "received")
-                        const pending = bid.vendor_bid_prices.filter((p) => p.status === "pending")
-                        const winnerName = bid.status === "awarded"
-                          ? bid.vendor_bid_prices.find((p) => p.vendor_id === bid.winning_vendor_id)?.vendors?.company_name
-                          : null
-
-                        return (
-                          <div key={bid.id} className="px-4 sm:px-6 py-2.5 flex items-center gap-3 ml-7 border-b border-border/20 last:border-b-0">
-                            {/* Status dot */}
-                            <div className={cn("h-2 w-2 rounded-full shrink-0",
-                              bid.status === "open" ? "bg-sky-500"
-                              : bid.status === "awarded" ? "bg-emerald-500"
-                              : "bg-muted-foreground/30"
-                            )} />
-
-                            {/* Bid info */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[12px] font-semibold text-foreground truncate">{bid.item_label}</span>
-                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary text-muted-foreground shrink-0">
-                                  <Tag className="h-2 w-2 inline mr-0.5" />{bid.item_category}
-                                </span>
-                              </div>
-                              {bid.item_description && (
-                                <p className="text-[10px] text-muted-foreground/60 truncate mt-0.5">{bid.item_description}</p>
-                              )}
-                            </div>
-
-                            {/* Vendor prices summary */}
-                            <div className="flex items-center gap-2 shrink-0">
-                              {received.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                  <span className="text-[10px] font-medium text-foreground">{received.length} received</span>
-                                </div>
-                              )}
-                              {pending.length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3 text-amber-500" />
-                                  <span className="text-[10px] font-medium text-muted-foreground">{pending.length} pending</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Status badge / Winner */}
-                            <div className="shrink-0">
-                              {bid.status === "awarded" ? (
-                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/40">
-                                  <Award className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                                  <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400">
-                                    {winnerName || "Awarded"}{bid.winning_price != null ? ` - ${formatCurrency(bid.winning_price)}` : ""}
-                                  </span>
-                                </div>
-                              ) : bid.status === "open" ? (
-                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200 dark:border-sky-800/40">
-                                  Open
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
-                                  Closed
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Best price indicator for open bids */}
-                            {bid.status === "open" && received.length > 0 && (
-                              <div className="shrink-0 text-right">
-                                <span className="text-[9px] text-muted-foreground/50">Best</span>
-                                <p className="text-[11px] font-bold font-mono text-foreground tabular-nums">
-                                  {formatCurrency(Math.min(...received.map((p) => p.price!)))}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                    <td className="px-2 py-2">
+                      {onOpenQuote && bid.quote_id && (
+                        <button
+                          onClick={() => onOpenQuote(bid.quote_id!, "ohp")}
+                          className="h-6 px-2 rounded bg-foreground text-background text-[9px] font-bold flex items-center gap-1 hover:opacity-80 transition-opacity"
+                        >
+                          <ExternalLink className="h-2.5 w-2.5" />
+                          Open
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
