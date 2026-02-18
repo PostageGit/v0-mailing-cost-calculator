@@ -299,7 +299,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ════════════════════════════════════════════════���═══
+/* ════════════════════════════════════════════════�����═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -1080,38 +1080,74 @@ function QuoteCard({
 
               // Quote view: full detail cards with price
               const cols = pieces.length === 1 ? 1 : pieces.length === 2 ? 2 : 3
+              // Collect vendor info from OHP or customer-provided pieces
+              const vendorInfos: { name: string; date?: string }[] = []
+              for (const pc of pieces) {
+                const md = pc.metadata as Record<string, unknown> | undefined
+                const isOHP = pc.category === "ohp"
+                if (isOHP) {
+                  const vn = pc.description?.split("|")[0]?.trim()
+                  if (vn) vendorInfos.push({ name: vn })
+                } else if (md?.customerProvided && md?.providerVendor) {
+                  vendorInfos.push({ name: md.providerVendor as string, date: md.providerExpectedDate as string | undefined })
+                }
+              }
               return (
                 <div>
                   <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Mail Pieces ({pieces.length})</p>
                   <div className={cn("grid gap-2", cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-2" : "grid-cols-3")}>
                     {pieces.map((pc, i) => {
                       const label = pc.label || pc.description || pc.category
-                      const sizeMatch = label.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
-                      const sizeStr = sizeMatch ? `${sizeMatch[1]}" x ${sizeMatch[2]}"` : null
+                      const md = pc.metadata as Record<string, unknown> | undefined
+                      // Size: prefer metadata, then regex
+                      const sizeStr = (md?.pieceDimensions as string)
+                        ? `${(md.pieceDimensions as string).replace("x", '" x ')}"`
+                        : (() => { const m = label.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/); return m ? `${m[1]}" x ${m[2]}"` : null })()
                       const isOHP = pc.category === "ohp"
                       const vendorName = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
-                      const qtyMatch = label.match(/([\d,]+)\s*[-–]/)
-                      const qtyStr = qtyMatch ? qtyMatch[1] : ""
-                      const foundType = typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
+                      // Qty: prefer metadata, then multiple regex patterns
+                      const qtyStr = (() => {
+                        const m1 = label.match(/([\d,]+)\s*[-–]/)
+                        if (m1) return m1[1]
+                        const m2 = label.match(/([\d,]+)\s+\w/)
+                        if (m2) return m2[1]
+                        return ""
+                      })()
+                      const foundType = (md?.pieceLabel as string) || (md?.pieceType as string) || typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
 
                       return (
                         <div key={i} className={cn("rounded-lg border bg-card p-3", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
-                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isOHP && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
-                              <span className="text-xs font-semibold text-foreground truncate">{foundType}</span>
+                              <span className="text-sm font-bold text-foreground truncate">{foundType}</span>
                             </div>
-                            <span className="text-xs font-bold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(pc.amount)}</span>
+                            <span className="text-sm font-extrabold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(pc.amount)}</span>
                           </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                            {qtyStr && <span className="text-[10px] text-muted-foreground"><span className="font-medium text-foreground">{qtyStr}</span> pcs</span>}
-                            {sizeStr && <span className="text-[10px] text-muted-foreground">{sizeStr}</span>}
+                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mt-1">
+                            {qtyStr && <span className="text-sm font-extrabold text-foreground tabular-nums">{qtyStr} <span className="text-[10px] font-normal text-muted-foreground">pcs</span></span>}
+                            {sizeStr && <span className="text-[11px] text-muted-foreground">{sizeStr}</span>}
                             {isOHP && vendorName && <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">{vendorName}</span>}
                           </div>
                         </div>
                       )
                     })}
                   </div>
+                  {/* Vendor / date info below the piece cards */}
+                  {vendorInfos.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-1">
+                      {vendorInfos.map((v, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-foreground">{v.name}</span>
+                          {v.date && (
+                            <span className="text-[10px] text-muted-foreground">
+                              expected {new Date(v.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })()}
