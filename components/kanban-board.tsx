@@ -20,7 +20,7 @@ import {
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
-  LayoutPanelLeft, Zap, Info, MapPin,
+  LayoutPanelLeft, Zap, Info, MapPin, Users,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -54,6 +54,7 @@ interface Quote {
   is_job?: boolean; converted_at?: string | null
   archived?: boolean; archived_at?: string | null
   job_meta?: JobMeta
+  sort_order?: number
   created_at: string; updated_at: string
 }
 
@@ -950,7 +951,7 @@ function MailDatePicker({ value, onChange }: { value: string; onChange: (v: stri
    ════════════════════════════════════════════════════ */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, boardType, isArchived, listColumn,
+  quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn,
 }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
@@ -960,12 +961,14 @@ function QuoteCard({
   onEdit: (id: string) => void
   onConvertToJob?: (id: string) => void
   onPatch: (id: string, patch: Record<string, unknown>) => void
+  onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void
   boardType: "quote" | "job"
   isArchived?: boolean
   listColumn?: BoardColumn
 }) {
   const [open, setOpen] = useState(false)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [dropPosition, setDropPosition] = useState<"before" | "after" | null>(null)
   const [showFiles, setShowFiles] = useState(false)
   const [showQuickNotes, setShowQuickNotes] = useState(false)
   const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
@@ -995,9 +998,26 @@ function QuoteCard({
     <div
       draggable={!isArchived && !open}
       onDragStart={(e) => { e.dataTransfer.setData("text/plain", quote.id); e.dataTransfer.effectAllowed = "move"; (e.currentTarget as HTMLElement).style.opacity = "0.4" }}
-      onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1" }}
+      onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; setDropPosition(null) }}
+      onDragOver={(e) => {
+        if (!onReorder) return
+        e.preventDefault(); e.dataTransfer.dropEffect = "move"
+        const rect = e.currentTarget.getBoundingClientRect()
+        setDropPosition(e.clientY < rect.top + rect.height / 2 ? "before" : "after")
+      }}
+      onDragLeave={() => setDropPosition(null)}
+      onDrop={(e) => {
+        e.preventDefault(); e.stopPropagation()
+        const draggedId = e.dataTransfer.getData("text/plain")
+        if (draggedId && draggedId !== quote.id && onReorder && dropPosition) {
+          onReorder(draggedId, quote.id, dropPosition)
+        }
+        setDropPosition(null)
+      }}
       className={cn(
-        "group rounded-xl border bg-card transition-all",
+        "group rounded-xl border bg-card transition-all relative",
+        dropPosition === "before" && "ring-t-2 before:absolute before:top-0 before:left-2 before:right-2 before:h-0.5 before:bg-primary before:rounded-full",
+        dropPosition === "after" && "ring-b-2 after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:bg-primary after:rounded-full",
         isArchived ? "opacity-50 border-border"
         : boardType === "job"
           ? "border-teal-400/30 dark:border-teal-700/30 hover:border-teal-400/50 dark:hover:border-teal-600/50 hover:shadow-md"
@@ -1747,11 +1767,12 @@ function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, bo
   )
 }
 
-function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, boardType }: {
+function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void; onDelete: (id: string) => void
   onArchive: (id: string) => void; onRestore: (id: string) => void; onEdit: (id: string) => void
-  onConvertToJob?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void; boardType: "quote" | "job"
+  onConvertToJob?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void
+  onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void; boardType: "quote" | "job"
 }) {
   const [dragOver, setDragOver] = useState(false)
   const colTotal = quotes.reduce((s, q) => s + Number(q.total), 0)
@@ -1785,7 +1806,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
           <QuoteCard key={q.id} quote={q} columns={allColumns}
             onColumnChange={onColumnChange} onDelete={onDelete} onArchive={onArchive}
             onRestore={onRestore} onEdit={onEdit} onConvertToJob={onConvertToJob}
-            onPatch={onPatch} boardType={boardType} />
+            onPatch={onPatch} onReorder={onReorder} boardType={boardType} />
         ))}
       </div>
     </div>
@@ -1813,6 +1834,9 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [detailQuote, setDetailQuote] = useState<Quote | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
+  const [userFilter, setUserFilter] = useState<string>("all")
+  const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
+  const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
   // Auto-select first column for sidebar view when columns load
   const resolvedSidebarColId = sidebarColId && columns?.some((c) => c.id === sidebarColId) ? sidebarColId : columns?.[0]?.id || null
@@ -1821,13 +1845,22 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
 
   const filteredQuotes = useMemo(() => {
     if (!quotes) return []
-    return searchTerm ? quotes.filter((q) => matchesSearch(q, searchTerm)) : quotes
-  }, [quotes, searchTerm])
+    let result = quotes
+    if (searchTerm) result = result.filter((q) => matchesSearch(q, searchTerm))
+    if (userFilter === "unassigned") result = result.filter((q) => !q.job_meta?.assignee)
+    else if (userFilter !== "all") result = result.filter((q) => q.job_meta?.assignee === userFilter)
+    // Sort by sort_order within each column
+    return result.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  }, [quotes, searchTerm, userFilter])
 
   const filteredArchived = useMemo(() => {
     if (!archivedQuotes) return []
-    return searchTerm ? archivedQuotes.filter((q) => matchesSearch(q, searchTerm)) : archivedQuotes
-  }, [archivedQuotes, searchTerm])
+    let result = archivedQuotes
+    if (searchTerm) result = result.filter((q) => matchesSearch(q, searchTerm))
+    if (userFilter === "unassigned") result = result.filter((q) => !q.job_meta?.assignee)
+    else if (userFilter !== "all") result = result.filter((q) => q.job_meta?.assignee === userFilter)
+    return result
+  }, [archivedQuotes, searchTerm, userFilter])
 
   const refreshAll = useCallback(() => { globalMutate(quotesUrl); globalMutate(archivedUrl) }, [quotesUrl, archivedUrl])
 
@@ -1852,6 +1885,39 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     await fetch(`/api/quotes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) })
     refreshAll()
   }, [refreshAll])
+
+  const handleReorder = useCallback(async (draggedId: string, targetId: string, position: "before" | "after") => {
+    // Get cards in the same column as target
+    const target = (quotes || []).find((q) => q.id === targetId)
+    if (!target) return
+    const colCards = (quotes || []).filter((q) => q.column_id === target.column_id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    const dragged = (quotes || []).find((q) => q.id === draggedId)
+    if (!dragged) return
+
+    // Build new order
+    const withoutDragged = colCards.filter((c) => c.id !== draggedId)
+    const targetIdx = withoutDragged.findIndex((c) => c.id === targetId)
+    const insertAt = position === "before" ? targetIdx : targetIdx + 1
+    withoutDragged.splice(insertAt, 0, dragged)
+
+    // Update sort_order for all cards in the column, also move dragged to target column if different
+    const updates = withoutDragged.map((c, i) => ({
+      id: c.id,
+      sort_order: i,
+      ...(c.id === draggedId && c.column_id !== target.column_id ? { column_id: target.column_id } : {}),
+    }))
+
+    await Promise.all(
+      updates.map((u) =>
+        fetch(`/api/quotes/${u.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: u.sort_order, ...(u.column_id ? { column_id: u.column_id } : {}) }),
+        })
+      )
+    )
+    refreshAll()
+  }, [quotes, refreshAll])
 
   const handleConvertToJob = useCallback(async (id: string) => {
     // Find the quote to extract data from
@@ -2021,6 +2087,27 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           <input type="search" placeholder={`Search ${label.toLowerCase()}s by name, customer, job #...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full h-10 pl-10 pr-10 rounded-xl bg-secondary/40 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/50 focus:bg-card transition-all" />
           {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X className="h-3.5 w-3.5" /></button>}
+        </div>
+        {/* User filter */}
+        <div className="relative shrink-0">
+          <Users className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
+          <select
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            className={cn(
+              "h-10 pl-8 pr-8 rounded-xl border text-sm appearance-none cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-ring/30",
+              userFilter !== "all"
+                ? "bg-foreground text-background border-foreground font-medium"
+                : "bg-secondary/40 border-border/50 text-muted-foreground"
+            )}
+          >
+            <option value="all">All Users</option>
+            <option value="unassigned">Unassigned</option>
+            {activeTeam.map((m) => (
+              <option key={m.id} value={m.name}>{m.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
         </div>
         {searchTerm && (
           <span className="text-xs text-muted-foreground shrink-0 tabular-nums font-medium">
