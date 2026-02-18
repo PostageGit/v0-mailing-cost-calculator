@@ -328,7 +328,8 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     if (!result) continue
 
     const printingCost = result.cost
-    const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * 1.1
+    const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
+    const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
     const sfCost = getScoreFoldCost(inputs)
     const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
