@@ -183,7 +183,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
             <input
               type="text"
-              placeholder="Search job name, customer, Q-number, bid item..."
+              placeholder="Search job, customer, vendor, Q-number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-8 pl-8 pr-3 text-[11px] bg-background border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 transition-all"
@@ -220,6 +220,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                   <span className="flex items-center gap-1">Bid Item <ArrowUpDown className="h-2.5 w-2.5" /></span>
                 </th>
                 <th className="px-2 py-2">Type</th>
+                <th className="px-2 py-2">Vendors</th>
                 <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("prices")}>
                   <span className="flex items-center gap-1">Prices <ArrowUpDown className="h-2.5 w-2.5" /></span>
                 </th>
@@ -283,6 +284,23 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                       <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary text-muted-foreground inline-flex items-center gap-0.5">
                         <Tag className="h-2 w-2" />{bid.item_category}
                       </span>
+                    </td>
+                    {/* Vendors */}
+                    <td className="px-2 py-2">
+                      <div className="flex flex-wrap gap-1 max-w-[180px]">
+                        {bid.vendor_bid_prices.length > 0 ? bid.vendor_bid_prices.map((p: any) => (
+                          <span key={p.id} className={cn(
+                            "text-[8px] font-semibold px-1.5 py-0.5 rounded truncate max-w-[80px]",
+                            p.status === "received"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
+                          )} title={`${p.vendors?.company_name || "Vendor"} - ${p.status}`}>
+                            {p.vendors?.company_name || "?"}
+                          </span>
+                        )) : (
+                          <span className="text-muted-foreground/30 text-[9px]">None</span>
+                        )}
+                      </div>
                     </td>
                     {/* Prices */}
                     <td className="px-2 py-2">
