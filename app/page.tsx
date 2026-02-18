@@ -15,6 +15,7 @@ import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
+import { DeliveriesDashboard } from "@/components/deliveries-dashboard"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
@@ -65,7 +66,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 
 // ---- Sidebar nav sections ----
 type Section =
-  | "quotes-board" | "jobs-board"
+  | "quotes-board" | "jobs-board" | "deliveries"
   | "customers" | "invoices" | "export-qb" | "vendors"
   | "job"
 
@@ -73,6 +74,7 @@ interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboa
 const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
   { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
@@ -351,6 +353,13 @@ function AppContent() {
           {section === "vendors" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
               <VendorList />
+            </div>
+          )}
+
+          {/* == DELIVERIES == */}
+          {section === "deliveries" && (
+            <div className="flex-1 min-h-0">
+              <DeliveriesDashboard />
             </div>
           )}
 

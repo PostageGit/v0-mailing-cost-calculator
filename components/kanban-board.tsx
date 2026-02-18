@@ -20,7 +20,7 @@ import {
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
-  LayoutPanelLeft, Zap,
+  LayoutPanelLeft, Zap, Info, MapPin,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -32,7 +32,7 @@ interface QuoteItem {
 interface BoardColumn {
   id: string; title: string; color: string; sort_order: number; board_type?: string
 }
-interface PieceMeta { vendor?: string; expected_date?: string; prints_arrived?: boolean }
+interface PieceMeta { vendor?: string; expected_date?: string; expected_time?: string; prints_arrived?: boolean }
 interface JobMeta {
   piece_desc?: string; insert_count?: number; inserts_desc?: string
   mailing_class?: string; drop_off?: string; international?: boolean
@@ -231,51 +231,118 @@ function FieldInput({ label, value, onChange, placeholder, type = "text" }: {
 }
 
 /* ==== ETA Date Field with relative day badges ==== */
-function EtaDateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+const ETA_TIMES = ["7 AM","8 AM","9 AM","10 AM","11 AM","12 PM","1 PM","2 PM","3 PM","4 PM","5 PM","6 PM"]
+
+function getRelativeDay(dateStr: string) {
+  if (!dateStr) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const d = new Date(dateStr + "T00:00:00"); d.setHours(0, 0, 0, 0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  if (diff < -1) return { label: `${Math.abs(diff)}d overdue`, diff, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200/50 dark:border-red-800/30" }
+  if (diff === -1) return { label: "Yesterday", diff, color: "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 border-red-200/40 dark:border-red-800/30" }
+  if (diff === 0) return { label: "Today", diff, color: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200/50 dark:border-amber-800/30" }
+  if (diff === 1) return { label: "Tomorrow", diff, color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-800/30" }
+  if (diff <= 7) return { label: `In ${diff}d`, diff, color: "bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border-teal-200/50 dark:border-teal-800/30" }
+  return { label: "", diff, color: "" }
+}
+
+function EtaDateField({ value, onChange, time, onTimeChange }: { value: string; onChange: (v: string) => void; time?: string; onTimeChange?: (v: string) => void }) {
   const [local, setLocal] = useState(value)
   const ref = useRef<HTMLInputElement>(null)
   useEffect(() => { setLocal(value) }, [value])
   const commit = () => { if (local !== value) onChange(local) }
-
-  const getRelative = (dateStr: string) => {
-    if (!dateStr) return null
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    const d = new Date(dateStr + "T00:00:00"); d.setHours(0, 0, 0, 0)
-    const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
-    if (diff < -1) return { label: `${Math.abs(diff)}d overdue`, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200/50 dark:border-red-800/30" }
-    if (diff === -1) return { label: "Yesterday", color: "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 border-red-200/40 dark:border-red-800/30" }
-    if (diff === 0) return { label: "Today", color: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200/50 dark:border-amber-800/30" }
-    if (diff === 1) return { label: "Tomorrow", color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-800/30" }
-    if (diff <= 7) return { label: `In ${diff}d`, color: "bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border-teal-200/50 dark:border-teal-800/30" }
-    return null
-  }
-  const rel = getRelative(local)
+  const rel = getRelativeDay(local)
 
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-[10px] text-muted-foreground font-medium">ETA</span>
-        {rel && (
+        {rel && rel.label && (
           <span className={cn("text-[9px] font-semibold px-1.5 py-0 rounded border leading-relaxed", rel.color)}>
-            {rel.label}
+            {rel.label}{time ? ` ${time}` : ""}
           </span>
         )}
       </div>
-      <input ref={ref} type="date" value={local}
-        onChange={(e) => { setLocal(e.target.value); }}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") { commit(); ref.current?.blur() } }}
-        className={cn(
-          "w-full text-xs font-medium bg-background border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all",
-          rel && (rel.label === "Yesterday" || rel.label.includes("overdue"))
-            ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
-            : rel && rel.label === "Today"
-              ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
-              : rel && rel.label === "Tomorrow"
-                ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
-                : "text-foreground border-border"
+      <div className="flex gap-1">
+        <input ref={ref} type="date" value={local}
+          onChange={(e) => { setLocal(e.target.value); }}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") { commit(); ref.current?.blur() } }}
+          className={cn(
+            "flex-1 min-w-0 text-xs font-medium bg-background border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all",
+            rel && rel.diff !== undefined && rel.diff < 0
+              ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
+              : rel && rel.diff === 0
+                ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
+                : rel && rel.diff === 1
+                  ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
+                  : "text-foreground border-border"
+          )}
+        />
+        {onTimeChange && (
+          <select
+            value={time || ""}
+            onChange={(e) => onTimeChange(e.target.value)}
+            className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer w-[62px] shrink-0"
+          >
+            <option value="">Time</option>
+            {ETA_TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         )}
-      />
+      </div>
+    </div>
+  )
+}
+
+/* Vendor Facility Info Popover */
+function VendorInfoPopover({ vendorName, vendors }: { vendorName: string; vendors: Vendor[] }) {
+  const [showInfo, setShowInfo] = useState(false)
+  const vendor = vendors.find((v) => v.company_name === vendorName)
+  const { data: facilities } = useSWR<Array<{ id: string; name: string; address_line1?: string; city?: string; state?: string; zip?: string; pickup_contact?: string; pickup_phone?: string; pickup_window?: string; is_24h?: boolean; notes?: string }>>(
+    showInfo && vendor ? `/api/vendors/${vendor.id}/facilities` : null, fetcher
+  )
+
+  if (!vendorName || !vendor) return null
+
+  return (
+    <div className="relative">
+      <button
+        onClick={(e) => { e.stopPropagation(); setShowInfo(!showInfo) }}
+        className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+        title="Vendor facility info"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      {showInfo && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowInfo(false)} />
+          <div className="absolute z-50 top-6 right-0 w-64 bg-card border border-border rounded-lg shadow-lg p-3 text-xs" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-foreground text-[11px]">{vendor.company_name}</span>
+              <button onClick={() => setShowInfo(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
+            </div>
+            {vendor.contact_name && <p className="text-muted-foreground"><span className="font-medium text-foreground">Contact:</span> {vendor.contact_name}</p>}
+            {vendor.office_phone && <p className="text-muted-foreground"><span className="font-medium text-foreground">Phone:</span> {vendor.office_phone}</p>}
+            {vendor.email && <p className="text-muted-foreground"><span className="font-medium text-foreground">Email:</span> {vendor.email}</p>}
+            {facilities && facilities.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-border space-y-2">
+                {facilities.map((f) => (
+                  <div key={f.id} className="space-y-0.5">
+                    <p className="font-semibold text-foreground flex items-center gap-1"><MapPin className="h-2.5 w-2.5" />{f.name}</p>
+                    {f.address_line1 && <p className="text-muted-foreground pl-3.5">{f.address_line1}{f.city ? `, ${f.city}` : ""}{f.state ? ` ${f.state}` : ""} {f.zip || ""}</p>}
+                    {f.pickup_window && <p className="text-muted-foreground pl-3.5"><span className="font-medium text-foreground">Pickup:</span> {f.pickup_window}</p>}
+                    {f.pickup_contact && <p className="text-muted-foreground pl-3.5"><span className="font-medium text-foreground">Contact:</span> {f.pickup_contact} {f.pickup_phone || ""}</p>}
+                    {f.is_24h && <span className="inline-block ml-3.5 text-[9px] font-semibold px-1.5 py-0 rounded bg-teal-50 text-teal-600 border border-teal-200/50">24h</span>}
+                    {f.notes && <p className="text-muted-foreground/70 pl-3.5 italic">{f.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {facilities && facilities.length === 0 && <p className="text-muted-foreground/50 mt-1 italic">No facilities on file</p>}
+            {!facilities && showInfo && <p className="text-muted-foreground/50 mt-1">Loading...</p>}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -1285,10 +1352,11 @@ function QuoteCard({
                                 )}
                               </select>
                             </div>
-                            <EtaDateField value={pm.expected_date || ""} onChange={(v) => setPm(i, { expected_date: v })} />
+                            <EtaDateField value={pm.expected_date || ""} onChange={(v) => setPm(i, { expected_date: v })} time={pm.expected_time || ""} onTimeChange={(v) => setPm(i, { expected_time: v })} />
                           </div>
-                          <div className="mt-2">
+                          <div className="flex items-center justify-between mt-2">
                             <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
+                            {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
                           </div>
                         </div>
                       )
