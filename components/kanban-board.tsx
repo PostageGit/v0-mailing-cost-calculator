@@ -20,7 +20,7 @@ import {
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
-  LayoutPanelLeft,
+  LayoutPanelLeft, Zap,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -595,7 +595,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════════════════════════════════��══════════════���════
+/* ════════════════════════════════��══��═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -972,14 +972,16 @@ function QuoteCard({
           <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
         </div>
 
-        {/* Row 7: + Add step link (only on quote board) */}
+        {/* Row 7: ACTIVATE JOB button (only on quote board) */}
         {!isArchived && boardType === "quote" && onConvertToJob && (
-          <div className="ml-6 pt-1.5">
+          <div className="pt-3 pb-1 px-4">
             <button
               onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/40 hover:text-foreground transition-colors font-medium"
+              className="group relative w-full overflow-hidden rounded-lg bg-foreground text-background font-black text-xs tracking-widest uppercase py-2.5 px-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              <CirclePlus className="h-3 w-3" /> Convert to Job
+              <Zap className="h-3.5 w-3.5 transition-transform group-hover:scale-125 group-hover:rotate-12" />
+              Activate Job
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-background/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
             </button>
           </div>
         )}
@@ -1013,8 +1015,9 @@ function QuoteCard({
               )}
               {!isArchived && boardType === "quote" && onConvertToJob && (
                 <button onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Convert to Job">
-                  <Briefcase className="h-3.5 w-3.5" />
+                  className="h-7 px-2 flex items-center justify-center gap-1 rounded-md bg-foreground text-background text-[10px] font-black tracking-wider uppercase hover:opacity-90 transition-opacity" title="Activate Job">
+                  <Zap className="h-3 w-3" />
+                  Activate
                 </button>
               )}
               <button onClick={(e) => { e.stopPropagation(); setShowFiles(true) }}
@@ -1671,6 +1674,29 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   } else if (printingItems.length > 0 && !meta.printed_by) {
   meta.printed_by = "PrintOut"
   }
+
+    // --- Build piece_meta: auto-set vendor per piece based on production route ---
+    if (!meta.piece_meta || meta.piece_meta.length === 0) {
+      const allPieceItems = items.filter((it) =>
+        ["flat", "booklet", "spiral", "perfect", "envelope", "ohp"].includes(it.category)
+      )
+      if (allPieceItems.length > 0) {
+        meta.piece_meta = allPieceItems.map((it) => {
+          const pm: PieceMeta = {}
+          const md = it.metadata as Record<string, unknown> | undefined
+          const production = md?.production as string | undefined
+          if (!production || production === "inhouse") {
+            // Default to PrintOut -- user can pick exact location on the job board
+            pm.vendor = ""
+          } else if (it.category === "ohp") {
+            // Extract vendor from OHP description: "VendorName | +15% markup"
+            const vendorFromDesc = (it.description || "").split("|")[0]?.trim()
+            if (vendorFromDesc) pm.vendor = vendorFromDesc
+          }
+          return pm
+        })
+      }
+    }
 
     // Get the first job board column
     const res = await fetch("/api/board-columns?type=job")
