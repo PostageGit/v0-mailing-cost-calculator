@@ -23,9 +23,11 @@ import {
   type InkJetPrintType,
   type LaserPrintType,
 } from "@/lib/envelope-pricing"
-import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle, Package, CalendarDays } from "lucide-react"
+import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
 import useSWR from "swr"
 import type { Vendor } from "@/lib/vendor-types"
+import { useCustomerProvided } from "@/hooks/use-customer-provided"
+import { CustomerProvidedSection } from "@/components/customer-provided-section"
 
 const vendorFetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -111,12 +113,8 @@ export function EnvelopeTab() {
   const [settings, setSettings] = useState<EnvelopeSettings>(() => structuredClone(DEFAULT_ENVELOPE_SETTINGS))
 
   // Customer Provided state
-  const [customerProvided, setCustomerProvided] = useState(false)
-  const [providerVendor, setProviderVendor] = useState("")
-  const [providerCustomVendor, setProviderCustomVendor] = useState("")
-  const [providerDate, setProviderDate] = useState("")
-  const { data: vendors } = useSWR<Vendor[]>(customerProvided ? "/api/vendors" : null, vendorFetcher)
-  const resolvedVendor = providerVendor === "__custom__" ? providerCustomVendor : (vendors?.find(v2 => v2.id === providerVendor)?.company_name || "")
+  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", vendorFetcher)
+  const cp = useCustomerProvided(vendors)
 
   // Auto-calculate on input change
   useEffect(() => {
@@ -170,26 +168,15 @@ export function EnvelopeTab() {
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : calcResult.price
-    const descParts = [`${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`]
-    if (customerProvided) {
-      descParts.push("Customer Provides Envelopes")
-      if (resolvedVendor) descParts.push(`From: ${resolvedVendor}`)
-      if (providerDate) descParts.push(`Expected: ${new Date(providerDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`)
-    }
+    const baseDesc = `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`
     quote.addItem({
       category: "envelope",
       label: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
-      description: descParts.join(" | "),
+      description: cp.buildDescription(baseDesc, "Envelopes"),
       amount: finalAmount,
-      ...(customerProvided && {
-        metadata: {
-          customerProvided: true,
-          providerVendor: resolvedVendor || undefined,
-          providerExpectedDate: providerDate || undefined,
-        },
-      }),
+      ...cp.buildMetadata(),
     })
-  }, [calcResult, inputs, quote, effectiveTotal, customerProvided, resolvedVendor, providerDate])
+  }, [calcResult, inputs, quote, effectiveTotal, cp])
 
   const handleReset = useCallback(() => {
     v.reset()
@@ -205,10 +192,7 @@ export function EnvelopeTab() {
     setCalcResult(null)
     setError("")
     setSettings(structuredClone(DEFAULT_ENVELOPE_SETTINGS))
-    setCustomerProvided(false)
-    setProviderVendor("")
-    setProviderCustomVendor("")
-    setProviderDate("")
+    cp.reset()
   }, [mailing.quantity, mailing.pieces, v])
 
   // Current item's bleed capability
@@ -382,94 +366,8 @@ export function EnvelopeTab() {
             )}
           </div>
 
-          {/* Customer Provided toggle */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <Checkbox
-                id="env-customer-provided"
-                checked={customerProvided}
-                onCheckedChange={(checked) => setCustomerProvided(checked === true)}
-              />
-              <label htmlFor="env-customer-provided" className="text-sm font-medium text-foreground cursor-pointer">
-                Customer Provided
-              </label>
-            </div>
-
-            {customerProvided && (
-              <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-950/20 p-4 flex flex-col gap-4">
-                {/* Big pill */}
-                <div className="flex items-center gap-2.5">
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-400/20 border border-amber-400/40">
-                    <Package className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                    <span className="text-sm font-bold text-amber-800 dark:text-amber-300 tracking-tight">Customer Provides Envelopes</span>
-                  </div>
-                </div>
-
-                {/* Expected date */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-amber-800 dark:text-amber-300">Expected Date</label>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <Input
-                        type="date"
-                        value={providerDate}
-                        onChange={(e) => setProviderDate(e.target.value)}
-                        className="pl-8 text-sm h-9"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-9 text-xs font-medium shrink-0"
-                      onClick={() => setProviderDate(new Date().toISOString().slice(0, 10))}
-                    >
-                      Today
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-9 text-xs font-medium shrink-0"
-                      onClick={() => {
-                        const d = new Date()
-                        d.setDate(d.getDate() + 1)
-                        setProviderDate(d.toISOString().slice(0, 10))
-                      }}
-                    >
-                      Tomorrow
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Vendor / Source */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-amber-800 dark:text-amber-300">Vendor / Source</label>
-                  <Select value={providerVendor} onValueChange={(val) => { setProviderVendor(val); if (val !== "__custom__") setProviderCustomVendor("") }}>
-                    <SelectTrigger className="text-sm h-9">
-                      <SelectValue placeholder="Select vendor or enter custom" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__custom__">Type custom name...</SelectItem>
-                      {vendors?.map((vnd) => (
-                        <SelectItem key={vnd.id} value={vnd.id}>{vnd.company_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {providerVendor === "__custom__" && (
-                    <Input
-                      type="text"
-                      placeholder="Enter vendor or source name"
-                      value={providerCustomVendor}
-                      onChange={(e) => setProviderCustomVendor(e.target.value)}
-                      className="text-sm h-9 mt-1"
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Customer Provided */}
+          <CustomerProvidedSection cp={cp} itemNoun="Envelopes" vendors={vendors} />
 
           {/* Customer type */}
           <div className="flex flex-col gap-1.5">

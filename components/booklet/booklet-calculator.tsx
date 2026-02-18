@@ -12,6 +12,12 @@ import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { AlertTriangle, Plus, ArrowDown } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
+import useSWR from "swr"
+import type { Vendor } from "@/lib/vendor-types"
+import { useCustomerProvided } from "@/hooks/use-customer-provided"
+import { CustomerProvidedSection } from "@/components/customer-provided-section"
+
+const vendorFetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const EMPTY_INPUTS: BookletInputs = {
   bookQty: 0,
@@ -41,6 +47,9 @@ export function BookletCalculator() {
   const bookletPieces = mailing.pieces.filter(
     (p) => p.type === "booklet" && (p.production === "inhouse" || p.production === "both")
   )
+
+  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", vendorFetcher)
+  const cp = useCustomerProvided(vendors)
 
   const [inputs, setInputs] = useState<BookletInputs>(EMPTY_INPUTS)
   const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
@@ -93,19 +102,21 @@ export function BookletCalculator() {
     setInputs(EMPTY_INPUTS)
     setCalcResult(null)
     setValidationError(null)
+    cp.reset()
   }
 
   const handleAddToQuote = useCallback(() => {
     if (!calcResult || !calcResult.isValid) return
     const coverDesc = inputs.separateCover ? `w/ ${calcResult.coverResult.paper} Cover` : "Self-Cover"
-    const desc = `${inputs.insidePaper}, ${calcResult.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
+    const baseDesc = `${inputs.insidePaper}, ${calcResult.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
     quote.addItem({
       category: "booklet",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
-      description: desc,
+      description: cp.buildDescription(baseDesc, "Booklets"),
       amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
+      ...cp.buildMetadata(),
     })
-  }, [calcResult, inputs, quote, effectiveTotal])
+  }, [calcResult, inputs, quote, effectiveTotal, cp])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
@@ -142,6 +153,10 @@ export function BookletCalculator() {
               </div>
             </div>
           )}
+
+          <div className="mb-4">
+            <CustomerProvidedSection cp={cp} itemNoun="Booklets" vendors={vendors} />
+          </div>
 
           <BookletForm
             inputs={inputs}
