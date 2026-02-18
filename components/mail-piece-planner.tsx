@@ -516,60 +516,71 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                         </span>
                       </div>
 
-                      {/* Customer Provided -- compact inline */}
-                      {piece.production === "customer" && (
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <span className="text-[10px] font-medium text-muted-foreground shrink-0">When:</span>
-                          <Input
-                            type="date"
-                            value={piece.customerProvidedDate || ""}
-                            onChange={(e) => m.updatePiece(piece.id, { customerProvidedDate: e.target.value })}
-                            className="h-7 text-[11px] w-32 px-2"
-                          />
-                          <button type="button"
-                            onClick={() => m.updatePiece(piece.id, { customerProvidedDate: new Date().toISOString().slice(0, 10) })}
-                            className="h-7 px-2 text-[10px] font-medium rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all">
-                            Today
-                          </button>
-                          <button type="button"
-                            onClick={() => { const d = new Date(); d.setDate(d.getDate() + 1); m.updatePiece(piece.id, { customerProvidedDate: d.toISOString().slice(0, 10) }) }}
-                            className="h-7 px-2 text-[10px] font-medium rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all">
-                            Tmrw
-                          </button>
-                          <span className="text-[10px] font-medium text-muted-foreground shrink-0 ml-1">From:</span>
-                          <Select
-                            value={piece.customerProvidedVendor || "none"}
-                            onValueChange={(val) => {
-                              if (val === "__custom__") m.updatePiece(piece.id, { customerProvidedVendor: "__custom__" })
-                              else if (val === "none") m.updatePiece(piece.id, { customerProvidedVendor: "" })
-                              else { const vnd = vendors?.find(v2 => v2.id === val); m.updatePiece(piece.id, { customerProvidedVendor: vnd?.company_name || val }) }
-                            }}
-                          >
-                            <SelectTrigger className="h-7 text-[11px] w-36 px-2">
-                              <SelectValue placeholder="Vendor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              <SelectItem value="__custom__">Custom...</SelectItem>
-                              {vendors?.map((vnd) => (
-                                <SelectItem key={vnd.id} value={vnd.id}>{vnd.company_name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {piece.customerProvidedVendor === "__custom__" && (
-                            <Input
-                              type="text"
-                              placeholder="Vendor name"
-                              value={cpCustomVendors[piece.id] || ""}
-                              onChange={(e) => {
-                                setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))
-                                m.updatePiece(piece.id, { customerProvidedVendor: e.target.value || "__custom__" })
-                              }}
-                              className="h-7 text-[11px] w-32 px-2"
-                            />
-                          )}
-                        </div>
-                      )}
+                      {/* Customer Provided -- two clean rows */}
+                      {piece.production === "customer" && (() => {
+                        const cpVendorId = vendors?.find(v2 => v2.company_name === piece.customerProvidedVendor)?.id
+                        const selectVal = piece.customerProvidedVendor === "__custom__" ? "__custom__" : cpVendorId || "none"
+                        return (
+                          <div className="flex flex-col gap-3 mt-2 pl-1">
+                            {/* Row 1: Expected date */}
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">When</span>
+                              <Input
+                                type="date"
+                                value={piece.customerProvidedDate || ""}
+                                onChange={(e) => m.updatePiece(piece.id, { customerProvidedDate: e.target.value })}
+                                className="h-8 text-xs w-40 px-2.5"
+                              />
+                              <button type="button"
+                                onClick={() => m.updatePiece(piece.id, { customerProvidedDate: new Date().toISOString().slice(0, 10) })}
+                                className="h-8 px-3 text-[11px] font-medium rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-all">
+                                Today
+                              </button>
+                              <button type="button"
+                                onClick={() => { const d = new Date(); d.setDate(d.getDate() + 1); m.updatePiece(piece.id, { customerProvidedDate: d.toISOString().slice(0, 10) }) }}
+                                className="h-8 px-3 text-[11px] font-medium rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-all">
+                                Tomorrow
+                              </button>
+                            </div>
+
+                            {/* Row 2: Vendor / source */}
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">From</span>
+                              <Select
+                                value={selectVal}
+                                onValueChange={(val) => {
+                                  if (val === "__custom__") m.updatePiece(piece.id, { customerProvidedVendor: "__custom__" })
+                                  else if (val === "none") m.updatePiece(piece.id, { customerProvidedVendor: "" })
+                                  else { const vnd = vendors?.find(v2 => v2.id === val); m.updatePiece(piece.id, { customerProvidedVendor: vnd?.company_name || val }) }
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs w-48 px-2.5">
+                                  <SelectValue placeholder="Select vendor" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">None</SelectItem>
+                                  <SelectItem value="__custom__">Custom...</SelectItem>
+                                  {vendors?.map((vnd) => (
+                                    <SelectItem key={vnd.id} value={vnd.id}>{vnd.company_name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {piece.customerProvidedVendor === "__custom__" && (
+                                <Input
+                                  type="text"
+                                  placeholder="Enter vendor name"
+                                  value={cpCustomVendors[piece.id] || ""}
+                                  onChange={(e) => {
+                                    setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))
+                                    m.updatePiece(piece.id, { customerProvidedVendor: e.target.value || "__custom__" })
+                                  }}
+                                  className="h-8 text-xs w-40 px-2.5"
+                                />
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
 
