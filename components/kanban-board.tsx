@@ -80,6 +80,8 @@ function matchesSearch(q: Quote, term: string): boolean {
     (q.status || "").toLowerCase().includes(s) ||
     (q.quote_number ? `q-${q.quote_number}`.includes(s) : false) ||
     (q.quote_number ? `${q.quote_number}`.includes(s) : false) ||
+    (q.job_number ? `j-${q.job_number}`.includes(s) : false) ||
+    (q.job_number ? `${q.job_number}`.includes(s) : false) ||
     formatCurrency(q.total).toLowerCase().includes(s) ||
     (q.job_meta?.assignee || "").toLowerCase().includes(s) ||
     (q.job_meta?.piece_desc || "").toLowerCase().includes(s) ||
@@ -420,7 +422,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ══════════════════════════════�����═════════════════�������������═══
+/* ══════════════════���═══════════�����═════════════════�������������═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -1550,7 +1552,8 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
                 className="text-lg font-bold text-foreground bg-transparent border-none outline-none w-full placeholder:text-muted-foreground focus:ring-0"
                 placeholder="Project / Client Name..." autoComplete="off" spellCheck={false} />
               <div className="flex items-center gap-2 mt-1.5">
-                {quote.quote_number && <Badge variant="secondary" className="text-xs font-mono">Q-{quote.quote_number}</Badge>}
+                {quote.job_number && <Badge className="text-xs font-mono font-bold bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-400 border border-teal-200/50 dark:border-teal-700/30 hover:bg-teal-50">J-{quote.job_number}</Badge>}
+                {quote.quote_number && <Badge variant="secondary" className={cn("text-xs font-mono", quote.job_number && "opacity-50")}>Q-{quote.quote_number}</Badge>}
                 <span className="text-xs text-muted-foreground">Updated {fmtDate(quote.updated_at)}</span>
               </div>
             </div>
