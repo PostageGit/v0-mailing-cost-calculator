@@ -997,7 +997,7 @@ function QuoteCard({
       onDragStart={(e) => { e.dataTransfer.setData("text/plain", quote.id); e.dataTransfer.effectAllowed = "move"; (e.currentTarget as HTMLElement).style.opacity = "0.4" }}
       onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1" }}
       className={cn(
-        "rounded-xl border bg-card transition-all",
+        "group rounded-xl border bg-card transition-all",
         isArchived ? "opacity-50 border-border"
         : boardType === "job"
           ? "border-teal-400/30 dark:border-teal-700/30 hover:border-teal-400/50 dark:hover:border-teal-600/50 hover:shadow-md"
@@ -1708,6 +1708,45 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
    DROPPABLE COLUMN
    ══════════════════════════════════��═════════════════ */
 
+function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, boardType }: {
+  col: BoardColumn; isActive: boolean; count: number; colTotal: number
+  onClick: () => void; onDrop: (quoteId: string) => void; boardType: "quote" | "job"
+}) {
+  const [dragOver, setDragOver] = useState(false)
+
+  return (
+    <button
+      onClick={onClick}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(true) }}
+      onDragEnter={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={(e) => { e.preventDefault(); setDragOver(false) }}
+      onDrop={(e) => {
+        e.preventDefault(); setDragOver(false)
+        const id = e.dataTransfer.getData("text/plain")
+        if (id) onDrop(id)
+      }}
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 md:py-2.5 text-left transition-all shrink-0",
+        "md:border-l-2 border-b-2 md:border-b-0",
+        dragOver
+          ? boardType === "job"
+            ? "bg-teal-100/60 dark:bg-teal-900/20 md:border-l-teal-500 border-b-teal-500 ring-1 ring-inset ring-teal-300/40"
+            : "bg-sky-100/60 dark:bg-sky-900/20 md:border-l-sky-500 border-b-sky-500 ring-1 ring-inset ring-sky-300/40"
+          : isActive
+            ? "bg-secondary/60 md:border-l-foreground border-b-foreground"
+            : "md:border-l-transparent border-b-transparent hover:bg-secondary/30"
+      )}
+    >
+      <div className={cn("h-2 w-2 rounded-full shrink-0 transition-transform", dragOver && "scale-150")} style={{ backgroundColor: col.color }} />
+      <span className={cn("text-[11px] font-medium whitespace-nowrap", dragOver ? "text-foreground font-semibold" : isActive ? "text-foreground" : "text-muted-foreground")}>
+        {dragOver ? `Move to ${col.title}` : col.title}
+      </span>
+      {!dragOver && <span className={cn("text-[10px] font-mono tabular-nums shrink-0", isActive ? "text-foreground" : "text-muted-foreground/60")}>{count}</span>}
+      {!dragOver && count > 0 && <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums hidden md:inline">{formatCurrency(colTotal)}</span>}
+    </button>
+  )
+}
+
 function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void; onDelete: (id: string) => void
@@ -2076,22 +2115,16 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                   const colTotal = filteredQuotes.filter((q) => q.column_id === col.id).reduce((s, q) => s + Number(q.total), 0)
                   const isActive = col.id === resolvedSidebarColId
                   return (
-                    <button
+                    <SidebarDropTarget
                       key={col.id}
+                      col={col}
+                      isActive={isActive}
+                      count={count}
+                      colTotal={colTotal}
                       onClick={() => setSidebarColId(col.id)}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 md:py-2.5 text-left transition-all shrink-0",
-                        "md:border-l-2 border-b-2 md:border-b-0",
-                        isActive
-                          ? "bg-secondary/60 md:border-l-foreground border-b-foreground"
-                          : "md:border-l-transparent border-b-transparent hover:bg-secondary/30"
-                      )}
-                    >
-                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                      <span className={cn("text-[11px] font-medium whitespace-nowrap", isActive ? "text-foreground" : "text-muted-foreground")}>{col.title}</span>
-                      <span className={cn("text-[10px] font-mono tabular-nums shrink-0", isActive ? "text-foreground" : "text-muted-foreground/60")}>{count}</span>
-                      {count > 0 && <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums hidden md:inline">{formatCurrency(colTotal)}</span>}
-                    </button>
+                      onDrop={(quoteId) => handleColumnChange(quoteId, col.id)}
+                      boardType={boardType}
+                    />
                   )
                 })}
                 {unassigned.length > 0 && (
@@ -2117,11 +2150,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             <div className="flex-1 min-h-0 overflow-y-auto p-2 md:p-3">
               {/* Stage header */}
               {activeCol && sidebarColId !== "__unassigned__" && (
-                <div className="flex items-center gap-2 mb-2 px-1">
+                <div className="flex items-center gap-2 mb-3 px-1">
                   <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: activeCol.color }} />
-                  <span className="text-sm font-semibold text-foreground">{activeCol.title}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">{sidebarQuotes.length} active</span>
-                  <span className="text-[10px] font-mono text-muted-foreground/40 tabular-nums ml-auto">{formatCurrency(sidebarQuotes.reduce((s, q) => s + Number(q.total), 0))}</span>
+                  <span className="text-sm font-bold text-foreground uppercase tracking-wide">{activeCol.title}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground/40 tabular-nums ml-auto">{sidebarQuotes.length}</span>
                 </div>
               )}
               {sidebarColId === "__unassigned__" && (
@@ -2146,7 +2178,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                   )
                 }
                 return (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
                     {cardsToShow.map((q) => (
                       <QuoteCard key={q.id} quote={q} columns={cols}
                         onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
