@@ -675,44 +675,6 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
         </div>
       )}
 
-      {/* ─── Customer Provided Summary ─── */}
-      {m.pieces.some((p) => p.production === "customer") && (
-        <div className="rounded-2xl border-2 border-violet-400/40 bg-violet-50 dark:bg-violet-950/20 p-5 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-400/20 border border-violet-400/40">
-              <Package className="h-3.5 w-3.5 text-violet-700 dark:text-violet-400" />
-              <span className="text-xs font-bold text-violet-800 dark:text-violet-300 tracking-tight uppercase">Customer Provided Items</span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            {m.pieces.filter((p) => p.production === "customer").map((piece) => {
-              const meta = PIECE_TYPE_META[piece.type]
-              return (
-                <div key={piece.id} className="flex items-center gap-3 rounded-xl bg-card border border-border px-4 py-2.5">
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
-                  <span className="text-sm font-semibold text-foreground">{piece.label}</span>
-                  {piece.customerProvidedVendor && piece.customerProvidedVendor !== "__custom__" && (
-                    <span className="text-xs text-muted-foreground">
-                      from <span className="font-medium text-foreground">{piece.customerProvidedVendor}</span>
-                    </span>
-                  )}
-                  {piece.customerProvidedDate && (
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      expected <span className="font-medium text-foreground">
-                        {new Date(piece.customerProvidedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </span>
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          <p className="text-[10px] text-violet-600 dark:text-violet-400 mt-2.5">
-            These items are supplied by the customer and will not be priced. Vendor/date info follows the job.
-          </p>
-        </div>
-      )}
-
       {/* ─── Continue Button ─── */}
       <div className="flex justify-end">
         <button
