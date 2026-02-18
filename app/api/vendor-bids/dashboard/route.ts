@@ -14,7 +14,7 @@ export async function GET() {
     .select(`
       *,
       vendor_bid_prices ( id, vendor_id, price, status, vendors(company_name) ),
-      quotes ( id, project_name, contact_name, customer_id, quote_number, job_number, is_job, archived, mailing_date )
+      quotes ( id, project_name, contact_name, customer_id, quote_number, job_number, is_job, archived, mailing_date, items )
     `)
     .order("created_at", { ascending: false })
 

@@ -19,6 +19,11 @@ interface BidPrice {
   notes: string | null
   vendors?: { company_name: string; pickup_cost?: number } | null
 }
+interface QuoteItem {
+  label: string
+  category: string
+  amount: number
+}
 interface QuoteRef {
   id: string
   project_name: string
@@ -29,6 +34,7 @@ interface QuoteRef {
   is_job: boolean | null
   archived: boolean | null
   mailing_date: string | null
+  items: QuoteItem[] | null
 }
 interface DashboardBid {
   id: string
@@ -57,6 +63,36 @@ const fetcher = async (url: string) => {
   const r = await fetch(url)
   if (!r.ok) throw new Error("Fetch failed")
   return r.json()
+}
+
+/** Match a bid item back to its in-house quote line item to get the in-house price */
+function getInhousePrice(bid: DashboardBid): number | null {
+  const items = bid.quotes?.items
+  if (!items || items.length === 0) return null
+  const cat = bid.item_category?.toLowerCase()
+  const label = bid.item_label?.toLowerCase() ?? ""
+  // Try exact category + size match via label substring
+  const match = items.find((item) => {
+    const iCat = item.category?.toLowerCase()
+    const iLabel = item.label?.toLowerCase() ?? ""
+    // Category match: bid category matches item category (or flat/booklet/spiral/perfect/envelope)
+    const catMatch = iCat === cat ||
+      (cat === "ohp" && ["flat", "booklet", "spiral", "perfect", "envelope"].includes(iCat))
+    if (!catMatch) return false
+    // Size match: extract dimensions from both labels and compare
+    const dims = label.match(/(\d+\.?\d*)\s*x\s*(\d+\.?\d*)/i)
+    if (dims) {
+      const w = dims[1], h = dims[2]
+      return iLabel.includes(`${w}x${h}`) || iLabel.includes(`${h}x${w}`) ||
+        iLabel.includes(`${w}" x ${h}"`) || iLabel.includes(`${h}" x ${w}"`)
+    }
+    return false
+  })
+  // Fallback: match by category only if single match
+  if (match) return match.amount
+  const catMatches = items.filter((item) => item.category?.toLowerCase() === cat)
+  if (catMatches.length === 1) return catMatches[0].amount
+  return null
 }
 
 export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: string, step?: string) => void }) {
@@ -203,7 +239,8 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                   <span className="flex items-center gap-1">Bid Item <ArrowUpDown className="h-2.5 w-2.5" /></span>
                 </th>
                 <th className="px-2 py-2">Vendors</th>
-                <th className="px-2 py-2">Best</th>
+                <th className="px-2 py-2">Best OHP</th>
+                <th className="px-2 py-2">In-House</th>
                 <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("status")}>
                   <span className="flex items-center gap-1">Status <ArrowUpDown className="h-2.5 w-2.5" /></span>
                 </th>
@@ -215,6 +252,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                 const received = bid.vendor_bid_prices.filter((p) => p.status === "received")
                 const pending = bid.vendor_bid_prices.filter((p) => p.status === "pending")
                 const bestPrice = received.length > 0 ? Math.min(...received.map((p) => p.price!)) : null
+                const inhousePrice = getInhousePrice(bid)
                 const winnerName = bid.status === "awarded"
                   ? bid.vendor_bid_prices.find((p) => p.vendor_id === bid.winning_vendor_id)?.vendors?.company_name
                   : null
@@ -230,6 +268,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                     received={received}
                     pending={pending}
                     bestPrice={bestPrice}
+                    inhousePrice={inhousePrice}
                     winnerName={winnerName}
                     isJob={!!isJob}
                     num={num ?? null}
@@ -253,11 +292,12 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
 /* ═══════════════════════════════════════════════
    BidRowWithPanel -- table row + expandable panel
    ═══════════════════════════════════════════════ */
-function BidRowWithPanel({ bid, received, pending, bestPrice, winnerName, isJob, num, prefix, isExpanded, onToggle, onOpenQuote, vendors, mutateBids }: {
+function BidRowWithPanel({ bid, received, pending, bestPrice, inhousePrice, winnerName, isJob, num, prefix, isExpanded, onToggle, onOpenQuote, vendors, mutateBids }: {
   bid: DashboardBid
   received: BidPrice[]
   pending: BidPrice[]
   bestPrice: number | null
+  inhousePrice: number | null
   winnerName: string | null | undefined
   isJob: boolean
   num: number | null
@@ -316,13 +356,23 @@ function BidRowWithPanel({ bid, received, pending, bestPrice, winnerName, isJob,
             {received.length === 0 && pending.length === 0 && <span className="text-muted-foreground/30">-</span>}
           </div>
         </td>
-        {/* Best price */}
-        <td className="px-2 py-2.5 font-mono font-bold tabular-nums text-foreground">
-          {bid.status === "awarded" && bid.winning_price != null
-            ? formatCurrency(bid.winning_price)
-            : bestPrice != null ? formatCurrency(bestPrice)
-            : <span className="text-muted-foreground/25">-</span>
-          }
+        {/* Best OHP price */}
+        <td className="px-2 py-2.5 font-mono font-bold tabular-nums">
+          {bid.status === "awarded" && bid.winning_price != null ? (
+            <span className="text-emerald-700 dark:text-emerald-400">{formatCurrency(bid.winning_price)}</span>
+          ) : bestPrice != null ? (
+            <span className={cn(inhousePrice != null && bestPrice < inhousePrice ? "text-emerald-700 dark:text-emerald-400" : "text-foreground")}>{formatCurrency(bestPrice)}</span>
+          ) : (
+            <span className="text-muted-foreground/25">-</span>
+          )}
+        </td>
+        {/* In-House price */}
+        <td className="px-2 py-2.5 font-mono font-bold tabular-nums">
+          {inhousePrice != null ? (
+            <span className={cn(bestPrice != null && inhousePrice <= bestPrice ? "text-emerald-700 dark:text-emerald-400" : "text-foreground/70")}>{formatCurrency(inhousePrice)}</span>
+          ) : (
+            <span className="text-muted-foreground/25">-</span>
+          )}
         </td>
         {/* Status */}
         <td className="px-2 py-2.5">
@@ -351,8 +401,8 @@ function BidRowWithPanel({ bid, received, pending, bestPrice, winnerName, isJob,
       {/* Expanded price panel */}
       {isExpanded && (
         <tr>
-          <td colSpan={8} className="p-0">
-            <BidPricePanel bid={bid} vendors={vendors} mutateBids={mutateBids} />
+          <td colSpan={9} className="p-0">
+            <BidPricePanel bid={bid} vendors={vendors} mutateBids={mutateBids} inhousePrice={inhousePrice} />
           </td>
         </tr>
       )}
@@ -363,10 +413,11 @@ function BidRowWithPanel({ bid, received, pending, bestPrice, winnerName, isJob,
 /* ═══════════════════════════════════════════════
    BidPricePanel -- inline expandable price comparison
    ═══════════════════════════════════════════════ */
-function BidPricePanel({ bid, vendors, mutateBids }: {
+function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
   bid: DashboardBid
   vendors: Vendor[]
   mutateBids: () => void
+  inhousePrice: number | null
 }) {
   const { data: prices, mutate: mutatePrices, isLoading } = useSWR<BidPrice[]>(
     `/api/vendor-bids/${bid.id}/prices`, fetcher
@@ -447,6 +498,29 @@ function BidPricePanel({ bid, vendors, mutateBids }: {
       {bid.item_description && (
         <div className="px-6 pt-3 pb-0">
           <p className="text-[10px] text-muted-foreground">{bid.item_description}</p>
+        </div>
+      )}
+
+      {/* In-House vs OHP comparison bar */}
+      {inhousePrice != null && (
+        <div className="mx-4 mt-3 rounded-lg border overflow-hidden">
+          <div className="grid grid-cols-2 divide-x divide-border">
+            <div className={cn("px-4 py-2.5 text-center", inhousePrice <= (bestPrice ?? Infinity) ? "bg-emerald-50 dark:bg-emerald-950/15" : "bg-card")}>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">In-House</p>
+              <p className={cn("text-xl font-black font-mono tabular-nums mt-0.5", inhousePrice <= (bestPrice ?? Infinity) ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>{formatCurrency(inhousePrice)}</p>
+              {inhousePrice <= (bestPrice ?? Infinity) && <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">CHEAPER</p>}
+            </div>
+            <div className={cn("px-4 py-2.5 text-center", bestPrice != null && bestPrice < inhousePrice ? "bg-emerald-50 dark:bg-emerald-950/15" : "bg-card")}>
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Best OHP</p>
+              <p className={cn("text-xl font-black font-mono tabular-nums mt-0.5", bestPrice != null && bestPrice < inhousePrice ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>{bestPrice != null ? formatCurrency(bestPrice) : "---"}</p>
+              {bestPrice != null && bestPrice < inhousePrice && <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">CHEAPER</p>}
+              {bestPrice != null && inhousePrice != null && bestPrice !== inhousePrice && (
+                <p className="text-[8px] text-muted-foreground mt-0.5">
+                  {bestPrice < inhousePrice ? `Save ${formatCurrency(inhousePrice - bestPrice)}` : `${formatCurrency(bestPrice - inhousePrice)} more`}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
