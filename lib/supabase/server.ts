@@ -19,8 +19,6 @@ function getSupabaseKey() {
 
 export async function createClient() {
   // When env vars are missing, return a safe stub that won't throw.
-  // This prevents the entire server from crashing during development
-  // or in v0 preview when Supabase isn't configured yet.
   if (!supabaseReady()) {
     const noop = () => stub
     const stub: Record<string, unknown> = {
@@ -40,27 +38,40 @@ export async function createClient() {
     return stub as unknown as ReturnType<typeof createServerClient>
   }
 
-  const cookieStore = await cookies()
+  try {
+    const cookieStore = await cookies()
 
-  return createServerClient(
-    getSupabaseUrl(),
-    getSupabaseKey(),
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            )
-          } catch {
-            // The "setAll" method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
-          }
+    return createServerClient(
+      getSupabaseUrl(),
+      getSupabaseKey(),
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options),
+              )
+            } catch {
+              // The "setAll" method was called from a Server Component.
+            }
+          },
         },
       },
-    },
-  )
+    )
+  } catch {
+    // Fallback: if cookies() throws (e.g. during static init), use direct client
+    return createServerClient(
+      getSupabaseUrl(),
+      getSupabaseKey(),
+      {
+        cookies: {
+          getAll() { return [] },
+          setAll() {},
+        },
+      },
+    )
+  }
 }
