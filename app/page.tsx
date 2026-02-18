@@ -119,7 +119,7 @@ function AppContent() {
   }, [visibleSteps, currentStep, jobPhase])
 
   const handleLoadQuote = useCallback(
-    (quoteId: string) => { loadQuote(quoteId); setJobPhase("pricing"); setSection("job") },
+    (quoteId: string, step?: string) => { loadQuote(quoteId); setJobPhase("pricing"); if (step) setCurrentStep(step as StepId); setSection("job") },
     [loadQuote],
   )
   const handleNewJob = useCallback(() => {

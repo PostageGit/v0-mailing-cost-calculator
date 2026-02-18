@@ -69,7 +69,7 @@ const STATUS_CARDS: { key: StatusFilter; label: string; color: string; bg: strin
   { key: "closed",  label: "Closed",     color: "text-muted-foreground",              bg: "bg-secondary/40",                  border: "border-border",                              Icon: XCircle },
 ]
 
-export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: string) => void }) {
+export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: string, step?: string) => void }) {
   const { data: bids } = useSWR<DashboardBid[]>("/api/vendor-bids/dashboard", fetcher, { refreshInterval: 15000 })
 
   const [search, setSearch] = useState("")
@@ -303,8 +303,8 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                       <div
                         role="button"
                         tabIndex={0}
-                        onClick={(e) => { e.stopPropagation(); onOpenQuote(group.quoteId) }}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onOpenQuote(group.quoteId) } }}
+                        onClick={(e) => { e.stopPropagation(); onOpenQuote(group.quoteId, "ohp") }}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onOpenQuote(group.quoteId, "ohp") } }}
                         className="shrink-0 h-7 px-2.5 rounded-md bg-foreground text-background text-[10px] font-bold flex items-center gap-1 hover:opacity-80 transition-opacity"
                       >
                         <ExternalLink className="h-3 w-3" />
