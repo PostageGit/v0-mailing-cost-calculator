@@ -228,20 +228,54 @@ function FieldInput({ label, value, onChange, placeholder, type = "text" }: {
 
 function FieldSelect({ label, value, onChange, options }: {
   label: string; value: string; onChange: (v: string) => void; options: string[]
-}) {
+  }) {
   return (
-    <div className="min-w-0">
-      <span className="text-[10px] text-muted-foreground font-medium mb-1 block">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
-        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
-      >
-        <option value="">--</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
+  <div className="min-w-0">
+  <span className="text-[10px] text-muted-foreground font-medium mb-1 block">{label}</span>
+  <select value={value} onChange={(e) => onChange(e.target.value)}
+  className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
+  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+  >
+  <option value="">--</option>
+  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+  </select>
+  </div>
   )
-}
+  }
+
+  /* Color map for mailing classes */
+  const MAIL_CLASS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+    "First Class":    { bg: "bg-blue-50 dark:bg-blue-950/30",    text: "text-blue-700 dark:text-blue-400",    border: "border-blue-300 dark:border-blue-700" },
+    "Marketing":      { bg: "bg-orange-50 dark:bg-orange-950/30", text: "text-orange-700 dark:text-orange-400", border: "border-orange-300 dark:border-orange-700" },
+    "Non-Profit":     { bg: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-400", border: "border-violet-300 dark:border-violet-700" },
+    "Retail":         { bg: "bg-slate-50 dark:bg-slate-950/30",   text: "text-slate-700 dark:text-slate-400",   border: "border-slate-300 dark:border-slate-700" },
+    "Parcel Select":  { bg: "bg-teal-50 dark:bg-teal-950/30",    text: "text-teal-700 dark:text-teal-400",    border: "border-teal-300 dark:border-teal-700" },
+    "Media Mail":     { bg: "bg-amber-50 dark:bg-amber-950/30",  text: "text-amber-700 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-700" },
+    "Library Mail":   { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-300 dark:border-emerald-700" },
+    "Bound Printed Matter": { bg: "bg-rose-50 dark:bg-rose-950/30", text: "text-rose-700 dark:text-rose-400", border: "border-rose-300 dark:border-rose-700" },
+    "Single Piece":   { bg: "bg-gray-50 dark:bg-gray-950/30",    text: "text-gray-700 dark:text-gray-400",    border: "border-gray-300 dark:border-gray-700" },
+    "Stamps":         { bg: "bg-pink-50 dark:bg-pink-950/30",    text: "text-pink-700 dark:text-pink-400",    border: "border-pink-300 dark:border-pink-700" },
+  }
+  const ALL_MAIL_CLASSES = Object.keys(MAIL_CLASS_COLORS)
+
+  function MailClassSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const colors = MAIL_CLASS_COLORS[value]
+    return (
+      <div className="min-w-0">
+        <span className="text-[10px] text-muted-foreground font-medium mb-1 block">Mailing Class</span>
+        <select value={value} onChange={(e) => onChange(e.target.value)}
+          className={cn(
+            "w-full text-xs font-semibold rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer border",
+            colors ? `${colors.bg} ${colors.text} ${colors.border}` : "bg-background text-foreground border-border"
+          )}
+          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+        >
+          <option value="">--</option>
+          {ALL_MAIL_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+    )
+  }
 
 function MetaCheck({ label, checked, onChange, bold }: {
   label: string; checked: boolean; onChange: (c: boolean) => void; bold?: boolean
@@ -888,6 +922,16 @@ function QuoteCard({
               <User className="h-3 w-3" /> Assign
             </button>
           )}
+          {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
+            <span className={cn(
+              "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border",
+              MAIL_CLASS_COLORS[meta.mailing_class].bg,
+              MAIL_CLASS_COLORS[meta.mailing_class].text,
+              MAIL_CLASS_COLORS[meta.mailing_class].border,
+            )}>
+              {meta.mailing_class}
+            </span>
+          )}
           {overdue && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-destructive/10 text-destructive">
               OVERDUE ({days}d)
@@ -1086,8 +1130,7 @@ function QuoteCard({
               <div className="rounded-lg border border-border bg-card p-3">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Postage Details</p>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <FieldSelect label="Mailing Class" value={meta.mailing_class || ""} onChange={(v) => updateMeta({ mailing_class: v })}
-                    options={["1st Class", "Marketing", "Non Profit", "Single Piece", "Stamps"]} />
+                  <MailClassSelect value={meta.mailing_class || ""} onChange={(v) => updateMeta({ mailing_class: v })} />
                   <FieldSelect label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })}
                     options={["Brooklyn", "Monsey", "KJ", "Lakewood"]} />
                 </div>
@@ -1180,7 +1223,7 @@ function QuoteCard({
   )
 }
 
-/* ═════════════════════════════════════════════════���══
+/* ═════════════════════════════���═══════════════════���══
    COLUMN SETTINGS
    ════════════════════════════════════════════════════ */
 
@@ -1470,15 +1513,19 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       if (!meta.inserts_desc && insertDescs.length > 0) meta.inserts_desc = insertDescs.join(" + ")
     }
 
-    // --- Mailing class: from postage item label/description ---
-    const postageItems = items.filter((it) => it.category === "postage")
-    if (postageItems.length > 0 && !meta.mailing_class) {
-      const pDesc = postageItems[0].description || postageItems[0].label || ""
-      // Look for class: "First Class", "Standard", "Marketing", "Priority"
-      const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted"]
-      const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
-      meta.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").trim() || ""
-    }
+  // --- Mailing class: prefer structured metadata, fallback to regex ---
+  const postageItems = items.filter((it) => it.category === "postage")
+  if (postageItems.length > 0 && !meta.mailing_class) {
+  const pm = postageItems[0].metadata as Record<string, unknown> | undefined
+  if (pm?.mailingClass) {
+    meta.mailing_class = pm.mailingClass as string
+  } else {
+    const pDesc = postageItems[0].description || postageItems[0].label || ""
+    const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted"]
+    const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
+    meta.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").trim() || ""
+  }
+  }
 
     // --- Printed by + Vendor: from OHP items ---
     const ohpItems = items.filter((it) => it.category === "ohp")

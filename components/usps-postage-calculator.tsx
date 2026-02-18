@@ -493,13 +493,18 @@ function Tab1LettersFlats() {
     parts.push(result.className)
     if (result.description) parts.push(result.description)
     const activeTier = tiers[inputs.tierIndex]
+    // Map to kanban canonical mailing class names
+    const classMap: Record<string, string> = {
+      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
+      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
+    }
     quote.addItem({
       category: "postage",
       label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
       description: parts.join(" | "),
       amount: result.total,
       metadata: {
-        mailingClass: SERVICE_LABELS[inputs.service],
+        mailingClass: classMap[inputs.service] || SERVICE_LABELS[inputs.service],
         mailShape: inputs.shape.toLowerCase(),
         tierName: activeTier?.l || undefined,
         entryPoint: inputs.entry,
