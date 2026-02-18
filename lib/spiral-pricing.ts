@@ -1,6 +1,6 @@
 // ─── Spiral Binding Pricing Engine ───────────────────────
 import type { SpiralInputs, SpiralPartInputs, SpiralPartResult, SpiralCalcResult } from "./spiral-types"
-import { SPECIALTY_SHEET_SIZES } from "./printing-pricing"
+
 
 // ─── Constants ───────────────────────────────────────────
 const BLEED_MARGIN = 0.25
@@ -318,9 +318,7 @@ export function calculatePart(
 
   if (sheetSize === "cheapest") {
     let best: { name: string; w: number; h: number; maxUps: number; isRotated: boolean; totalSheets: number } | null = null
-    // Exclude specialty/large-format sizes from auto "cheapest" pick
-    const candidates = Object.keys(PAPER_CATALOG[paperName] || {}).filter((s) => !SPECIALTY_SHEET_SIZES.has(s))
-    for (const sizeId of candidates) {
+    for (const sizeId of Object.keys(PAPER_CATALOG[paperName] || {})) {
       const dim = SHEET_DIMS[sizeId]
       if (!dim) continue
       // Only consider sizes where sides option is available
@@ -365,7 +363,7 @@ export function calculatePart(
   }
 }
 
-// ─── Main entry point ────────────────────────────────────
+// ─── Main entry point ─────────��──────────────────────────
 export function calculateSpiral(inputs: SpiralInputs): SpiralCalcResult | { error: string } {
   const { bookQty, pagesPerBook, pageWidth, pageHeight } = inputs
   if (!bookQty || !pagesPerBook || !pageWidth || !pageHeight) {
