@@ -519,6 +519,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                       {/* Customer Provided -- two clean rows */}
                       {piece.production === "customer" && (() => {
                         const cpVendorId = vendors?.find(v2 => v2.company_name === piece.customerProvidedVendor)?.id
+                        const isCustomText = piece.customerProvidedVendor && piece.customerProvidedVendor !== "__custom__" && !cpVendorId
                         const selectVal = piece.customerProvidedVendor === "__custom__" ? "__custom__" : cpVendorId || "none"
                         return (
                           <div className="flex flex-col gap-3 mt-2 pl-1">
@@ -569,13 +570,31 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                 <Input
                                   type="text"
                                   placeholder="Enter vendor name"
-                                  value={cpCustomVendors[piece.id] || ""}
-                                  onChange={(e) => {
-                                    setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))
-                                    m.updatePiece(piece.id, { customerProvidedVendor: e.target.value || "__custom__" })
+                                  value={cpCustomVendors[piece.id] ?? ""}
+                                  onChange={(e) => setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))}
+                                  onBlur={(e) => {
+                                    if (e.target.value.trim()) {
+                                      m.updatePiece(piece.id, { customerProvidedVendor: e.target.value.trim() })
+                                      setCpCustomVendors(prev => { const n = { ...prev }; delete n[piece.id]; return n })
+                                    }
                                   }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
                                   className="h-8 text-xs w-40 px-2.5"
+                                  autoFocus
                                 />
+                              )}
+                              {isCustomText && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-foreground">{piece.customerProvidedVendor}</span>
+                                  <button type="button"
+                                    onClick={() => {
+                                      setCpCustomVendors(prev => ({ ...prev, [piece.id]: piece.customerProvidedVendor || "" }))
+                                      m.updatePiece(piece.id, { customerProvidedVendor: "__custom__" })
+                                    }}
+                                    className="text-[10px] text-muted-foreground hover:text-foreground underline">
+                                    edit
+                                  </button>
+                                </div>
                               )}
                             </div>
                           </div>
