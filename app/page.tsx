@@ -16,6 +16,7 @@ import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
 import { VendorList } from "@/components/vendor-list"
 import { DeliveriesDashboard } from "@/components/deliveries-dashboard"
+import { BillingDashboard } from "@/components/billing-dashboard"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
 import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
@@ -28,7 +29,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft,
+  Users, Truck, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -66,7 +67,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 
 // ---- Sidebar nav sections ----
 type Section =
-  | "quotes-board" | "jobs-board" | "deliveries"
+  | "quotes-board" | "jobs-board" | "deliveries" | "billing"
   | "customers" | "invoices" | "export-qb" | "vendors"
   | "job"
 
@@ -75,6 +76,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
   { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
+  { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
@@ -360,6 +362,13 @@ function AppContent() {
           {section === "deliveries" && (
             <div className="flex-1 min-h-0">
               <DeliveriesDashboard />
+            </div>
+          )}
+
+          {/* == BILLING == */}
+          {section === "billing" && (
+            <div className="flex-1 min-h-0">
+              <BillingDashboard />
             </div>
           )}
 
