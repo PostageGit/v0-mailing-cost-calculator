@@ -998,9 +998,9 @@ function QuoteCard({
               <span>Activate</span>
               <style>{`
                 @keyframes activatePulse {
-                  0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
-                  70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
-                  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+                  0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.4); }
+                  70% { box-shadow: 0 0 0 8px rgba(45, 212, 191, 0); }
+                  100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
                 }
                 .activate-pulse {
                   animation: activatePulse 0.4s ease-out;
@@ -1499,11 +1499,11 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
 
   return (
     <div className="flex flex-col min-w-[280px] w-[320px] shrink-0 lg:min-w-0 lg:w-auto lg:flex-1 min-h-0">
-      {boardType === "job" && <div className="h-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 mb-1 mx-1" />}
+      {boardType === "job" && <div className="h-px rounded-full bg-gradient-to-r from-teal-400/40 to-emerald-400/40 mb-1 mx-1" />}
       <div className="flex items-center justify-between px-1 pb-1.5 shrink-0">
         <div className="flex items-center gap-1.5">
           <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
-          <span className={cn("text-[11px] font-semibold", boardType === "job" ? "text-amber-800 dark:text-amber-400" : "text-foreground")}>{col.title}</span>
+          <span className={cn("text-[11px] font-semibold", boardType === "job" ? "text-teal-700 dark:text-teal-400" : "text-foreground")}>{col.title}</span>
           <span className="text-[9px] font-mono text-muted-foreground/60 tabular-nums">{quotes.length}</span>
         </div>
         <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums">{formatCurrency(colTotal)}</span>
@@ -1514,8 +1514,8 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
         onDrop={(e) => { e.preventDefault(); setDragOver(false); const id = e.dataTransfer.getData("text/plain"); if (id) onColumnChange(id, col.id) }}
         className={cn("flex-1 flex flex-col gap-2.5 p-1.5 rounded-lg overflow-y-auto transition-colors min-h-0",
           dragOver
-            ? boardType === "job" ? "bg-amber-50/50 dark:bg-amber-950/20 ring-1 ring-amber-300/30" : "bg-foreground/[0.03] ring-1 ring-foreground/10"
-            : boardType === "job" ? "bg-amber-50/20 dark:bg-amber-950/10" : "bg-secondary/20"
+            ? boardType === "job" ? "bg-teal-50/30 dark:bg-teal-950/10 ring-1 ring-teal-300/15" : "bg-foreground/[0.03] ring-1 ring-foreground/10"
+            : boardType === "job" ? "bg-teal-50/10 dark:bg-teal-950/5" : "bg-secondary/20"
         )}
       >
         {quotes.length === 0 ? (
