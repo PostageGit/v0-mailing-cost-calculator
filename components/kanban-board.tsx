@@ -420,7 +420,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ════════════════════════════════════════════════�������������═══
+/* ══════════════════════════════���═════════════════�������������═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -1014,6 +1014,9 @@ function QuoteCard({
             {boardType === "job" && (
               <span className="shrink-0 text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border border-teal-200/50 dark:border-teal-700/30">Active</span>
             )}
+            {quote.quote_number && (
+              <span className="shrink-0 text-[11px] font-bold font-mono tabular-nums text-foreground/70 bg-secondary/80 px-1.5 py-0.5 rounded">{quote.quote_number}</span>
+            )}
             <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
@@ -1418,7 +1421,7 @@ function QuoteCard({
             {/* ── Files ── */}
             <JobFilesInline quoteId={quote.id} onOpenPanel={() => setShowFiles(true)} />
 
-            {/* ── Line items (only on quote board) ── */}
+            {/* ���─ Line items (only on quote board) ── */}
             {boardType === "quote" && (quote.items || []).length > 0 && (
               <div className="rounded-lg border border-border bg-card p-3">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Line Items</p>
