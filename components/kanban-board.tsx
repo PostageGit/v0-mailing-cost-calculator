@@ -1325,84 +1325,133 @@ function QuoteCard({
                     <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Mail<br/>Pieces</span>
                   </div>
 
-                  {/* ROW 1: Piece cards -- all equal height via grid stretch */}
-                  <div className={cn("grid gap-2", gridCls)}>
-                    {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production, pmVendor }) => (
-                      <div key={i} className={cn("rounded-lg border bg-card p-3 flex flex-col min-h-[100px]", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
-                        {/* Type name */}
-                        <div className="flex items-center gap-1.5">
-                          {isOHP && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
-                          <span className="text-base font-extrabold text-foreground truncate leading-tight">{foundType}</span>
-                        </div>
-                        {/* Qty + size */}
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1">
-                          {qtyStr && <span className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{qtyStr}</span> pcs</span>}
-                          {sizeStr && <span className="text-[11px] text-muted-foreground">{sizeStr}</span>}
-                        </div>
-                        {/* Printing specs */}
-                        {printDetails.length > 0 && (
-                          <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{printDetails.join(" / ")}</p>
-                        )}
-                        {/* Vendor / Production tag */}
-                        {prodLabel && (
-                          <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded self-start mt-1",
-                            prodLabel.startsWith("PrintOut") ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : production === "ohp" || (pmVendor && !pmVendor.startsWith("PrintOut")) ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                            : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                            : "bg-muted text-muted-foreground"
-                          )}>{prodLabel}</span>
-                        )}
-                        {/* Price anchored bottom */}
-                        <span className="text-xs font-bold font-mono text-foreground/70 tabular-nums mt-auto pt-1.5">{formatCurrency(pc.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* ROW 2: Per-piece vendor/date/arrived -- ALL pieces get tracking */}
-                  <div className={cn("grid gap-2 mt-2", gridCls)}>
-                    {pieceData.map(({ i, production }) => {
+                  {/* Unified piece cards -- info + tracking in one card */}
+                  <div className={cn("grid gap-2.5", gridCls)}>
+                    {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production, pmVendor }) => {
                       const pm = getPm(i)
                       const isInhouse = !production || production === "inhouse"
                       const internalVendors = (vendors || []).filter((v) => v.is_internal)
                       const externalVendors = (vendors || []).filter((v) => !v.is_internal)
+                      const arrived = !!pm.prints_arrived
 
                       return (
-                        <div key={i} className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                            <div className="min-w-0">
-                              <span className="text-[10px] text-muted-foreground font-medium mb-1 block">Vendor</span>
-                              <select
-                                value={pm.vendor || ""}
-                                onChange={(e) => setPm(i, { vendor: e.target.value })}
-                                className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
-                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
-                              >
-                                <option value="">Select vendor...</option>
-                                {isInhouse ? (
-                                  /* In-house pieces: show only PrintOut locations */
-                                  internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)
-                                ) : (
-                                  /* OHP/Both/Customer: show external vendors first, then internal in a separate group */
-                                  <>
-                                    {externalVendors.length > 0 && (
-                                      <optgroup label="External Vendors">
-                                        {externalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
-                                      </optgroup>
-                                    )}
-                                    {internalVendors.length > 0 && (
-                                      <optgroup label="PrintOut (In-House)">
-                                        {internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
-                                      </optgroup>
-                                    )}
-                                  </>
+                        <div key={i} className={cn(
+                          "rounded-xl border transition-all flex flex-col overflow-hidden",
+                          arrived
+                            ? "border-emerald-300 dark:border-emerald-700/50 bg-gradient-to-b from-emerald-50/50 to-card dark:from-emerald-950/20 dark:to-card"
+                            : isOHP ? "border-sky-200 dark:border-sky-800/40 bg-card" : "border-border bg-card"
+                        )}>
+                          {/* ── Top: Piece info ── */}
+                          <div className="px-3 pt-3 pb-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  {isOHP && <span className="text-[7px] font-bold tracking-wider uppercase px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
+                                  <h4 className="text-sm font-extrabold text-foreground truncate leading-tight">{foundType}</h4>
+                                </div>
+                                <div className="flex flex-wrap items-baseline gap-x-1.5 text-[10px] text-muted-foreground">
+                                  {qtyStr && <span><strong className="text-foreground font-semibold">{qtyStr}</strong> pcs</span>}
+                                  {sizeStr && <span className="text-muted-foreground/60">{sizeStr}</span>}
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold font-mono text-foreground/80 tabular-nums shrink-0 pt-0.5">{formatCurrency(pc.amount)}</span>
+                            </div>
+                            {/* Print specs + vendor tag row */}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              {printDetails.length > 0 && (
+                                <span className="text-[9px] text-muted-foreground/60">{printDetails.join(" / ")}</span>
+                              )}
+                              {prodLabel && (
+                                <span className={cn("text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded",
+                                  prodLabel.startsWith("PrintOut") ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                  : production === "ohp" || (pmVendor && !pmVendor.startsWith("PrintOut")) ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                                  : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-muted text-muted-foreground"
+                                )}>{prodLabel}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* ── Bottom: Vendor / ETA / Arrived tracking ── */}
+                          <div className={cn(
+                            "px-3 py-2 mt-auto border-t",
+                            arrived ? "border-emerald-200/50 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/10" : "border-border/50 bg-muted/20"
+                          )}>
+                            {/* Vendor + ETA inline */}
+                            <div className="flex gap-1.5 mb-1.5">
+                              <div className="flex-1 min-w-0">
+                                <select
+                                  value={pm.vendor || ""}
+                                  onChange={(e) => setPm(i, { vendor: e.target.value })}
+                                  className="w-full text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer"
+                                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center", paddingRight: "18px" }}
+                                  title="Vendor"
+                                >
+                                  <option value="">Vendor...</option>
+                                  {isInhouse ? (
+                                    internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)
+                                  ) : (
+                                    <>
+                                      {externalVendors.length > 0 && (
+                                        <optgroup label="External">
+                                          {externalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                        </optgroup>
+                                      )}
+                                      {internalVendors.length > 0 && (
+                                        <optgroup label="In-House">
+                                          {internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                        </optgroup>
+                                      )}
+                                    </>
+                                  )}
+                                </select>
+                              </div>
+                              <input
+                                type="date"
+                                value={pm.expected_date || ""}
+                                onChange={(e) => setPm(i, { expected_date: e.target.value })}
+                                className={cn(
+                                  "text-[10px] font-medium bg-background border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all w-[100px] shrink-0",
+                                  (() => {
+                                    const r = getRelativeDay(pm.expected_date || "")
+                                    if (!r) return "text-foreground border-border"
+                                    if (r.diff < 0) return "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
+                                    if (r.diff === 0) return "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
+                                    if (r.diff === 1) return "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
+                                    return "text-foreground border-border"
+                                  })()
                                 )}
+                                title="Expected date"
+                              />
+                              <select
+                                value={pm.expected_time || ""}
+                                onChange={(e) => setPm(i, { expected_time: e.target.value })}
+                                className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer w-[52px] shrink-0"
+                                title="Expected time"
+                              >
+                                <option value="">Time</option>
+                                {ETA_TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
                               </select>
                             </div>
-                            <EtaDateField value={pm.expected_date || ""} onChange={(v) => setPm(i, { expected_date: v })} time={pm.expected_time || ""} onTimeChange={(v) => setPm(i, { expected_time: v })} />
-                          </div>
-                          <div className="flex items-center justify-between mt-2">
-                            <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
-                            {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
+                            {/* ETA badge + Arrived + Info */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                {(() => {
+                                  const r = getRelativeDay(pm.expected_date || "")
+                                  if (!r || !r.label) return null
+                                  return <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded border", r.color)}>{r.label}{pm.expected_time ? ` ${pm.expected_time}` : ""}</span>
+                                })()}
+                                <label className="flex items-center gap-1 cursor-pointer select-none group/chk" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={arrived}
+                                    onCheckedChange={(c) => setPm(i, { prints_arrived: !!c })}
+                                    className={cn("h-3 w-3 rounded-sm", arrived && "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
+                                  />
+                                  <span className={cn("text-[9px] font-medium", arrived ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground/60 group-hover/chk:text-muted-foreground")}>Arrived</span>
+                                </label>
+                              </div>
+                              {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
+                            </div>
                           </div>
                         </div>
                       )
