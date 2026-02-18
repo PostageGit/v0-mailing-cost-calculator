@@ -1009,174 +1009,171 @@ function QuoteCard({
           : "shadow-sm"
       )}
     >
-      {/* ── CARD CONTENT (PostFlow style) ── */}
-      <div className="px-4 pt-3 pb-3">
-        {/* Row 1: Title + icons */}
-        <div className="flex items-start justify-between gap-2 mb-0.5 relative">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 cursor-grab" />
-            {boardType === "job" && (
-              <span className="shrink-0 text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border border-teal-200/50 dark:border-teal-700/30">Active</span>
+      {/* ── CARD CONTENT ── */}
+      <div className="relative">
+        {/* Drag handle strip */}
+        <div className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
+        </div>
+
+        <div className="pl-5 pr-3 pt-2.5 pb-2.5">
+          {/* Header: Numbers + Title + Actions */}
+          <div className="flex items-center gap-1.5 mb-1 relative">
+            {/* Numbers cluster */}
+            <div className="flex items-center gap-1 shrink-0">
+              {quote.job_number ? (
+                <span className="text-[10px] font-bold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200/50 dark:border-teal-800/30 px-1.5 py-0.5 rounded">J-{quote.job_number}</span>
+              ) : quote.quote_number ? (
+                <span className="text-[10px] font-bold font-mono tabular-nums text-foreground/60 bg-secondary/80 px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
+              ) : null}
+              {quote.job_number && quote.quote_number && (
+                <span className="text-[8px] font-mono tabular-nums text-muted-foreground/40">Q-{quote.quote_number}</span>
+              )}
+            </div>
+            {/* Title */}
+            <p className="text-sm font-bold text-foreground truncate flex-1 min-w-0">{quote.project_name || "Untitled"}</p>
+            {/* Actions */}
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
+                className={cn("h-5 w-5 flex items-center justify-center rounded transition-colors",
+                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/30 hover:text-foreground"
+                )} title="Quick Notes">
+                <NotepadText className="h-3 w-3" />
+              </button>
+              <button onClick={() => setOpen(!open)}
+                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground transition-colors" title="Expand">
+                <ChevronRight className={cn("h-3 w-3 transition-transform duration-200", open && "rotate-90")} />
+              </button>
+            </div>
+            {showQuickNotes && (
+              <QuickNotesPopup
+                value={meta.quick_notes || quote.notes || ""}
+                onChange={(v) => updateMeta({ quick_notes: v })}
+                onClose={() => setShowQuickNotes(false)}
+              />
             )}
-            {(quote.job_number || quote.quote_number) && (
+          </div>
+
+          {/* Contact + Reference row */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-muted-foreground truncate">{quote.contact_name || "\u00A0"}</span>
+            {quote.reference_number && (
+              <span className="text-[9px] font-mono text-muted-foreground/40 shrink-0">INV {quote.reference_number}</span>
+            )}
+          </div>
+
+          {/* Tags strip: Date + Assignee + Mail Class + Overdue */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
+            {(() => {
+              const assignedMember = activeTeam.find((m) => m.name === meta.assignee)
+              const assigneeColor = assignedMember?.color || "#6b7280"
+              return meta.assignee ? (
+                <div className="relative">
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border cursor-pointer"
+                    style={{ backgroundColor: assigneeColor + "15", borderColor: assigneeColor + "30", color: assigneeColor }}
+                  >
+                    <span className="h-3.5 w-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: assigneeColor }}>
+                      {meta.assignee.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    </span>
+                    {meta.assignee.split(" ")[0]}
+                  </span>
+                  <select
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    value={meta.assignee || ""}
+                    onChange={(e) => { e.stopPropagation(); updateMeta({ assignee: e.target.value || null }) }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="">Unassign</option>
+                    {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <div className="relative">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/30 px-1.5 py-0.5 rounded-md border border-dashed border-border/60 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
+                    <User className="h-2.5 w-2.5" /> Assign
+                  </span>
+                  <select
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    value=""
+                    onChange={(e) => { e.stopPropagation(); if (e.target.value) updateMeta({ assignee: e.target.value }) }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <option value="">Assign to...</option>
+                    {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                  </select>
+                </div>
+              )
+            })()}
+            {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
               <span className={cn(
-                "shrink-0 text-[11px] font-bold font-mono tabular-nums px-1.5 py-0.5 rounded",
-                quote.job_number
-                  ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200/50 dark:border-teal-800/30"
-                  : "text-foreground/70 bg-secondary/80"
+                "inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
+                MAIL_CLASS_COLORS[meta.mailing_class].bg,
+                MAIL_CLASS_COLORS[meta.mailing_class].text,
+                MAIL_CLASS_COLORS[meta.mailing_class].border,
               )}>
-                {quote.job_number ? `J-${quote.job_number}` : quote.quote_number}
+                {meta.mailing_class}
               </span>
             )}
-            {quote.job_number && quote.quote_number && (
-              <span className="shrink-0 text-[9px] font-mono tabular-nums text-muted-foreground/50" title="Original quote number">Q-{quote.quote_number}</span>
+            {overdue && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-destructive/10 text-destructive border border-destructive/20">
+                {days}d late
+              </span>
             )}
-            <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
           </div>
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
-              className={cn("h-6 w-6 flex items-center justify-center rounded transition-colors",
-                showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/40 hover:text-foreground"
-              )} title="Quick Notes">
-              <NotepadText className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => setOpen(!open)}
-              className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/40 hover:text-foreground transition-colors" title="Expand">
-              <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
-            </button>
-          </div>
-          {/* Quick Notes popup */}
-          {showQuickNotes && (
-            <QuickNotesPopup
-              value={meta.quick_notes || quote.notes || ""}
-              onChange={(v) => updateMeta({ quick_notes: v })}
-              onClose={() => setShowQuickNotes(false)}
-            />
-          )}
-        </div>
 
-        {/* Row 2: Subtitle (contact name) */}
-        <p className="text-[13px] text-muted-foreground ml-6 mb-2.5 truncate">{quote.contact_name || "\u00A0"}</p>
-
-        {/* Row 3: Mail Date picker + Assignee badge */}
-        <div className="flex items-center gap-2 ml-6 mb-3 flex-wrap">
-          <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
-          {(() => {
-            const assignedMember = activeTeam.find((m) => m.name === meta.assignee)
-            const assigneeColor = assignedMember?.color || "#6b7280"
-            return meta.assignee ? (
-              <div className="relative group/assign">
-                <button onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors"
-                  style={{ backgroundColor: assigneeColor + "18", borderColor: assigneeColor + "40", color: assigneeColor }}
-                >
-                  <span className="h-4 w-4 rounded-full text-white text-[8px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: assigneeColor }}>
-                    {meta.assignee.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
-                  </span>
-                  {meta.assignee}
+          {/* Bottom bar: ZD# + Note + Status -- all inline */}
+          <div className="flex items-center gap-3 pt-1.5 border-t border-border/30">
+            <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
+            <div className="flex-1 min-w-0">
+              {(meta.quick_notes || quote.notes) ? (
+                <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
+                  className="text-[10px] text-muted-foreground/60 italic truncate block w-full text-left hover:text-muted-foreground transition-colors">
+                  {meta.quick_notes || quote.notes}
                 </button>
-                <select
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  value={meta.assignee || ""}
-                  onChange={(e) => { e.stopPropagation(); updateMeta({ assignee: e.target.value || null }) }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Unassign</option>
-                  {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
-                </select>
-              </div>
-            ) : (
-              <div className="relative">
-                <button onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-foreground/20 hover:text-muted-foreground transition-colors">
-                  <User className="h-3 w-3" /> Assign
+              ) : (
+                <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
+                  className="text-[10px] text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors italic">
+                  note...
                 </button>
-                <select
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  value=""
-                  onChange={(e) => { e.stopPropagation(); if (e.target.value) updateMeta({ assignee: e.target.value }) }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Assign to...</option>
-                  {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
-                </select>
-              </div>
-            )
-          })()}
-          {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
-            <span className={cn(
-              "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border",
-              MAIL_CLASS_COLORS[meta.mailing_class].bg,
-              MAIL_CLASS_COLORS[meta.mailing_class].text,
-              MAIL_CLASS_COLORS[meta.mailing_class].border,
-            )}>
-              {meta.mailing_class}
-            </span>
-          )}
-          {overdue && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-destructive/10 text-destructive">
-              OVERDUE ({days}d)
-            </span>
-          )}
-        </div>
-
-        {/* Row 4: ZD# (editable, links to Zendesk) + INV */}
-        <div className="flex items-center gap-4 ml-6 mb-2">
-          <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
-          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50">
-            <Hash className="h-3 w-3" />INV <span className="font-mono text-foreground/70">{quote.reference_number || "---"}</span>
-          </span>
-        </div>
-
-        {/* Row 5: Add note / notes preview */}
-        <div className="ml-6 mb-3">
-          {(meta.quick_notes || quote.notes) ? (
-            <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
-              className="text-[11px] text-muted-foreground italic line-clamp-1 text-left hover:text-foreground transition-colors">
-              {meta.quick_notes || quote.notes}
-            </button>
-          ) : (
-            <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
-              className="text-[11px] text-muted-foreground/30 hover:text-muted-foreground transition-colors italic">
-              Add note...
-            </button>
-          )}
-        </div>
-
-        {/* Row 6: Next Step status dropdown */}
-        <div className="ml-6 pt-2 border-t border-border/40">
-          <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
-        </div>
-
-        {/* Row 7: Activate Job (only on quote board) */}
-        {!isArchived && boardType === "quote" && onConvertToJob && (
-          <div className="pt-2 pb-1 ml-6">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                const btn = e.currentTarget
-                btn.classList.add("activate-pulse")
-                setTimeout(() => { btn.classList.remove("activate-pulse"); onConvertToJob(quote.id) }, 400)
-              }}
-              className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-foreground/[0.04] hover:bg-foreground hover:text-background px-3 py-1.5 text-[10px] font-semibold tracking-wide text-foreground/60 transition-all duration-200 hover:shadow-sm active:scale-95"
-            >
-              <Zap className="h-3 w-3 transition-transform group-hover:text-teal-400 group-hover:scale-110" />
-              <span>Activate</span>
-              <style>{`
-                @keyframes activatePulse {
-                  0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.4); }
-                  70% { box-shadow: 0 0 0 8px rgba(45, 212, 191, 0); }
-                  100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
-                }
-                .activate-pulse {
-                  animation: activatePulse 0.4s ease-out;
-                  background: hsl(var(--foreground)) !important;
-                  color: hsl(var(--background)) !important;
-                }
-              `}</style>
-            </button>
+              )}
+            </div>
+            <div className="shrink-0">
+              <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
+            </div>
           </div>
-        )}
+
+          {/* Activate Job (quote board only) */}
+          {!isArchived && boardType === "quote" && onConvertToJob && (
+            <div className="pt-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const btn = e.currentTarget
+                  btn.classList.add("activate-pulse")
+                  setTimeout(() => { btn.classList.remove("activate-pulse"); onConvertToJob(quote.id) }, 400)
+                }}
+                className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-foreground/[0.04] hover:bg-foreground hover:text-background px-3 py-1 text-[10px] font-semibold tracking-wide text-foreground/60 transition-all duration-200 hover:shadow-sm active:scale-95"
+              >
+                <Zap className="h-3 w-3 transition-transform group-hover:text-teal-400 group-hover:scale-110" />
+                <span>Activate</span>
+                <style>{`
+                  @keyframes activatePulse {
+                    0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.4); }
+                    70% { box-shadow: 0 0 0 8px rgba(45, 212, 191, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
+                  }
+                  .activate-pulse {
+                    animation: activatePulse 0.4s ease-out;
+                    background: hsl(var(--foreground)) !important;
+                    color: hsl(var(--background)) !important;
+                  }
+                `}</style>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── EXPANDED DETAIL ── */}
