@@ -12,6 +12,7 @@ import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { buildQuoteText } from "@/lib/build-quote-text"
 import { cn } from "@/lib/utils"
+import type { Vendor } from "@/lib/vendor-types"
 import {
   FileText, Trash2, ArrowRight, ArrowLeft,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
@@ -750,7 +751,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
   )
 }
 
-/* ═════════════════��══════════════════════════════════
+/* ═════════════════����══════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
    ══════════════�����═════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
@@ -849,6 +850,7 @@ function QuoteCard({
   const [showFiles, setShowFiles] = useState(false)
   const [showQuickNotes, setShowQuickNotes] = useState(false)
   const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const { data: vendors } = useSWR<Vendor[]>(open ? "/api/vendors" : null, fetcher)
   const nextSteps: string[] = (appSettings?.next_steps as string[] | undefined) || DEFAULT_NEXT_STEPS
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
   const canL = !isArchived && colIdx > 0
@@ -1178,23 +1180,41 @@ function QuoteCard({
                     ))}
                   </div>
 
-                  {/* ROW 2: Per-piece vendor/date/arrived -- same grid, perfectly aligned */}
-                  <div className={cn("grid gap-2 mt-2", gridCls)}>
-                    {pieceData.map(({ i }) => {
-                      const pm = getPm(i)
-                      return (
-                        <div key={i} className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                            <FieldInput label="Vendor" value={pm.vendor || ""} placeholder="Vendor" onChange={(v) => setPm(i, { vendor: v })} />
-                            <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
+                  {/* ROW 2: Per-piece vendor/date/arrived -- only for OHP/Both/Customer pieces */}
+                  {pieceData.some(({ production }) => production && production !== "inhouse") && (
+                    <div className={cn("grid gap-2 mt-2", gridCls)}>
+                      {pieceData.map(({ i, production }) => {
+                        const needsVendor = production && production !== "inhouse"
+                        const pm = getPm(i)
+                        if (!needsVendor) {
+                          // Empty placeholder to keep grid alignment
+                          return <div key={i} />
+                        }
+                        return (
+                          <div key={i} className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                              <div className="min-w-0">
+                                <span className="text-[10px] text-muted-foreground font-medium mb-1 block">Vendor</span>
+                                <select
+                                  value={pm.vendor || ""}
+                                  onChange={(e) => setPm(i, { vendor: e.target.value })}
+                                  className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
+                                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+                                >
+                                  <option value="">Select vendor...</option>
+                                  {(vendors || []).map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                </select>
+                              </div>
+                              <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
+                            </div>
+                            <div className="mt-2">
+                              <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
+                            </div>
                           </div>
-                          <div className="mt-2">
-                            <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })()}
