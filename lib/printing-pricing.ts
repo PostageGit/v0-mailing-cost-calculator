@@ -25,7 +25,7 @@ export const PAPER_OPTIONS: PaperOption[] = [
   { name: "80 Cover Gloss", isCardstock: true, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
   { name: "10pt Offset", isCardstock: true, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
   { name: "10pt Gloss", isCardstock: true, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
-  { name: "12pt Gloss", isCardstock: true, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
+  { name: "12pt Gloss", isCardstock: true, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19", "13x26"] },
   { name: "14pt Gloss", isCardstock: true, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
   { name: "Sticker (Crack & Peel)", isCardstock: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
 ]
@@ -39,7 +39,7 @@ export const PAPER_PRICES: Record<string, Record<string, number>> = {
   "80 Cover Gloss": { "8.5x11": 0.05795, "11x17": 0.1159, "12x18": 0.1159, "13x19": 0.1159 },
   "10pt Offset": { "8.5x11": 0.0578, "11x17": 0.113, "12x18": 0.113, "13x19": 0.113 },
   "10pt Gloss": { "8.5x11": 0.06605, "11x17": 0.1321, "12x18": 0.1321, "13x19": 0.1321 },
-  "12pt Gloss": { "8.5x11": 0.0745, "11x17": 0.149, "12x18": 0.149, "13x19": 0.149 },
+  "12pt Gloss": { "8.5x11": 0.0745, "11x17": 0.149, "12x18": 0.149, "13x19": 0.149, "13x26": 0.447 },
   "14pt Gloss": { "8.5x11": 0.09455, "11x17": 0.1891, "12x18": 0.1891, "13x19": 0.1891 },
   "Sticker (Crack & Peel)": { "8.5x11": 0.187, "11x17": 0.373, "12x18": 0.373, "13x19": 0.373 },
 }
@@ -47,6 +47,11 @@ export const PAPER_PRICES: Record<string, Record<string, number>> = {
 export const CLICK_COSTS: Record<string, { regular: number; machine: number }> = {
   BW: { regular: 0.0039, machine: 0.00365 },
   Color: { regular: 0.049, machine: 0.0087 },
+}
+
+/** Sheet sizes that multiply the base click cost (e.g. 13x26 costs 3x per click) */
+export const CLICK_COST_SHEET_MULTIPLIERS: Record<string, number> = {
+  "13x26": 3,
 }
 
 export const SIDES_RULES: Record<string, { name: string; clickAmount: number; clickType: string; machineClickAmount: number }> = {
@@ -229,8 +234,9 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
   const paperCostPerSheet = cfg.paperPrices[paperName]?.[size] ?? PAPER_PRICES[paperName]?.[size] ?? 0
   if (paperCostPerSheet === 0) return null
 
+  const sheetClickMultiplier = CLICK_COST_SHEET_MULTIPLIERS[size] ?? 1
   const clickCostPerSheet =
-    sidesRule.clickAmount * clickCostData.regular + sidesRule.machineClickAmount * clickCostData.machine
+    (sidesRule.clickAmount * clickCostData.regular + sidesRule.machineClickAmount * clickCostData.machine) * sheetClickMultiplier
   const autoLevel = inputs.isBroker ? 10 : getLevel(totalParentSheets)
   const level = inputs.levelOverride ? Math.max(1, Math.min(10, inputs.levelOverride)) : autoLevel
   const markup = getMarkup(level, sidesValue, paperData.isCardstock)
