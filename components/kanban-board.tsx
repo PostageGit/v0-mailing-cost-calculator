@@ -1311,19 +1311,16 @@ function QuoteCard({
                 return { pc, i, md, sizeStr, isOHP, qtyStr, foundType, printDetails, prodLabel, production, pmVendor }
               })
 
-              // Smart grid: always 2-col max so cards breathe
-              const gridCls = pieces.length === 1 ? "grid-cols-1" : "grid-cols-2"
-
               return (
                 <div>
-                  {/* Header row */}
+                  {/* Section header */}
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-4xl font-black text-foreground leading-none tabular-nums">{pieces.length}</span>
                     <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Mail<br/>Pieces</span>
                   </div>
 
-                  {/* Piece cards */}
-                  <div className={cn("grid gap-2", gridCls)}>
+                  {/* Vertical list -- one piece per row, full width */}
+                  <div className="rounded-xl border border-border overflow-hidden divide-y divide-border/60">
                     {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production, pmVendor }) => {
                       const pm = getPm(i)
                       const isInhouse = !production || production === "inhouse"
@@ -1334,58 +1331,48 @@ function QuoteCard({
 
                       return (
                         <div key={i} className={cn(
-                          "rounded-lg border transition-all flex flex-col overflow-hidden",
-                          arrived
-                            ? "border-emerald-300 dark:border-emerald-700/50"
-                            : isOHP ? "border-sky-200/80 dark:border-sky-800/40" : "border-border"
+                          "transition-colors",
+                          arrived ? "bg-emerald-50/50 dark:bg-emerald-950/15" : "bg-card"
                         )}>
-                          {/* ── Piece Info ── */}
-                          <div className={cn(
-                            "px-3 pt-2.5 pb-2",
-                            arrived ? "bg-emerald-50/40 dark:bg-emerald-950/15" : "bg-card"
-                          )}>
-                            {/* Row 1: Type + Price */}
-                            <div className="flex items-baseline justify-between gap-2 mb-1">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                {isOHP && <span className="text-[7px] font-bold tracking-wider uppercase px-1 py-px rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
-                                <span className="text-[13px] font-extrabold text-foreground truncate">{foundType}</span>
+                          {/* ── Top: Piece identity ── */}
+                          <div className="px-4 pt-3 pb-2">
+                            {/* Line 1: Type name + tags + price */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="text-[14px] font-extrabold text-foreground leading-tight">{foundType}</span>
+                                {isOHP && <span className="text-[7px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
+                                {prodLabel && (
+                                  <span className={cn("text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0",
+                                    prodLabel.startsWith("PrintOut") ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                    : production === "ohp" || (pmVendor && !pmVendor.startsWith("PrintOut")) ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                                    : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                    : "bg-muted text-muted-foreground"
+                                  )}>{prodLabel}</span>
+                                )}
                               </div>
-                              <span className="text-[11px] font-bold font-mono text-foreground/70 tabular-nums shrink-0">{formatCurrency(pc.amount)}</span>
+                              <span className="text-sm font-bold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(pc.amount)}</span>
                             </div>
-                            {/* Row 2: Qty + Size inline */}
-                            <div className="text-[10px] text-muted-foreground leading-snug">
-                              {qtyStr && <><strong className="text-foreground font-semibold">{qtyStr}</strong> pcs</>}
-                              {qtyStr && sizeStr && <span className="mx-1 text-muted-foreground/30">|</span>}
-                              {sizeStr && <span className="text-muted-foreground/70">{sizeStr}</span>}
+                            {/* Line 2: Specs row -- qty, size, print details all inline */}
+                            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                              {qtyStr && <span><strong className="text-foreground/80 font-semibold">{qtyStr}</strong> pcs</span>}
+                              {sizeStr && <><span className="text-muted-foreground/20">|</span><span>{sizeStr}</span></>}
+                              {printDetails.length > 0 && <><span className="text-muted-foreground/20">|</span><span className="text-muted-foreground/60 truncate">{printDetails.join(", ")}</span></>}
                             </div>
-                            {/* Row 3: Print specs */}
-                            {printDetails.length > 0 && (
-                              <p className="text-[9px] text-muted-foreground/50 mt-0.5 leading-snug truncate">{printDetails.join(" / ")}</p>
-                            )}
-                            {/* Row 4: Production tag */}
-                            {prodLabel && (
-                              <span className={cn("inline-block text-[8px] font-bold uppercase tracking-wider px-1.5 py-px rounded mt-1.5",
-                                prodLabel.startsWith("PrintOut") ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                : production === "ohp" || (pmVendor && !pmVendor.startsWith("PrintOut")) ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                                : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-muted text-muted-foreground"
-                              )}>{prodLabel}</span>
-                            )}
                           </div>
 
-                          {/* ── Tracking Section ── */}
+                          {/* ── Bottom: Tracking bar ── */}
                           <div className={cn(
-                            "px-3 py-2 mt-auto border-t space-y-1.5",
-                            arrived ? "border-emerald-200/60 dark:border-emerald-800/30 bg-emerald-50/60 dark:bg-emerald-950/10" : "border-border/40 bg-muted/15"
+                            "px-4 py-2 flex items-center gap-2",
+                            arrived ? "bg-emerald-100/40 dark:bg-emerald-900/15" : "bg-muted/25"
                           )}>
-                            {/* Vendor select -- full width */}
+                            {/* Vendor */}
                             <select
                               value={pm.vendor || ""}
                               onChange={(e) => setPm(i, { vendor: e.target.value })}
-                              className="w-full text-[10px] font-medium text-foreground bg-background border border-border rounded px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer"
-                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center", paddingRight: "18px" }}
+                              className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer min-w-[90px] max-w-[130px]"
+                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center", paddingRight: "16px" }}
                             >
-                              <option value="">Select vendor...</option>
+                              <option value="">Vendor...</option>
                               {isInhouse ? (
                                 internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)
                               ) : (
@@ -1403,49 +1390,50 @@ function QuoteCard({
                                 </>
                               )}
                             </select>
-                            {/* Date + Time row */}
-                            <div className="flex gap-1">
-                              <input
-                                type="date"
-                                value={pm.expected_date || ""}
-                                onChange={(e) => setPm(i, { expected_date: e.target.value })}
-                                className={cn(
-                                  "flex-1 min-w-0 text-[10px] font-medium bg-background border rounded px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all",
-                                  !etaRel ? "text-foreground border-border"
-                                  : etaRel.diff < 0 ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
-                                  : etaRel.diff === 0 ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
-                                  : etaRel.diff === 1 ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
-                                  : "text-foreground border-border"
-                                )}
+                            {/* Date */}
+                            <input
+                              type="date"
+                              value={pm.expected_date || ""}
+                              onChange={(e) => setPm(i, { expected_date: e.target.value })}
+                              className={cn(
+                                "text-[10px] font-medium bg-background border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all w-[105px] shrink-0",
+                                !etaRel ? "text-foreground border-border"
+                                : etaRel.diff < 0 ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
+                                : etaRel.diff === 0 ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
+                                : etaRel.diff === 1 ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
+                                : "text-foreground border-border"
+                              )}
+                            />
+                            {/* Time */}
+                            <select
+                              value={pm.expected_time || ""}
+                              onChange={(e) => setPm(i, { expected_time: e.target.value })}
+                              className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer w-[50px] shrink-0"
+                            >
+                              <option value="">Time</option>
+                              {ETA_TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            {/* Spacer */}
+                            <div className="flex-1" />
+                            {/* ETA badge */}
+                            {etaRel && etaRel.label && (
+                              <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap", etaRel.color)}>
+                                {etaRel.label}
+                              </span>
+                            )}
+                            {/* Arrived checkbox */}
+                            <label className="flex items-center gap-1 cursor-pointer select-none group/chk shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={arrived}
+                                onCheckedChange={(c) => setPm(i, { prints_arrived: !!c })}
+                                className={cn("h-3.5 w-3.5 rounded", arrived && "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
                               />
-                              <select
-                                value={pm.expected_time || ""}
-                                onChange={(e) => setPm(i, { expected_time: e.target.value })}
-                                className="text-[10px] font-medium text-foreground bg-background border border-border rounded px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer w-[54px] shrink-0"
-                              >
-                                <option value="">Time</option>
-                                {ETA_TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-                              </select>
-                            </div>
-                            {/* ETA badge + Arrived + Vendor info */}
-                            <div className="flex items-center justify-between pt-0.5">
-                              <div className="flex items-center gap-1.5">
-                                {etaRel && etaRel.label && (
-                                  <span className={cn("text-[8px] font-bold px-1.5 py-px rounded border leading-relaxed", etaRel.color)}>
-                                    {etaRel.label}{pm.expected_time ? ` ${pm.expected_time}` : ""}
-                                  </span>
-                                )}
-                                <label className="flex items-center gap-1 cursor-pointer select-none group/chk" onClick={(e) => e.stopPropagation()}>
-                                  <Checkbox
-                                    checked={arrived}
-                                    onCheckedChange={(c) => setPm(i, { prints_arrived: !!c })}
-                                    className={cn("h-3 w-3 rounded-sm", arrived && "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
-                                  />
-                                  <span className={cn("text-[9px] font-medium", arrived ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground/50 group-hover/chk:text-muted-foreground")}>Arrived</span>
-                                </label>
-                              </div>
-                              {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
-                            </div>
+                              <span className={cn("text-[9px] font-semibold", arrived ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground/40 group-hover/chk:text-muted-foreground")}>
+                                {arrived ? "Arrived" : ""}
+                              </span>
+                            </label>
+                            {/* Vendor info */}
+                            {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
                           </div>
                         </div>
                       )
