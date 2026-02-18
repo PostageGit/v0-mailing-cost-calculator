@@ -13,7 +13,7 @@
 // --- Types ---
 
 export type USPSServiceType = "FCM_COMM" | "FCM_RETAIL" | "MKT_COMM" | "MKT_NP"
-export type USPSShape = "POSTCARD" | "LETTER" | "FLAT"
+export type USPSShape = "POSTCARD" | "LETTER" | "FLAT" | "PARCEL"
 export type USPSPack = "ENV" | "PLAS" | "SM_CARD" | "SM_FOLD" | "SM_BOOK"
 export type USPSEntry = "ORIGIN" | "DSCF" | "DDU"
 export type USPSMailType = "AUTO" | "CR"
@@ -44,6 +44,7 @@ export const SHAPE_LABELS: Record<USPSShape, string> = {
   POSTCARD: "Postcard",
   LETTER: "Letter",
   FLAT: "Flat",
+  PARCEL: "Parcel",
 }
 
 // --- Inputs & Result ---
@@ -611,6 +612,7 @@ export const SPECS: Record<USPSShape, { min: string; max: string; weight: string
   POSTCARD: { min: "3.5 x 5 x 0.007 in", max: "6 x 9 x 0.016 in", weight: "N/A" },
   LETTER:   { min: "3.5 x 5 x 0.007 in", max: "6.125 x 11.5 x 0.25 in", weight: "3.5 oz" },
   FLAT:     { min: "6.125 x 11.5 x 0.25 in", max: "12 x 15 x 0.75 in", weight: "13 oz (FCM) / 16 oz (MKT)" },
+  PARCEL:   { min: "Any (exceeds Flat)", max: "L+W+H 108 in (130 oversized)", weight: "70 lbs" },
 }
 
 export function formatPostageRate(value: number): string {

@@ -135,6 +135,11 @@ function computeSuggestedShapes(w: number | null, h: number | null): USPSShape[]
   if (s >= 3.5 && s <= 6 && l >= 5 && l <= 9) shapes.push("POSTCARD")
   if (s >= 3.5 && s <= 6.125 && l >= 5 && l <= 11.5) shapes.push("LETTER")
   if (s <= 12 && l <= 15 && (s > 6.125 || l > 11.5)) shapes.push("FLAT")
+  // Parcel: anything that exceeds Flat limits but fits within USPS parcel max (L+W+H <= 108")
+  // For a flat piece, thickness is minimal so L+W is the main constraint
+  if (shapes.length === 0 && (l + s) <= 108) shapes.push("PARCEL")
+  // Also suggest Parcel alongside Flat for pieces near the Flat boundary
+  if (shapes.includes("FLAT") && (s > 10 || l > 13)) shapes.push("PARCEL")
   return shapes
 }
 

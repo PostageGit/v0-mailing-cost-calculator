@@ -30,6 +30,7 @@ import {
   type Tab2BPMShape,
   type Tab2BPMSort,
   type Tab2BPMEntry,
+  type USPSShape,
 } from "@/lib/usps-rates"
 import { Plus, AlertTriangle, AlertCircle, Info } from "lucide-react"
 
@@ -519,7 +520,7 @@ function Tab1LettersFlats() {
 
   useEffect(() => {
     if (!hasDimensions || shapeOverride) return
-    if (suggestedShapes.length > 0 && !suggestedShapes.includes(inputs.shape as "POSTCARD" | "LETTER" | "FLAT")) {
+    if (suggestedShapes.length > 0 && !suggestedShapes.includes(inputs.shape as USPSShape)) {
       const isMktService = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
       const validShapes = isMktService
         ? suggestedShapes.filter((s) => s !== "POSTCARD")
@@ -534,7 +535,7 @@ function Tab1LettersFlats() {
   const isRetail = inputs.service === "FCM_RETAIL"
   const isShapeDisabled = (shape: string) => {
     if (shape === "POSTCARD" && isMkt) return true
-    if (hasDimensions && !shapeOverride && !suggestedShapes.includes(shape as "POSTCARD" | "LETTER" | "FLAT")) return true
+    if (hasDimensions && !shapeOverride && !suggestedShapes.includes(shape as USPSShape)) return true
     return false
   }
   const postcardDisabled = isShapeDisabled("POSTCARD")
@@ -603,6 +604,14 @@ function Tab1LettersFlats() {
               <Pill active={inputs.shape === "LETTER"} disabled={isShapeDisabled("LETTER")} onClick={() => update({ shape: "LETTER" })} label="Letter" />
               <Pill active={inputs.shape === "FLAT"} disabled={isShapeDisabled("FLAT")} onClick={() => update({ shape: "FLAT" })} label="Flat" />
             </div>
+            {hasDimensions && suggestedShapes.length > 0 && suggestedShapes.includes("PARCEL") && !suggestedShapes.some((s) => s === "POSTCARD" || s === "LETTER" || s === "FLAT") && (
+              <div className="flex items-center gap-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 px-3 py-2 mt-2">
+                <Info className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                <span className="text-xs text-purple-800 dark:text-purple-300">
+                  This piece qualifies as a <strong>Parcel</strong>. Use the "Parcels & Special" tab for pricing.
+                </span>
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Format</label>
@@ -774,7 +783,7 @@ function Tab1LettersFlats() {
               {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} is too small for any USPS mail shape. Check dimensions.
             </div>
           )}
-          {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as "POSTCARD" | "LETTER" | "FLAT") && (
+          {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as USPSShape) && (
             <div className="flex items-center gap-2 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2.5 text-sm font-medium">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
@@ -802,6 +811,15 @@ function Tab1LettersFlats() {
 
 export function USPSPostageCalculator() {
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
+  const mailing = useMailing()
+  const suggestedShapes = mailing.suggestedShapes
+
+  // Auto-switch to Tab 2 when piece only fits Parcel
+  useEffect(() => {
+    if (suggestedShapes.length === 1 && suggestedShapes[0] === "PARCEL") {
+      setActiveTab(2)
+    }
+  }, [suggestedShapes])
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
