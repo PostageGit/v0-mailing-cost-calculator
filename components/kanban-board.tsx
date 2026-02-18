@@ -982,16 +982,32 @@ function QuoteCard({
           <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
         </div>
 
-        {/* Row 7: ACTIVATE JOB button (only on quote board) */}
+        {/* Row 7: Activate Job (only on quote board) */}
         {!isArchived && boardType === "quote" && onConvertToJob && (
-          <div className="pt-3 pb-1 px-4">
+          <div className="pt-2 pb-1 ml-6">
             <button
-              onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-              className="group relative w-full overflow-hidden rounded-lg bg-foreground text-background font-black text-xs tracking-widest uppercase py-2.5 px-4 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation()
+                const btn = e.currentTarget
+                btn.classList.add("activate-pulse")
+                setTimeout(() => { btn.classList.remove("activate-pulse"); onConvertToJob(quote.id) }, 400)
+              }}
+              className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-foreground/[0.04] hover:bg-foreground hover:text-background px-3 py-1.5 text-[10px] font-semibold tracking-wide text-foreground/60 transition-all duration-200 hover:shadow-sm active:scale-95"
             >
-              <Zap className="h-3.5 w-3.5 transition-transform group-hover:scale-125 group-hover:rotate-12" />
-              Activate Job
-              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-background/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
+              <Zap className="h-3 w-3 transition-transform group-hover:text-amber-400 group-hover:scale-110" />
+              <span>Activate</span>
+              <style>{`
+                @keyframes activatePulse {
+                  0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+                  70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); }
+                  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+                }
+                .activate-pulse {
+                  animation: activatePulse 0.4s ease-out;
+                  background: hsl(var(--foreground)) !important;
+                  color: hsl(var(--background)) !important;
+                }
+              `}</style>
             </button>
           </div>
         )}
@@ -1024,9 +1040,14 @@ function QuoteCard({
                 </button>
               )}
               {!isArchived && boardType === "quote" && onConvertToJob && (
-                <button onClick={(e) => { e.stopPropagation(); onConvertToJob(quote.id) }}
-                  className="h-7 px-2 flex items-center justify-center gap-1 rounded-md bg-foreground text-background text-[10px] font-black tracking-wider uppercase hover:opacity-90 transition-opacity" title="Activate Job">
-                  <Zap className="h-3 w-3" />
+                <button onClick={(e) => {
+                    e.stopPropagation()
+                    const btn = e.currentTarget
+                    btn.classList.add("activate-pulse")
+                    setTimeout(() => { btn.classList.remove("activate-pulse"); onConvertToJob(quote.id) }, 400)
+                  }}
+                  className="group h-6 px-2 flex items-center justify-center gap-1 rounded-full border border-foreground/15 bg-foreground/[0.04] text-foreground/60 hover:bg-foreground hover:text-background text-[10px] font-semibold tracking-wide transition-all duration-200 active:scale-95" title="Activate Job">
+                  <Zap className="h-2.5 w-2.5 group-hover:text-amber-400" />
                   Activate
                 </button>
               )}
