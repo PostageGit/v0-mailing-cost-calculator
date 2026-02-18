@@ -72,7 +72,7 @@ type Section =
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
 const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
-  { id: "jobs-board",   label: "Jobs",        icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },

@@ -877,8 +877,15 @@ function QuoteCard({
       onDragEnd={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1" }}
       className={cn(
         "rounded-xl border bg-card transition-all",
-        isArchived ? "opacity-50 border-border" : "border-border hover:border-foreground/20 hover:shadow-md",
-        open ? "shadow-md ring-1 ring-foreground/5" : "shadow-sm"
+        isArchived ? "opacity-50 border-border"
+        : boardType === "job"
+          ? "border-amber-300/60 dark:border-amber-700/40 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md"
+          : "border-border hover:border-foreground/20 hover:shadow-md",
+        open
+          ? boardType === "job"
+            ? "shadow-md ring-1 ring-amber-400/20 dark:ring-amber-600/20"
+            : "shadow-md ring-1 ring-foreground/5"
+          : "shadow-sm"
       )}
     >
       {/* ── CARD CONTENT (PostFlow style) ── */}
@@ -887,6 +894,9 @@ function QuoteCard({
         <div className="flex items-start justify-between gap-2 mb-0.5 relative">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 cursor-grab" />
+            {boardType === "job" && (
+              <span className="shrink-0 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Active</span>
+            )}
             <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
           </div>
           <div className="flex items-center gap-0.5 shrink-0">
@@ -1061,32 +1071,7 @@ function QuoteCard({
               if (pieces.length === 0) return null
               const typeHints = ["Postcard", "Flat", "Booklet", "Letter", "Self-Mailer", "Spiral", "Envelope", "Card"]
 
-              if (boardType === "job") {
-                // Job view: compact -- just type tags + vendor
-                return (
-                  <div className="rounded-lg border border-border bg-card p-3">
-                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Mail Pieces</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {pieces.map((pc, i) => {
-                        const label = pc.label || pc.description || pc.category
-                        const isOHP = pc.category === "ohp"
-                        const vendorName = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
-                        const foundType = typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
-                        return (
-                          <span key={i} className={cn("inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md border",
-                            isOHP ? "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800/40" : "bg-card text-foreground border-border"
-                          )}>
-                            {foundType}
-                            {isOHP && vendorName && <span className="text-[10px] text-sky-500 dark:text-sky-400">{vendorName}</span>}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              }
-
-              // Quote view: full detail cards with price
+              // Full detail cards with price (shared for both quote + job boards)
               const cols = pieces.length === 1 ? 1 : pieces.length === 2 ? 2 : 3
               // Collect vendor info from OHP or customer-provided pieces
               const vendorInfos: { name: string; date?: string }[] = []
@@ -1493,10 +1478,11 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
 
   return (
     <div className="flex flex-col min-w-[280px] w-[320px] shrink-0 lg:min-w-0 lg:w-auto lg:flex-1 min-h-0">
+      {boardType === "job" && <div className="h-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 mb-1 mx-1" />}
       <div className="flex items-center justify-between px-1 pb-1.5 shrink-0">
         <div className="flex items-center gap-1.5">
           <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
-          <span className="text-[11px] font-semibold text-foreground">{col.title}</span>
+          <span className={cn("text-[11px] font-semibold", boardType === "job" ? "text-amber-800 dark:text-amber-400" : "text-foreground")}>{col.title}</span>
           <span className="text-[9px] font-mono text-muted-foreground/60 tabular-nums">{quotes.length}</span>
         </div>
         <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums">{formatCurrency(colTotal)}</span>
@@ -1506,7 +1492,9 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
         onDragLeave={() => setDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setDragOver(false); const id = e.dataTransfer.getData("text/plain"); if (id) onColumnChange(id, col.id) }}
         className={cn("flex-1 flex flex-col gap-2.5 p-1.5 rounded-lg overflow-y-auto transition-colors min-h-0",
-          dragOver ? "bg-foreground/[0.03] ring-1 ring-foreground/10" : "bg-secondary/20"
+          dragOver
+            ? boardType === "job" ? "bg-amber-50/50 dark:bg-amber-950/20 ring-1 ring-amber-300/30" : "bg-foreground/[0.03] ring-1 ring-foreground/10"
+            : boardType === "job" ? "bg-amber-50/20 dark:bg-amber-950/10" : "bg-secondary/20"
         )}
       >
         {quotes.length === 0 ? (
@@ -1742,7 +1730,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
 
   const cols = columns || []
   const archiveCount = archivedQuotes?.length || 0
-  const label = isJob ? "Job" : "Quote"
+  const label = isJob ? "Active Job" : "Quote"
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
