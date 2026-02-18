@@ -8,6 +8,13 @@ export interface QuoteLineItem {
   label: string            // e.g. "19,880 - 4x6 Flat Prints" or "Postage - 1st Class"
   description: string      // additional details lines
   amount: number           // the dollar total for this line
+  /** Optional metadata that travels with the item through the job lifecycle */
+  metadata?: {
+    customerProvided?: boolean
+    providerVendor?: string      // vendor name or custom text
+    providerExpectedDate?: string // ISO date string
+    [key: string]: unknown
+  }
 }
 
 export interface QuoteState {

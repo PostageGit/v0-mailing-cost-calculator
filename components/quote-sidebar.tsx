@@ -112,6 +112,16 @@ function QuoteItemRow({
         <p className="text-[13px] font-medium text-foreground/90 leading-snug">
           {item.label}
         </p>
+        {item.metadata?.customerProvided && (
+          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/40 text-[9px] font-bold text-amber-700 dark:text-amber-400 tracking-wide uppercase">
+            Customer Provides
+            {item.metadata.providerExpectedDate && (
+              <span className="font-normal normal-case ml-0.5">
+                {" "}&middot; {new Date(item.metadata.providerExpectedDate as string).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </span>
+            )}
+          </span>
+        )}
         {item.description && (
           <p className="text-[11px] text-muted-foreground/60 leading-relaxed mt-0.5 line-clamp-2 font-normal">
             {item.description}
