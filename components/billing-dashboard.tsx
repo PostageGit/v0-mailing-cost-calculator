@@ -73,6 +73,11 @@ export function BillingDashboard() {
   const [termsFilter, setTermsFilter] = useState("")
   const [sortField, setSortField] = useState<"mailDate" | "total" | "status" | "terms">("mailDate")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  // Checkbox column filters: null = show all, true = only checked, false = only unchecked
+  const [filterInvUpdated, setFilterInvUpdated] = useState<boolean | null>(null)
+  const [filterInvEmailed, setFilterInvEmailed] = useState<boolean | null>(null)
+  const [filterPaidPostage, setFilterPaidPostage] = useState<boolean | null>(null)
+  const [filterPaidFull, setFilterPaidFull] = useState<boolean | null>(null)
 
   // Build customer lookup map
   const customerMap = useMemo(() => {
@@ -120,8 +125,12 @@ export function BillingDashboard() {
     if (statusFilter !== "all") list = list.filter((r) => r.status === statusFilter)
     if (assigneeFilter) list = list.filter((r) => r.assignee === assigneeFilter)
     if (termsFilter) list = list.filter((r) => r.terms === termsFilter)
+    if (filterInvUpdated !== null) list = list.filter((r) => !!r.meta.invoice_updated === filterInvUpdated)
+    if (filterInvEmailed !== null) list = list.filter((r) => !!r.meta.invoice_emailed === filterInvEmailed)
+    if (filterPaidPostage !== null) list = list.filter((r) => !!r.meta.paid_postage === filterPaidPostage)
+    if (filterPaidFull !== null) list = list.filter((r) => !!r.meta.paid_full === filterPaidFull)
     return list
-  }, [rows, search, statusFilter, assigneeFilter, termsFilter])
+  }, [rows, search, statusFilter, assigneeFilter, termsFilter, filterInvUpdated, filterInvEmailed, filterPaidPostage, filterPaidFull])
 
   // Sort
   const sorted = useMemo(() => {
@@ -243,6 +252,15 @@ export function BillingDashboard() {
             <option value="">All Terms</option>
             {uniqueTerms.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
+          {(filterInvUpdated !== null || filterInvEmailed !== null || filterPaidPostage !== null || filterPaidFull !== null) && (
+            <button
+              onClick={() => { setFilterInvUpdated(null); setFilterInvEmailed(null); setFilterPaidPostage(null); setFilterPaidFull(null) }}
+              className="h-8 text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/40 rounded-lg px-2.5 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center gap-1"
+            >
+              <Filter className="h-3 w-3" />
+              Clear field filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -277,10 +295,33 @@ export function BillingDashboard() {
               <button onClick={() => handleSort("status")} className="px-2 py-2 flex items-center gap-1 hover:text-foreground transition-colors">
                 Status <SortIcon field="status" />
               </button>
-              <div className="px-1 py-2 text-center" title="Invoice Updated"><FileText className="h-3 w-3 mx-auto" /></div>
-              <div className="px-1 py-2 text-center" title="Invoice Emailed"><Mail className="h-3 w-3 mx-auto" /></div>
-              <div className="px-1 py-2 text-center" title="Paid Postage"><CreditCard className="h-3 w-3 mx-auto" /></div>
-              <div className="px-1 py-2 text-center" title="Paid Full"><DollarSign className="h-3 w-3 mx-auto" /></div>
+              {([
+                { Icon: FileText, label: "Invoice Updated", filter: filterInvUpdated, setFilter: setFilterInvUpdated },
+                { Icon: Mail, label: "Invoice Emailed", filter: filterInvEmailed, setFilter: setFilterInvEmailed },
+                { Icon: CreditCard, label: "Paid Postage", filter: filterPaidPostage, setFilter: setFilterPaidPostage },
+                { Icon: DollarSign, label: "Paid Full", filter: filterPaidFull, setFilter: setFilterPaidFull },
+              ] as const).map(({ Icon, label, filter, setFilter }) => (
+                <button
+                  key={label}
+                  onClick={() => setFilter(filter === null ? true : filter === true ? false : null)}
+                  className={cn(
+                    "px-1 py-2 flex flex-col items-center gap-0.5 transition-colors relative",
+                    filter !== null ? "text-foreground" : "text-muted-foreground/50 hover:text-muted-foreground"
+                  )}
+                  title={`${label}: ${filter === null ? "All" : filter ? "Checked only" : "Unchecked only"}`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {filter !== null && (
+                    <span className={cn(
+                      "text-[7px] font-bold leading-none px-1 rounded",
+                      filter ? "text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30"
+                        : "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30"
+                    )}>
+                      {filter ? "YES" : "NO"}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
             {/* Table body */}
