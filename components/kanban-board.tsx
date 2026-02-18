@@ -751,7 +751,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
   )
 }
 
-/* ═════════════════����══════════════════════════════════
+/* ═���═══════════════����══════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
    ══════════════�����═════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
@@ -1124,7 +1124,7 @@ function QuoteCard({
                   const prodLabels: Record<string, string> = { inhouse: "PrintOut", ohp: "OHP", both: "Both", customer: "Customer" }
                   return production ? prodLabels[production] || null : null
                 })()
-                return { pc, i, md, sizeStr, isOHP, qtyStr, foundType, printDetails, prodLabel, production }
+                return { pc, i, md, sizeStr, isOHP, qtyStr, foundType, printDetails, prodLabel, production, pmVendor }
               })
 
               // Smart grid: 1->1col, 2->2col, 3->3col, 4->2col(2rows), 5+->3col
@@ -1143,7 +1143,7 @@ function QuoteCard({
 
                   {/* ROW 1: Piece cards -- all equal height via grid stretch */}
                   <div className={cn("grid gap-2", gridCls)}>
-                    {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production }) => (
+                    {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production, pmVendor }) => (
                       <div key={i} className={cn("rounded-lg border bg-card p-3 flex flex-col min-h-[100px]", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
                         {/* Type name */}
                         <div className="flex items-center gap-1.5">

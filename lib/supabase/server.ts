@@ -14,7 +14,7 @@ function getSupabaseUrl() {
 }
 
 function getSupabaseKey() {
-  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 }
 
 export async function createClient() {
@@ -38,40 +38,39 @@ export async function createClient() {
     return stub as unknown as ReturnType<typeof createServerClient>
   }
 
+  const url = getSupabaseUrl()
+  const key = getSupabaseKey()
+
+  let client: ReturnType<typeof createServerClient>
+
   try {
     const cookieStore = await cookies()
 
-    return createServerClient(
-      getSupabaseUrl(),
-      getSupabaseKey(),
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options),
-              )
-            } catch {
-              // The "setAll" method was called from a Server Component.
-            }
-          },
+    client = createServerClient(url, key, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            )
+          } catch {
+            // The "setAll" method was called from a Server Component.
+          }
         },
       },
-    )
+    })
   } catch {
     // Fallback: if cookies() throws (e.g. during static init), use direct client
-    return createServerClient(
-      getSupabaseUrl(),
-      getSupabaseKey(),
-      {
-        cookies: {
-          getAll() { return [] },
-          setAll() {},
-        },
+    client = createServerClient(url, key, {
+      cookies: {
+        getAll() { return [] },
+        setAll() {},
       },
-    )
+    })
   }
+
+  return client
 }
