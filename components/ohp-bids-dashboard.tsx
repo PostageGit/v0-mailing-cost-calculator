@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useRef } from "react"
 import useSWR from "swr"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/pricing"
 import {
   Search, Send, ExternalLink, CheckCircle2, Clock,
-  Award, Inbox, Tag, ArrowUpDown,
+  Award, Inbox, Tag, ArrowUpDown, ChevronRight,
+  Star, Plus, X, Loader2, RotateCcw, Trophy,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -15,7 +16,8 @@ interface BidPrice {
   vendor_id: string
   price: number | null
   status: "pending" | "received" | "declined"
-  vendors?: { company_name: string } | null
+  notes: string | null
+  vendors?: { company_name: string; pickup_cost?: number } | null
 }
 interface QuoteRef {
   id: string
@@ -41,6 +43,12 @@ interface DashboardBid {
   vendor_bid_prices: BidPrice[]
   quotes: QuoteRef | null
 }
+interface Vendor {
+  id: string
+  company_name: string
+  is_internal: boolean
+  pickup_cost: number | null
+}
 
 type StatusFilter = "all" | "open" | "awarded" | "closed"
 type SortField = "job" | "item" | "status" | "prices"
@@ -52,13 +60,15 @@ const fetcher = async (url: string) => {
 }
 
 export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: string, step?: string) => void }) {
-  const { data: bids } = useSWR<DashboardBid[]>("/api/vendor-bids/dashboard", fetcher, { refreshInterval: 15000 })
+  const { data: bids, mutate: mutateBids } = useSWR<DashboardBid[]>("/api/vendor-bids/dashboard", fetcher, { refreshInterval: 15000 })
+  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [categoryFilter, setCategoryFilter] = useState("")
   const [sortField, setSortField] = useState<SortField>("status")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const counts = useMemo(() => {
     if (!bids) return { open: 0, awarded: 0, closed: 0, total: 0 }
@@ -75,12 +85,9 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
     return [...new Set(bids.map((b) => b.item_category))].sort()
   }, [bids])
 
-  // Flatten bids into rows with job context
   const rows = useMemo(() => {
     if (!bids) return []
-
     let list = [...bids]
-
     if (statusFilter !== "all") list = list.filter((b) => b.status === statusFilter)
     if (categoryFilter) list = list.filter((b) => b.item_category === categoryFilter)
     if (search) {
@@ -88,10 +95,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
       list = list.filter((b) => {
         const qNum = b.quotes?.quote_number ? `Q-${b.quotes.quote_number}` : ""
         const jNum = b.quotes?.job_number ? `J-${b.quotes.job_number}` : ""
-        const vendorNames = (b.vendor_bid_prices || [])
-          .map((p: any) => p.vendors?.company_name || "")
-          .join(" ")
-          .toLowerCase()
+        const vendorNames = (b.vendor_bid_prices || []).map((p) => p.vendors?.company_name || "").join(" ").toLowerCase()
         return (
           b.item_label.toLowerCase().includes(q) ||
           b.item_description?.toLowerCase().includes(q) ||
@@ -103,31 +107,21 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
         )
       })
     }
-
-    // Sort
     const statusOrder = { open: 0, awarded: 1, closed: 2 }
     list.sort((a, b) => {
       let cmp = 0
       switch (sortField) {
-        case "job":
-          cmp = (a.quotes?.project_name || "").localeCompare(b.quotes?.project_name || "")
-          break
-        case "item":
-          cmp = a.item_label.localeCompare(b.item_label)
-          break
-        case "status":
-          cmp = statusOrder[a.status] - statusOrder[b.status]
-          break
+        case "job": cmp = (a.quotes?.project_name || "").localeCompare(b.quotes?.project_name || ""); break
+        case "item": cmp = a.item_label.localeCompare(b.item_label); break
+        case "status": cmp = statusOrder[a.status] - statusOrder[b.status]; break
         case "prices": {
           const aR = a.vendor_bid_prices.filter((p) => p.status === "received").length
           const bR = b.vendor_bid_prices.filter((p) => p.status === "received").length
-          cmp = aR - bR
-          break
+          cmp = aR - bR; break
         }
       }
       return sortDir === "asc" ? cmp : -cmp
     })
-
     return list
   }, [bids, search, statusFilter, categoryFilter, sortField, sortDir])
 
@@ -148,13 +142,11 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 px-4 sm:px-6 pt-4 pb-3 border-b border-border/40 bg-background">
-        {/* Title + stats inline */}
         <div className="flex items-center gap-3 mb-3">
           <div className="h-8 w-8 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center">
             <Send className="h-3.5 w-3.5 text-sky-700 dark:text-sky-400" />
           </div>
           <h1 className="text-base font-bold text-foreground">OHP Bids</h1>
-          {/* Inline stat pills */}
           <div className="flex items-center gap-1.5 ml-auto">
             {([
               { key: "open" as StatusFilter, label: "Open", count: counts.open, color: "text-sky-700 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-950/30", border: "border-sky-200/60 dark:border-sky-800/40" },
@@ -176,18 +168,12 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
             })}
           </div>
         </div>
-
-        {/* Search + category */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
-            <input
-              type="text"
-              placeholder="Search job, customer, vendor, Q-number..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-8 pl-8 pr-3 text-[11px] bg-background border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 transition-all"
-            />
+            <input type="text" placeholder="Search job, customer, vendor, Q-number..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-8 pl-8 pr-3 text-[11px] bg-background border border-border rounded-lg outline-none focus:ring-2 focus:ring-ring/30 transition-all" />
           </div>
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
             className="h-8 text-[11px] font-medium bg-background border border-border rounded-lg px-2 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer">
@@ -203,27 +189,20 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/50">
             <Inbox className="h-8 w-8 mb-2" />
             <p className="text-sm font-medium">No bids found</p>
-            <p className="text-[11px] mt-0.5">
-              {statusFilter !== "all" || categoryFilter || search ? "Try adjusting your filters" : "Create bids from the OHP tab in a quote"}
-            </p>
           </div>
         ) : (
           <table className="w-full text-left">
             <thead className="sticky top-0 z-10 bg-secondary/60 backdrop-blur-sm border-b border-border/40">
               <tr className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                <th className="px-3 sm:px-4 py-2 w-8"></th>
+                <th className="pl-4 pr-1 py-2 w-6"></th>
                 <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("job")}>
-                  <span className="flex items-center gap-1">Job / Quote <ArrowUpDown className="h-2.5 w-2.5" /></span>
+                  <span className="flex items-center gap-1">Job <ArrowUpDown className="h-2.5 w-2.5" /></span>
                 </th>
                 <th className="px-2 py-2">Customer</th>
                 <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("item")}>
                   <span className="flex items-center gap-1">Bid Item <ArrowUpDown className="h-2.5 w-2.5" /></span>
                 </th>
-                <th className="px-2 py-2">Type</th>
                 <th className="px-2 py-2">Vendors</th>
-                <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("prices")}>
-                  <span className="flex items-center gap-1">Prices <ArrowUpDown className="h-2.5 w-2.5" /></span>
-                </th>
                 <th className="px-2 py-2">Best</th>
                 <th className="px-2 py-2 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("status")}>
                   <span className="flex items-center gap-1">Status <ArrowUpDown className="h-2.5 w-2.5" /></span>
@@ -231,7 +210,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                 <th className="px-2 py-2 w-14"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/30">
+            <tbody>
               {rows.map((bid) => {
                 const received = bid.vendor_bid_prices.filter((p) => p.status === "received")
                 const pending = bid.vendor_bid_prices.filter((p) => p.status === "pending")
@@ -242,129 +221,427 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                 const isJob = bid.quotes?.is_job
                 const num = isJob ? bid.quotes?.job_number : bid.quotes?.quote_number
                 const prefix = isJob ? "J" : "Q"
+                const isExpanded = expandedId === bid.id
 
                 return (
-                  <tr key={bid.id} className={cn(
-                    "hover:bg-secondary/20 transition-colors text-[11px]",
-                    bid.status === "open" && "bg-sky-50/30 dark:bg-sky-950/5"
-                  )}>
-                    {/* Status dot */}
-                    <td className="px-3 sm:px-4 py-2">
-                      <div className={cn("h-2 w-2 rounded-full mx-auto",
-                        bid.status === "open" ? "bg-sky-500"
-                        : bid.status === "awarded" ? "bg-emerald-500"
-                        : "bg-muted-foreground/25"
-                      )} />
-                    </td>
-                    {/* Job/Quote */}
-                    <td className="px-2 py-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-bold text-foreground truncate max-w-[140px]">{bid.quotes?.project_name || "No Quote"}</span>
-                        {num && (
-                          <span className={cn(
-                            "text-[8px] font-bold px-1 py-px rounded shrink-0",
-                            isJob ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" : "bg-secondary text-muted-foreground"
-                          )}>{prefix}-{num}</span>
-                        )}
-                      </div>
-                    </td>
-                    {/* Customer */}
-                    <td className="px-2 py-2 text-muted-foreground truncate max-w-[120px]">
-                      {bid.quotes?.contact_name || "-"}
-                    </td>
-                    {/* Bid item */}
-                    <td className="px-2 py-2">
-                      <span className="font-semibold text-foreground truncate block max-w-[160px]">{bid.item_label}</span>
-                      {bid.item_description && (
-                        <span className="text-[9px] text-muted-foreground/50 truncate block max-w-[160px]">{bid.item_description}</span>
-                      )}
-                    </td>
-                    {/* Category */}
-                    <td className="px-2 py-2">
-                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary text-muted-foreground inline-flex items-center gap-0.5">
-                        <Tag className="h-2 w-2" />{bid.item_category}
-                      </span>
-                    </td>
-                    {/* Vendors */}
-                    <td className="px-2 py-2">
-                      <div className="flex flex-wrap gap-1 max-w-[180px]">
-                        {bid.vendor_bid_prices.length > 0 ? bid.vendor_bid_prices.map((p: any) => (
-                          <span key={p.id} className={cn(
-                            "text-[8px] font-semibold px-1.5 py-0.5 rounded truncate max-w-[80px]",
-                            p.status === "received"
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
-                          )} title={`${p.vendors?.company_name || "Vendor"} - ${p.status}`}>
-                            {p.vendors?.company_name || "?"}
-                          </span>
-                        )) : (
-                          <span className="text-muted-foreground/30 text-[9px]">None</span>
-                        )}
-                      </div>
-                    </td>
-                    {/* Prices */}
-                    <td className="px-2 py-2">
-                      <div className="flex items-center gap-1.5">
-                        {received.length > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-emerald-700 dark:text-emerald-400 font-semibold">
-                            <CheckCircle2 className="h-3 w-3" />{received.length}
-                          </span>
-                        )}
-                        {pending.length > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-medium">
-                            <Clock className="h-3 w-3" />{pending.length}
-                          </span>
-                        )}
-                        {received.length === 0 && pending.length === 0 && (
-                          <span className="text-muted-foreground/30">-</span>
-                        )}
-                      </div>
-                    </td>
-                    {/* Best price */}
-                    <td className="px-2 py-2 font-mono font-bold tabular-nums text-foreground">
-                      {bid.status === "awarded" && bid.winning_price != null
-                        ? formatCurrency(bid.winning_price)
-                        : bestPrice != null
-                        ? formatCurrency(bestPrice)
-                        : <span className="text-muted-foreground/25">-</span>
-                      }
-                    </td>
-                    {/* Status */}
-                    <td className="px-2 py-2">
-                      {bid.status === "awarded" ? (
-                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40">
-                          <Award className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 truncate max-w-[80px]">
-                            {winnerName || "Awarded"}
-                          </span>
-                        </div>
-                      ) : bid.status === "open" ? (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/40">
-                          Open
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">
-                          Closed
-                        </span>
-                      )}
-                    </td>
-                    {/* Open button */}
-                    <td className="px-2 py-2">
-                      {onOpenQuote && bid.quote_id && (
-                        <button
-                          onClick={() => onOpenQuote(bid.quote_id!, "ohp")}
-                          className="h-6 px-2 rounded bg-foreground text-background text-[9px] font-bold flex items-center gap-1 hover:opacity-80 transition-opacity"
-                        >
-                          <ExternalLink className="h-2.5 w-2.5" />
-                          Open
-                        </button>
-                      )}
-                    </td>
-                  </tr>
+                  <BidRowWithPanel
+                    key={bid.id}
+                    bid={bid}
+                    received={received}
+                    pending={pending}
+                    bestPrice={bestPrice}
+                    winnerName={winnerName}
+                    isJob={!!isJob}
+                    num={num ?? null}
+                    prefix={prefix}
+                    isExpanded={isExpanded}
+                    onToggle={() => setExpandedId(isExpanded ? null : bid.id)}
+                    onOpenQuote={onOpenQuote}
+                    vendors={vendors || []}
+                    mutateBids={mutateBids}
+                  />
                 )
               })}
             </tbody>
           </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════
+   BidRowWithPanel -- table row + expandable panel
+   ═══════════════════════════════════════════════ */
+function BidRowWithPanel({ bid, received, pending, bestPrice, winnerName, isJob, num, prefix, isExpanded, onToggle, onOpenQuote, vendors, mutateBids }: {
+  bid: DashboardBid
+  received: BidPrice[]
+  pending: BidPrice[]
+  bestPrice: number | null
+  winnerName: string | null | undefined
+  isJob: boolean
+  num: number | null
+  prefix: string
+  isExpanded: boolean
+  onToggle: () => void
+  onOpenQuote?: (quoteId: string, step?: string) => void
+  vendors: Vendor[]
+  mutateBids: () => void
+}) {
+  return (
+    <>
+      {/* Summary row */}
+      <tr
+        onClick={onToggle}
+        className={cn(
+          "cursor-pointer transition-colors text-[11px] border-b border-border/30",
+          isExpanded ? "bg-sky-50/50 dark:bg-sky-950/10" : "hover:bg-secondary/20",
+          bid.status === "open" && !isExpanded && "bg-sky-50/20 dark:bg-sky-950/5"
+        )}
+      >
+        {/* Expand chevron */}
+        <td className="pl-4 pr-1 py-2.5">
+          <ChevronRight className={cn("h-3 w-3 text-muted-foreground/40 transition-transform", isExpanded && "rotate-90")} />
+        </td>
+        {/* Job */}
+        <td className="px-2 py-2.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-bold text-foreground truncate max-w-[140px]">{bid.quotes?.project_name || "No Quote"}</span>
+            {num && (
+              <span className={cn("text-[8px] font-bold px-1 py-px rounded shrink-0",
+                isJob ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" : "bg-secondary text-muted-foreground"
+              )}>{prefix}-{num}</span>
+            )}
+          </div>
+        </td>
+        {/* Customer */}
+        <td className="px-2 py-2.5 text-muted-foreground truncate max-w-[120px]">{bid.quotes?.contact_name || "-"}</td>
+        {/* Bid item */}
+        <td className="px-2 py-2.5">
+          <span className="font-semibold text-foreground truncate block max-w-[180px]">{bid.item_label}</span>
+        </td>
+        {/* Vendors */}
+        <td className="px-2 py-2.5">
+          <div className="flex items-center gap-1">
+            {received.length > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-emerald-700 dark:text-emerald-400 font-semibold">
+                <CheckCircle2 className="h-3 w-3" />{received.length}
+              </span>
+            )}
+            {pending.length > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-medium">
+                <Clock className="h-3 w-3" />{pending.length}
+              </span>
+            )}
+            {received.length === 0 && pending.length === 0 && <span className="text-muted-foreground/30">-</span>}
+          </div>
+        </td>
+        {/* Best price */}
+        <td className="px-2 py-2.5 font-mono font-bold tabular-nums text-foreground">
+          {bid.status === "awarded" && bid.winning_price != null
+            ? formatCurrency(bid.winning_price)
+            : bestPrice != null ? formatCurrency(bestPrice)
+            : <span className="text-muted-foreground/25">-</span>
+          }
+        </td>
+        {/* Status */}
+        <td className="px-2 py-2.5">
+          {bid.status === "awarded" ? (
+            <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40">
+              <Trophy className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 truncate max-w-[70px]">{winnerName || "Awarded"}</span>
+            </div>
+          ) : bid.status === "open" ? (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/40">Open</span>
+          ) : (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border">Closed</span>
+          )}
+        </td>
+        {/* Open in quote */}
+        <td className="px-2 py-2.5">
+          {onOpenQuote && bid.quote_id && (
+            <button onClick={(e) => { e.stopPropagation(); onOpenQuote(bid.quote_id!, "ohp") }}
+              className="h-6 px-2 rounded bg-foreground text-background text-[9px] font-bold flex items-center gap-1 hover:opacity-80 transition-opacity">
+              <ExternalLink className="h-2.5 w-2.5" />
+            </button>
+          )}
+        </td>
+      </tr>
+
+      {/* Expanded price panel */}
+      {isExpanded && (
+        <tr>
+          <td colSpan={8} className="p-0">
+            <BidPricePanel bid={bid} vendors={vendors} mutateBids={mutateBids} />
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
+/* ═══════════════════════════════════════════════
+   BidPricePanel -- inline expandable price comparison
+   ═══════════════════════════════════════════════ */
+function BidPricePanel({ bid, vendors, mutateBids }: {
+  bid: DashboardBid
+  vendors: Vendor[]
+  mutateBids: () => void
+}) {
+  const { data: prices, mutate: mutatePrices, isLoading } = useSWR<BidPrice[]>(
+    `/api/vendor-bids/${bid.id}/prices`, fetcher
+  )
+  const [addingVendor, setAddingVendor] = useState(false)
+  const [awarding, setAwarding] = useState(false)
+  const [reopening, setReopening] = useState(false)
+
+  const externalVendors = vendors.filter((v) => !v.is_internal)
+  const addedVendorIds = new Set(prices?.map((p) => p.vendor_id) ?? [])
+  const availableVendors = externalVendors.filter((v) => !addedVendorIds.has(v.id))
+
+  const receivedPrices = prices?.filter((p) => p.price != null) ?? []
+  const bestPrice = receivedPrices.length > 0 ? Math.min(...receivedPrices.map((p) => Number(p.price))) : null
+
+  const addVendor = async (vendorId: string) => {
+    setAddingVendor(true)
+    await fetch(`/api/vendor-bids/${bid.id}/prices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendor_id: vendorId }),
+    })
+    mutatePrices(); mutateBids()
+    setAddingVendor(false)
+  }
+
+  const updatePrice = async (priceId: string, price: number | null, notes?: string) => {
+    mutatePrices(
+      (prev) => prev?.map((p) => p.id === priceId ? { ...p, price: price as number, notes: notes ?? p.notes, status: price != null ? "received" as const : "pending" as const } : p),
+      { revalidate: false }
+    )
+    await fetch(`/api/bid-prices/${priceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price, notes: notes || null, status: price != null ? "received" : "pending", responded_at: price != null ? new Date().toISOString() : null }),
+    })
+    mutatePrices(); mutateBids()
+  }
+
+  const removePrice = async (priceId: string) => {
+    await fetch(`/api/bid-prices/${priceId}`, { method: "DELETE" })
+    mutatePrices(); mutateBids()
+  }
+
+  const awardBid = async (vendorId: string, price: number) => {
+    setAwarding(true)
+    await fetch(`/api/vendor-bids/${bid.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "awarded", winning_vendor_id: vendorId, winning_price: price }),
+    })
+    mutatePrices(); mutateBids()
+    setAwarding(false)
+  }
+
+  const reopenBid = async () => {
+    setReopening(true)
+    await fetch(`/api/vendor-bids/${bid.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "open", winning_vendor_id: null, winning_price: null }),
+    })
+    mutatePrices(); mutateBids()
+    setReopening(false)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-6 py-4 bg-muted/10 border-b border-border/40">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mx-auto" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-muted/10 border-b-2 border-sky-200/60 dark:border-sky-800/30">
+      {/* Bid description */}
+      {bid.item_description && (
+        <div className="px-6 pt-3 pb-0">
+          <p className="text-[10px] text-muted-foreground">{bid.item_description}</p>
+        </div>
+      )}
+
+      {/* Price comparison table */}
+      {prices && prices.length > 0 ? (
+        <div className="px-4 pt-3 pb-1">
+          {/* Column headers */}
+          <div className="flex items-center gap-2 px-2 pb-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/50">
+            <span className="w-[140px] shrink-0">Vendor</span>
+            <span className="w-[80px] shrink-0">Ref #</span>
+            <span className="w-[90px] shrink-0 text-right">Price</span>
+            <span className="w-[90px] shrink-0 text-right">+ Pickup</span>
+            <span className="ml-auto"></span>
+          </div>
+          {/* Vendor price rows */}
+          <div className="divide-y divide-border/30 rounded-lg border border-border/40 bg-card overflow-hidden">
+            {prices.map((p) => {
+              const vendor = vendors.find((v) => v.id === p.vendor_id)
+              const pickupCost = vendor?.pickup_cost ?? 0
+              const price = p.price != null ? Number(p.price) : null
+              const isBest = price != null && price === bestPrice
+              const isWinner = bid.winning_vendor_id === p.vendor_id && bid.status === "awarded"
+              const totalWithPickup = price != null ? price + pickupCost : null
+
+              return (
+                <PriceRow
+                  key={p.id}
+                  entry={p}
+                  vendorName={vendor?.company_name ?? "Unknown"}
+                  pickupCost={pickupCost}
+                  isBest={isBest}
+                  isWinner={isWinner}
+                  bidStatus={bid.status}
+                  totalWithPickup={totalWithPickup}
+                  onUpdate={(pr, notes) => updatePrice(p.id, pr, notes)}
+                  onRemove={() => removePrice(p.id)}
+                  onAward={() => price != null && vendor && awardBid(vendor.id, price)}
+                  awarding={awarding}
+                />
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="px-6 py-4 text-center text-[11px] text-muted-foreground/40">
+          No vendors added yet. Add a vendor below to start collecting prices.
+        </div>
+      )}
+
+      {/* Footer: Add vendor + Reopen */}
+      <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap">
+        {/* Add vendor */}
+        {availableVendors.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <select
+              onChange={(e) => { if (e.target.value) addVendor(e.target.value); e.target.value = "" }}
+              disabled={addingVendor}
+              className="h-7 text-[10px] font-medium bg-background border border-border rounded-md px-2 pr-6 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer appearance-none"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
+            >
+              <option value="">+ Add Vendor</option>
+              {availableVendors.map((v) => <option key={v.id} value={v.id}>{v.company_name}</option>)}
+            </select>
+            {addingVendor && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Reopen */}
+        {bid.status === "awarded" && (
+          <button onClick={reopenBid} disabled={reopening}
+            className="h-7 px-3 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex items-center gap-1 disabled:opacity-50">
+            <RotateCcw className="h-3 w-3" />
+            Reopen Bid
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════
+   PriceRow -- single editable vendor price
+   ═══════════════════════════════════════════════ */
+function PriceRow({ entry, vendorName, pickupCost, isBest, isWinner, bidStatus, totalWithPickup, onUpdate, onRemove, onAward, awarding }: {
+  entry: BidPrice
+  vendorName: string
+  pickupCost: number
+  isBest: boolean
+  isWinner: boolean
+  bidStatus: string
+  totalWithPickup: number | null
+  onUpdate: (price: number | null, notes?: string) => void
+  onRemove: () => void
+  onAward: () => void
+  awarding: boolean
+}) {
+  const [editPrice, setEditPrice] = useState(entry.price != null ? String(entry.price) : "")
+  const [refNum, setRefNum] = useState(entry.notes ?? "")
+  const priceRef = useRef(editPrice)
+  const refRef = useRef(refNum)
+  priceRef.current = editPrice
+  refRef.current = refNum
+
+  const handleSave = useCallback(async () => {
+    const num = parseFloat(priceRef.current)
+    if (!isNaN(num) && num >= 0) {
+      await onUpdate(num, refRef.current)
+    }
+  }, [onUpdate])
+
+  return (
+    <div className={cn(
+      "flex items-center gap-2 px-2 py-2 transition-colors",
+      isWinner ? "bg-emerald-50/80 dark:bg-emerald-950/15" : isBest ? "bg-emerald-50/40 dark:bg-emerald-950/10" : ""
+    )}>
+      {/* Vendor name */}
+      <div className="w-[140px] shrink-0 min-w-0">
+        <div className="flex items-center gap-1">
+          {isWinner ? (
+            <Trophy className="h-3 w-3 text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400 shrink-0" />
+          ) : isBest ? (
+            <Star className="h-3 w-3 text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400 shrink-0" />
+          ) : null}
+          <span className={cn("text-[11px] font-bold truncate", isWinner ? "text-emerald-700 dark:text-emerald-400" : "text-foreground")}>
+            {vendorName}
+          </span>
+        </div>
+        {pickupCost > 0 && <p className="text-[9px] text-muted-foreground/50 ml-4">+{formatCurrency(pickupCost)} pickup</p>}
+      </div>
+
+      {/* Ref # */}
+      <div className="w-[80px] shrink-0">
+        <input
+          type="text"
+          value={refNum}
+          onChange={(e) => setRefNum(e.target.value)}
+          onBlur={handleSave}
+          placeholder="Ref #"
+          className="h-7 w-full text-[10px] rounded border border-border bg-background px-1.5 font-mono placeholder:text-muted-foreground/30 outline-none focus:ring-1 focus:ring-ring/30"
+        />
+      </div>
+
+      {/* Price input */}
+      <div className="w-[90px] shrink-0">
+        <div className="relative">
+          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50">$</span>
+          <input
+            type="number"
+            step="0.01"
+            value={editPrice}
+            onChange={(e) => setEditPrice(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            placeholder="0.00"
+            className={cn(
+              "h-7 w-full text-[11px] text-right rounded border bg-background pl-4 pr-1.5 font-mono font-bold tabular-nums outline-none focus:ring-1 focus:ring-ring/30",
+              isWinner ? "border-emerald-300 dark:border-emerald-700/50 bg-emerald-50 dark:bg-emerald-950/20" : isBest ? "border-emerald-200 dark:border-emerald-800/40" : "border-border"
+            )}
+          />
+        </div>
+      </div>
+
+      {/* Total w/ pickup */}
+      <div className="w-[90px] shrink-0 text-right">
+        <span className={cn("text-[11px] font-bold font-mono tabular-nums", isWinner || isBest ? "text-emerald-700 dark:text-emerald-400" : "text-foreground/70")}>
+          {totalWithPickup != null ? formatCurrency(totalWithPickup) : "-"}
+        </span>
+      </div>
+
+      {/* Actions */}
+      <div className="ml-auto flex items-center gap-1">
+        {/* Best badge */}
+        {isBest && !isWinner && bidStatus === "open" && (
+          <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded uppercase tracking-wider">Best</span>
+        )}
+        {/* Winner badge */}
+        {isWinner && (
+          <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded uppercase tracking-wider">Winner</span>
+        )}
+        {/* Award button -- only on best price row when bid is open */}
+        {isBest && !isWinner && bidStatus === "open" && entry.price != null && (
+          <button onClick={onAward} disabled={awarding}
+            className="h-6 px-2 text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/40 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800/40 transition-colors flex items-center gap-1 disabled:opacity-50">
+            <Award className="h-3 w-3" />
+            Award
+          </button>
+        )}
+        {/* Remove */}
+        {!isWinner && (
+          <button onClick={onRemove}
+            className="p-1 rounded text-muted-foreground/25 hover:text-destructive hover:bg-destructive/5 transition-colors">
+            <X className="h-3 w-3" />
+          </button>
         )}
       </div>
     </div>
