@@ -873,7 +873,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
 
 /* ������═══════════════����══════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ══════════════�����═════���══════════════════════════════ */
+   ══════════════�����═════���════════════════════��═════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -2162,7 +2162,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               return (
                 <DroppableColumn key={col.id} col={col} quotes={colQuotes} allColumns={cols}
                   onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                  onRestore={handleRestore} onPatch={handlePatch}
+                  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
                   onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                   boardType={boardType} />
@@ -2181,7 +2181,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             return (
               <QuoteCard key={q.id} quote={q} columns={cols}
                 onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                onRestore={handleRestore} onPatch={handlePatch}
+                onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
                 onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                 onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                 boardType={boardType} listColumn={col} />
@@ -2273,7 +2273,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     {cardsToShow.map((q) => (
                       <QuoteCard key={q.id} quote={q} columns={cols}
                         onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                        onRestore={handleRestore} onPatch={handlePatch}
+                        onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
                         onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                         onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                         boardType={boardType} />
@@ -2301,7 +2301,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               {unassigned.map((q) => (
                 <QuoteCard key={q.id} quote={q} columns={cols}
                   onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                  onRestore={handleRestore} onPatch={handlePatch}
+                  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
                   onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
                   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                   boardType={boardType} />
