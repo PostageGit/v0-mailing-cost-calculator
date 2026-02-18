@@ -299,7 +299,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ════════════════════════════════════════════════�����═══
+/* ════════════════════════════════════════════════�������═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -1094,18 +1094,20 @@ function QuoteCard({
               }
               return (
                 <div>
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Mail Pieces ({pieces.length})</p>
+                  {/* Header row: huge count + label */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-4xl font-black text-foreground leading-none tabular-nums">{pieces.length}</span>
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Mail<br/>Pieces</span>
+                  </div>
+                  {/* Piece cards grid */}
                   <div className={cn("grid gap-2", cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-2" : "grid-cols-3")}>
                     {pieces.map((pc, i) => {
                       const label = pc.label || pc.description || pc.category
                       const md = pc.metadata as Record<string, unknown> | undefined
-                      // Size: prefer metadata, then regex
                       const sizeStr = (md?.pieceDimensions as string)
                         ? `${(md.pieceDimensions as string).replace("x", '" x ')}"`
                         : (() => { const m = label.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/); return m ? `${m[1]}" x ${m[2]}"` : null })()
                       const isOHP = pc.category === "ohp"
-                      const vendorName = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
-                      // Qty: prefer metadata, then multiple regex patterns
                       const qtyStr = (() => {
                         const m1 = label.match(/([\d,]+)\s*[-–]/)
                         if (m1) return m1[1]
@@ -1116,26 +1118,26 @@ function QuoteCard({
                       const foundType = (md?.pieceLabel as string) || (md?.pieceType as string) || typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
 
                       return (
-                        <div key={i} className={cn("rounded-lg border bg-card p-3", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              {isOHP && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
-                              <span className="text-sm font-bold text-foreground truncate">{foundType}</span>
-                            </div>
-                            <span className="text-sm font-extrabold font-mono text-foreground tabular-nums shrink-0">{formatCurrency(pc.amount)}</span>
+                        <div key={i} className={cn("rounded-lg border bg-card p-3 flex flex-col", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
+                          {/* Type name -- the hero text */}
+                          <div className="flex items-center gap-1.5">
+                            {isOHP && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
+                            <span className="text-base font-extrabold text-foreground truncate leading-tight">{foundType}</span>
                           </div>
-                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mt-1">
-                            {qtyStr && <span className="text-sm font-extrabold text-foreground tabular-nums">{qtyStr} <span className="text-[10px] font-normal text-muted-foreground">pcs</span></span>}
+                          {/* Compact details row: qty + size + price */}
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1.5">
+                            {qtyStr && <span className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{qtyStr}</span> pcs</span>}
                             {sizeStr && <span className="text-[11px] text-muted-foreground">{sizeStr}</span>}
-                            {isOHP && vendorName && <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">{vendorName}</span>}
                           </div>
+                          {/* Price anchored at bottom */}
+                          <span className="text-xs font-bold font-mono text-foreground/70 tabular-nums mt-auto pt-1">{formatCurrency(pc.amount)}</span>
                         </div>
                       )
                     })}
                   </div>
                   {/* Vendor / date info below the piece cards */}
                   {vendorInfos.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-1">
+                    <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 px-0.5">
                       {vendorInfos.map((v, i) => (
                         <div key={i} className="flex items-center gap-2">
                           <span className="text-[11px] font-semibold text-foreground">{v.name}</span>
