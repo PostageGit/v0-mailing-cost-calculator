@@ -12,7 +12,9 @@ import { CustomerSearchCombobox } from "@/components/customer-search-combobox"
 import {
   Plus, X, Mail, ArrowRight, User, Package, AlertCircle,
   ChevronDown, Check, Printer, Send, Layers, Loader2,
+  CalendarDays, HandMetal,
 } from "lucide-react"
+import type { Vendor } from "@/lib/vendor-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 interface Contact { id: string; name: string; email?: string; phone?: string }
@@ -30,6 +32,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
     setHydrated(true)
   }
   const { data: customers } = useSWR<Customer[]>("/api/customers", fetcher)
+  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
+  const [cpCustomVendors, setCpCustomVendors] = useState<Record<string, string>>({})
   const { data: contacts, mutate: mutateContacts } = useSWR<Contact[]>(
     q.customerId ? `/api/customers/${q.customerId}/contacts` : null, fetcher,
   )
@@ -476,47 +480,131 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     )}
 
                     {/* Production routing */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground shrink-0">Production:</span>
-                      <div className="flex gap-1">
-                        {(["inhouse", "ohp", "both"] as const).map((r) => (
-                          <button key={r} type="button"
-                            onClick={() => m.updatePiece(piece.id, { production: r })}
-                            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                              piece.production === r
-                                ? r === "inhouse" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-                                  : r === "ohp" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-                                  : "bg-primary/10 text-primary"
-                                : "bg-secondary text-muted-foreground hover:text-foreground"
-                            }`}>
-                            {r === "inhouse" ? "In-House" : r === "ohp" ? "OHP" : "Both"}
-                          </button>
-                        ))}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground shrink-0">Production:</span>
+                        <div className="flex gap-1 flex-wrap">
+                          {(["inhouse", "ohp", "both", "customer"] as const).map((r) => (
+                            <button key={r} type="button"
+                              onClick={() => m.updatePiece(piece.id, { production: r })}
+                              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                                piece.production === r
+                                  ? r === "inhouse" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                    : r === "ohp" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                    : r === "customer" ? "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300"
+                                    : "bg-primary/10 text-primary"
+                                  : "bg-secondary text-muted-foreground hover:text-foreground"
+                              }`}>
+                              {r === "inhouse" ? "In-House" : r === "ohp" ? "OHP" : r === "both" ? "Both" : "Customer"}
+                            </button>
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {piece.production === "inhouse" && (
+                            <span className="flex items-center gap-1">
+                              <Printer className="h-3 w-3" />
+                              {meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "spiral" ? "Spiral Binding" : meta.calc === "perfect" ? "Perfect Binding" : meta.calc === "envelope" ? "Envelope" : "In-House"}
+                            </span>
+                          )}
+                          {piece.production === "ohp" && <span className="flex items-center gap-1"><Send className="h-3 w-3" />Vendor bid</span>}
+                          {piece.production === "both" && (
+                            <span className="flex items-center gap-1">
+                              <Printer className="h-3 w-3" />In-House + <Send className="h-3 w-3" />OHP
+                            </span>
+                          )}
+                          {piece.production === "customer" && <span className="flex items-center gap-1"><HandMetal className="h-3 w-3" />Customer provides</span>}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground ml-auto">
-                        {piece.production !== "ohp" && (
-                          <span className="flex items-center gap-1">
-                            <Printer className="h-3 w-3" />
-                            {meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "spiral" ? "Spiral Binding" : meta.calc === "perfect" ? "Perfect Binding" : meta.calc === "envelope" ? "Envelope" : "OHP"}
-                          </span>
-                        )}
-                        {piece.production === "ohp" && <span className="flex items-center gap-1"><Send className="h-3 w-3" />Vendor bid</span>}
-                        {piece.production === "both" && <span className="flex items-center gap-1 ml-1">+ <Send className="h-3 w-3" />OHP</span>}
-                      </span>
-                    </div>
 
-                    {/* Per-piece: customer provides printing */}
-                    {["postcard", "flat_card", "folded_card", "self_mailer", "letter", "booklet", "spiral_book", "perfect_bound"].includes(piece.type) && (
-                      <label className="flex items-center gap-2 cursor-pointer mt-1">
-                        <input
-                          type="checkbox"
-                          checked={!!piece.customerProvidesPrinting}
-                          onChange={(e) => m.updatePiece(piece.id, { customerProvidesPrinting: e.target.checked })}
-                          className="h-3.5 w-3.5 rounded border-border accent-foreground cursor-pointer"
-                        />
-                        <span className="text-[11px] text-muted-foreground">Customer provides printing</span>
-                      </label>
-                    )}
+                      {/* Customer Provided panel */}
+                      {piece.production === "customer" && (
+                        <div className="rounded-xl border-2 border-violet-400/50 bg-violet-50 dark:bg-violet-950/20 p-4 flex flex-col gap-3 mt-1">
+                          {/* Big pill */}
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-400/20 border border-violet-400/40">
+                              <Package className="h-4 w-4 text-violet-700 dark:text-violet-400" />
+                              <span className="text-sm font-bold text-violet-800 dark:text-violet-300 tracking-tight">
+                                Customer Provides {meta.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Expected date */}
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-medium text-violet-800 dark:text-violet-300">Expected Date</label>
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                <Input
+                                  type="date"
+                                  value={piece.customerProvidedDate || ""}
+                                  onChange={(e) => m.updatePiece(piece.id, { customerProvidedDate: e.target.value })}
+                                  className="pl-8 text-sm h-9 border-violet-300 dark:border-violet-700"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => m.updatePiece(piece.id, { customerProvidedDate: new Date().toISOString().slice(0, 10) })}
+                                className="h-9 px-3 text-xs font-medium rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-all shrink-0"
+                              >
+                                Today
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const d = new Date(); d.setDate(d.getDate() + 1)
+                                  m.updatePiece(piece.id, { customerProvidedDate: d.toISOString().slice(0, 10) })
+                                }}
+                                className="h-9 px-3 text-xs font-medium rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-all shrink-0"
+                              >
+                                Tomorrow
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Vendor / Source */}
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs font-medium text-violet-800 dark:text-violet-300">Vendor / Source</label>
+                            <Select
+                              value={piece.customerProvidedVendor || "none"}
+                              onValueChange={(val) => {
+                                if (val === "__custom__") {
+                                  m.updatePiece(piece.id, { customerProvidedVendor: "__custom__" })
+                                } else if (val === "none") {
+                                  m.updatePiece(piece.id, { customerProvidedVendor: "" })
+                                } else {
+                                  const vnd = vendors?.find(v2 => v2.id === val)
+                                  m.updatePiece(piece.id, { customerProvidedVendor: vnd?.company_name || val })
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="text-sm h-9 border-violet-300 dark:border-violet-700">
+                                <SelectValue placeholder="Select vendor or enter custom" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                <SelectItem value="__custom__">Type custom name...</SelectItem>
+                                {vendors?.map((vnd) => (
+                                  <SelectItem key={vnd.id} value={vnd.id}>{vnd.company_name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {piece.customerProvidedVendor === "__custom__" && (
+                              <Input
+                                type="text"
+                                placeholder="Enter vendor or source name"
+                                value={cpCustomVendors[piece.id] || ""}
+                                onChange={(e) => {
+                                  setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))
+                                  m.updatePiece(piece.id, { customerProvidedVendor: e.target.value || "__custom__" })
+                                }}
+                                className="text-sm h-9 mt-1 border-violet-300 dark:border-violet-700"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Remove button */}
@@ -584,6 +672,44 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ─── Customer Provided Summary ─── */}
+      {m.pieces.some((p) => p.production === "customer") && (
+        <div className="rounded-2xl border-2 border-violet-400/40 bg-violet-50 dark:bg-violet-950/20 p-5 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-400/20 border border-violet-400/40">
+              <Package className="h-3.5 w-3.5 text-violet-700 dark:text-violet-400" />
+              <span className="text-xs font-bold text-violet-800 dark:text-violet-300 tracking-tight uppercase">Customer Provided Items</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {m.pieces.filter((p) => p.production === "customer").map((piece) => {
+              const meta = PIECE_TYPE_META[piece.type]
+              return (
+                <div key={piece.id} className="flex items-center gap-3 rounded-xl bg-card border border-border px-4 py-2.5">
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
+                  <span className="text-sm font-semibold text-foreground">{piece.label}</span>
+                  {piece.customerProvidedVendor && piece.customerProvidedVendor !== "__custom__" && (
+                    <span className="text-xs text-muted-foreground">
+                      from <span className="font-medium text-foreground">{piece.customerProvidedVendor}</span>
+                    </span>
+                  )}
+                  {piece.customerProvidedDate && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      expected <span className="font-medium text-foreground">
+                        {new Date(piece.customerProvidedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-violet-600 dark:text-violet-400 mt-2.5">
+            These items are supplied by the customer and will not be priced. Vendor/date info follows the job.
+          </p>
         </div>
       )}
 

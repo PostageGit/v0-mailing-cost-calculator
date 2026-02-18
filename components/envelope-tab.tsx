@@ -24,13 +24,6 @@ import {
   type LaserPrintType,
 } from "@/lib/envelope-pricing"
 import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
-import useSWR from "swr"
-import type { Vendor } from "@/lib/vendor-types"
-import { useCustomerProvided } from "@/hooks/use-customer-provided"
-import { CustomerProvidedSection } from "@/components/customer-provided-section"
-
-const vendorFetcher = (url: string) => fetch(url).then((r) => r.json())
-
 import { STANDARD_ENVELOPES } from "@/lib/mailing-context"
 
 /** Match a planner envelope piece to the best envelope pricing item name */
@@ -112,10 +105,6 @@ export function EnvelopeTab() {
   const [showSettings, setShowSettings] = useState(false)
   const [settings, setSettings] = useState<EnvelopeSettings>(() => structuredClone(DEFAULT_ENVELOPE_SETTINGS))
 
-  // Customer Provided state
-  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", vendorFetcher)
-  const cp = useCustomerProvided(vendors)
-
   // Auto-calculate on input change
   useEffect(() => {
     if (inputs.amount > 0 && inputs.itemName && inputs.printType) {
@@ -168,15 +157,13 @@ export function EnvelopeTab() {
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : calcResult.price
-    const baseDesc = `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`
     quote.addItem({
       category: "envelope",
       label: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
-      description: cp.buildDescription(baseDesc, "Envelopes"),
+      description: `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`,
       amount: finalAmount,
-      ...cp.buildMetadata(),
     })
-  }, [calcResult, inputs, quote, effectiveTotal, cp])
+  }, [calcResult, inputs, quote, effectiveTotal])
 
   const handleReset = useCallback(() => {
     v.reset()
@@ -192,7 +179,6 @@ export function EnvelopeTab() {
     setCalcResult(null)
     setError("")
     setSettings(structuredClone(DEFAULT_ENVELOPE_SETTINGS))
-    cp.reset()
   }, [mailing.quantity, mailing.pieces, v])
 
   // Current item's bleed capability
@@ -365,9 +351,6 @@ export function EnvelopeTab() {
               <span className="text-[10px] font-semibold text-amber-600">Check w/ prod.</span>
             )}
           </div>
-
-          {/* Customer Provided */}
-          <CustomerProvidedSection cp={cp} itemNoun="Envelopes" vendors={vendors} />
 
           {/* Customer type */}
           <div className="flex flex-col gap-1.5">

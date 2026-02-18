@@ -30,7 +30,7 @@ export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; 
 }
 
 // ─── Production routing ──────────────────────────────────
-export type ProductionRoute = "inhouse" | "ohp" | "both"
+export type ProductionRoute = "inhouse" | "ohp" | "both" | "customer"
 
 // ─── Fold types (simplified) ─────────────────────────────
 // Finished size = what fits in the envelope (after folding)
@@ -74,6 +74,8 @@ export interface MailPiece {
   envelopeId?: string        // if type=envelope, which standard size
   envelopeKind?: "paper" | "plastic" | ""
   customerProvidesPrinting?: boolean  // per-piece: if true, skip printing calc for this item
+  customerProvidedVendor?: string     // vendor name or custom text (when production === "customer")
+  customerProvidedDate?: string       // ISO date string (when production === "customer")
   _suggested?: boolean       // true if size was auto-suggested and needs user verification
 }
 
@@ -195,8 +197,8 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const suggestedShapes = useMemo(() => computeSuggestedShapes(mailerWidth, mailerHeight), [mailerWidth, mailerHeight])
 
   // Derived step visibility based on piece types AND production routing
-  const inhouseOrBoth = pieces.filter((p) => p.production === "inhouse" || p.production === "both")
-  const ohpOrBoth = pieces.filter((p) => p.production === "ohp" || p.production === "both")
+  const inhouseOrBoth = pieces.filter((p) => (p.production === "inhouse" || p.production === "both") && p.production !== "customer")
+  const ohpOrBoth = pieces.filter((p) => (p.production === "ohp" || p.production === "both") && p.production !== "customer")
 
   const needsEnvelope = inhouseOrBoth.some((p) => p.type === "envelope")
   const needsPrinting = inhouseOrBoth.some((p) => !p.customerProvidesPrinting && ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))

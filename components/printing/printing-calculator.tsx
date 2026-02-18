@@ -23,9 +23,6 @@ import { useQuote } from "@/lib/quote-context"
 import { Plus, ArrowDown } from "lucide-react"
 import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
-import { useCustomerProvided } from "@/hooks/use-customer-provided"
-import { CustomerProvidedSection } from "@/components/customer-provided-section"
-import type { Vendor } from "@/lib/vendor-types"
 import type { FinishingCalculator, FinishingGlobalRates } from "@/lib/finishing-calculator-types"
 import { computeFinishingCalcTotals } from "@/components/finishing-add-ons"
 
@@ -64,10 +61,6 @@ export function PrintingCalculator() {
     (p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type) &&
            (p.production === "inhouse" || p.production === "both")
   )
-
-  // Customer Provided
-  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", swrFetcher)
-  const cp = useCustomerProvided(vendors)
 
   // Finishing calculators from DB
   const { data: finCalcs } = useSWR<FinishingCalculator[]>("/api/finishing-calculators", swrFetcher)
@@ -208,21 +201,19 @@ export function PrintingCalculator() {
     setFullResult(null)
     setHasCalculated(false)
     setShowResults(false)
-    cp.reset()
   }
 
   const handleAddToQuote = useCallback(() => {
     if (!fullResult) return
-    const baseDesc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
+    const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal
     quote.addItem({
       category: "flat",
       label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
-      description: cp.buildDescription(baseDesc, "Paper/Prints"),
+      description: desc,
       amount: finalAmount,
-      ...cp.buildMetadata(),
     })
-  }, [fullResult, inputs, quote, effectiveTotal, cp])
+  }, [fullResult, inputs, quote, effectiveTotal])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
@@ -260,10 +251,6 @@ export function PrintingCalculator() {
               </div>
             </div>
           )}
-
-          <div className="mb-4">
-            <CustomerProvidedSection cp={cp} itemNoun="Paper/Prints" vendors={vendors} />
-          </div>
 
           <PrintingForm
             inputs={inputs}

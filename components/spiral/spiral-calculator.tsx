@@ -13,12 +13,6 @@ import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { Plus, ArrowDown } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
-import useSWR from "swr"
-import type { Vendor } from "@/lib/vendor-types"
-import { useCustomerProvided } from "@/hooks/use-customer-provided"
-import { CustomerProvidedSection } from "@/components/customer-provided-section"
-
-const vendorFetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function SpiralCalculator() {
   const quote = useQuote()
