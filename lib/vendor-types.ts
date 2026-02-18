@@ -19,6 +19,7 @@ export interface Vendor {
   website: string | null
   notes: string | null
   custom_fields: Record<string, string>
+  is_internal: boolean
   created_at: string
   updated_at: string
 }

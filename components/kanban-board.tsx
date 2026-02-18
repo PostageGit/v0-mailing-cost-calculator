@@ -131,13 +131,13 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
       derived.piece_desc = sizeStr && (foundType || fallbackType) ? `${sizeStr} ${foundType || fallbackType}` : (sizeStr || foundType || fallbackType || desc.split(",")[0]?.trim() || "")
     }
 
-    // Production route from metadata
-    if (m?.production) {
-      const prodMap: Record<string, string> = { inhouse: "In-House", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
-      derived.printed_by = prodMap[m.production as string] || "In-House"
-    } else {
-      derived.printed_by = "In-House"
-    }
+  // Production route from metadata
+  if (m?.production) {
+  const prodMap: Record<string, string> = { inhouse: "PrintOut", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
+  derived.printed_by = prodMap[m.production as string] || "PrintOut"
+  } else {
+  derived.printed_by = "PrintOut"
+  }
   }
 
   // Inserts: additional printing items beyond the first
@@ -595,7 +595,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ═══════════════════════════════════════════════���════
+/* ════════════════════════════════��══════════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -1128,9 +1128,14 @@ function QuoteCard({
                 const bleed = md?.hasBleed as boolean | undefined
                 const pages = md?.pageCount as number | undefined
                 const production = md?.production as string | undefined
-                const prodLabels: Record<string, string> = { inhouse: "In-House", ohp: "OHP", both: "Both", customer: "Customer" }
                 const printDetails = [paper, sides, bleed ? "Bleed" : null, pages ? `${pages}pg` : null].filter(Boolean)
-                const prodLabel = production ? prodLabels[production] || null : null
+                // Show actual vendor name from piece_meta if set, otherwise show production route label
+                const pmVendor = getPm(i).vendor
+                const prodLabel = (() => {
+                  if (pmVendor) return pmVendor
+                  const prodLabels: Record<string, string> = { inhouse: "PrintOut", ohp: "OHP", both: "Both", customer: "Customer" }
+                  return production ? prodLabels[production] || null : null
+                })()
                 return { pc, i, md, sizeStr, isOHP, qtyStr, foundType, printDetails, prodLabel, production }
               })
 
@@ -1166,10 +1171,11 @@ function QuoteCard({
                         {printDetails.length > 0 && (
                           <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{printDetails.join(" / ")}</p>
                         )}
-                        {/* Production tag */}
+                        {/* Vendor / Production tag */}
                         {prodLabel && (
                           <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded self-start mt-1",
-                            production === "ohp" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                            prodLabel.startsWith("PrintOut") ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : production === "ohp" || (pmVendor && !pmVendor.startsWith("PrintOut")) ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
                             : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                             : "bg-muted text-muted-foreground"
                           )}>{prodLabel}</span>
@@ -1180,41 +1186,55 @@ function QuoteCard({
                     ))}
                   </div>
 
-                  {/* ROW 2: Per-piece vendor/date/arrived -- only for OHP/Both/Customer pieces */}
-                  {pieceData.some(({ production }) => production && production !== "inhouse") && (
-                    <div className={cn("grid gap-2 mt-2", gridCls)}>
-                      {pieceData.map(({ i, production }) => {
-                        const needsVendor = production && production !== "inhouse"
-                        const pm = getPm(i)
-                        if (!needsVendor) {
-                          // Empty placeholder to keep grid alignment
-                          return <div key={i} />
-                        }
-                        return (
-                          <div key={i} className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                              <div className="min-w-0">
-                                <span className="text-[10px] text-muted-foreground font-medium mb-1 block">Vendor</span>
-                                <select
-                                  value={pm.vendor || ""}
-                                  onChange={(e) => setPm(i, { vendor: e.target.value })}
-                                  className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
-                                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
-                                >
-                                  <option value="">Select vendor...</option>
-                                  {(vendors || []).map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
-                                </select>
-                              </div>
-                              <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
+                  {/* ROW 2: Per-piece vendor/date/arrived -- ALL pieces get tracking */}
+                  <div className={cn("grid gap-2 mt-2", gridCls)}>
+                    {pieceData.map(({ i, production }) => {
+                      const pm = getPm(i)
+                      const isInhouse = !production || production === "inhouse"
+                      const internalVendors = (vendors || []).filter((v) => v.is_internal)
+                      const externalVendors = (vendors || []).filter((v) => !v.is_internal)
+
+                      return (
+                        <div key={i} className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                            <div className="min-w-0">
+                              <span className="text-[10px] text-muted-foreground font-medium mb-1 block">Vendor</span>
+                              <select
+                                value={pm.vendor || ""}
+                                onChange={(e) => setPm(i, { vendor: e.target.value })}
+                                className="w-full text-xs font-medium text-foreground bg-background border border-border rounded-md px-2 py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all appearance-none cursor-pointer"
+                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "24px" }}
+                              >
+                                <option value="">Select vendor...</option>
+                                {isInhouse ? (
+                                  /* In-house pieces: show only PrintOut locations */
+                                  internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)
+                                ) : (
+                                  /* OHP/Both/Customer: show external vendors first, then internal in a separate group */
+                                  <>
+                                    {externalVendors.length > 0 && (
+                                      <optgroup label="External Vendors">
+                                        {externalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                      </optgroup>
+                                    )}
+                                    {internalVendors.length > 0 && (
+                                      <optgroup label="PrintOut (In-House)">
+                                        {internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                      </optgroup>
+                                    )}
+                                  </>
+                                )}
+                              </select>
                             </div>
-                            <div className="mt-2">
-                              <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
-                            </div>
+                            <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                          <div className="mt-2">
+                            <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })()}
@@ -1235,13 +1255,9 @@ function QuoteCard({
               </div>
             </div>
 
-            {/* ── ROW: Vendor Job # (shared, not per-piece) ── */}
+            {/* ── ROW: Vendor Job # ── */}
             <div className="rounded-lg border border-border bg-card p-3">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
-                  options={["In-House", "Out of House", "Both"]} />
-                <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
-              </div>
+              <FieldInput label="Vendor Job / PO #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
             </div>
 
             {/* ── ROW: List/Mail + Billing (2 col) ── */}
@@ -1592,7 +1608,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       }
       // Production route from metadata
       if (pm?.production && !meta.printed_by) {
-        const prodMap: Record<string, string> = { inhouse: "In-House", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
+        const prodMap: Record<string, string> = { inhouse: "PrintOut", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
         meta.printed_by = prodMap[pm.production as string] || undefined
       }
     }
@@ -1652,9 +1668,9 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           meta.piece_desc = `${sizeM[1]}x${sizeM[2]}${pieceType ? " " + pieceType : ""}`
         }
       }
-    } else if (printingItems.length > 0 && !meta.printed_by) {
-      meta.printed_by = "In-House"
-    }
+  } else if (printingItems.length > 0 && !meta.printed_by) {
+  meta.printed_by = "PrintOut"
+  }
 
     // Get the first job board column
     const res = await fetch("/api/board-columns?type=job")

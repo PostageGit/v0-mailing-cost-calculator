@@ -360,7 +360,7 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
             <SelectValue placeholder={addingVendor ? "Adding..." : "+ Add vendor"} />
           </SelectTrigger>
           <SelectContent>
-            {(vendors ?? []).map((v) => (
+            {(vendors ?? []).filter((v) => !v.is_internal).map((v) => (
               <SelectItem key={v.id} value={v.id}>{v.company_name}</SelectItem>
             ))}
           </SelectContent>

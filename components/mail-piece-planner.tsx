@@ -495,7 +495,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                     : "bg-primary/10 text-primary"
                                   : "bg-secondary text-muted-foreground hover:text-foreground"
                               }`}>
-                              {r === "inhouse" ? "In-House" : r === "ohp" ? "OHP" : r === "both" ? "Both" : "Customer"}
+                              {r === "inhouse" ? "In-House (PrintOut)" : r === "ohp" ? "OHP" : r === "both" ? "Both" : "Customer"}
                             </button>
                           ))}
                         </div>
@@ -503,13 +503,13 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                           {piece.production === "inhouse" && (
                             <span className="flex items-center gap-1">
                               <Printer className="h-3 w-3" />
-                              {meta.calc === "flat" ? "Flat Printing" : meta.calc === "booklet" ? "Booklet" : meta.calc === "spiral" ? "Spiral Binding" : meta.calc === "perfect" ? "Perfect Binding" : meta.calc === "envelope" ? "Envelope" : "In-House"}
+                              PrintOut pricing
                             </span>
                           )}
                           {piece.production === "ohp" && <span className="flex items-center gap-1"><Send className="h-3 w-3" />Vendor bid</span>}
                           {piece.production === "both" && (
                             <span className="flex items-center gap-1">
-                              <Printer className="h-3 w-3" />In-House + <Send className="h-3 w-3" />OHP
+                              <Printer className="h-3 w-3" />PrintOut + <Send className="h-3 w-3" />OHP
                             </span>
                           )}
                           {piece.production === "customer" && <span className="flex items-center gap-1"><HandMetal className="h-3 w-3" />Customer provides</span>}
