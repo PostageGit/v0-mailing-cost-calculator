@@ -299,7 +299,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════���═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -749,7 +749,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
 
 /* ════════════════════════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ════════════════════════════════════════════════════ */
+   ═════════════════════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -1488,18 +1488,27 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     // Smart extraction: build job_meta from existing quote data
     const meta: JobMeta = { ...(quote?.job_meta || {}) }
 
-    // --- Piece description: from the first printing item (flat/booklet/etc) label/description ---
+    // --- Piece description: prefer structured metadata, fallback to regex ---
     const printingItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
     if (printingItems.length > 0 && !meta.piece_desc) {
-      // The label or description usually contains the piece spec, e.g. "1,000 - 4x6 Flat Prints, 10pt Gloss"
-      const desc = printingItems[0].description || printingItems[0].label || ""
-      // Extract size pattern like "4x6", "6x9", "8.5x11" from the text
-      const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
-      const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
-      // Extract piece type hint
-      const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
-      const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase())) || printingItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
-      meta.piece_desc = sizeStr && foundType ? `${sizeStr} ${foundType}` : (sizeStr || foundType || desc.split(",")[0]?.trim() || "")
+      const pm = printingItems[0].metadata as Record<string, unknown> | undefined
+      if (pm?.pieceDimensions || pm?.pieceLabel) {
+        const dims = (pm.pieceDimensions as string) || ""
+        const type = (pm.pieceLabel as string) || (pm.pieceType as string) || ""
+        meta.piece_desc = dims && type ? `${dims} ${type}` : (dims || type)
+      } else {
+        const desc = printingItems[0].description || printingItems[0].label || ""
+        const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
+        const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
+        const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
+        const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase())) || printingItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
+        meta.piece_desc = sizeStr && foundType ? `${sizeStr} ${foundType}` : (sizeStr || foundType || desc.split(",")[0]?.trim() || "")
+      }
+      // Production route from metadata
+      if (pm?.production && !meta.printed_by) {
+        const prodMap: Record<string, string> = { inhouse: "In-House", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
+        meta.printed_by = prodMap[pm.production as string] || undefined
+      }
     }
 
     // --- Inserts: count non-first printing items ---
@@ -1524,6 +1533,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted"]
     const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
     meta.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").trim() || ""
+  }
+  // Drop-off / entry point from metadata
+  if (!meta.drop_off && pm) {
+    meta.drop_off = (pm.entryPoint as string) || (pm.dropOff as string) || undefined
   }
   }
 
