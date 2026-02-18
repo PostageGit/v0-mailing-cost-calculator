@@ -23,7 +23,8 @@ import {
   type InkJetPrintType,
   type LaserPrintType,
 } from "@/lib/envelope-pricing"
-import { Plus, RotateCcw, Settings2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react"
+import { getActiveConfig } from "@/lib/pricing-config"
+import { Plus, RotateCcw, AlertTriangle } from "lucide-react"
 import { STANDARD_ENVELOPES } from "@/lib/mailing-context"
 
 /** Match a planner envelope piece to the best envelope pricing item name */
@@ -93,7 +94,7 @@ export function EnvelopeTab() {
         envPiece.envelopeId,
         envPiece.width,
         envPiece.height,
-        DEFAULT_ENVELOPE_SETTINGS.items
+        getActiveConfig().envelopeSettings.items
       )
       if (matched) def.itemName = matched
     }
@@ -102,8 +103,8 @@ export function EnvelopeTab() {
   const [calcResult, setCalcResult] = useState<EnvelopeCalcResult | null>(null)
   const [error, setError] = useState("")
   const [effectiveTotal, setEffectiveTotal] = useState(0)
-  const [showSettings, setShowSettings] = useState(false)
-  const [settings, setSettings] = useState<EnvelopeSettings>(() => structuredClone(DEFAULT_ENVELOPE_SETTINGS))
+  // Settings now come from the global pricing config (saved in Settings modal)
+  const settings = getActiveConfig().envelopeSettings
 
   // Auto-calculate on input change
   useEffect(() => {
@@ -214,14 +215,6 @@ export function EnvelopeTab() {
         <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-5">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-foreground tracking-tight">Envelope Calculator</h2>
-            <button
-              type="button"
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              Settings
-            </button>
           </div>
 
           {/* Amount */}
@@ -399,10 +392,6 @@ export function EnvelopeTab() {
             </Button>
           </div>
 
-          {/* ─── Collapsible Settings ─── */}
-          {showSettings && (
-            <EnvelopeSettingsPanel settings={settings} onSettingsChange={setSettings} />
-          )}
         </div>
       </div>
 
@@ -501,168 +490,4 @@ function EnvelopeResultCard({
   )
 }
 
-/* ─── Settings panel ─── */
 
-function EnvelopeSettingsPanel({
-  settings,
-  onSettingsChange,
-}: {
-  settings: EnvelopeSettings
-  onSettingsChange: (s: EnvelopeSettings) => void
-}) {
-  const [open, setOpen] = useState<string | null>(null)
-
-  const updateInkjet = (key: string, val: number) => {
-    const next = structuredClone(settings)
-    next.inkjet[key as InkJetPrintType] = val
-    onSettingsChange(next)
-  }
-  const updateLaser = (key: string, val: number) => {
-    const next = structuredClone(settings)
-    next.laser[key as LaserPrintType] = val
-    onSettingsChange(next)
-  }
-  const updateCustomer = (key: string, val: number) => {
-    const next = structuredClone(settings)
-    next.customer[key as "Regular" | "Broker"] = val
-    onSettingsChange(next)
-  }
-  const updateFee = (key: keyof typeof settings.fees, val: number) => {
-    const next = structuredClone(settings)
-    next.fees[key] = val
-    onSettingsChange(next)
-  }
-  const updateItemCost = (idx: number, val: number) => {
-    const next = structuredClone(settings)
-    next.items[idx].costPer1000 = val
-    onSettingsChange(next)
-  }
-
-  const sections = [
-    {
-      id: "env",
-      title: "Envelope Costs",
-      content: (
-        <div className="flex flex-col gap-2">
-          {settings.items.map((item, i) => (
-            <div key={item.name} className="flex items-center justify-between gap-3">
-              <span className="text-xs text-foreground flex-1 min-w-0 truncate">{item.name}</span>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={item.costPer1000}
-                  onChange={(e) => updateItemCost(i, parseFloat(e.target.value) || 0)}
-                  className="h-7 w-20 text-xs font-mono"
-                  disabled={item.name === "Provided stock"}
-                />
-                <span className={`text-[10px] w-6 text-center ${item.bleed ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                  {item.bleed ? "B" : "-"}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "inkjet",
-      title: "InkJet Print Costs (/1000)",
-      content: (
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(settings.inkjet).map(([key, val]) => (
-            <div key={key} className="flex flex-col gap-1">
-              <span className="text-[10px] text-muted-foreground">{key}</span>
-              <Input
-                type="number"
-                step="0.5"
-                value={val}
-                onChange={(e) => updateInkjet(key, parseFloat(e.target.value) || 0)}
-                className="h-7 text-xs font-mono"
-                disabled={key === "Custom"}
-              />
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "laser",
-      title: "Laser Print Costs (/1000)",
-      content: (
-        <div className="grid grid-cols-3 gap-3">
-          {Object.entries(settings.laser).map(([key, val]) => (
-            <div key={key} className="flex flex-col gap-1">
-              <span className="text-[10px] text-muted-foreground">{key}</span>
-              <Input
-                type="number"
-                step="0.5"
-                value={val}
-                onChange={(e) => updateLaser(key, parseFloat(e.target.value) || 0)}
-                className="h-7 text-xs font-mono"
-              />
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "markup",
-      title: "Customer Markup",
-      content: (
-        <div className="grid grid-cols-2 gap-3">
-          {Object.entries(settings.customer).map(([key, val]) => (
-            <div key={key} className="flex flex-col gap-1">
-              <span className="text-[10px] text-muted-foreground">{key}</span>
-              <Input
-                type="number"
-                step="0.01"
-                value={val}
-                onChange={(e) => updateCustomer(key, parseFloat(e.target.value) || 0)}
-                className="h-7 text-xs font-mono"
-              />
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "fees",
-      title: "Fees & Minimums",
-      content: (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-muted-foreground">Min (no bleed)</span>
-            <Input type="number" step="1" value={settings.fees.minNoBleed} onChange={(e) => updateFee("minNoBleed", parseFloat(e.target.value) || 0)} className="h-7 text-xs font-mono" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-muted-foreground">Setup (bleed)</span>
-            <Input type="number" step="1" value={settings.fees.setupFee} onChange={(e) => updateFee("setupFee", parseFloat(e.target.value) || 0)} className="h-7 text-xs font-mono" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-muted-foreground">Bleed markup</span>
-            <Input type="number" step="0.01" value={settings.fees.bleedMarkup} onChange={(e) => updateFee("bleedMarkup", parseFloat(e.target.value) || 0)} className="h-7 text-xs font-mono" />
-          </div>
-        </div>
-      ),
-    },
-  ]
-
-  return (
-    <div className="rounded-xl border border-border bg-secondary/20 overflow-hidden divide-y divide-border">
-      {sections.map((sec) => (
-        <div key={sec.id}>
-          <button
-            type="button"
-            onClick={() => setOpen(open === sec.id ? null : sec.id)}
-            className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary/40 transition-colors"
-          >
-            {sec.title}
-            {open === sec.id ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-          </button>
-          {open === sec.id && <div className="px-4 pb-4 pt-1">{sec.content}</div>}
-        </div>
-      ))}
-    </div>
-  )
-}

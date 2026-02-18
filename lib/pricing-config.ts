@@ -3,11 +3,13 @@
  *
  * Default values are hardcoded here. They can be overridden at runtime by loading
  * overrides from app_settings (keys: pricing_click_costs, pricing_paper_prices,
- * pricing_booklet_paper_prices, pricing_markups).
+ * pricing_booklet_paper_prices, pricing_markups, envelope_settings).
  *
  * The calculation logic in printing-pricing.ts and booklet-pricing.ts is NOT
  * touched -- only the data constants they read are swapped to come from here.
  */
+
+import { type EnvelopeSettings, DEFAULT_ENVELOPE_SETTINGS } from "./envelope-pricing"
 
 // ==================== CLICK COSTS ====================
 
@@ -345,7 +347,10 @@ export interface PricingConfig {
   markups: Record<string, Record<number, number>>
   finishings: FinishingOption[]
   scoreFold: ScoreFoldConfig
+  envelopeSettings: EnvelopeSettings
 }
+
+export type { EnvelopeSettings }
 
 /** The active runtime config. Starts as defaults, gets merged with DB overrides. */
 let _activeConfig: PricingConfig = {
@@ -355,6 +360,7 @@ let _activeConfig: PricingConfig = {
   markups: deepCloneMarkups(DEFAULT_MARKUPS),
   finishings: structuredClone(DEFAULT_FINISHING_OPTIONS),
   scoreFold: structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
+  envelopeSettings: structuredClone(DEFAULT_ENVELOPE_SETTINGS),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -372,6 +378,7 @@ export function applyOverrides(overrides: Partial<{
   pricing_markups: Record<string, Record<number, number>>
   pricing_finishings: FinishingOption[]
   pricing_score_fold: ScoreFoldConfig
+  envelope_settings: EnvelopeSettings
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -392,6 +399,9 @@ export function applyOverrides(overrides: Partial<{
     scoreFold: overrides.pricing_score_fold
       ? structuredClone(overrides.pricing_score_fold)
       : structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
+    envelopeSettings: overrides.envelope_settings
+      ? structuredClone(overrides.envelope_settings)
+      : structuredClone(DEFAULT_ENVELOPE_SETTINGS),
   }
 }
 

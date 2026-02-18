@@ -25,10 +25,18 @@ import {
   DEFAULT_MARKUPS,
   DEFAULT_FINISHING_OPTIONS,
   DEFAULT_SCORE_FOLD_CONFIG,
+  applyOverrides,
+  getActiveConfig,
   type FinishingOption,
   type ScoreFoldConfig,
   type ScoreFoldEntry,
+  type EnvelopeSettings,
 } from "@/lib/pricing-config"
+import {
+  DEFAULT_ENVELOPE_SETTINGS,
+  type InkJetPrintType,
+  type LaserPrintType,
+} from "@/lib/envelope-pricing"
 import {
   Settings,
   X,
@@ -60,6 +68,7 @@ import {
   Users,
   UserPlus,
   Search,
+  Mail,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -164,6 +173,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <DollarSign className="h-3.5 w-3.5" />
                 Pricing
               </TabsTrigger>
+              <TabsTrigger value="envelopes" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Mail className="h-3.5 w-3.5" />
+                Envelopes
+              </TabsTrigger>
               <TabsTrigger value="steps" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <ListPlus className="h-3.5 w-3.5" />
                 Job Steps
@@ -201,6 +214,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="pricing">
               <PricingSettingsTab />
+            </TabsContent>
+            <TabsContent value="envelopes">
+              <EnvelopeSettingsTab />
             </TabsContent>
             <TabsContent value="steps">
               <JobStepsTab />
@@ -2896,6 +2912,317 @@ function TeamTab() {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ---------- Envelope Settings Tab ----------
+function EnvelopeSettingsTab() {
+  const { data: appSettings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [envSettings, setEnvSettings] = useState<EnvelopeSettings>(
+    structuredClone(DEFAULT_ENVELOPE_SETTINGS)
+  )
+
+  // Load from DB when settings arrive
+  if (appSettings && !loaded) {
+    const dbEnv = appSettings.envelope_settings as EnvelopeSettings | undefined
+    if (dbEnv) {
+      const merged = structuredClone(DEFAULT_ENVELOPE_SETTINGS)
+      if (dbEnv.items) merged.items = dbEnv.items
+      if (dbEnv.inkjet) merged.inkjet = { ...merged.inkjet, ...dbEnv.inkjet }
+      if (dbEnv.laser) merged.laser = { ...merged.laser, ...dbEnv.laser }
+      if (dbEnv.customer) merged.customer = { ...merged.customer, ...dbEnv.customer }
+      if (dbEnv.fees) merged.fees = { ...merged.fees, ...dbEnv.fees }
+      setEnvSettings(merged)
+    }
+    setLoaded(true)
+  }
+
+  const handleChange = useCallback((next: EnvelopeSettings) => {
+    setEnvSettings(next)
+    setDirty(true)
+  }, [])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ envelope_settings: envSettings }),
+      })
+      applyOverrides({
+        ...(appSettings as Record<string, unknown> ?? {}),
+        envelope_settings: envSettings,
+      } as Parameters<typeof applyOverrides>[0])
+      setDirty(false)
+      mutate()
+      globalMutate("/api/app-settings")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const reset = () => {
+    setEnvSettings(structuredClone(DEFAULT_ENVELOPE_SETTINGS))
+    setDirty(true)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">Envelope Pricing</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Configure envelope costs, print costs, customer markup, and fees.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={reset}>
+            <RefreshCw className="h-3 w-3" />
+            Defaults
+          </Button>
+          <Button size="sm" className="h-7 text-xs gap-1" onClick={save} disabled={!dirty || saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Save
+          </Button>
+        </div>
+      </div>
+
+      {dirty && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          Unsaved changes. Click Save to persist.
+        </div>
+      )}
+
+      <EnvelopeSettingsInlinePanel settings={envSettings} onSettingsChange={handleChange} />
+    </div>
+  )
+}
+
+function EnvelopeSettingsInlinePanel({
+  settings,
+  onSettingsChange,
+}: {
+  settings: EnvelopeSettings
+  onSettingsChange: (s: EnvelopeSettings) => void
+}) {
+  const [open, setOpen] = useState<string | null>("env")
+
+  const updateInkjet = (key: string, val: number) => {
+    const next = structuredClone(settings)
+    next.inkjet[key as InkJetPrintType] = val
+    onSettingsChange(next)
+  }
+  const updateLaser = (key: string, val: number) => {
+    const next = structuredClone(settings)
+    next.laser[key as LaserPrintType] = val
+    onSettingsChange(next)
+  }
+  const updateCustomer = (key: string, val: number) => {
+    const next = structuredClone(settings)
+    next.customer[key as "Regular" | "Broker"] = val
+    onSettingsChange(next)
+  }
+  const updateFee = (key: keyof typeof settings.fees, val: number) => {
+    const next = structuredClone(settings)
+    next.fees[key] = val
+    onSettingsChange(next)
+  }
+  const updateItemCost = (idx: number, val: number) => {
+    const next = structuredClone(settings)
+    next.items[idx].costPer1000 = val
+    onSettingsChange(next)
+  }
+  const addItem = () => {
+    const next = structuredClone(settings)
+    next.items.push({ name: "New Envelope", costPer1000: 0, bleed: false })
+    onSettingsChange(next)
+  }
+  const removeItem = (idx: number) => {
+    const next = structuredClone(settings)
+    if (next.items[idx].name === "Provided stock") return
+    next.items.splice(idx, 1)
+    onSettingsChange(next)
+  }
+  const updateItemName = (idx: number, name: string) => {
+    const next = structuredClone(settings)
+    next.items[idx].name = name
+    onSettingsChange(next)
+  }
+  const toggleBleed = (idx: number) => {
+    const next = structuredClone(settings)
+    next.items[idx].bleed = !next.items[idx].bleed
+    onSettingsChange(next)
+  }
+
+  const sections = [
+    {
+      id: "env",
+      title: "Envelope Types & Costs",
+      badge: `${settings.items.length} types`,
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/30">
+            <span className="flex-1">Envelope</span>
+            <span className="w-24 text-right">Cost / 1,000</span>
+            <span className="w-10 text-center">Bleed</span>
+            <span className="w-6"></span>
+          </div>
+          {settings.items.map((item, i) => (
+            <div key={`${item.name}-${i}`} className="flex items-center gap-2">
+              <Input
+                value={item.name}
+                onChange={(e) => updateItemName(i, e.target.value)}
+                className="h-8 text-xs flex-1"
+                disabled={item.name === "Provided stock"}
+              />
+              <Input
+                type="number"
+                step="0.01"
+                value={item.costPer1000}
+                onChange={(e) => updateItemCost(i, parseFloat(e.target.value) || 0)}
+                className="h-8 w-24 text-xs font-mono text-right"
+                disabled={item.name === "Provided stock"}
+              />
+              <div className="w-10 flex justify-center">
+                <Switch
+                  checked={item.bleed}
+                  onCheckedChange={() => toggleBleed(i)}
+                  className="scale-75"
+                  disabled={item.name === "Provided stock"}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-destructive/50 hover:text-destructive"
+                onClick={() => removeItem(i)}
+                disabled={item.name === "Provided stock"}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1 w-full" onClick={addItem}>
+            <Plus className="h-3 w-3" />
+            Add Envelope Type
+          </Button>
+        </div>
+      ),
+    },
+    {
+      id: "inkjet",
+      title: "InkJet Print Costs",
+      badge: "per 1,000",
+      content: (
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(settings.inkjet).map(([key, val]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">{key}</span>
+              <Input
+                type="number"
+                step="0.5"
+                value={val}
+                onChange={(e) => updateInkjet(key, parseFloat(e.target.value) || 0)}
+                className="h-8 text-xs font-mono"
+                disabled={key === "Custom"}
+              />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "laser",
+      title: "Laser Print Costs",
+      badge: "per 1,000",
+      content: (
+        <div className="grid grid-cols-3 gap-3">
+          {Object.entries(settings.laser).map(([key, val]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">{key}</span>
+              <Input
+                type="number"
+                step="0.5"
+                value={val}
+                onChange={(e) => updateLaser(key, parseFloat(e.target.value) || 0)}
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "markup",
+      title: "Customer Markup",
+      badge: "multiplier",
+      content: (
+        <div className="grid grid-cols-2 gap-3">
+          {Object.entries(settings.customer).map(([key, val]) => (
+            <div key={key} className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-muted-foreground">{key}</span>
+              <Input
+                type="number"
+                step="0.01"
+                value={val}
+                onChange={(e) => updateCustomer(key, parseFloat(e.target.value) || 0)}
+                className="h-8 text-xs font-mono"
+              />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "fees",
+      title: "Fees & Minimums",
+      content: (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground">Min price (no bleed)</span>
+            <Input type="number" step="1" value={settings.fees.minNoBleed} onChange={(e) => updateFee("minNoBleed", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-mono" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground">Setup fee (bleed)</span>
+            <Input type="number" step="1" value={settings.fees.setupFee} onChange={(e) => updateFee("setupFee", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-mono" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground">Bleed markup</span>
+            <Input type="number" step="0.01" value={settings.fees.bleedMarkup} onChange={(e) => updateFee("bleedMarkup", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-mono" />
+          </div>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div className="rounded-xl border border-border bg-secondary/20 overflow-hidden divide-y divide-border">
+      {sections.map((sec) => (
+        <div key={sec.id}>
+          <button
+            type="button"
+            onClick={() => setOpen(open === sec.id ? null : sec.id)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-foreground hover:bg-secondary/40 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              {sec.title}
+              {sec.badge && (
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  {sec.badge}
+                </Badge>
+              )}
+            </div>
+            {open === sec.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {open === sec.id && <div className="px-4 pb-4 pt-1">{sec.content}</div>}
+        </div>
+      ))}
     </div>
   )
 }
