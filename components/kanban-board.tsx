@@ -299,7 +299,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ════════════════════════════════════════════════�������═══
+/* ════════════════════════════════════════════════���������═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -593,7 +593,7 @@ const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
 /* ════════════════════════════════════════════════════
    QUICK NOTES POPUP (like PostFlow)
-   ════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
   const [draft, setDraft] = useState(value)
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -749,7 +749,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
 
 /* ════════════════════════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ═════════════════════���══════════════════════════════ */
+   ═══════════════���═════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -1154,28 +1154,19 @@ function QuoteCard({
               )
             })()}
 
-            {/* ── ROW: Job Details + Postage Details (2 col) ── */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Job Details</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <FieldInput label="Quantity" value={String(quote.quantity || "")} placeholder="0" onChange={(v) => onPatch(quote.id, { quantity: parseInt(v) || 0 })} />
-                  <FieldInput label="Mail Piece Desc." value={meta.piece_desc || ""} placeholder="e.g. 6x9 Postcard" onChange={(v) => updateMeta({ piece_desc: v })} />
-                  <FieldInput label="Insert Count" value={String(meta.insert_count || "")} placeholder="0" onChange={(v) => updateMeta({ insert_count: parseInt(v) || 0 })} />
-                  <FieldInput label="Inserts Desc." value={meta.inserts_desc || ""} placeholder="e.g. Flyer + Card" onChange={(v) => updateMeta({ inserts_desc: v })} />
+            {/* ── ROW: Postage Details (full width) ── */}
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Postage Details</p>
+              <div className="grid grid-cols-3 gap-x-3 gap-y-2">
+                <MailClassSelect value={meta.mailing_class || ""} onChange={(v) => updateMeta({ mailing_class: v })} />
+                <FieldSelect label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })}
+                  options={["Brooklyn", "Monsey", "KJ", "Lakewood"]} />
+                <div className="flex items-end pb-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={!!meta.international} onCheckedChange={(c) => updateMeta({ international: !!c })} className="h-4 w-4 rounded" />
+                    <span className="text-[11px] text-muted-foreground font-medium select-none">Mail International</span>
+                  </label>
                 </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2.5">Postage Details</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <MailClassSelect value={meta.mailing_class || ""} onChange={(v) => updateMeta({ mailing_class: v })} />
-                  <FieldSelect label="Drop Off Location" value={meta.drop_off || ""} onChange={(v) => updateMeta({ drop_off: v })}
-                    options={["Brooklyn", "Monsey", "KJ", "Lakewood"]} />
-                </div>
-                <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                  <Checkbox checked={!!meta.international} onCheckedChange={(c) => updateMeta({ international: !!c })} className="h-4 w-4 rounded" />
-                  <span className="text-[11px] text-muted-foreground font-medium select-none">Mail International</span>
-                </label>
               </div>
             </div>
 
