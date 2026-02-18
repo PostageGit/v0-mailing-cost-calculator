@@ -240,7 +240,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                   <span className="flex items-center gap-1">Bid Item <ArrowUpDown className="h-3 w-3 opacity-40" /></span>
                 </th>
                 <th className="px-3 py-3 w-28">Vendors</th>
-                <th className="px-3 py-3 w-24 text-right">Best OHP</th>
+                <th className="px-3 py-3 w-28 text-right">Best + Delivery</th>
                 <th className="px-3 py-3 w-24 text-right">In-House</th>
                 <th className="px-3 py-3 w-28 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => toggleSort("status")}>
                   <span className="flex items-center gap-1">Status <ArrowUpDown className="h-3 w-3 opacity-40" /></span>
@@ -252,7 +252,10 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
               {rows.map((bid) => {
                 const received = bid.vendor_bid_prices.filter((p) => p.status === "received")
                 const pending = bid.vendor_bid_prices.filter((p) => p.status === "pending")
-                const bestPrice = received.length > 0 ? Math.min(...received.map((p) => p.price!)) : null
+                // Best OHP = price + vendor pickup cost (total delivered cost)
+                const bestPrice = received.length > 0
+                  ? Math.min(...received.map((p) => Number(p.price!) + Number(p.vendors?.pickup_cost ?? 0)))
+                  : null
                 const inhousePrice = getInhousePrice(bid)
                 const winnerName = bid.status === "awarded"
                   ? bid.vendor_bid_prices.find((p) => p.vendor_id === bid.winning_vendor_id)?.vendors?.company_name
@@ -343,11 +346,12 @@ function BidRowWithPanel({ bid, received, pending, bestPrice, inhousePrice, winn
           </div>
         </td>
 
-        {/* Best OHP */}
+        {/* Best + Delivery */}
         <td className="px-3 py-3 text-right font-mono font-bold tabular-nums">
-          {bid.status === "awarded" && bid.winning_price != null ? (
-            <span className="text-emerald-600 dark:text-emerald-400">{formatCurrency(bid.winning_price)}</span>
-          ) : bestPrice != null ? (
+          {bid.status === "awarded" && bid.winning_price != null ? (() => {
+            const winnerPickup = Number(bid.vendor_bid_prices.find((p) => p.vendor_id === bid.winning_vendor_id)?.vendors?.pickup_cost ?? 0)
+            return <span className="text-emerald-600 dark:text-emerald-400">{formatCurrency(bid.winning_price + winnerPickup)}</span>
+          })() : bestPrice != null ? (
             <span className={cn(inhousePrice != null && bestPrice < inhousePrice ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>{formatCurrency(bestPrice)}</span>
           ) : (
             <span className="text-muted-foreground/25">--</span>
@@ -418,7 +422,13 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
   const availableVendors = externalVendors.filter((v) => !addedVendorIds.has(v.id))
 
   const receivedPrices = prices?.filter((p) => p.price != null) ?? []
-  const bestPrice = receivedPrices.length > 0 ? Math.min(...receivedPrices.map((p) => Number(p.price))) : null
+  // Best price = vendor price + that vendor's pickup/delivery cost
+  const bestPrice = receivedPrices.length > 0
+    ? Math.min(...receivedPrices.map((p) => {
+        const v = vendors.find((v) => v.id === p.vendor_id)
+        return Number(p.price) + Number(v?.pickup_cost ?? 0)
+      }))
+    : null
 
   const addVendor = async (vendorId: string) => {
     setAddingVendor(true)
@@ -489,7 +499,7 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
             </div>
             <div className="w-px h-6 bg-border/60" />
             <div className="flex items-baseline gap-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Best OHP</span>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Best + Delivery</span>
               <span className={cn("text-lg font-bold font-mono tabular-nums", bestPrice != null && bestPrice < inhousePrice ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>
                 {bestPrice != null ? formatCurrency(bestPrice) : "---"}
               </span>
@@ -533,9 +543,9 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
                   const vendor = vendors.find((v) => v.id === p.vendor_id)
                   const pickupCost = vendor?.pickup_cost ?? 0
                   const price = p.price != null ? Number(p.price) : null
-                  const isBest = price != null && price === bestPrice
-                  const isWinner = bid.winning_vendor_id === p.vendor_id && bid.status === "awarded"
                   const totalWithPickup = price != null ? price + pickupCost : null
+                  const isBest = totalWithPickup != null && totalWithPickup === bestPrice
+                  const isWinner = bid.winning_vendor_id === p.vendor_id && bid.status === "awarded"
 
                   return (
                     <PriceRow key={p.id} entry={p}
