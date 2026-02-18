@@ -72,5 +72,26 @@ export async function createClient() {
     })
   }
 
+  // Safety check: if client is missing .from(), return stub
+  if (!client || typeof (client as any).from !== 'function') {
+    console.error('[v0] Supabase client created but .from() is not a function, returning stub')
+    const noop = () => stub
+    const stub: Record<string, unknown> = {
+      from: () => stub,
+      select: noop, insert: noop, update: noop, upsert: noop, delete: noop,
+      eq: noop, neq: noop, single: noop, order: noop, limit: noop,
+      ilike: noop, or: noop, in: noop, is: noop, match: noop, maybeSingle: noop,
+      then: (resolve: (v: { data: null; error: { message: string } }) => void) =>
+        Promise.resolve().then(() => resolve({ data: null, error: { message: 'Supabase client initialization failed' } })),
+      data: null,
+      error: { message: 'Supabase client initialization failed' },
+      auth: {
+        getUser: async () => ({ data: { user: null }, error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+      },
+    }
+    return stub as unknown as ReturnType<typeof createServerClient>
+  }
+
   return client
 }
