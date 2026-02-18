@@ -516,92 +516,58 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                         </span>
                       </div>
 
-                      {/* Customer Provided panel */}
+                      {/* Customer Provided -- compact inline */}
                       {piece.production === "customer" && (
-                        <div className="rounded-xl border-2 border-violet-400/50 bg-violet-50 dark:bg-violet-950/20 p-4 flex flex-col gap-3 mt-1">
-                          {/* Big pill */}
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-400/20 border border-violet-400/40">
-                              <Package className="h-4 w-4 text-violet-700 dark:text-violet-400" />
-                              <span className="text-sm font-bold text-violet-800 dark:text-violet-300 tracking-tight">
-                                Customer Provides {meta.label}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Expected date */}
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-violet-800 dark:text-violet-300">Expected Date</label>
-                            <div className="flex items-center gap-2">
-                              <div className="relative flex-1">
-                                <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                                <Input
-                                  type="date"
-                                  value={piece.customerProvidedDate || ""}
-                                  onChange={(e) => m.updatePiece(piece.id, { customerProvidedDate: e.target.value })}
-                                  className="pl-8 text-sm h-9 border-violet-300 dark:border-violet-700"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => m.updatePiece(piece.id, { customerProvidedDate: new Date().toISOString().slice(0, 10) })}
-                                className="h-9 px-3 text-xs font-medium rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-all shrink-0"
-                              >
-                                Today
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const d = new Date(); d.setDate(d.getDate() + 1)
-                                  m.updatePiece(piece.id, { customerProvidedDate: d.toISOString().slice(0, 10) })
-                                }}
-                                className="h-9 px-3 text-xs font-medium rounded-lg bg-secondary text-muted-foreground hover:text-foreground transition-all shrink-0"
-                              >
-                                Tomorrow
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Vendor / Source */}
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-xs font-medium text-violet-800 dark:text-violet-300">Vendor / Source</label>
-                            <Select
-                              value={piece.customerProvidedVendor || "none"}
-                              onValueChange={(val) => {
-                                if (val === "__custom__") {
-                                  m.updatePiece(piece.id, { customerProvidedVendor: "__custom__" })
-                                } else if (val === "none") {
-                                  m.updatePiece(piece.id, { customerProvidedVendor: "" })
-                                } else {
-                                  const vnd = vendors?.find(v2 => v2.id === val)
-                                  m.updatePiece(piece.id, { customerProvidedVendor: vnd?.company_name || val })
-                                }
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-[10px] font-medium text-muted-foreground shrink-0">When:</span>
+                          <Input
+                            type="date"
+                            value={piece.customerProvidedDate || ""}
+                            onChange={(e) => m.updatePiece(piece.id, { customerProvidedDate: e.target.value })}
+                            className="h-7 text-[11px] w-32 px-2"
+                          />
+                          <button type="button"
+                            onClick={() => m.updatePiece(piece.id, { customerProvidedDate: new Date().toISOString().slice(0, 10) })}
+                            className="h-7 px-2 text-[10px] font-medium rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all">
+                            Today
+                          </button>
+                          <button type="button"
+                            onClick={() => { const d = new Date(); d.setDate(d.getDate() + 1); m.updatePiece(piece.id, { customerProvidedDate: d.toISOString().slice(0, 10) }) }}
+                            className="h-7 px-2 text-[10px] font-medium rounded-md bg-secondary text-muted-foreground hover:text-foreground transition-all">
+                            Tmrw
+                          </button>
+                          <span className="text-[10px] font-medium text-muted-foreground shrink-0 ml-1">From:</span>
+                          <Select
+                            value={piece.customerProvidedVendor || "none"}
+                            onValueChange={(val) => {
+                              if (val === "__custom__") m.updatePiece(piece.id, { customerProvidedVendor: "__custom__" })
+                              else if (val === "none") m.updatePiece(piece.id, { customerProvidedVendor: "" })
+                              else { const vnd = vendors?.find(v2 => v2.id === val); m.updatePiece(piece.id, { customerProvidedVendor: vnd?.company_name || val }) }
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-[11px] w-36 px-2">
+                              <SelectValue placeholder="Vendor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="__custom__">Custom...</SelectItem>
+                              {vendors?.map((vnd) => (
+                                <SelectItem key={vnd.id} value={vnd.id}>{vnd.company_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {piece.customerProvidedVendor === "__custom__" && (
+                            <Input
+                              type="text"
+                              placeholder="Vendor name"
+                              value={cpCustomVendors[piece.id] || ""}
+                              onChange={(e) => {
+                                setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))
+                                m.updatePiece(piece.id, { customerProvidedVendor: e.target.value || "__custom__" })
                               }}
-                            >
-                              <SelectTrigger className="text-sm h-9 border-violet-300 dark:border-violet-700">
-                                <SelectValue placeholder="Select vendor or enter custom" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                <SelectItem value="__custom__">Type custom name...</SelectItem>
-                                {vendors?.map((vnd) => (
-                                  <SelectItem key={vnd.id} value={vnd.id}>{vnd.company_name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {piece.customerProvidedVendor === "__custom__" && (
-                              <Input
-                                type="text"
-                                placeholder="Enter vendor or source name"
-                                value={cpCustomVendors[piece.id] || ""}
-                                onChange={(e) => {
-                                  setCpCustomVendors(prev => ({ ...prev, [piece.id]: e.target.value }))
-                                  m.updatePiece(piece.id, { customerProvidedVendor: e.target.value || "__custom__" })
-                                }}
-                                className="text-sm h-9 mt-1 border-violet-300 dark:border-violet-700"
-                              />
-                            )}
-                          </div>
+                              className="h-7 text-[11px] w-32 px-2"
+                            />
+                          )}
                         </div>
                       )}
                     </div>
