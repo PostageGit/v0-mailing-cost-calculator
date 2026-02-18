@@ -595,7 +595,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════════════════════════════════��══��═══════════���════
+/* ════════════════════════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -1826,96 +1826,78 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
         const unassigned = filteredQuotes.filter((q) => !q.column_id || !cols.some((c) => c.id === q.column_id))
 
         return (
-          <div className="flex-1 min-h-0 flex gap-0">
-            {/* Stage sidebar */}
-            <div className="w-48 shrink-0 border-r border-border flex flex-col min-h-0 overflow-y-auto">
-              {cols.map((col) => {
-                const count = filteredQuotes.filter((q) => q.column_id === col.id).length
-                const colTotal = filteredQuotes.filter((q) => q.column_id === col.id).reduce((s, q) => s + Number(q.total), 0)
-                const isActive = col.id === resolvedSidebarColId
-                return (
-                  <button
-                    key={col.id}
-                    onClick={() => setSidebarColId(col.id)}
-                    className={cn(
-                      "flex items-center gap-2.5 px-3 py-3 text-left transition-all border-l-2",
-                      isActive
-                        ? "bg-secondary/60 border-l-foreground"
-                        : "border-l-transparent hover:bg-secondary/30"
-                    )}
-                  >
-                    <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={cn("text-[11px] font-medium truncate", isActive ? "text-foreground" : "text-muted-foreground")}>
-                          {col.title}
-                        </span>
-                        <span className={cn("text-[10px] font-mono tabular-nums shrink-0", isActive ? "text-foreground" : "text-muted-foreground/60")}>
-                          {count}
-                        </span>
-                      </div>
-                      {count > 0 && (
-                        <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums">
-                          {formatCurrency(colTotal)}
-                        </span>
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-0">
+            {/* Stage tabs -- horizontal scroll on mobile, vertical sidebar on desktop */}
+            <div className="shrink-0 md:w-44 md:border-r border-b md:border-b-0 border-border flex md:flex-col min-h-0 overflow-x-auto md:overflow-x-visible md:overflow-y-auto">
+              <div className="flex md:flex-col gap-0 min-w-max md:min-w-0 w-full">
+                {cols.map((col) => {
+                  const count = filteredQuotes.filter((q) => q.column_id === col.id).length
+                  const colTotal = filteredQuotes.filter((q) => q.column_id === col.id).reduce((s, q) => s + Number(q.total), 0)
+                  const isActive = col.id === resolvedSidebarColId
+                  return (
+                    <button
+                      key={col.id}
+                      onClick={() => setSidebarColId(col.id)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 md:py-2.5 text-left transition-all shrink-0",
+                        "md:border-l-2 border-b-2 md:border-b-0",
+                        isActive
+                          ? "bg-secondary/60 md:border-l-foreground border-b-foreground"
+                          : "md:border-l-transparent border-b-transparent hover:bg-secondary/30"
                       )}
-                    </div>
-                  </button>
-                )
-              })}
-              {/* Unassigned row */}
-              {unassigned.length > 0 && (
-                <>
-                  <div className="border-t border-border" />
+                    >
+                      <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
+                      <span className={cn("text-[11px] font-medium whitespace-nowrap", isActive ? "text-foreground" : "text-muted-foreground")}>{col.title}</span>
+                      <span className={cn("text-[10px] font-mono tabular-nums shrink-0", isActive ? "text-foreground" : "text-muted-foreground/60")}>{count}</span>
+                      {count > 0 && <span className="text-[9px] font-mono text-muted-foreground/50 tabular-nums hidden md:inline">{formatCurrency(colTotal)}</span>}
+                    </button>
+                  )
+                })}
+                {unassigned.length > 0 && (
                   <button
                     onClick={() => setSidebarColId("__unassigned__")}
                     className={cn(
-                      "flex items-center gap-2.5 px-3 py-3 text-left transition-all border-l-2",
-                      resolvedSidebarColId === "__unassigned__" || (!resolvedSidebarColId && sidebarColId === "__unassigned__")
-                        ? "bg-secondary/60 border-l-foreground"
-                        : "border-l-transparent hover:bg-secondary/30"
+                      "flex items-center gap-2 px-3 py-2 md:py-2.5 text-left transition-all shrink-0",
+                      "md:border-l-2 border-b-2 md:border-b-0 md:border-t md:border-t-border",
+                      (resolvedSidebarColId === "__unassigned__" || (!resolvedSidebarColId && sidebarColId === "__unassigned__"))
+                        ? "bg-secondary/60 md:border-l-foreground border-b-foreground"
+                        : "md:border-l-transparent border-b-transparent hover:bg-secondary/30"
                     )}
                   >
                     <div className="h-2 w-2 rounded-full bg-muted-foreground/30 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[11px] font-medium text-muted-foreground truncate">Unassigned</span>
-                        <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums shrink-0">{unassigned.length}</span>
-                      </div>
-                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Unassigned</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums shrink-0">{unassigned.length}</span>
                   </button>
-                </>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Main content: cards for the selected stage */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-1">
+            {/* Main content: cards in a responsive grid */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 md:p-3">
               {/* Stage header */}
               {activeCol && sidebarColId !== "__unassigned__" && (
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                  <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: activeCol.color }} />
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: activeCol.color }} />
                   <span className="text-sm font-semibold text-foreground">{activeCol.title}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">{sidebarQuotes.length} {label.toLowerCase()}{sidebarQuotes.length !== 1 ? "s" : ""}</span>
-                  <span className="text-[10px] font-mono text-muted-foreground/40 tabular-nums ml-auto">
-                    {formatCurrency(sidebarQuotes.reduce((s, q) => s + Number(q.total), 0))}
-                  </span>
+                  <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">{sidebarQuotes.length} active</span>
+                  <span className="text-[10px] font-mono text-muted-foreground/40 tabular-nums ml-auto">{formatCurrency(sidebarQuotes.reduce((s, q) => s + Number(q.total), 0))}</span>
                 </div>
               )}
               {sidebarColId === "__unassigned__" && (
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                  <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30" />
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/30 shrink-0" />
                   <span className="text-sm font-semibold text-foreground">Unassigned</span>
                   <span className="text-[10px] font-mono text-muted-foreground/60 tabular-nums">{unassigned.length}</span>
                 </div>
               )}
 
-              {/* Cards */}
+              {/* Cards -- responsive grid: 1 col mobile (full width), 2 cols on larger screens */}
               {(() => {
                 const cardsToShow = sidebarColId === "__unassigned__" ? unassigned : sidebarQuotes
                 if (cardsToShow.length === 0) {
                   return (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center mb-3">
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center mb-2">
                         <Briefcase className="h-4 w-4 text-muted-foreground/40" />
                       </div>
                       <p className="text-xs text-muted-foreground/50">No {label.toLowerCase()}s in this stage</p>
@@ -1923,7 +1905,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                   )
                 }
                 return (
-                  <div className="flex flex-col gap-2.5">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                     {cardsToShow.map((q) => (
                       <QuoteCard key={q.id} quote={q} columns={cols}
                         onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
