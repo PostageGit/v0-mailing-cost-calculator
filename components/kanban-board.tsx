@@ -970,6 +970,8 @@ function QuoteCard({
   const [showQuickNotes, setShowQuickNotes] = useState(false)
   const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
   const { data: vendors } = useSWR<Vendor[]>(open ? "/api/vendors" : null, fetcher)
+  const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; department: string | null; role: string; is_active: boolean }>>("/api/team", fetcher)
+  const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
   const nextSteps: string[] = (appSettings?.next_steps as string[] | undefined) || DEFAULT_NEXT_STEPS
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
   const canL = !isArchived && colIdx > 0
@@ -1059,16 +1061,48 @@ function QuoteCard({
         {/* Row 3: Mail Date picker + Assignee badge */}
         <div className="flex items-center gap-2 ml-6 mb-3 flex-wrap">
           <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
-          {meta.assignee ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
-              <User className="h-3 w-3" />{meta.assignee}
-            </span>
-          ) : (
-            <button onClick={(e) => { e.stopPropagation(); setOpen(true) }}
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-foreground/20 hover:text-muted-foreground transition-colors">
-              <User className="h-3 w-3" /> Assign
-            </button>
-          )}
+          {(() => {
+            const assignedMember = activeTeam.find((m) => m.name === meta.assignee)
+            const assigneeColor = assignedMember?.color || "#6b7280"
+            return meta.assignee ? (
+              <div className="relative group/assign">
+                <button onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border transition-colors"
+                  style={{ backgroundColor: assigneeColor + "18", borderColor: assigneeColor + "40", color: assigneeColor }}
+                >
+                  <span className="h-4 w-4 rounded-full text-white text-[8px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: assigneeColor }}>
+                    {meta.assignee.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                  </span>
+                  {meta.assignee}
+                </button>
+                <select
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  value={meta.assignee || ""}
+                  onChange={(e) => { e.stopPropagation(); updateMeta({ assignee: e.target.value || null }) }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Unassign</option>
+                  {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div className="relative">
+                <button onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-md border border-dashed border-border hover:border-foreground/20 hover:text-muted-foreground transition-colors">
+                  <User className="h-3 w-3" /> Assign
+                </button>
+                <select
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  value=""
+                  onChange={(e) => { e.stopPropagation(); if (e.target.value) updateMeta({ assignee: e.target.value }) }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Assign to...</option>
+                  {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+            )
+          })()}
           {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
             <span className={cn(
               "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border",
@@ -1426,7 +1460,33 @@ function QuoteCard({
 
             {/* ── Assignee + Due Date ── */}
             <div className="grid grid-cols-2 gap-3">
-              <FieldInput label="Assignee" value={meta.assignee || ""} placeholder="Assign to..." onChange={(v) => updateMeta({ assignee: v })} />
+              <div className="min-w-0">
+                <span className="text-[10px] text-muted-foreground font-medium mb-1 block">Assignee</span>
+                <div className="relative">
+                  {meta.assignee && (() => {
+                    const am = activeTeam.find((m) => m.name === meta.assignee)
+                    const ac = am?.color || "#6b7280"
+                    return (
+                      <div className="flex items-center gap-1.5 px-2 py-1.5 pointer-events-none absolute inset-0 z-10">
+                        <span className="h-4 w-4 rounded-full text-white text-[8px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: ac }}>
+                          {meta.assignee.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                    )
+                  })()}
+                  <select
+                    value={meta.assignee || ""}
+                    onChange={(e) => updateMeta({ assignee: e.target.value || null })}
+                    className={cn(
+                      "w-full text-xs font-medium text-foreground bg-background border border-border rounded-md py-1.5 outline-none focus:ring-2 focus:ring-ring/30 focus:border-foreground/30 transition-all cursor-pointer appearance-none",
+                      meta.assignee ? "pl-8 pr-2" : "px-2"
+                    )}
+                  >
+                    <option value="">Unassigned</option>
+                    {activeTeam.map((m) => <option key={m.id} value={m.name}>{m.name}{m.department ? ` (${m.department})` : ""}</option>)}
+                  </select>
+                </div>
+              </div>
               <FieldInput label="Mail Date" value={meta.due_date || ""} type="date" onChange={(v) => updateMeta({ due_date: v })} />
             </div>
 
@@ -1620,7 +1680,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
 
 /* ═══════════════════════════════════════════════════��
    DROPPABLE COLUMN
-   ════════════════════════════════════════════════════ */
+   ══════════════════════════════════��═════════════════ */
 
 function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]

@@ -57,6 +57,9 @@ import {
   ShieldAlert,
   Info,
   Package,
+  Users,
+  UserPlus,
+  Search,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -169,6 +172,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Activity className="h-3.5 w-3.5" />
                 System
               </TabsTrigger>
+              <TabsTrigger value="team" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Users className="h-3.5 w-3.5" />
+                Team
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="labor">
@@ -200,6 +207,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="system">
               <SystemDashboardTab />
+            </TabsContent>
+            <TabsContent value="team">
+              <TeamTab />
             </TabsContent>
           </Tabs>
         </CardContent>
@@ -2603,6 +2613,288 @@ function FinishingsSettingsTab() {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------- TEAM TAB ----------
+interface TeamMember {
+  id: string
+  name: string
+  department: string | null
+  role: "admin" | "manager" | "member"
+  color: string
+  is_active: boolean
+  created_at: string
+}
+
+const ROLE_LABELS: Record<string, { label: string; style: string }> = {
+  admin: { label: "Admin", style: "bg-red-50 text-red-700 border-red-200/50 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/30" },
+  manager: { label: "Manager", style: "bg-amber-50 text-amber-700 border-amber-200/50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/30" },
+  member: { label: "Member", style: "bg-secondary text-muted-foreground border-border" },
+}
+
+const MEMBER_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899",
+  "#6366f1", "#ef4444", "#14b8a6", "#f97316", "#06b6d4",
+  "#84cc16", "#e11d48", "#0ea5e9", "#a855f7", "#22c55e",
+]
+
+function TeamTab() {
+  const { data: members, isLoading, mutate: mutateTeam } = useSWR<TeamMember[]>("/api/team", fetcher)
+  const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [search, setSearch] = useState("")
+  const [filterDept, setFilterDept] = useState("")
+  const [filterRole, setFilterRole] = useState("")
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState("")
+  const [newDept, setNewDept] = useState("")
+  const [newRole, setNewRole] = useState<"admin" | "manager" | "member">("member")
+  const [newColor, setNewColor] = useState(MEMBER_COLORS[0])
+  const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const depts = appSettings?.departments
+    ? Object.keys(appSettings.departments as Record<string, string>)
+    : []
+
+  const filtered = (members || []).filter((m) => {
+    const s = search.toLowerCase()
+    if (s && !m.name.toLowerCase().includes(s) && !(m.department || "").toLowerCase().includes(s)) return false
+    if (filterDept && m.department !== filterDept) return false
+    if (filterRole && m.role !== filterRole) return false
+    return true
+  })
+
+  const activeCount = (members || []).filter((m) => m.is_active).length
+
+  async function addMember() {
+    if (!newName.trim()) return
+    setSaving(true)
+    await fetch("/api/team", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), department: newDept || null, role: newRole, color: newColor }),
+    })
+    await mutateTeam()
+    setNewName(""); setNewDept(""); setNewRole("member")
+    setNewColor(MEMBER_COLORS[Math.floor(Math.random() * MEMBER_COLORS.length)])
+    setAdding(false); setSaving(false)
+  }
+
+  async function updateMember(id: string, patch: Partial<TeamMember>) {
+    await fetch(`/api/team/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    })
+    await mutateTeam()
+  }
+
+  async function deleteMember(id: string) {
+    if (!confirm("Remove this team member?")) return
+    await fetch(`/api/team/${id}`, { method: "DELETE" })
+    await mutateTeam()
+  }
+
+  if (isLoading) return <div className="flex items-center justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-4">
+      {/* Header + Stats */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">Team Members</h3>
+          <p className="text-[10px] text-muted-foreground">{activeCount} active member{activeCount !== 1 ? "s" : ""} across {new Set((members || []).map((m) => m.department).filter(Boolean)).size} department{new Set((members || []).map((m) => m.department).filter(Boolean)).size !== 1 ? "s" : ""}</p>
+        </div>
+        <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={() => setAdding(true)} disabled={adding}>
+          <UserPlus className="h-3 w-3" />
+          Add Member
+        </Button>
+      </div>
+
+      {/* Search + Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[140px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
+          <Input
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search team..."
+            className="h-7 pl-7 text-xs"
+          />
+        </div>
+        <Select value={filterDept} onValueChange={setFilterDept}>
+          <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
+            <SelectValue placeholder="All depts" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Depts</SelectItem>
+            {depts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterRole} onValueChange={setFilterRole}>
+          <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs">
+            <SelectValue placeholder="All roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="manager">Manager</SelectItem>
+            <SelectItem value="member">Member</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Add Member Form */}
+      {adding && (
+        <div className="rounded-lg border border-primary/30 bg-primary/[0.03] p-3 space-y-3">
+          <p className="text-xs font-semibold text-foreground">New Team Member</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Name *</label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" className="h-7 text-xs" autoFocus />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Department</label>
+              <Select value={newDept} onValueChange={setNewDept}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="Select dept..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {depts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Role</label>
+              <Select value={newRole} onValueChange={(v) => setNewRole(v as "admin" | "manager" | "member")}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="member">Member</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Color</label>
+              <div className="flex items-center gap-1 flex-wrap">
+                {MEMBER_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setNewColor(c)}
+                    className={`h-5 w-5 rounded-full border-2 transition-all ${newColor === c ? "border-foreground scale-110" : "border-transparent hover:scale-105"}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={addMember} disabled={!newName.trim() || saving}>
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setAdding(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Members List */}
+      <div className="space-y-1.5">
+        {filtered.length === 0 && (
+          <div className="text-center py-8 text-xs text-muted-foreground/50">
+            {(members || []).length === 0 ? "No team members yet. Add your first member above." : "No members match your filters."}
+          </div>
+        )}
+        {filtered.map((m) => {
+          const roleInfo = ROLE_LABELS[m.role] || ROLE_LABELS.member
+          const isEditing = editingId === m.id
+          return (
+            <div key={m.id} className={`rounded-lg border transition-all ${m.is_active ? "border-border bg-card" : "border-border/50 bg-muted/20 opacity-60"}`}>
+              <div className="flex items-center gap-3 px-3 py-2">
+                {/* Color dot */}
+                <div className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-white text-[11px] font-bold" style={{ backgroundColor: m.color }}>
+                  {m.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                </div>
+
+                {/* Name + dept */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-foreground truncate">{m.name}</span>
+                    <Badge variant="outline" className={`text-[8px] font-semibold border px-1 py-0 ${roleInfo.style}`}>{roleInfo.label}</Badge>
+                  </div>
+                  {m.department && <p className="text-[10px] text-muted-foreground truncate">{m.department}</p>}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <Switch
+                    checked={m.is_active}
+                    onCheckedChange={(v) => updateMember(m.id, { is_active: v })}
+                    className="scale-75"
+                  />
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingId(isEditing ? null : m.id)}>
+                    <Settings className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive/60 hover:text-destructive" onClick={() => deleteMember(m.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Inline edit */}
+              {isEditing && (
+                <div className="px-3 pb-3 pt-1 border-t border-border space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Name</label>
+                      <Input defaultValue={m.name} onBlur={(e) => { if (e.target.value !== m.name) updateMember(m.id, { name: e.target.value }) }} className="h-7 text-xs" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Department</label>
+                      <Select defaultValue={m.department || "none"} onValueChange={(v) => updateMember(m.id, { department: v === "none" ? null : v } as Partial<TeamMember>)}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {depts.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-medium text-muted-foreground">Role</label>
+                      <Select defaultValue={m.role} onValueChange={(v) => updateMember(m.id, { role: v as "admin" | "manager" | "member" })}>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="member">Member</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-medium text-muted-foreground">Color</label>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {MEMBER_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => updateMember(m.id, { color: c })}
+                          className={`h-5 w-5 rounded-full border-2 transition-all ${m.color === c ? "border-foreground scale-110" : "border-transparent hover:scale-105"}`}
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

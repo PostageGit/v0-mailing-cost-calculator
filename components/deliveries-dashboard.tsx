@@ -53,6 +53,7 @@ const colorMap = {
 export function DeliveriesDashboard() {
   const { data: jobs } = useSWR<Quote[]>("/api/quotes?is_job=true&archived=false", fetcher, { refreshInterval: 15000 })
   const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
+  const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const [search, setSearch] = useState("")
   const [dateFilter, setDateFilter] = useState<"today" | "tomorrow" | "week" | "all">("all")
   const [vendorFilter, setVendorFilter] = useState("")
@@ -355,7 +356,21 @@ export function DeliveriesDashboard() {
                               {d.contactName && <p className="text-muted-foreground"><span className="font-medium text-foreground">Contact:</span> {d.contactName}</p>}
                               {d.mailingClass && <p className="text-muted-foreground"><span className="font-medium text-foreground">Mail Class:</span> {d.mailingClass}</p>}
                               {d.dropOff && <p className="text-muted-foreground"><span className="font-medium text-foreground">Drop Off:</span> {d.dropOff}</p>}
-                              {d.assignee && <p className="text-muted-foreground"><span className="font-medium text-foreground">Assigned:</span> {d.assignee}</p>}
+                              {d.assignee && (() => {
+                                const tm = (teamMembers || []).find((m) => m.name === d.assignee)
+                                const tc = tm?.color || "#6b7280"
+                                return (
+                                  <p className="text-muted-foreground flex items-center gap-1.5">
+                                    <span className="font-medium text-foreground">Assigned:</span>
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border" style={{ backgroundColor: tc + "18", borderColor: tc + "40", color: tc }}>
+                                      <span className="h-3.5 w-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center" style={{ backgroundColor: tc }}>
+                                        {d.assignee.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                                      </span>
+                                      {d.assignee}
+                                    </span>
+                                  </p>
+                                )
+                              })()}
                               {d.mailingDate && <p className="text-muted-foreground"><span className="font-medium text-foreground">Mail Date:</span> {new Date(d.mailingDate).toLocaleDateString()}</p>}
                             </div>
                           )}
