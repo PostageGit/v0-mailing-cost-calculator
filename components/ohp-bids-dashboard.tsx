@@ -65,33 +65,65 @@ const fetcher = async (url: string) => {
   return r.json()
 }
 
-/** Match a bid item back to its in-house quote line item to get the in-house price */
+/** Match a bid item back to its in-house quote line item to get the in-house price.
+ *  Bid item_label looks like: "5,000 - 7.75x9.25 Flat Prints"
+ *  Quote items labels look like: "5,000 - 7.75x9.25 Flat Prints" (category: "flat")
+ *  The bid's item_category maps: flat, booklet, spiral, perfect, envelope.
+ *  We match by category + dimensions extracted from both labels.
+ */
 function getInhousePrice(bid: DashboardBid): number | null {
   const items = bid.quotes?.items
   if (!items || items.length === 0) return null
-  const cat = bid.item_category?.toLowerCase()
-  const label = bid.item_label?.toLowerCase() ?? ""
-  // Try exact category + size match via label substring
-  const match = items.find((item) => {
-    const iCat = item.category?.toLowerCase()
-    const iLabel = item.label?.toLowerCase() ?? ""
-    // Category match: bid category matches item category (or flat/booklet/spiral/perfect/envelope)
-    const catMatch = iCat === cat ||
-      (cat === "ohp" && ["flat", "booklet", "spiral", "perfect", "envelope"].includes(iCat))
-    if (!catMatch) return false
-    // Size match: extract dimensions from both labels and compare
-    const dims = label.match(/(\d+\.?\d*)\s*x\s*(\d+\.?\d*)/i)
-    if (dims) {
-      const w = dims[1], h = dims[2]
-      return iLabel.includes(`${w}x${h}`) || iLabel.includes(`${h}x${w}`) ||
-        iLabel.includes(`${w}" x ${h}"`) || iLabel.includes(`${h}" x ${w}"`)
+  const bidCat = bid.item_category?.toLowerCase() ?? ""
+  const bidLabel = bid.item_label ?? ""
+
+  // Extract all WxH dimension patterns from a string
+  const extractDims = (s: string): string[] => {
+    const results: string[] = []
+    // Match patterns like: 7.75x9.25, 7.75"x9.25", 7.75" x 9.25", 8.5x11
+    const re = /(\d+\.?\d*)"?\s*x\s*(\d+\.?\d*)"?/gi
+    let m
+    while ((m = re.exec(s)) !== null) {
+      const a = parseFloat(m[1]), b = parseFloat(m[2])
+      // Skip if it looks like a quantity (e.g. 5,000 - starts with large number before "x")
+      if (a >= 100) continue
+      results.push(`${a}x${b}`)
+      results.push(`${b}x${a}`) // reversed
     }
-    return false
-  })
-  // Fallback: match by category only if single match
-  if (match) return match.amount
-  const catMatches = items.filter((item) => item.category?.toLowerCase() === cat)
-  if (catMatches.length === 1) return catMatches[0].amount
+    return results
+  }
+
+  const bidDims = extractDims(bidLabel)
+
+  // Try matching by same category + dimension overlap
+  const printCategories = ["flat", "booklet", "spiral", "perfect", "envelope"]
+  const matchCat = printCategories.includes(bidCat) ? bidCat : null
+
+  if (matchCat && bidDims.length > 0) {
+    const match = items.find((item) => {
+      if (item.category?.toLowerCase() !== matchCat) return false
+      const itemDims = extractDims(item.label)
+      return bidDims.some((d) => itemDims.includes(d))
+    })
+    if (match) return match.amount
+  }
+
+  // Fallback: single item with same category
+  if (matchCat) {
+    const catMatches = items.filter((item) => item.category?.toLowerCase() === matchCat)
+    if (catMatches.length === 1) return catMatches[0].amount
+  }
+
+  // Fallback: try matching any print category item by dimensions
+  if (bidDims.length > 0) {
+    const match = items.find((item) => {
+      if (!printCategories.includes(item.category?.toLowerCase() ?? "")) return false
+      const itemDims = extractDims(item.label)
+      return bidDims.some((d) => itemDims.includes(d))
+    })
+    if (match) return match.amount
+  }
+
   return null
 }
 
