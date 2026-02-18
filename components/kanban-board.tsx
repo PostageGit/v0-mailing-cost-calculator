@@ -594,7 +594,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -750,7 +750,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ═════════════════��══════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
    ══════════════�����═════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
@@ -1105,6 +1105,39 @@ function QuoteCard({
                 updateMeta({ piece_meta: arr })
               }
 
+              // Pre-compute data for each piece
+              const pieceData = pieces.map((pc, i) => {
+                const label = pc.label || pc.description || pc.category
+                const md = pc.metadata as Record<string, unknown> | undefined
+                const sizeStr = (md?.pieceDimensions as string)
+                  ? `${(md.pieceDimensions as string).replace("x", '" x ')}"`
+                  : (() => { const m = label.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/); return m ? `${m[1]}" x ${m[2]}"` : null })()
+                const isOHP = pc.category === "ohp"
+                const qtyStr = (() => {
+                  const m1 = label.match(/([\d,]+)\s*[-–]/)
+                  if (m1) return m1[1]
+                  const m2 = label.match(/([\d,]+)\s+\w/)
+                  if (m2) return m2[1]
+                  return ""
+                })()
+                const foundType = (md?.pieceLabel as string) || (md?.pieceType as string) || typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
+                const paper = md?.paperName as string | undefined
+                const sides = md?.sides as string | undefined
+                const bleed = md?.hasBleed as boolean | undefined
+                const pages = md?.pageCount as number | undefined
+                const production = md?.production as string | undefined
+                const prodLabels: Record<string, string> = { inhouse: "In-House", ohp: "OHP", both: "Both", customer: "Customer" }
+                const printDetails = [paper, sides, bleed ? "Bleed" : null, pages ? `${pages}pg` : null].filter(Boolean)
+                const prodLabel = production ? prodLabels[production] || null : null
+                return { pc, i, md, sizeStr, isOHP, qtyStr, foundType, printDetails, prodLabel, production }
+              })
+
+              // Smart grid: 1->1col, 2->2col, 3->3col, 4->2col(2rows), 5+->3col
+              const gridCls = pieces.length === 1 ? "grid-cols-1"
+                : pieces.length === 2 ? "grid-cols-2"
+                : pieces.length === 4 ? "grid-cols-2"
+                : "grid-cols-3"
+
               return (
                 <div>
                   {/* Header row: huge count + label */}
@@ -1112,73 +1145,51 @@ function QuoteCard({
                     <span className="text-4xl font-black text-foreground leading-none tabular-nums">{pieces.length}</span>
                     <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Mail<br/>Pieces</span>
                   </div>
-                  {/* Piece cards + per-piece vendor/date underneath each */}
-                  <div className={cn("grid gap-3", cols === 1 ? "grid-cols-1" : cols === 2 ? "grid-cols-2" : "grid-cols-3")}>
-                    {pieces.map((pc, i) => {
-                      const label = pc.label || pc.description || pc.category
-                      const md = pc.metadata as Record<string, unknown> | undefined
-                      const sizeStr = (md?.pieceDimensions as string)
-                        ? `${(md.pieceDimensions as string).replace("x", '" x ')}"`
-                        : (() => { const m = label.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/); return m ? `${m[1]}" x ${m[2]}"` : null })()
-                      const isOHP = pc.category === "ohp"
-                      const qtyStr = (() => {
-                        const m1 = label.match(/([\d,]+)\s*[-–]/)
-                        if (m1) return m1[1]
-                        const m2 = label.match(/([\d,]+)\s+\w/)
-                        if (m2) return m2[1]
-                        return ""
-                      })()
-                      const foundType = (md?.pieceLabel as string) || (md?.pieceType as string) || typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
 
-                      // Printing details from metadata
-                      const paper = md?.paperName as string | undefined
-                      const sides = md?.sides as string | undefined
-                      const bleed = md?.hasBleed as boolean | undefined
-                      const pages = md?.pageCount as number | undefined
-                      const production = md?.production as string | undefined
-                      const prodLabels: Record<string, string> = { inhouse: "In-House", ohp: "OHP", both: "Both", customer: "Customer" }
-                      const printDetails = [paper, sides, bleed ? "Bleed" : null, pages ? `${pages}pg` : null].filter(Boolean)
-                      const prodLabel = production ? prodLabels[production] || null : null
+                  {/* ROW 1: Piece cards -- all equal height via grid stretch */}
+                  <div className={cn("grid gap-2", gridCls)}>
+                    {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production }) => (
+                      <div key={i} className={cn("rounded-lg border bg-card p-3 flex flex-col min-h-[100px]", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
+                        {/* Type name */}
+                        <div className="flex items-center gap-1.5">
+                          {isOHP && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
+                          <span className="text-base font-extrabold text-foreground truncate leading-tight">{foundType}</span>
+                        </div>
+                        {/* Qty + size */}
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1">
+                          {qtyStr && <span className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{qtyStr}</span> pcs</span>}
+                          {sizeStr && <span className="text-[11px] text-muted-foreground">{sizeStr}</span>}
+                        </div>
+                        {/* Printing specs */}
+                        {printDetails.length > 0 && (
+                          <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{printDetails.join(" / ")}</p>
+                        )}
+                        {/* Production tag */}
+                        {prodLabel && (
+                          <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded self-start mt-1",
+                            production === "ohp" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                            : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-muted text-muted-foreground"
+                          )}>{prodLabel}</span>
+                        )}
+                        {/* Price anchored bottom */}
+                        <span className="text-xs font-bold font-mono text-foreground/70 tabular-nums mt-auto pt-1.5">{formatCurrency(pc.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ROW 2: Per-piece vendor/date/arrived -- same grid, perfectly aligned */}
+                  <div className={cn("grid gap-2 mt-2", gridCls)}>
+                    {pieceData.map(({ i }) => {
                       const pm = getPm(i)
-
                       return (
-                        <div key={i} className="flex flex-col gap-2">
-                          {/* ── Piece card ── */}
-                          <div className={cn("rounded-lg border bg-card p-3 flex flex-col", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
-                            {/* Type name -- the hero text */}
-                            <div className="flex items-center gap-1.5">
-                              {isOHP && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
-                              <span className="text-base font-extrabold text-foreground truncate leading-tight">{foundType}</span>
-                            </div>
-                            {/* Qty + size */}
-                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1">
-                              {qtyStr && <span className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{qtyStr}</span> pcs</span>}
-                              {sizeStr && <span className="text-[11px] text-muted-foreground">{sizeStr}</span>}
-                            </div>
-                            {/* Printing specs */}
-                            {printDetails.length > 0 && (
-                              <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{printDetails.join(" / ")}</p>
-                            )}
-                            {/* Production tag */}
-                            {prodLabel && (
-                              <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded self-start mt-1",
-                                production === "ohp" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                                : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                : "bg-muted text-muted-foreground"
-                              )}>{prodLabel}</span>
-                            )}
-                            {/* Price */}
-                            <span className="text-xs font-bold font-mono text-foreground/70 tabular-nums mt-auto pt-1.5">{formatCurrency(pc.amount)}</span>
+                        <div key={i} className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                            <FieldInput label="Vendor" value={pm.vendor || ""} placeholder="Vendor" onChange={(v) => setPm(i, { vendor: v })} />
+                            <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
                           </div>
-                          {/* ── Per-piece: Vendor + Expected Date + Prints Arrived ── */}
-                          <div className={cn("rounded-lg border bg-card px-3 py-2.5 transition-colors", pm.prints_arrived ? "border-emerald-400/60 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-border")}>
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                              <FieldInput label="Vendor" value={pm.vendor || ""} placeholder="Vendor" onChange={(v) => setPm(i, { vendor: v })} />
-                              <FieldInput label="Expected Date" value={pm.expected_date || ""} type="date" onChange={(v) => setPm(i, { expected_date: v })} />
-                            </div>
-                            <div className="mt-2">
-                              <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
-                            </div>
+                          <div className="mt-2">
+                            <MetaCheck label="Prints Arrived" checked={!!pm.prints_arrived} onChange={(c) => setPm(i, { prints_arrived: c })} />
                           </div>
                         </div>
                       )
