@@ -87,55 +87,44 @@ export function VendorList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-2">
-          {vendors.map((v) => (
-            <Card
-              key={v.id}
-              className="cursor-pointer hover:border-primary/30 transition-colors"
-              onClick={() => setSelectedId(v.id)}
-            >
-              <CardContent className="flex items-center gap-4 py-3 px-4">
-                <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-amber-500/10 text-amber-600 flex-shrink-0">
-                  <Factory className="h-5 w-5" />
+        <div className="flex flex-col gap-5">
+          {/* PrintOut (In-House) tier */}
+          {(() => {
+            const internal = vendors.filter((v) => v.is_internal)
+            if (internal.length === 0) return null
+            return (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="h-1 w-5 rounded-full bg-emerald-500" />
+                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">PrintOut (In-House)</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{internal.length}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {v.company_name}
-                    </p>
-                    {v.terms && (
-                      <Badge variant="outline" className="text-[9px] font-semibold tracking-wide px-1.5 py-0 shrink-0">
-                        {v.terms}
-                      </Badge>
-                    )}
-                    {v.quoting_contacts.length > 0 && (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
-                        {v.quoting_contacts.length} quoting contact{v.quoting_contacts.length !== 1 ? "s" : ""}
-                      </Badge>
-                    )}
+                {internal.map((v) => (
+                  <VendorRow key={v.id} vendor={v} onClick={() => setSelectedId(v.id)} isInternal />
+                ))}
+              </div>
+            )
+          })()}
+
+          {/* External Vendors tier */}
+          {(() => {
+            const external = vendors.filter((v) => !v.is_internal)
+            if (external.length === 0 && vendors.some((v) => v.is_internal)) return null
+            return (
+              <div className="flex flex-col gap-2">
+                {vendors.some((v) => v.is_internal) && (
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-1 w-5 rounded-full bg-sky-500" />
+                    <span className="text-[11px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">External Vendors</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">{external.length}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                    {v.contact_name && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <User className="h-3 w-3" /> {v.contact_name}
-                      </span>
-                    )}
-                    {v.email && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Mail className="h-3 w-3" /> {v.email}
-                      </span>
-                    )}
-                    {v.office_phone && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> {v.office_phone}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </CardContent>
-            </Card>
-          ))}
+                )}
+                {external.map((v) => (
+                  <VendorRow key={v.id} vendor={v} onClick={() => setSelectedId(v.id)} />
+                ))}
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -149,5 +138,61 @@ export function VendorList() {
         />
       )}
     </div>
+  )
+}
+
+/* ==== Vendor Row ==== */
+function VendorRow({ vendor: v, onClick, isInternal }: { vendor: Vendor; onClick: () => void; isInternal?: boolean }) {
+  return (
+    <Card
+      className={`cursor-pointer transition-colors ${isInternal ? "border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 dark:hover:border-emerald-600" : "hover:border-primary/30"}`}
+      onClick={onClick}
+    >
+      <CardContent className="flex items-center gap-4 py-3 px-4">
+        <div className={`flex items-center justify-center h-10 w-10 rounded-lg flex-shrink-0 ${isInternal ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
+          <Factory className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground truncate">
+              {v.company_name}
+            </p>
+            {isInternal && (
+              <Badge className="text-[9px] font-bold tracking-wide px-1.5 py-0 shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+                System
+              </Badge>
+            )}
+            {v.terms && (
+              <Badge variant="outline" className="text-[9px] font-semibold tracking-wide px-1.5 py-0 shrink-0">
+                {v.terms}
+              </Badge>
+            )}
+            {v.quoting_contacts.length > 0 && (
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
+                {v.quoting_contacts.length} quoting contact{v.quoting_contacts.length !== 1 ? "s" : ""}
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+            {v.contact_name && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <User className="h-3 w-3" /> {v.contact_name}
+              </span>
+            )}
+            {v.email && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Mail className="h-3 w-3" /> {v.email}
+              </span>
+            )}
+            {v.office_phone && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Phone className="h-3 w-3" /> {v.office_phone}
+              </span>
+            )}
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      </CardContent>
+    </Card>
   )
 }

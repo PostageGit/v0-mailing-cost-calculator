@@ -296,6 +296,7 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
                   updateQuotingContact={updateQuotingContact}
                   paymentTerms={paymentTerms}
                   hideQuoting
+                  isInternal={existing?.is_internal}
                 />
               </TabsContent>
 
@@ -334,11 +335,18 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
 
           {/* Actions */}
           <div className="flex items-center justify-between">
-            <Button size="sm" className="gap-1.5 text-xs h-9" onClick={handleSave} disabled={saving || !form.company_name.trim()}>
-              <Save className="h-3.5 w-3.5" />
-              {saving ? "Saving..." : isNew ? "Create Vendor" : "Save Changes"}
-            </Button>
-            {!isNew && vendorId && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="gap-1.5 text-xs h-9" onClick={handleSave} disabled={saving || !form.company_name.trim()}>
+                <Save className="h-3.5 w-3.5" />
+                {saving ? "Saving..." : isNew ? "Create Vendor" : "Save Changes"}
+              </Button>
+              {existing?.is_internal && (
+                <Badge className="text-[9px] font-bold tracking-wide px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+                  System Vendor
+                </Badge>
+              )}
+            </div>
+            {!isNew && vendorId && !existing?.is_internal && (
               <div>
                 {confirmDelete ? (
                   <div className="flex items-center gap-2">
@@ -364,7 +372,7 @@ export function VendorDetail({ vendorId, isNew, onClose, onCreated }: Props) {
 
 /* ==== Company Tab ==== */
 function CompanyTab({
-  form, updateField, addQuotingContact, removeQuotingContact, updateQuotingContact, paymentTerms, hideQuoting,
+  form, updateField, addQuotingContact, removeQuotingContact, updateQuotingContact, paymentTerms, hideQuoting, isInternal,
 }: {
   form: { company_name: string; terms: string; contact_name: string; office_phone: string; cell_phone: string; email: string; quoting_contacts: QuotingContact[]; cc_all_quoting: boolean; pickup_cost: number; website: string; notes: string }
   updateField: (key: string, value: string | boolean | QuotingContact[]) => void
@@ -373,6 +381,7 @@ function CompanyTab({
   updateQuotingContact: (i: number, f: "name" | "email", v: string) => void
   paymentTerms: string[]
   hideQuoting?: boolean
+  isInternal?: boolean
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -383,7 +392,7 @@ function CompanyTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div className="sm:col-span-2">
             <label className="text-xs font-medium text-foreground mb-1 block">Company Name *</label>
-            <Input value={form.company_name} onChange={(e) => updateField("company_name", e.target.value)} placeholder="Vendor company name" className="h-8 text-sm" />
+            <Input value={form.company_name} onChange={(e) => updateField("company_name", e.target.value)} placeholder="Vendor company name" className="h-8 text-sm" disabled={isInternal} />
           </div>
           <div>
             <label className="text-xs font-medium text-foreground mb-1 block">Terms</label>
