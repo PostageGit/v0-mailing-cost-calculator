@@ -2015,22 +2015,26 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-2 shrink-0">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/50" />
-          <input type="search" placeholder={`Search ${label.toLowerCase()}s...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-7 pl-7 pr-7 rounded-md bg-secondary/60 border-0 text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring" />
-          {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-2.5 w-2.5" /></button>}
+      <div className="flex items-center gap-3 mb-3 shrink-0">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
+          <input type="search" placeholder={`Search ${label.toLowerCase()}s by name, customer, job #...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-10 pl-10 pr-10 rounded-xl bg-secondary/40 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring/50 focus:bg-card transition-all" />
+          {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"><X className="h-3.5 w-3.5" /></button>}
         </div>
-        {searchTerm && <span className="text-[9px] text-muted-foreground shrink-0">{filteredQuotes.length} found</span>}
-        <div className="ml-auto flex items-center gap-1">
+        {searchTerm && (
+          <span className="text-xs text-muted-foreground shrink-0 tabular-nums font-medium">
+            {filteredQuotes.length} {filteredQuotes.length === 1 ? "result" : "results"}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
           <button onClick={() => setShowArchive(!showArchive)}
-            className={cn("flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium transition-colors", showArchive ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
-            <Archive className="h-2.5 w-2.5" />{archiveCount > 0 && archiveCount}
+            className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showArchive ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
+            <Archive className="h-3.5 w-3.5" />{archiveCount > 0 && <span className="tabular-nums">{archiveCount}</span>}
           </button>
           <button onClick={() => setShowSettings(!showSettings)}
-            className={cn("flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-medium transition-colors", showSettings ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
-            <Settings2 className="h-2.5 w-2.5" />
+            className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showSettings ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
+            <Settings2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
