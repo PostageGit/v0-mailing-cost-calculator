@@ -154,6 +154,8 @@ export function EnvelopeTab() {
     }
   }, [inputs, settings, v])
 
+  const envPiece = mailing.pieces.find((p) => p.type === "envelope")
+
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : calcResult.price
@@ -162,8 +164,21 @@ export function EnvelopeTab() {
       label: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
       description: `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`,
       amount: finalAmount,
+      metadata: {
+        pieceType: "envelope",
+        pieceLabel: envPiece?.label || inputs.itemName,
+        pieceDimensions: envPiece ? `${envPiece.width}x${envPiece.height}` : undefined,
+        production: envPiece?.production || "inhouse",
+        piecePosition: envPiece?.position || 1,
+        envelopeSize: envPiece?.envelopeId || undefined,
+        envelopeKind: envPiece?.envelopeKind || undefined,
+        hasBleed: inputs.hasBleed || undefined,
+        customerProvided: envPiece?.production === "customer" || undefined,
+        providerVendor: envPiece?.customerProvidedVendor || undefined,
+        providerExpectedDate: envPiece?.customerProvidedDate || undefined,
+      },
     })
-  }, [calcResult, inputs, quote, effectiveTotal])
+  }, [calcResult, inputs, quote, effectiveTotal, envPiece])
 
   const handleReset = useCallback(() => {
     v.reset()

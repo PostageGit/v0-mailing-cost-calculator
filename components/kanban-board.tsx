@@ -26,6 +26,7 @@ import {
 
 interface QuoteItem {
   id: number; category: QuoteCategory; label: string; description: string; amount: number
+  metadata?: Record<string, unknown>
 }
 interface BoardColumn {
   id: string; title: string; color: string; sort_order: number; board_type?: string
@@ -98,59 +99,95 @@ function sectionDone(meta: JobMeta | undefined, keys: (keyof JobMeta)[]) {
   return keys.every((k) => !!meta[k])
 }
 
-/** Derives job_meta field values from a quote's line items as fallback display values */
+/** Derives job_meta field values from a quote's line items.
+ *  Prefers structured metadata fields when present; falls back to regex heuristics. */
 function deriveMetaFromItems(quote: Quote): JobMeta {
   const items: QuoteItem[] = quote.items || []
   const derived: JobMeta = {}
 
-  // Printing items (flat, booklet, etc) contain piece descriptions
+  // --- Printing items (flat, booklet, etc.) ---
   const printItems = items.filter((it) => ["flat", "booklet", "spiral", "perfect"].includes(it.category))
   if (printItems.length > 0) {
-    const desc = printItems[0].description || printItems[0].label || ""
-    const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
-    const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
-    const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
-    const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase()))
-    const fallbackType = printItems[0].label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
-    derived.piece_desc = sizeStr && (foundType || fallbackType) ? `${sizeStr} ${foundType || fallbackType}` : (sizeStr || foundType || fallbackType || desc.split(",")[0]?.trim() || "")
+    const first = printItems[0]
+    const m = first.metadata as Record<string, unknown> | undefined
+
+    // Prefer structured metadata
+    if (m?.pieceDimensions || m?.pieceType || m?.pieceLabel) {
+      const dims = (m.pieceDimensions as string) || ""
+      const type = (m.pieceLabel as string) || (m.pieceType as string) || ""
+      derived.piece_desc = dims && type ? `${dims} ${type}` : (dims || type)
+    } else {
+      // Regex fallback
+      const desc = first.description || first.label || ""
+      const sizeMatch = desc.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/i)
+      const sizeStr = sizeMatch ? `${sizeMatch[1]}x${sizeMatch[2]}` : ""
+      const typeHints = ["Postcard", "Flat Card", "Folded Card", "Booklet", "Letter", "Self-Mailer", "Spiral", "Perfect Bound"]
+      const foundType = typeHints.find((t) => desc.toLowerCase().includes(t.toLowerCase()))
+      const fallbackType = first.label?.split(" - ").pop()?.split(",")[0]?.trim() || ""
+      derived.piece_desc = sizeStr && (foundType || fallbackType) ? `${sizeStr} ${foundType || fallbackType}` : (sizeStr || foundType || fallbackType || desc.split(",")[0]?.trim() || "")
+    }
+
+    // Production route from metadata
+    if (m?.production) {
+      const prodMap: Record<string, string> = { inhouse: "In-House", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
+      derived.printed_by = prodMap[m.production as string] || "In-House"
+    } else {
+      derived.printed_by = "In-House"
+    }
   }
 
   // Inserts: additional printing items beyond the first
   if (printItems.length > 1) {
     derived.insert_count = printItems.length - 1
     const insertDescs = printItems.slice(1).map((it) => {
+      const m = it.metadata as Record<string, unknown> | undefined
+      if (m?.pieceDimensions) return m.pieceDimensions as string
       const d = it.description || it.label || ""
-      const m = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
-      return m ? `${m[1]}x${m[2]}` : d.split(",")[0]?.trim() || ""
+      const sm = d.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/)
+      return sm ? `${sm[1]}x${sm[2]}` : d.split(",")[0]?.trim() || ""
     }).filter(Boolean)
     if (insertDescs.length > 0) derived.inserts_desc = insertDescs.join(" + ")
   }
 
-  // Postage items contain mailing class
+  // --- Postage items ---
   const postageItems = items.filter((it) => it.category === "postage")
   if (postageItems.length > 0) {
-    const pDesc = postageItems[0].description || postageItems[0].label || ""
-    const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted", "Letter Class"]
-    const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
-    derived.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").replace(/USPS\s*/i, "").trim() || ""
+    const pm = postageItems[0].metadata as Record<string, unknown> | undefined
+    if (pm?.mailingClass) {
+      derived.mailing_class = pm.mailingClass as string
+    } else {
+      const pDesc = postageItems[0].description || postageItems[0].label || ""
+      const classHints = ["First Class", "1st Class", "Standard", "Marketing", "Non-Profit", "Priority", "Presorted", "Letter Class"]
+      const foundClass = classHints.find((c) => pDesc.toLowerCase().includes(c.toLowerCase()))
+      derived.mailing_class = foundClass || pDesc.split(",")[0]?.replace(/Postage\s*[-–]\s*/i, "").replace(/USPS\s*/i, "").trim() || ""
+    }
+    // Drop-off location from metadata
+    if (pm?.entryPoint) derived.drop_off = pm.entryPoint as string
+    else if (pm?.dropOff) derived.drop_off = pm.dropOff as string
   }
 
-  // OHP items: vendor name is in .description ("PrintOut | +15% markup"), piece info in .label ("OHP: 5,750 - 2.5x6.5 Postcard")
+  // --- Envelope items ---
+  const envItems = items.filter((it) => it.category === "envelope")
+  if (envItems.length > 0) {
+    const em = envItems[0].metadata as Record<string, unknown> | undefined
+    if (em?.customerProvided) {
+      derived.printed_by = "Customer Provided"
+      if (em.providerVendor) derived.vendor_name = em.providerVendor as string
+      if (em.providerExpectedDate) derived.expected_date = em.providerExpectedDate as string
+    }
+  }
+
+  // --- OHP items ---
   const ohpItems = items.filter((it) => it.category === "ohp")
   if (ohpItems.length > 0) {
-    // Extract vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
     const ohpDesc = ohpItems[0].description || ""
     const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-    if (vendorFromDesc) {
-      derived.vendor_name = vendorFromDesc
-    }
+    if (vendorFromDesc) derived.vendor_name = vendorFromDesc
     derived.printed_by = "Out of House"
 
-    // If no piece_desc yet, try to get it from OHP label: "OHP: 5,750 - 2.5" x 6.5" Postcard"
     if (!derived.piece_desc) {
       const ohpLabel = ohpItems[0].label || ""
       const afterOHP = ohpLabel.replace(/^OHP[:\s]*/i, "").trim()
-      // Try to extract size from the label
       const sizeM = afterOHP.match(/(\d+\.?\d*)\s*[""]?\s*[xX×]\s*(\d+\.?\d*)\s*[""]?/)
       if (sizeM) {
         const afterSize = afterOHP.substring(afterOHP.indexOf(sizeM[0]) + sizeM[0].length).trim()
@@ -158,8 +195,6 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
         derived.piece_desc = `${sizeM[1]}x${sizeM[2]}${pieceType ? " " + pieceType : ""}`
       }
     }
-  } else if (printItems.length > 0) {
-    derived.printed_by = "In-House"
   }
 
   return derived

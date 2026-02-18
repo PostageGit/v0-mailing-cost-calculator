@@ -18,6 +18,7 @@ import {
   formatPostageRate,
   getActiveTiers,
   ENTRY_LABELS,
+  SERVICE_LABELS,
   SHAPE_LABELS,
   SPECS,
   type USPSInputs,
@@ -217,13 +218,18 @@ function Tab2Parcels() {
 
   const handleAddToQuote = useCallback(() => {
     if (!result.isValid) return
+    const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
     quote.addItem({
       category: "postage",
       label: `USPS ${result.description} - ${inputs.quantity.toLocaleString()} pc`,
       description: result.rateInfo,
       amount: result.total,
+      metadata: {
+        mailingClass: svcLabels[inputs.service],
+        dropOff: inputs.service === "PS" ? inputs.psEntry : inputs.service === "BPM" ? inputs.bpmEntry : undefined,
+      },
     })
-  }, [result, inputs.quantity, quote])
+  }, [result, inputs, quote])
 
   const svcOptions: { key: Tab2Service; label: string; sub: string }[] = [
     { key: "PS", label: "Parcel Select", sub: "Destination Entry" },
@@ -486,13 +492,21 @@ function Tab1LettersFlats() {
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
+    const activeTier = tiers[inputs.tierIndex]
     quote.addItem({
       category: "postage",
       label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
       description: parts.join(" | "),
       amount: result.total,
+      metadata: {
+        mailingClass: SERVICE_LABELS[inputs.service],
+        mailShape: inputs.shape.toLowerCase(),
+        tierName: activeTier?.l || undefined,
+        entryPoint: inputs.entry,
+        mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
+      },
     })
-  }, [result, inputs, quote])
+  }, [result, inputs, quote, tiers])
 
   const hasDimensions = !!(mailing.mailerWidth && mailing.mailerHeight)
   const suggestedShapes = mailing.suggestedShapes

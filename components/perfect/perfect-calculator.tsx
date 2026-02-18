@@ -74,6 +74,8 @@ export function PerfectCalculator() {
     setValidationError(null)
   }
 
+  const perfectPiece = perfectPieces.length > 0 ? perfectPieces[0] : null
+
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const extras: string[] = []
@@ -88,8 +90,18 @@ export function PerfectCalculator() {
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
       description: desc,
       amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
+      metadata: {
+        pieceType: perfectPiece?.type || "perfect_bound",
+        pieceLabel: perfectPiece?.label || undefined,
+        pieceDimensions: `${inputs.pageWidth}x${inputs.pageHeight}`,
+        production: perfectPiece?.production || "inhouse",
+        piecePosition: perfectPiece?.position || undefined,
+        paperName: calcResult.insideResult.paper,
+        sides: calcResult.insideResult.sides,
+        pageCount: inputs.pagesPerBook,
+      },
     })
-  }, [calcResult, inputs, quote, effectiveTotal])
+  }, [calcResult, inputs, quote, effectiveTotal, perfectPiece])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">

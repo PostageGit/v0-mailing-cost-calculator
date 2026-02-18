@@ -87,6 +87,8 @@ export function SpiralCalculator() {
     setValidationError(null)
   }
 
+  const spiralPiece = spiralPieces.length > 0 ? spiralPieces[0] : null
+
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const extras: string[] = []
@@ -101,8 +103,18 @@ export function SpiralCalculator() {
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}`,
       description: desc,
       amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
+      metadata: {
+        pieceType: spiralPiece?.type || "spiral_book",
+        pieceLabel: spiralPiece?.label || undefined,
+        pieceDimensions: `${inputs.pageWidth}x${inputs.pageHeight}`,
+        production: spiralPiece?.production || "inhouse",
+        piecePosition: spiralPiece?.position || undefined,
+        paperName: calcResult.insideResult.paper,
+        sides: calcResult.insideResult.sides,
+        pageCount: inputs.pagesPerBook,
+      },
     })
-  }, [calcResult, inputs, quote, effectiveTotal])
+  }, [calcResult, inputs, quote, effectiveTotal, spiralPiece])
 
   // Determine which tabs to show
   const hasFront = calcResult?.frontResult != null

@@ -83,6 +83,7 @@ export function PrintingCalculator() {
   // Load a planner piece into the form
   const loadPiece = useCallback((piece: MailPiece) => {
     const flat = getFlatSize(piece)
+    setActivePiece(piece)
     setInputs((prev) => ({
       ...prev,
       qty: mailing.quantity || prev.qty,
@@ -203,6 +204,9 @@ export function PrintingCalculator() {
     setShowResults(false)
   }
 
+  // Track which planner piece was loaded so we can pass its metadata along
+  const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
+
   const handleAddToQuote = useCallback(() => {
     if (!fullResult) return
     const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
@@ -212,8 +216,19 @@ export function PrintingCalculator() {
       label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
       description: desc,
       amount: finalAmount,
+      metadata: {
+        pieceType: activePiece?.type || undefined,
+        pieceLabel: activePiece?.label || undefined,
+        pieceDimensions: `${inputs.width}x${inputs.height}`,
+        foldType: activePiece?.foldType || undefined,
+        production: activePiece?.production || "inhouse",
+        piecePosition: activePiece?.position || undefined,
+        paperName: inputs.paperName,
+        sides: inputs.sidesValue,
+        hasBleed: inputs.hasBleed || undefined,
+      },
     })
-  }, [fullResult, inputs, quote, effectiveTotal])
+  }, [fullResult, inputs, quote, effectiveTotal, activePiece])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">

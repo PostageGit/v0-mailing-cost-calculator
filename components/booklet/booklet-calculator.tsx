@@ -95,6 +95,8 @@ export function BookletCalculator() {
     setValidationError(null)
   }
 
+  const bookletPiece = bookletPieces.length > 0 ? bookletPieces[0] : null
+
   const handleAddToQuote = useCallback(() => {
     if (!calcResult || !calcResult.isValid) return
     const coverDesc = inputs.separateCover ? `w/ ${calcResult.coverResult.paper} Cover` : "Self-Cover"
@@ -104,8 +106,18 @@ export function BookletCalculator() {
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
       description: desc,
       amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
+      metadata: {
+        pieceType: bookletPiece?.type || "booklet",
+        pieceLabel: bookletPiece?.label || undefined,
+        pieceDimensions: `${inputs.pageWidth}x${inputs.pageHeight}`,
+        production: bookletPiece?.production || "inhouse",
+        piecePosition: bookletPiece?.position || undefined,
+        paperName: inputs.insidePaper,
+        sides: calcResult.insideResult.sides,
+        pageCount: inputs.pagesPerBook,
+      },
     })
-  }, [calcResult, inputs, quote, effectiveTotal])
+  }, [calcResult, inputs, quote, effectiveTotal, bookletPiece])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">

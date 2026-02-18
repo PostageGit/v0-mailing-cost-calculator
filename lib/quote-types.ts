@@ -10,9 +10,37 @@ export interface QuoteLineItem {
   amount: number           // the dollar total for this line
   /** Optional metadata that travels with the item through the job lifecycle */
   metadata?: {
+    // Planner piece context
+    pieceType?: string           // e.g. "postcard", "envelope", "booklet"
+    pieceLabel?: string          // user label from planner
+    pieceDimensions?: string     // e.g. "4.375x5.75"
+    foldType?: string            // e.g. "half_fold", "tri_fold"
+    production?: string          // "inhouse" | "ohp" | "both" | "customer"
+    piecePosition?: number       // 1 = outer, 2+ = inserts
+
+    // Postage / mailing
+    mailingClass?: string        // "First Class", "Marketing", "Non-Profit"
+    mailShape?: string           // "letter", "flat", "postcard"
+    tierName?: string            // "Mixed ADC", "5-Digit", etc.
+    entryPoint?: string          // "DNDC", "DSCF", "DDU", etc.
+    mailType?: string            // "Auto" | "CR" for MKT/NP
+    dropOff?: string             // alias for entry in Tab 2
+
+    // Printing details
+    paperName?: string           // "20lb Offset", "100lb Gloss Text"
+    sides?: string               // "S/S", "D/S"
+    hasBleed?: boolean
+    pageCount?: number           // for booklets/spiral/perfect
+
+    // Envelope
+    envelopeSize?: string        // "A2", "#10 Std", etc.
+    envelopeKind?: string        // "paper" | "plastic"
+
+    // Customer provided
     customerProvided?: boolean
-    providerVendor?: string      // vendor name or custom text
-    providerExpectedDate?: string // ISO date string
+    providerVendor?: string
+    providerExpectedDate?: string
+
     [key: string]: unknown
   }
 }
