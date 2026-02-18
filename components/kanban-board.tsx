@@ -1360,80 +1360,78 @@ function QuoteCard({
                             </div>
                           </div>
 
-                          {/* ── Bottom: Tracking bar ── */}
+                          {/* ── Bottom: Tracking ── */}
                           <div className={cn(
-                            "px-4 py-2 flex items-center gap-2",
+                            "px-3 py-2 space-y-1.5 overflow-hidden",
                             arrived ? "bg-emerald-100/40 dark:bg-emerald-900/15" : "bg-muted/25"
                           )}>
-                            {/* Vendor */}
-                            <select
-                              value={pm.vendor || ""}
-                              onChange={(e) => setPm(i, { vendor: e.target.value })}
-                              className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer min-w-[90px] max-w-[130px]"
-                              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center", paddingRight: "16px" }}
-                            >
-                              <option value="">Vendor...</option>
-                              {isInhouse ? (
-                                internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)
-                              ) : (
-                                <>
-                                  {externalVendors.length > 0 && (
-                                    <optgroup label="External">
-                                      {externalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
-                                    </optgroup>
-                                  )}
-                                  {internalVendors.length > 0 && (
-                                    <optgroup label="In-House">
-                                      {internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
-                                    </optgroup>
-                                  )}
-                                </>
-                              )}
-                            </select>
-                            {/* Date */}
-                            <input
-                              type="date"
-                              value={pm.expected_date || ""}
-                              onChange={(e) => setPm(i, { expected_date: e.target.value })}
-                              className={cn(
-                                "text-[10px] font-medium bg-background border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all w-[105px] shrink-0",
-                                !etaRel ? "text-foreground border-border"
-                                : etaRel.diff < 0 ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
-                                : etaRel.diff === 0 ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
-                                : etaRel.diff === 1 ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
-                                : "text-foreground border-border"
-                              )}
-                            />
-                            {/* Time */}
-                            <select
-                              value={pm.expected_time || ""}
-                              onChange={(e) => setPm(i, { expected_time: e.target.value })}
-                              className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer w-[50px] shrink-0"
-                            >
-                              <option value="">Time</option>
-                              {ETA_TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                            {/* Spacer */}
-                            <div className="flex-1" />
-                            {/* ETA badge */}
-                            {etaRel && etaRel.label && (
-                              <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap", etaRel.color)}>
-                                {etaRel.label}
-                              </span>
-                            )}
-                            {/* Arrived checkbox */}
-                            <label className="flex items-center gap-1 cursor-pointer select-none group/chk shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <Checkbox
-                                checked={arrived}
-                                onCheckedChange={(c) => setPm(i, { prints_arrived: !!c })}
-                                className={cn("h-3.5 w-3.5 rounded", arrived && "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
+                            {/* Row 1: Vendor + Date + Time */}
+                            <div className="flex gap-1.5">
+                              <select
+                                value={pm.vendor || ""}
+                                onChange={(e) => setPm(i, { vendor: e.target.value })}
+                                className="flex-1 min-w-0 text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all appearance-none cursor-pointer truncate"
+                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 5px center", paddingRight: "16px" }}
+                              >
+                                <option value="">Vendor...</option>
+                                {isInhouse ? (
+                                  internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)
+                                ) : (
+                                  <>
+                                    {externalVendors.length > 0 && (
+                                      <optgroup label="External">
+                                        {externalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                      </optgroup>
+                                    )}
+                                    {internalVendors.length > 0 && (
+                                      <optgroup label="In-House">
+                                        {internalVendors.map((v) => <option key={v.id} value={v.company_name}>{v.company_name}</option>)}
+                                      </optgroup>
+                                    )}
+                                  </>
+                                )}
+                              </select>
+                              <input
+                                type="date"
+                                value={pm.expected_date || ""}
+                                onChange={(e) => setPm(i, { expected_date: e.target.value })}
+                                className={cn(
+                                  "text-[10px] font-medium bg-background border rounded-md px-1.5 py-1 outline-none focus:ring-2 focus:ring-ring/30 transition-all w-[95px]",
+                                  !etaRel ? "text-foreground border-border"
+                                  : etaRel.diff < 0 ? "text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/40"
+                                  : etaRel.diff === 0 ? "text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/40"
+                                  : etaRel.diff === 1 ? "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40"
+                                  : "text-foreground border-border"
+                                )}
                               />
-                              <span className={cn("text-[9px] font-semibold", arrived ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground/40 group-hover/chk:text-muted-foreground")}>
-                                {arrived ? "Arrived" : ""}
-                              </span>
-                            </label>
-                            {/* Vendor info */}
-                            {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
+                              <select
+                                value={pm.expected_time || ""}
+                                onChange={(e) => setPm(i, { expected_time: e.target.value })}
+                                className="text-[10px] font-medium text-foreground bg-background border border-border rounded-md px-1 py-1 outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer w-[48px]"
+                              >
+                                <option value="">--</option>
+                                {ETA_TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            </div>
+                            {/* Row 2: ETA badge + Arrived + Vendor info */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                {etaRel && etaRel.label && (
+                                  <span className={cn("text-[8px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap", etaRel.color)}>
+                                    {etaRel.label}{pm.expected_time ? ` ${pm.expected_time}` : ""}
+                                  </span>
+                                )}
+                                <label className="flex items-center gap-1 cursor-pointer select-none group/chk" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={arrived}
+                                    onCheckedChange={(c) => setPm(i, { prints_arrived: !!c })}
+                                    className={cn("h-3.5 w-3.5 rounded", arrived && "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600")}
+                                  />
+                                  <span className={cn("text-[9px] font-semibold", arrived ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground/40 group-hover/chk:text-muted-foreground")}>Arrived</span>
+                                </label>
+                              </div>
+                              {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
+                            </div>
                           </div>
                         </div>
                       )
