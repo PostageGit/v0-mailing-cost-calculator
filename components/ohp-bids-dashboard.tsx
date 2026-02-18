@@ -254,6 +254,7 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
                   <BidRowWithPanel key={bid.id} bid={bid} received={received} pending={pending}
                     bestPrice={bestPrice} inhousePrice={inhousePrice} winnerName={winnerName}
                     isJob={!!isJob} num={num ?? null} prefix={prefix} isExpanded={isExpanded}
+                    dimmed={expandedId != null && !isExpanded}
                     onToggle={() => setExpandedId(isExpanded ? null : bid.id)}
                     onOpenQuote={onOpenQuote} vendors={vendors || []} mutateBids={mutateBids}
                   />
@@ -270,10 +271,10 @@ export function OhpBidsDashboard({ onOpenQuote }: { onOpenQuote?: (quoteId: stri
 /* ══════════════════════════════════════════════════
    BidRowWithPanel
    ══════════════════════════════════════════════════ */
-function BidRowWithPanel({ bid, received, pending, bestPrice, inhousePrice, winnerName, isJob, num, prefix, isExpanded, onToggle, onOpenQuote, vendors, mutateBids }: {
+function BidRowWithPanel({ bid, received, pending, bestPrice, inhousePrice, winnerName, isJob, num, prefix, isExpanded, dimmed, onToggle, onOpenQuote, vendors, mutateBids }: {
   bid: DashboardBid; received: BidPrice[]; pending: BidPrice[]; bestPrice: number | null
   inhousePrice: number | null; winnerName: string | null | undefined; isJob: boolean
-  num: number | null; prefix: string; isExpanded: boolean; onToggle: () => void
+  num: number | null; prefix: string; isExpanded: boolean; dimmed: boolean; onToggle: () => void
   onOpenQuote?: (quoteId: string, step?: string) => void; vendors: Vendor[]; mutateBids: () => void
 }) {
   return (
@@ -281,13 +282,16 @@ function BidRowWithPanel({ bid, received, pending, bestPrice, inhousePrice, winn
       <tr
         onClick={onToggle}
         className={cn(
-          "cursor-pointer transition-colors text-[13px] border-b border-border/30",
-          isExpanded ? "bg-sky-50/60 dark:bg-sky-950/10" : "hover:bg-secondary/30",
+          "cursor-pointer transition-all text-[13px]",
+          isExpanded
+            ? "bg-sky-50 dark:bg-sky-950/20 border-l-[3px] border-l-sky-500 border-b-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] relative z-10"
+            : "border-l-[3px] border-l-transparent border-b border-border/30 hover:bg-secondary/30",
+          dimmed && "opacity-40",
         )}
       >
         {/* Chevron */}
-        <td className="pl-6 pr-1 py-3">
-          <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground/40 transition-transform duration-200", isExpanded && "rotate-90")} />
+        <td className="pl-5 pr-1 py-3">
+          <ChevronRight className={cn("h-4 w-4 transition-transform duration-200", isExpanded ? "rotate-90 text-sky-500" : "text-muted-foreground/30")} />
         </td>
 
         {/* Job */}
@@ -375,7 +379,7 @@ function BidRowWithPanel({ bid, received, pending, bestPrice, inhousePrice, winn
       {/* Expanded panel */}
       {isExpanded && (
         <tr>
-          <td colSpan={9} className="p-0">
+          <td colSpan={9} className="p-0 border-l-[3px] border-l-sky-500">
             <BidPricePanel bid={bid} vendors={vendors} mutateBids={mutateBids} inhousePrice={inhousePrice} />
           </td>
         </tr>
@@ -450,8 +454,8 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
 
   if (isLoading) {
     return (
-      <div className="px-8 py-5 bg-secondary/20 border-b-2 border-sky-200/60 dark:border-sky-800/30">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mx-auto" />
+      <div className="px-8 py-5 bg-sky-50/80 dark:bg-sky-950/15 border-b-2 border-sky-300/50 dark:border-sky-700/30">
+        <Loader2 className="h-5 w-5 animate-spin text-sky-500 mx-auto" />
       </div>
     )
   }
@@ -459,12 +463,12 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
   const savings = bestPrice != null && inhousePrice != null ? inhousePrice - bestPrice : null
 
   return (
-    <div className="bg-secondary/20 border-b-2 border-sky-200/60 dark:border-sky-800/30">
-      <div className="px-8 pt-4 pb-3">
+    <div className="bg-sky-50/60 dark:bg-sky-950/15 border-b-2 border-sky-300/50 dark:border-sky-700/30">
+      <div className="px-8 pt-5 pb-4">
 
         {/* ── In-House vs OHP comparison ── */}
         {inhousePrice != null && (
-          <div className="flex items-center gap-4 mb-4 px-4 py-3 rounded-xl bg-card border border-border/50 shadow-sm">
+          <div className="flex items-center gap-4 mb-4 px-4 py-3 rounded-xl bg-card border border-border shadow-sm">
             <div className="flex items-baseline gap-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">In-House</span>
               <span className={cn("text-lg font-bold font-mono tabular-nums", !bestPrice || inhousePrice <= bestPrice ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>
@@ -499,7 +503,7 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
 
         {/* ── Vendor price table ── */}
         {prices && prices.length > 0 ? (
-          <div className="rounded-xl border border-border/50 overflow-hidden bg-card shadow-sm">
+          <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
             <table className="w-full text-left">
               <thead>
                 <tr className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/50 border-b border-border/40 bg-secondary/30">
