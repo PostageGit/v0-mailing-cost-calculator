@@ -299,7 +299,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ════════════════════════════════════════════════���������═══
+/* ════════════════════════════════════════════════�����������═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -749,7 +749,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
 
 /* ════════════════════════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ═══════════════���═════���══════════════════════════════ */
+   ══════════════�����═════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -1117,6 +1117,22 @@ function QuoteCard({
                       })()
                       const foundType = (md?.pieceLabel as string) || (md?.pieceType as string) || typeHints.find((t) => label.toLowerCase().includes(t.toLowerCase())) || pc.category
 
+                      // Printing details from metadata
+                      const paper = md?.paperName as string | undefined
+                      const sides = md?.sides as string | undefined
+                      const bleed = md?.hasBleed as boolean | undefined
+                      const pages = md?.pageCount as number | undefined
+                      const production = md?.production as string | undefined
+                      const prodLabels: Record<string, string> = { inhouse: "In-House", ohp: "OHP", both: "Both", customer: "Customer" }
+                      const printDetails = [
+                        paper,
+                        sides,
+                        bleed ? "Bleed" : null,
+                        pages ? `${pages}pg` : null,
+                      ].filter(Boolean)
+                      const prodLabel = production ? prodLabels[production] || null : null
+                      const ohpVendor = isOHP ? (pc.description?.split("|")[0]?.trim() || "") : ""
+
                       return (
                         <div key={i} className={cn("rounded-lg border bg-card p-3 flex flex-col", isOHP ? "border-sky-200 dark:border-sky-800/40" : "border-border")}>
                           {/* Type name -- the hero text */}
@@ -1124,13 +1140,30 @@ function QuoteCard({
                             {isOHP && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 shrink-0">OHP</span>}
                             <span className="text-base font-extrabold text-foreground truncate leading-tight">{foundType}</span>
                           </div>
-                          {/* Compact details row: qty + size + price */}
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1.5">
+                          {/* Qty + size row */}
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-1">
                             {qtyStr && <span className="text-[11px] text-muted-foreground"><span className="font-semibold text-foreground">{qtyStr}</span> pcs</span>}
                             {sizeStr && <span className="text-[11px] text-muted-foreground">{sizeStr}</span>}
                           </div>
+                          {/* Printing specs line */}
+                          {printDetails.length > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{printDetails.join(" / ")}</p>
+                          )}
+                          {/* Production tag + OHP vendor */}
+                          {(prodLabel || ohpVendor) && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {prodLabel && (
+                                <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded",
+                                  production === "ohp" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+                                  : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-muted text-muted-foreground"
+                                )}>{prodLabel}</span>
+                              )}
+                              {ohpVendor && <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">{ohpVendor}</span>}
+                            </div>
+                          )}
                           {/* Price anchored at bottom */}
-                          <span className="text-xs font-bold font-mono text-foreground/70 tabular-nums mt-auto pt-1">{formatCurrency(pc.amount)}</span>
+                          <span className="text-xs font-bold font-mono text-foreground/70 tabular-nums mt-auto pt-1.5">{formatCurrency(pc.amount)}</span>
                         </div>
                       )
                     })}
@@ -1170,17 +1203,13 @@ function QuoteCard({
               </div>
             </div>
 
-            {/* ── ROW: Printing Details (full width) ── */}
+            {/* ── ROW: Print Job Info (compact) ── */}
             <div className={cn("rounded-lg border bg-card p-3 transition-colors", printDone ? "border-emerald-400/60 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-border")}>
-              <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Printing Details</p>
-              <div className={cn("grid gap-x-4 gap-y-2 mb-2.5",
-                (meta.printed_by === "Out of House" || meta.printed_by === "Both") ? "grid-cols-4" : "grid-cols-3"
-              )}>
+              <p className={cn("text-[11px] font-bold uppercase tracking-wide mb-2.5", printDone ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>Print Job</p>
+              <div className="grid grid-cols-4 gap-x-3 gap-y-2 items-end">
                 <FieldSelect label="Printed By" value={meta.printed_by || ""} onChange={(v) => updateMeta({ printed_by: v })}
                   options={["In-House", "Out of House", "Both"]} />
-                {(meta.printed_by === "Out of House" || meta.printed_by === "Both") && (
-                  <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="e.g. PrintOut" onChange={(v) => updateMeta({ vendor_name: v })} />
-                )}
+                <FieldInput label="Vendor" value={meta.vendor_name || ""} placeholder="Vendor" onChange={(v) => updateMeta({ vendor_name: v })} />
                 <FieldInput label="Vendor Job #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
                 <FieldInput label="Expected Date" value={meta.expected_date || ""} type="date" onChange={(v) => updateMeta({ expected_date: v })} />
               </div>
