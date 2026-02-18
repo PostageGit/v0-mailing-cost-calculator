@@ -47,7 +47,7 @@ interface JobMeta {
 interface Quote {
   id: string; project_name: string; status: string; column_id: string | null
   items: QuoteItem[]; total: number; notes: string | null
-  quote_number: number | null; mailing_date: string | null; quantity?: number
+  quote_number: number | null; job_number?: number | null; mailing_date: string | null; quantity?: number
   customer_id?: string | null; contact_name?: string | null
   reference_number?: string | null
   lights: Record<string, string> | null
@@ -420,7 +420,7 @@ function daysOverdue(meta: JobMeta) {
   return Math.ceil((Date.now() - new Date(meta.due_date).getTime()) / 86400000)
 }
 
-/* ══════════════════════════════���═════════════════�������������═══
+/* ══════════════════════════════�����═════════════════�������������═══
    FILE PANEL (Full folder view)
    ════════════════════════════════════════════════════ */
 
@@ -1014,8 +1014,18 @@ function QuoteCard({
             {boardType === "job" && (
               <span className="shrink-0 text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border border-teal-200/50 dark:border-teal-700/30">Active</span>
             )}
-            {quote.quote_number && (
-              <span className="shrink-0 text-[11px] font-bold font-mono tabular-nums text-foreground/70 bg-secondary/80 px-1.5 py-0.5 rounded">{quote.quote_number}</span>
+            {(quote.job_number || quote.quote_number) && (
+              <span className={cn(
+                "shrink-0 text-[11px] font-bold font-mono tabular-nums px-1.5 py-0.5 rounded",
+                quote.job_number
+                  ? "text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200/50 dark:border-teal-800/30"
+                  : "text-foreground/70 bg-secondary/80"
+              )}>
+                {quote.job_number ? `J-${quote.job_number}` : quote.quote_number}
+              </span>
+            )}
+            {quote.job_number && quote.quote_number && (
+              <span className="shrink-0 text-[9px] font-mono tabular-nums text-muted-foreground/50" title="Original quote number">Q-{quote.quote_number}</span>
             )}
             <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
           </div>

@@ -50,6 +50,26 @@ export async function PATCH(
   if (body.job_meta !== undefined) updates.job_meta = body.job_meta
   if (body.quantity !== undefined) updates.quantity = body.quantity
 
+  // Auto-assign job_number when activating a quote into a job
+  if (body.is_job === true) {
+    const { data: existing } = await supabase
+      .from("quotes")
+      .select("job_number")
+      .eq("id", id)
+      .single()
+    if (!existing?.job_number) {
+      // Get the next job number (max + 1, floor at 5001)
+      const { data: maxRow } = await supabase
+        .from("quotes")
+        .select("job_number")
+        .not("job_number", "is", null)
+        .order("job_number", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      updates.job_number = Math.max((maxRow?.job_number || 0) + 1, 5001)
+    }
+  }
+
   const { data, error } = await supabase
     .from("quotes")
     .update(updates)
