@@ -751,7 +751,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
   )
 }
 
-/* ═���═══════════════����══════════════════════════════════
+/* ������═══════════════����══════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
    ══════════════�����═════���══════════════════════════════ */
 function getDateLabel(dateStr: string | undefined) {
@@ -879,11 +879,11 @@ function QuoteCard({
         "rounded-xl border bg-card transition-all",
         isArchived ? "opacity-50 border-border"
         : boardType === "job"
-          ? "border-amber-300/60 dark:border-amber-700/40 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md"
+          ? "border-teal-400/30 dark:border-teal-700/30 hover:border-teal-400/50 dark:hover:border-teal-600/50 hover:shadow-md"
           : "border-border hover:border-foreground/20 hover:shadow-md",
         open
           ? boardType === "job"
-            ? "shadow-md ring-1 ring-amber-400/20 dark:ring-amber-600/20"
+            ? "shadow-md ring-1 ring-teal-400/10 dark:ring-teal-600/10"
             : "shadow-md ring-1 ring-foreground/5"
           : "shadow-sm"
       )}
@@ -895,7 +895,7 @@ function QuoteCard({
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 cursor-grab" />
             {boardType === "job" && (
-              <span className="shrink-0 text-[8px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Active</span>
+              <span className="shrink-0 text-[8px] font-bold tracking-widest uppercase px-1.5 py-0.5 rounded bg-teal-50 text-teal-600 dark:bg-teal-900/20 dark:text-teal-400 border border-teal-200/50 dark:border-teal-700/30">Active</span>
             )}
             <p className="text-[15px] font-bold text-foreground truncate leading-snug">{quote.project_name || "Untitled"}</p>
           </div>
@@ -994,7 +994,7 @@ function QuoteCard({
               }}
               className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-foreground/[0.04] hover:bg-foreground hover:text-background px-3 py-1.5 text-[10px] font-semibold tracking-wide text-foreground/60 transition-all duration-200 hover:shadow-sm active:scale-95"
             >
-              <Zap className="h-3 w-3 transition-transform group-hover:text-amber-400 group-hover:scale-110" />
+              <Zap className="h-3 w-3 transition-transform group-hover:text-teal-400 group-hover:scale-110" />
               <span>Activate</span>
               <style>{`
                 @keyframes activatePulse {
@@ -1047,7 +1047,7 @@ function QuoteCard({
                     setTimeout(() => { btn.classList.remove("activate-pulse"); onConvertToJob(quote.id) }, 400)
                   }}
                   className="group h-6 px-2 flex items-center justify-center gap-1 rounded-full border border-foreground/15 bg-foreground/[0.04] text-foreground/60 hover:bg-foreground hover:text-background text-[10px] font-semibold tracking-wide transition-all duration-200 active:scale-95" title="Activate Job">
-                  <Zap className="h-2.5 w-2.5 group-hover:text-amber-400" />
+                  <Zap className="h-2.5 w-2.5 group-hover:text-teal-400" />
                   Activate
                 </button>
               )}
