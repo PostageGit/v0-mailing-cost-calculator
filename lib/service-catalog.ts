@@ -240,6 +240,99 @@ export function getAutoQuantity(item: ServiceItem, _mailingQty: number): number 
   }
 }
 
+// ─── Smart Inference Engine ─────────────────────────────
+// Given all the job inputs, determine which items are DEFINITELY needed.
+
+export interface JobContext {
+  shape: string             // "POSTCARD" | "LETTER" | "FLAT" | "PARCEL"
+  quantity: number
+  mailService: string       // "FCM_COMM" | "MKT_COMM" | "MKT_NP" | "FCM_RETAIL" | "PS" | "MM" | "LM" | "BPM"
+  outerPieceType: string    // "envelope" | "self_mailer" | "postcard" | etc.
+  outerEnvelopeKind: string // "paper" | "plastic" | ""
+  innerPieceCount: number   // number of pieces INSIDE the outer
+  hasInhousePrinting: boolean
+  hasFoldedPiece: boolean   // any piece with foldType !== "none"
+}
+
+export type InferredReason = string
+
+export interface InferredItem {
+  id: string
+  reason: InferredReason
+}
+
+export function inferRequiredItems(ctx: JobContext): InferredItem[] {
+  const items: InferredItem[] = []
+  const isFlat = ctx.shape === "FLAT" || ctx.shape === "PARCEL"
+  const isPresorted = ["FCM_COMM", "MKT_COMM", "MKT_NP"].includes(ctx.mailService)
+
+  // 1. COMPUTER WORK -- always needed for presorted mail
+  if (isPresorted) {
+    items.push({ id: "computer-work", reason: "Presorted mail requires CASS processing" })
+    if (ctx.quantity > 1000) {
+      items.push({ id: "cass-2nd", reason: `${ctx.quantity.toLocaleString()} pcs exceeds 1,000 -- additional CASS needed` })
+    }
+  }
+
+  // 2. ADDRESSING -- always needed, tier auto-selected
+  const addrId = getAddressingTierId(ctx.quantity, isFlat)
+  if (addrId) {
+    items.push({ id: addrId, reason: "Every mailing needs addresses applied" })
+  }
+
+  // 3. POSTAGE -- match the selected mail class
+  const postageMap: Record<string, string> = {
+    FCM_COMM: "postage-1st",
+    FCM_RETAIL: "postage-single",
+    MKT_COMM: "postage-mkt",
+    MKT_NP: "postage-np",
+  }
+  if (postageMap[ctx.mailService]) {
+    items.push({ id: postageMap[ctx.mailService], reason: `Selected mail class requires postage` })
+  }
+
+  // 4. INSERTING -- needed if envelope/bag has inner pieces
+  if (ctx.innerPieceCount > 0 && (ctx.outerPieceType === "envelope" || ctx.outerEnvelopeKind === "plastic")) {
+    if (ctx.outerEnvelopeKind === "plastic") {
+      items.push({ id: "insert-clear-bags", reason: "Plastic outer requires clear bag inserting" })
+      items.push({ id: "clear-bags-item", reason: "Clear bags needed for plastic outer" })
+    } else if (ctx.innerPieceCount <= 3) {
+      items.push({ id: "insert-machine-3", reason: `${ctx.innerPieceCount} insert(s) going into envelope` })
+    } else {
+      items.push({ id: "insert-machine-3", reason: `${ctx.innerPieceCount} inserts -- base machine insert` })
+      items.push({ id: "insert-machine-addl", reason: `${ctx.innerPieceCount - 3} additional inserts above 3` })
+    }
+  }
+
+  // 5. CLEAR BAGS -- even if NO inner pieces, if outer is plastic
+  if (ctx.outerEnvelopeKind === "plastic" && ctx.innerPieceCount === 0) {
+    items.push({ id: "insert-clear-bags", reason: "Plastic outer requires clear bag inserting" })
+    items.push({ id: "clear-bags-item", reason: "Clear bags needed for plastic outer" })
+  }
+
+  // 6. TABBING -- needed for self-mailers (no envelope, piece mails on its own)
+  if (ctx.outerPieceType === "self_mailer") {
+    items.push({ id: "tabbing", reason: "Self-mailers require tabs to stay closed" })
+  }
+
+  // 7. FOLDING -- needed if any piece is folded
+  if (ctx.hasFoldedPiece) {
+    items.push({ id: "folding", reason: "Folded piece(s) need mechanical or hand folding" })
+  }
+
+  // 8. PRINTING -- flag if in-house production
+  if (ctx.hasInhousePrinting) {
+    items.push({ id: "printing", reason: "In-house printing selected for this job" })
+  }
+
+  // 9. PERMIT -- always needed for presorted mail (we use our permit)
+  if (isPresorted) {
+    items.push({ id: "permit", reason: "Presorted mail uses Postage Plus permit" })
+  }
+
+  return items
+}
+
 /** Format price unit for display */
 export function formatPriceUnit(unit: PriceUnit): string {
   switch (unit) {

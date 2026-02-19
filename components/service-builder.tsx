@@ -9,10 +9,11 @@ import {
   CATEGORY_META,
   filterByShape,
   groupByCategory,
+  getAddressingTierId,
   calculateItemAmount,
   getAutoQuantity,
-  getAddressingTierId,
   formatPriceUnit,
+  inferRequiredItems,
   type ServiceItem,
   type ServiceCategory,
 } from "@/lib/service-catalog"
@@ -129,29 +130,50 @@ export function ServiceBuilder() {
   // Search
   const [search, setSearch] = useState("")
 
-  // Auto-expand POSTAGE section when a mail service is selected
-  useEffect(() => {
-    if (mailService) {
-      setOpenSections((prev) => {
-        if (prev.has("POSTAGE")) return prev
-        const next = new Set(prev)
-        next.add("POSTAGE")
-        return next
-      })
-    }
-  }, [mailService])
+  // ── Smart inference: detect which items are definitely needed ──
+  const inferred = useMemo(() => {
+    const pieces = mailing.pieces || []
+    const outerPiece = mailing.outerPiece
+    const innerPieces = pieces.filter((p) => p.position > 1)
 
-  // Auto-expand INSERTING section when outer piece is plastic (clear bag needed)
+    return inferRequiredItems({
+      shape,
+      quantity: mailingQty,
+      mailService,
+      outerPieceType: outerPiece?.type || "",
+      outerEnvelopeKind: outerPiece?.envelopeKind || "",
+      innerPieceCount: innerPieces.length,
+      hasInhousePrinting: pieces.some((p) => p.production === "inhouse"),
+      hasFoldedPiece: pieces.some((p) => p.foldType && p.foldType !== "none"),
+    })
+  }, [shape, mailingQty, mailService, mailing.pieces, mailing.outerPiece])
+
+  // Map for quick lookup: itemId -> reason
+  const inferredMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const i of inferred) m.set(i.id, i.reason)
+    return m
+  }, [inferred])
+
+  // Auto-expand sections that have inferred items
   useEffect(() => {
-    if (isPlasticOuter) {
-      setOpenSections((prev) => {
-        if (prev.has("INSERTING")) return prev
-        const next = new Set(prev)
-        next.add("INSERTING")
-        return next
-      })
+    if (inferred.length === 0) return
+    const catsNeeded = new Set<ServiceCategory>()
+    for (const inf of inferred) {
+      const item = SERVICE_CATALOG.find((s) => s.id === inf.id)
+      if (item) catsNeeded.add(item.category)
     }
-  }, [isPlasticOuter])
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      let changed = false
+      for (const cat of catsNeeded) {
+        if (!next.has(cat)) { next.add(cat); changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [inferred])
+
+  // (Section auto-expansion is handled by the inferred items useEffect above)
 
   // Filter by shape and search
   const filteredItems = useMemo(() => {
@@ -249,20 +271,21 @@ export function ServiceBuilder() {
     [getPrice, getQty, mailingQty, quote, shape]
   )
 
-  // Add all required items at once
-  const addAllRequired = useCallback(() => {
-    const required = filteredItems.filter(
-      (item) => item.autoInclude && !addedItems.has(item.id) && !item.referToPostage
-    )
-    required.forEach((item) => {
-      const price = getPrice(item)
-      if (price === null) return
-      addToQuote(item)
-    })
-  }, [filteredItems, addedItems, getPrice, addToQuote])
+  // Add all inferred items at once
+  const addAllInferred = useCallback(() => {
+    for (const inf of inferred) {
+      if (addedItems.has(inf.id)) continue
+      const catalogItem = SERVICE_CATALOG.find((s) => s.id === inf.id)
+      if (!catalogItem) continue
+      if (catalogItem.referToPostage) continue // postage gets its price from calculator
+      const price = getPrice(catalogItem)
+      if (price === null) continue
+      addToQuote(catalogItem)
+    }
+  }, [inferred, addedItems, getPrice, addToQuote])
 
-  const requiredCount = filteredItems.filter(
-    (i) => i.autoInclude && !addedItems.has(i.id) && !i.referToPostage
+  const inferredNotAdded = inferred.filter(
+    (i) => !addedItems.has(i.id) && !SERVICE_CATALOG.find((s) => s.id === i.id)?.referToPostage
   ).length
 
   // Running total of added items
@@ -278,20 +301,30 @@ export function ServiceBuilder() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Services & Labor</h3>
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
+          <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
             <span>{shape} mail -- {mailingQty > 0 ? `${mailingQty.toLocaleString()} pcs` : "set qty in planner"}</span>
             {mailService && SERVICE_LABELS[mailService] && (
               <span className="inline-flex items-center rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-2 py-0.5 text-[10px] font-semibold">
                 {SERVICE_LABELS[mailService]}
               </span>
             )}
+            {isPlasticOuter && (
+              <span className="inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 text-[10px] font-semibold">
+                Plastic Outer
+              </span>
+            )}
+            {inferred.length > 0 && (
+              <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 text-[10px] font-semibold">
+                {inferred.length} items detected
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {requiredCount > 0 && (
-            <Button variant="default" size="sm" onClick={addAllRequired} className="h-7 text-xs">
+          {inferredNotAdded > 0 && (
+            <Button variant="default" size="sm" onClick={addAllInferred} className="h-7 text-xs">
               <Plus className="h-3 w-3 mr-1" />
-              Add Required ({requiredCount})
+              Add All Needed ({inferredNotAdded})
             </Button>
           )}
           {addedItems.size > 0 && (
@@ -340,6 +373,15 @@ export function ServiceBuilder() {
                   <span className="text-[10px] text-muted-foreground">
                     {items.length} item{items.length !== 1 ? "s" : ""}
                   </span>
+                  {(() => {
+                    const inferredInCat = items.filter((i) => inferredMap.has(i.id) && !addedItems.has(i.id)).length
+                    if (inferredInCat > 0) return (
+                      <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">
+                        {inferredInCat} needed
+                      </span>
+                    )
+                    return null
+                  })()}
                   {addedInCategory > 0 && (
                     <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
                       {addedInCategory} added
@@ -364,6 +406,7 @@ export function ServiceBuilder() {
                       isAdded={addedItems.has(item.id)}
                       isActivePostage={item.id === activePostageId}
                       isFlaggedClearBag={isPlasticOuter && (item.id === "insert-clear-bags" || item.id === "clear-bags-item")}
+                      inferredReason={inferredMap.get(item.id) || null}
                       customPrice={customPrices.get(item.id)}
                       customQty={customQtys.get(item.id)}
                       total={getTotal(item)}
@@ -394,6 +437,7 @@ interface ServiceRowProps {
   isAdded: boolean
   isActivePostage: boolean
   isFlaggedClearBag: boolean
+  inferredReason: string | null
   customPrice: number | undefined
   customQty: number | undefined
   total: number | null
@@ -408,6 +452,7 @@ function ServiceRow({
   isAdded,
   isActivePostage,
   isFlaggedClearBag,
+  inferredReason,
   customPrice,
   customQty,
   total,
@@ -415,6 +460,7 @@ function ServiceRow({
   onSetQty,
   onAdd,
 }: ServiceRowProps) {
+  const isInferred = !!inferredReason
   const effectivePrice = item.referToPostage
     ? null
     : item.defaultPrice !== null
@@ -436,10 +482,8 @@ function ServiceRow({
         "flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
         isAdded
           ? "bg-emerald-50/50 dark:bg-emerald-950/10"
-          : isFlaggedClearBag
-          ? "bg-orange-50/80 dark:bg-orange-950/20 border-l-2 border-l-orange-500"
-          : isActivePostage
-          ? "bg-teal-50/80 dark:bg-teal-950/20 border-l-2 border-l-teal-500"
+          : isInferred
+          ? "bg-blue-50/80 dark:bg-blue-950/20 border-l-2 border-l-blue-500"
           : "hover:bg-accent/30"
       )}
     >
@@ -449,27 +493,31 @@ function ServiceRow({
           <span className={cn(
             "font-medium truncate",
             isAdded && "text-emerald-700 dark:text-emerald-400",
-            isActivePostage && !isAdded && "text-teal-700 dark:text-teal-400"
+            isInferred && !isAdded && "text-blue-700 dark:text-blue-400"
           )}>
             {item.name}
           </span>
-          {isActivePostage && !isAdded && (
-            <span className="shrink-0 text-[9px] font-semibold rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5">
-              ACTIVE
+          {isInferred && !isAdded && (
+            <span
+              className="shrink-0 text-[9px] font-semibold rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 cursor-help"
+              title={inferredReason || ""}
+            >
+              NEEDED
             </span>
           )}
-          {isFlaggedClearBag && !isAdded && (
-            <span className="shrink-0 text-[9px] font-semibold rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 animate-pulse">
-              PLASTIC OUTER
-            </span>
-          )}
-          {item.autoInclude && !isAdded && (
-            <span className="shrink-0 text-[9px] font-medium rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1">
-              REQ
+          {isAdded && (
+            <span className="shrink-0 text-[9px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5">
+              ADDED
             </span>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground truncate">{item.description}</p>
+        <p className="text-[10px] text-muted-foreground truncate">
+          {isInferred && !isAdded ? (
+            <span className="text-blue-600 dark:text-blue-400">{inferredReason}</span>
+          ) : (
+            item.description
+          )}
+        </p>
       </div>
 
       {/* Price */}
