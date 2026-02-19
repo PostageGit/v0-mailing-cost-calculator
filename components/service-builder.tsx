@@ -110,6 +110,7 @@ export function ServiceBuilder() {
   const mailingQty = mailing.quantity || 0
   const mailService = mailing.mailService || ""
   const activePostageId = SERVICE_TO_POSTAGE[mailService] || ""
+  const isPlasticOuter = mailing.outerPiece?.envelopeKind === "plastic"
 
   // Track which items have been added (by service catalog ID)
   const [addedItems, setAddedItems] = useState<Map<string, AddedEntry>>(new Map())
@@ -139,6 +140,18 @@ export function ServiceBuilder() {
       })
     }
   }, [mailService])
+
+  // Auto-expand INSERTING section when outer piece is plastic (clear bag needed)
+  useEffect(() => {
+    if (isPlasticOuter) {
+      setOpenSections((prev) => {
+        if (prev.has("INSERTING")) return prev
+        const next = new Set(prev)
+        next.add("INSERTING")
+        return next
+      })
+    }
+  }, [isPlasticOuter])
 
   // Filter by shape and search
   const filteredItems = useMemo(() => {
@@ -350,6 +363,7 @@ export function ServiceBuilder() {
                       mailingQty={mailingQty}
                       isAdded={addedItems.has(item.id)}
                       isActivePostage={item.id === activePostageId}
+                      isFlaggedClearBag={isPlasticOuter && (item.id === "insert-clear-bags" || item.id === "clear-bags-item")}
                       customPrice={customPrices.get(item.id)}
                       customQty={customQtys.get(item.id)}
                       total={getTotal(item)}
@@ -379,6 +393,7 @@ interface ServiceRowProps {
   mailingQty: number
   isAdded: boolean
   isActivePostage: boolean
+  isFlaggedClearBag: boolean
   customPrice: number | undefined
   customQty: number | undefined
   total: number | null
@@ -392,6 +407,7 @@ function ServiceRow({
   mailingQty,
   isAdded,
   isActivePostage,
+  isFlaggedClearBag,
   customPrice,
   customQty,
   total,
@@ -420,6 +436,8 @@ function ServiceRow({
         "flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
         isAdded
           ? "bg-emerald-50/50 dark:bg-emerald-950/10"
+          : isFlaggedClearBag
+          ? "bg-orange-50/80 dark:bg-orange-950/20 border-l-2 border-l-orange-500"
           : isActivePostage
           ? "bg-teal-50/80 dark:bg-teal-950/20 border-l-2 border-l-teal-500"
           : "hover:bg-accent/30"
@@ -438,6 +456,11 @@ function ServiceRow({
           {isActivePostage && !isAdded && (
             <span className="shrink-0 text-[9px] font-semibold rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5">
               ACTIVE
+            </span>
+          )}
+          {isFlaggedClearBag && !isAdded && (
+            <span className="shrink-0 text-[9px] font-semibold rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 animate-pulse">
+              PLASTIC OUTER
             </span>
           )}
           {item.autoInclude && !isAdded && (

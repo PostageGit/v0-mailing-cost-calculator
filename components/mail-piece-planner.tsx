@@ -672,6 +672,21 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               </p>
             </div>
           )}
+          {m.outerPiece?.envelopeKind === "plastic" && (
+            <div className="mt-3 rounded-lg bg-orange-50/80 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/30 px-3 py-2 flex items-center gap-2">
+              <div className="shrink-0 h-5 w-5 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
+                <span className="text-orange-600 text-[10px] font-bold">!</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-orange-800 dark:text-orange-300">
+                  Plastic / Clear Bag Outer
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Clear bag inserting and materials will be flagged in the Services tab.
+                </p>
+              </div>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground mt-2">Based on outer piece dimensions ({m.mailerWidth}" x {m.mailerHeight}")</p>
         </div>
       )}
