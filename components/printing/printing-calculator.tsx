@@ -8,6 +8,7 @@ import { PriceBreakdown } from "./price-breakdown"
 
 import { Button } from "@/components/ui/button"
 import {
+  PAPER_OPTIONS,
   calculateAllSheetOptions,
   calculatePrintingCost,
   buildFullResult,
@@ -128,9 +129,11 @@ export function PrintingCalculator() {
     setCalcError(null)
     const options = calculateAllSheetOptions(inputs)
     if (options.length === 0) {
+      const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
+      const largest = paper?.availableSizes[paper.availableSizes.length - 1] ?? "13x19"
       setCalcError(
         `${inputs.width}" x ${inputs.height}" does not fit on any available ${inputs.paperName} sheet size. ` +
-        `The largest available sheet is 13x26. Check your dimensions or try a different paper type.`
+        `The largest sheet for ${inputs.paperName} is ${largest}. Check your dimensions or try a different paper type.`
       )
       setSheetOptions([])
       setSelectedOption(null)
