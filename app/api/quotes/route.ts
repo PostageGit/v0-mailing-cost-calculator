@@ -1,9 +1,12 @@
-import { createClient } from "@/lib/supabase/server"
+import { createSafeClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+
+const DB_ERR = NextResponse.json({ error: "Database connection unavailable" }, { status: 503 })
 
 // GET quotes, with filters: is_job, archived, search
 export async function GET(request: Request) {
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const { searchParams } = new URL(request.url)
   const isJob = searchParams.get("is_job")
   const archived = searchParams.get("archived")
@@ -45,7 +48,8 @@ export async function GET(request: Request) {
 
 // POST create a new quote
 export async function POST(request: Request) {
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const body = await request.json()
 
   // Get the first board column as default

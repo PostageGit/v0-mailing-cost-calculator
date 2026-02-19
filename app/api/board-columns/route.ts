@@ -1,9 +1,12 @@
-import { createClient } from "@/lib/supabase/server"
+import { createSafeClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+
+const DB_ERR = NextResponse.json({ error: "Database connection unavailable" }, { status: 503 })
 
 // GET board columns, optionally filtered by board_type
 export async function GET(request: Request) {
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const { searchParams } = new URL(request.url)
   const boardType = searchParams.get("type") // "quote" | "job"
 
@@ -26,7 +29,8 @@ export async function GET(request: Request) {
 
 // POST create a new column
 export async function POST(request: Request) {
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const body = await request.json()
 
   // Get max position

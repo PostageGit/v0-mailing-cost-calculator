@@ -75,6 +75,7 @@ export function PrintingCalculator() {
   const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
   const [hasCalculated, setHasCalculated] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [calcError, setCalcError] = useState<string | null>(null)
 
   // Order state
   const [editingItemId] = useState<number | null>(null)
@@ -124,8 +125,20 @@ export function PrintingCalculator() {
   const handleCalculate = useCallback(() => {
     if (!isFormValid) return
 
+    setCalcError(null)
     const options = calculateAllSheetOptions(inputs)
-    if (options.length === 0) return
+    if (options.length === 0) {
+      setCalcError(
+        `${inputs.width}" x ${inputs.height}" does not fit on any available ${inputs.paperName} sheet size. ` +
+        `The largest available sheet is 13x26. Check your dimensions or try a different paper type.`
+      )
+      setSheetOptions([])
+      setSelectedOption(null)
+      setFullResult(null)
+      setHasCalculated(false)
+      setShowResults(false)
+      return
+    }
 
     setSheetOptions(options)
     setSelectedOption(null)
@@ -278,6 +291,19 @@ export function PrintingCalculator() {
             hasCalculated={hasCalculated}
             currentResult={fullResult}
           />
+
+          {/* No-fit error */}
+          {calcError && (
+            <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+              <div className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-destructive/10 flex items-center justify-center">
+                <span className="text-destructive text-xs font-bold">!</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-destructive">Size Not Available</p>
+                <p className="text-xs text-muted-foreground mt-1">{calcError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Sheet Options Table */}
           {hasCalculated && sheetOptions.length > 0 && !showResults && (

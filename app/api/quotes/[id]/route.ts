@@ -1,5 +1,7 @@
-import { createClient } from "@/lib/supabase/server"
+import { createSafeClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+
+const DB_ERR = NextResponse.json({ error: "Database connection unavailable" }, { status: 503 })
 
 // GET single quote
 export async function GET(
@@ -7,7 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const { data, error } = await supabase
     .from("quotes")
     .select("*")
@@ -26,7 +29,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const body = await request.json()
 
   // Only allow updating specific fields
@@ -89,7 +93,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const { error } = await supabase.from("quotes").delete().eq("id", id)
 
   if (error) {

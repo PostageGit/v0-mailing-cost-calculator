@@ -1,6 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+/**
+ * Safe wrapper: creates client and verifies .from() works.
+ * Returns the client or null if broken.
+ */
+export async function createSafeClient() {
+  const client = await createClient()
+  // Check for stub (error field present means something is wrong)
+  if ((client as any).error?.message) return null
+  return client
+}
+
 // Helper to check if Supabase env vars are available
 // Checks both NEXT_PUBLIC_ prefixed and non-prefixed variants
 export function supabaseReady() {
@@ -17,7 +28,7 @@ function getSupabaseKey() {
   return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 }
 
-export async function createClient() {
+export async function createClient(): Promise<ReturnType<typeof createServerClient>> {
   // When env vars are missing, return a safe stub that won't throw.
   if (!supabaseReady()) {
     const noop = () => stub
@@ -41,57 +52,55 @@ export async function createClient() {
   const url = getSupabaseUrl()
   const key = getSupabaseKey()
 
-  let client: ReturnType<typeof createServerClient>
-
   try {
-    const cookieStore = await cookies()
+    let client: ReturnType<typeof createServerClient>
 
-    client = createServerClient(url, key, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
+    try {
+      const cookieStore = await cookies()
+      client = createServerClient(url, key, {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options),
+              )
+            } catch { /* Server Component context */ }
+          },
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            )
-          } catch {
-            // The "setAll" method was called from a Server Component.
-          }
-        },
-      },
-    })
-  } catch {
-    // Fallback: if cookies() throws (e.g. during static init), use direct client
-    client = createServerClient(url, key, {
-      cookies: {
-        getAll() { return [] },
-        setAll() {},
-      },
-    })
-  }
-
-  // Safety check: if client is missing .from(), return stub
-  if (!client || typeof (client as any).from !== 'function') {
-    console.error('[v0] Supabase client created but .from() is not a function, returning stub')
-    const noop = () => stub
-    const stub: Record<string, unknown> = {
-      from: () => stub,
-      select: noop, insert: noop, update: noop, upsert: noop, delete: noop,
-      eq: noop, neq: noop, single: noop, order: noop, limit: noop,
-      ilike: noop, or: noop, in: noop, is: noop, match: noop, maybeSingle: noop,
-      then: (resolve: (v: { data: null; error: { message: string } }) => void) =>
-        Promise.resolve().then(() => resolve({ data: null, error: { message: 'Supabase client initialization failed' } })),
-      data: null,
-      error: { message: 'Supabase client initialization failed' },
-      auth: {
-        getUser: async () => ({ data: { user: null }, error: null }),
-        getSession: async () => ({ data: { session: null }, error: null }),
-      },
+      })
+    } catch {
+      client = createServerClient(url, key, {
+        cookies: { getAll() { return [] }, setAll() {} },
+      })
     }
-    return stub as unknown as ReturnType<typeof createServerClient>
+
+    // Verify the client is actually functional
+    if (client && typeof (client as any).from === 'function') {
+      return client
+    }
+  } catch (e) {
+    console.error('[v0] Supabase client creation failed:', e)
   }
 
-  return client
+  // Fallback stub – never throws, always returns { data: null, error }
+  return makeStub('Supabase client initialization failed')
+}
+
+function makeStub(msg: string) {
+  const noop = () => stub
+  const stub: Record<string, unknown> = {
+    from: () => stub,
+    select: noop, insert: noop, update: noop, upsert: noop, delete: noop,
+    eq: noop, neq: noop, single: noop, order: noop, limit: noop,
+    ilike: noop, or: noop, in: noop, is: noop, match: noop, maybeSingle: noop,
+    then: (resolve: (v: { data: null; error: { message: string } }) => void) =>
+      Promise.resolve().then(() => resolve({ data: null, error: { message: msg } })),
+    data: null, error: { message: msg },
+    auth: {
+      getUser: async () => ({ data: { user: null }, error: null }),
+      getSession: async () => ({ data: { session: null }, error: null }),
+    },
+  }
+  return stub as unknown as ReturnType<typeof createServerClient>
 }
