@@ -6,7 +6,7 @@ import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
-import { LaborCalculator } from "@/components/labor-calculator"
+import { ServiceBuilder } from "@/components/service-builder"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { MailPiecePlanner } from "@/components/mail-piece-planner"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
@@ -38,7 +38,7 @@ type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" 
 const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
   { id: "usps",      label: "Postage",   icon: <Stamp className="h-3.5 w-3.5" /> },
-  { id: "labor",     label: "Labor",     icon: <Wrench className="h-3.5 w-3.5" /> },
+  { id: "labor",     label: "Services",  icon: <Wrench className="h-3.5 w-3.5" /> },
   { id: "printing",  label: "Printing",  icon: <Printer className="h-3.5 w-3.5" /> },
   { id: "booklet",   label: "Booklet",   icon: <BookOpen className="h-3.5 w-3.5" /> },
   { id: "spiral",    label: "Spiral",    icon: <Disc3 className="h-3.5 w-3.5" /> },
@@ -47,7 +47,7 @@ const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "items",     label: "Items",     icon: <Package className="h-3.5 w-3.5" /> },
 ]
 const STEP_CATS: Record<StepId, string[]> = {
-  envelope: ["envelope"], usps: ["postage"], labor: ["listwork"],
+  envelope: ["envelope"], usps: ["postage"], labor: ["listwork", "item"],
   printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], perfect: ["perfect"], ohp: ["ohp"], items: ["item"],
 }
 
@@ -143,13 +143,13 @@ function AppContent() {
     switch (currentStep) {
       case "envelope": return <EnvelopeTab />
       case "usps":     return <USPSPostageCalculator />
-      case "labor":    return <LaborCalculator />
+      case "labor":    return <ServiceBuilder />
       case "printing": return <PrintingCalculator />
       case "booklet":  return <BookletCalculator />
       case "spiral":   return <SpiralCalculator />
       case "perfect":  return <PerfectCalculator />
       case "ohp":      return <VendorBidTab />
-      case "items":    return <ItemsTab />
+      case "items":    return <ItemsTab /> /* DB items fallback */
     }
   }
 
