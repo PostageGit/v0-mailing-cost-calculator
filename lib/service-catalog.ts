@@ -70,6 +70,8 @@ export interface ServiceItem {
   qtyMax?: number | null        // null = unlimited
   /** If true, auto-add when building a quote */
   autoInclude?: boolean
+  /** Links to supplier item ID in suppliers config (for list rentals, etc.) */
+  linkedSupplierId?: string
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -87,18 +89,18 @@ export const SERVICE_CATALOG: ServiceItem[] = [
   { id: "print-hebrew",           name: "Print Hebrew Letters",       category: "LIST_WORK", description: "Printing Hebrew text on the mailpiece",                          defaultPrice: 50,   priceUnit: "list",         postcard: null, letter: null, flat: null },
   { id: "fix-list",               name: "Fix List",                   category: "LIST_WORK", description: "Do any fixing required on the mailing list",                     defaultPrice: 100,  priceUnit: "list",         postcard: null, letter: null, flat: null },
   { id: "duplicate-remove",       name: "Duplicate Remove",           category: "LIST_WORK", description: "Remove duplicate addresses from a mailing list",                 defaultPrice: 100,  priceUnit: "list",         postcard: null, letter: null, flat: null },
-  // ── LIST RENTALS ──
-  { id: "list-rent-skver",        name: "Skver",              category: "LIST_RENTAL", description: "Renting the Skver mailing list",               defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-monsey",       name: "Monsey",             category: "LIST_RENTAL", description: "Renting the Monsey mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-simcha",       name: "Simcha List",        category: "LIST_RENTAL", description: "Renting the Shidduchim mailing list",          defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-bp",           name: "Boro Park",          category: "LIST_RENTAL", description: "Renting the Boro Park mailing list",           defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-willi",        name: "Williamsburg",       category: "LIST_RENTAL", description: "Renting the Williamsburg mailing list",        defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-kj",           name: "Kiryas Joel",        category: "LIST_RENTAL", description: "Renting the Kiryas Joel mailing list",         defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-si",           name: "Staten Island",      category: "LIST_RENTAL", description: "Renting the Staten Island mailing list",       defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-satmar",       name: "Satmar",             category: "LIST_RENTAL", description: "Renting the Satmar mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
+  // ── LIST RENTALS (each linked to supplier item via linkedSupplierId) ──
+  { id: "list-rent-skver",        name: "Skver",              category: "LIST_RENTAL", description: "Renting the Skver mailing list",               defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-skver" },
+  { id: "list-rent-monsey",       name: "Monsey",             category: "LIST_RENTAL", description: "Renting the Monsey mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-monsey" },
+  { id: "list-rent-simcha",       name: "Simcha List",        category: "LIST_RENTAL", description: "Renting the Shidduchim mailing list",          defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-simcha" },
+  { id: "list-rent-bp",           name: "Boro Park",          category: "LIST_RENTAL", description: "Renting the Boro Park mailing list",           defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-bp" },
+  { id: "list-rent-willi",        name: "Williamsburg",       category: "LIST_RENTAL", description: "Renting the Williamsburg mailing list",        defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-willi" },
+  { id: "list-rent-kj",           name: "Kiryas Joel",        category: "LIST_RENTAL", description: "Renting the Kiryas Joel mailing list",         defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-kj" },
+  { id: "list-rent-si",           name: "Staten Island",      category: "LIST_RENTAL", description: "Renting the Staten Island mailing list",       defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-si" },
+  { id: "list-rent-satmar",       name: "Satmar",             category: "LIST_RENTAL", description: "Renting the Satmar mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-satmar" },
   { id: "list-rent-other",        name: "Other",              category: "LIST_RENTAL", description: "Renting a mailing list not specified above",   defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-linden",       name: "Linden",             category: "LIST_RENTAL", description: "Renting the Linden mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
-  { id: "list-rent-lakewood",     name: "Lakewood",           category: "LIST_RENTAL", description: "Renting the Lakewood mailing list",            defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null },
+  { id: "list-rent-linden",       name: "Linden",             category: "LIST_RENTAL", description: "Renting the Linden mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-linden" },
+  { id: "list-rent-lakewood",     name: "Lakewood",           category: "LIST_RENTAL", description: "Renting the Lakewood mailing list",            defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-lakewood" },
 
   // ── ADDRESSING ──
   { id: "addr-2500",     name: "Addressing (up to 2,500)",   category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (up to 2,500 qty)",        defaultPrice: 125,  priceUnit: "1000", postcard: true, letter: true,  flat: false, qtyMin: 1, qtyMax: 2500, autoInclude: true },
