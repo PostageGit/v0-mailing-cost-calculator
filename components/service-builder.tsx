@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useMailing } from "@/lib/mailing-context"
 import { useQuote } from "@/lib/quote-context"
 import {
@@ -84,11 +84,32 @@ interface AddedEntry {
 
 // ─── Main Component ──────────────────────────────────────
 
+// Map USPS service codes to catalog postage item IDs
+const SERVICE_TO_POSTAGE: Record<string, string> = {
+  FCM_COMM: "postage-1st",
+  FCM_RETAIL: "postage-single",
+  MKT_COMM: "postage-mkt",
+  MKT_NP: "postage-np",
+}
+
+const SERVICE_LABELS: Record<string, string> = {
+  FCM_COMM: "First Class Presort",
+  FCM_RETAIL: "First Class Retail",
+  MKT_COMM: "Marketing Mail",
+  MKT_NP: "Non-Profit",
+  PS: "Parcel Select",
+  MM: "Media Mail",
+  LM: "Library Mail",
+  BPM: "Bound Printed Matter",
+}
+
 export function ServiceBuilder() {
   const mailing = useMailing()
   const quote = useQuote()
   const shape = mailing.shape || "LETTER"
   const mailingQty = mailing.quantity || 0
+  const mailService = mailing.mailService || ""
+  const activePostageId = SERVICE_TO_POSTAGE[mailService] || ""
 
   // Track which items have been added (by service catalog ID)
   const [addedItems, setAddedItems] = useState<Map<string, AddedEntry>>(new Map())
@@ -106,6 +127,18 @@ export function ServiceBuilder() {
   const [customQtys, setCustomQtys] = useState<Map<string, number>>(new Map())
   // Search
   const [search, setSearch] = useState("")
+
+  // Auto-expand POSTAGE section when a mail service is selected
+  useEffect(() => {
+    if (mailService) {
+      setOpenSections((prev) => {
+        if (prev.has("POSTAGE")) return prev
+        const next = new Set(prev)
+        next.add("POSTAGE")
+        return next
+      })
+    }
+  }, [mailService])
 
   // Filter by shape and search
   const filteredItems = useMemo(() => {
@@ -232,8 +265,13 @@ export function ServiceBuilder() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Services & Labor</h3>
-          <p className="text-xs text-muted-foreground">
-            {shape} mail -- {mailingQty > 0 ? `${mailingQty.toLocaleString()} pcs` : "set qty in planner"}
+          <p className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>{shape} mail -- {mailingQty > 0 ? `${mailingQty.toLocaleString()} pcs` : "set qty in planner"}</span>
+            {mailService && SERVICE_LABELS[mailService] && (
+              <span className="inline-flex items-center rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-2 py-0.5 text-[10px] font-semibold">
+                {SERVICE_LABELS[mailService]}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -311,6 +349,7 @@ export function ServiceBuilder() {
                       item={item}
                       mailingQty={mailingQty}
                       isAdded={addedItems.has(item.id)}
+                      isActivePostage={item.id === activePostageId}
                       customPrice={customPrices.get(item.id)}
                       customQty={customQtys.get(item.id)}
                       total={getTotal(item)}
@@ -339,6 +378,7 @@ interface ServiceRowProps {
   item: ServiceItem
   mailingQty: number
   isAdded: boolean
+  isActivePostage: boolean
   customPrice: number | undefined
   customQty: number | undefined
   total: number | null
@@ -351,6 +391,7 @@ function ServiceRow({
   item,
   mailingQty,
   isAdded,
+  isActivePostage,
   customPrice,
   customQty,
   total,
@@ -379,15 +420,26 @@ function ServiceRow({
         "flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
         isAdded
           ? "bg-emerald-50/50 dark:bg-emerald-950/10"
+          : isActivePostage
+          ? "bg-teal-50/80 dark:bg-teal-950/20 border-l-2 border-l-teal-500"
           : "hover:bg-accent/30"
       )}
     >
       {/* Name + description */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={cn("font-medium truncate", isAdded && "text-emerald-700 dark:text-emerald-400")}>
+          <span className={cn(
+            "font-medium truncate",
+            isAdded && "text-emerald-700 dark:text-emerald-400",
+            isActivePostage && !isAdded && "text-teal-700 dark:text-teal-400"
+          )}>
             {item.name}
           </span>
+          {isActivePostage && !isAdded && (
+            <span className="shrink-0 text-[9px] font-semibold rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5">
+              ACTIVE
+            </span>
+          )}
           {item.autoInclude && !isAdded && (
             <span className="shrink-0 text-[9px] font-medium rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1">
               REQ

@@ -207,6 +207,16 @@ function Tab2Parcels() {
 
   const result = useMemo(() => calculateTab2Postage(inputs), [inputs])
   const quote = useQuote()
+  const mailing = useMailing()
+
+  // Sync Tab2 service + quantity to mailing context
+  useEffect(() => {
+    mailing.setMailService(inputs.service)
+    mailing.setQuantity(inputs.quantity)
+    mailing.setShape("PARCEL")
+    mailing.setClassName("Parcel")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs.service, inputs.quantity])
 
   const update = useCallback((partial: Partial<Tab2Inputs>) => {
     setInputs((prev) => {
@@ -419,8 +429,9 @@ function Tab1LettersFlats() {
       FLAT: "Flat",
     }
     mailing.setClassName(classMap[inputs.shape] || inputs.shape)
+    mailing.setMailService(inputs.service)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputs.quantity, inputs.saturationQty, inputs.shape])
+  }, [inputs.quantity, inputs.saturationQty, inputs.shape, inputs.service])
 
   // Auto-detect shape + format from planner's outer piece
   const seededQtyRef = useRef(false)

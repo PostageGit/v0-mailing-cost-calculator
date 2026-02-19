@@ -101,6 +101,8 @@ interface MailingState {
   quantity: number; setQuantity: (n: number) => void
   shape: string; className: string; suggestedShapes: USPSShape[]
   setShape: (s: string) => void; setClassName: (n: string) => void
+  /** USPS service code from Tab 1/2 e.g. "FCM_COMM","MKT_COMM","MKT_NP","FCM_RETAIL","PS","MM","LM","BPM" */
+  mailService: string; setMailService: (s: string) => void
 
   // All pieces in the mailing
   pieces: MailPiece[]
@@ -149,6 +151,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const [quantity, setQuantity] = useState(0)
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
+  const [mailService, setMailService] = useState("")
   const [pieces, setPieces] = useState<MailPiece[]>([])
 
   const addPiece = useCallback((type: PieceType) => {
@@ -222,7 +225,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName,
+      quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
       needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsOHP,
