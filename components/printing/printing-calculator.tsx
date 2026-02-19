@@ -9,6 +9,7 @@ import { PriceBreakdown } from "./price-breakdown"
 import { Button } from "@/components/ui/button"
 import {
   PAPER_OPTIONS,
+  parseSheetSize,
   calculateAllSheetOptions,
   calculatePrintingCost,
   buildFullResult,
@@ -76,7 +77,10 @@ export function PrintingCalculator() {
   const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
   const [hasCalculated, setHasCalculated] = useState(false)
   const [showResults, setShowResults] = useState(false)
-  const [calcError, setCalcError] = useState<string | null>(null)
+  const [calcError, setCalcError] = useState<{
+    message: string
+    suggestions: { name: string; largestSheet: string }[]
+  } | null>(null)
 
   // Order state
   const [editingItemId] = useState<number | null>(null)
@@ -131,10 +135,33 @@ export function PrintingCalculator() {
     if (options.length === 0) {
       const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
       const largest = paper?.availableSizes[paper.availableSizes.length - 1] ?? "13x19"
-      setCalcError(
-        `${inputs.width}" x ${inputs.height}" does not fit on any available ${inputs.paperName} sheet size. ` +
-        `The largest sheet for ${inputs.paperName} is ${largest}. Check your dimensions or try a different paper type.`
-      )
+
+      // Find other papers where this piece WOULD fit (trying both orientations)
+      const pw = inputs.width
+      const ph = inputs.height
+      const suggestions = PAPER_OPTIONS
+        .filter((p) => p.name !== inputs.paperName)
+        .filter((p) => {
+          return p.availableSizes.some((sizeStr) => {
+            const parsed = parseSheetSize(sizeStr)
+            const sw = parsed.w
+            const sh = parsed.h
+            // Portrait: piece fits within sheet
+            const portrait = pw <= sw && ph <= sh
+            // Rotated: piece rotated 90 degrees
+            const rotated = ph <= sw && pw <= sh
+            return portrait || rotated
+          })
+        })
+        .map((p) => ({
+          name: p.name,
+          largestSheet: p.availableSizes[p.availableSizes.length - 1],
+        }))
+
+      setCalcError({
+        message: `${inputs.width}" x ${inputs.height}" does not fit on any available ${inputs.paperName} sheet size (largest: ${largest}).`,
+        suggestions,
+      })
       setSheetOptions([])
       setSelectedOption(null)
       setFullResult(null)
@@ -297,14 +324,46 @@ export function PrintingCalculator() {
 
           {/* No-fit error */}
           {calcError && (
-            <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
-              <div className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-destructive/10 flex items-center justify-center">
-                <span className="text-destructive text-xs font-bold">!</span>
+            <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <span className="text-destructive text-xs font-bold">!</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-destructive">Size Not Available</p>
+                  <p className="text-xs text-muted-foreground mt-1">{calcError.message}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-destructive">Size Not Available</p>
-                <p className="text-xs text-muted-foreground mt-1">{calcError}</p>
-              </div>
+              {calcError.suggestions.length > 0 && (
+                <div className="border-t border-destructive/10 pt-3">
+                  <p className="text-xs font-medium text-foreground mb-2">
+                    This size fits on these paper types:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {calcError.suggestions.map((s) => (
+                      <button
+                        key={s.name}
+                        type="button"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:border-primary/30"
+                        onClick={() => {
+                          setInputs((prev) => ({ ...prev, paperName: s.name }))
+                          setCalcError(null)
+                        }}
+                      >
+                        <span>{s.name}</span>
+                        <span className="text-muted-foreground">({s.largestSheet})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {calcError.suggestions.length === 0 && (
+                <div className="border-t border-destructive/10 pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    No available paper type can accommodate this size. Check your dimensions.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
