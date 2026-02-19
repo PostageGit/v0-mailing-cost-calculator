@@ -80,20 +80,41 @@ export interface MailPiece {
 }
 
 // ─── Standard envelope sizes ─────────────────────────────
-export interface EnvelopeSize { id: string; name: string; width: number; height: number; description: string }
+export interface EnvelopeSize {
+  id: string
+  name: string
+  width: number          // actual outer width
+  height: number         // actual outer height
+  kind: "paper" | "plastic"
+  description: string
+  sku?: string           // supplier item number
+  fitsWidth?: number     // what insert fits inside (plastic)
+  fitsHeight?: number
+}
+
 export const STANDARD_ENVELOPES: EnvelopeSize[] = [
-  { id: "a2",      name: "A2",           width: 4.375, height: 5.75,  description: "RSVP / Note" },
-  { id: "a6",      name: "A6",           width: 4.75,  height: 6.5,   description: "4x6 card" },
-  { id: "a7",      name: "A7",           width: 5.25,  height: 7.25,  description: "5x7 card" },
-  { id: "a9",      name: "A9",           width: 5.75,  height: 8.75,  description: "Invitation" },
-  { id: "a10",     name: "A10",          width: 6,     height: 9.5,   description: "6x9 card" },
-  { id: "6x9",     name: "6 x 9",       width: 6,     height: 9,     description: "Booklet" },
-  { id: "no10",    name: "#10 Std",      width: 4.125, height: 9.5,   description: "Business" },
-  { id: "no10win", name: "#10 Win",      width: 4.125, height: 9.5,   description: "Window" },
-  { id: "6.5",     name: "#6 3/4",       width: 3.625, height: 6.5,   description: "Remit" },
-  { id: "9x12",    name: "9 x 12",      width: 9,     height: 12,    description: "Flat" },
-  { id: "10x13",   name: "10 x 13",     width: 10,    height: 13,    description: "Large flat" },
-  { id: "custom",  name: "Custom",       width: 0,     height: 0,     description: "Manual" },
+  // ── Paper envelopes ──
+  { id: "a2",      name: "A2",       width: 4.375, height: 5.75,  kind: "paper", description: "RSVP / Note" },
+  { id: "a6",      name: "A6",       width: 4.75,  height: 6.5,   kind: "paper", description: "4x6 card" },
+  { id: "a7",      name: "A7",       width: 5.25,  height: 7.25,  kind: "paper", description: "5x7 card" },
+  { id: "a9",      name: "A9",       width: 5.75,  height: 8.75,  kind: "paper", description: "Invitation" },
+  { id: "a10",     name: "A10",      width: 6,     height: 9.5,   kind: "paper", description: "6x9 card" },
+  { id: "6x9",     name: "6 x 9",   width: 6,     height: 9,     kind: "paper", description: "Booklet" },
+  { id: "no10",    name: "#10 Std",  width: 4.125, height: 9.5,   kind: "paper", description: "Business" },
+  { id: "no10win", name: "#10 Win",  width: 4.125, height: 9.5,   kind: "paper", description: "Window" },
+  { id: "6.5",     name: "#6 3/4",   width: 3.625, height: 6.5,   kind: "paper", description: "Remit" },
+  { id: "9x12",    name: "9 x 12",  width: 9,     height: 12,    kind: "paper", description: "Flat" },
+  { id: "10x13",   name: "10 x 13", width: 10,    height: 13,    kind: "paper", description: "Large flat" },
+  { id: "custom",  name: "Custom",   width: 0,     height: 0,     kind: "paper", description: "Manual" },
+  // ── Plastic envelopes (Clear Plastics / clearplastics.com) ──
+  // name = fits size (what the user thinks of), width/height = actual outer dims for USPS
+  { id: "p-5.5x8.5", name: '5.5 x 8.5',  width: 5.9375, height: 8.75,   kind: "plastic", description: "Clear Plastics", sku: "B59",   fitsWidth: 5.5,   fitsHeight: 8.5 },
+  { id: "p-6x9",     name: '6 x 9',      width: 6.4375, height: 9,      kind: "plastic", description: "Clear Plastics", sku: "B6x9",  fitsWidth: 6,     fitsHeight: 9 },
+  { id: "p-4x11",    name: '4 x 11',     width: 4.4375, height: 11.125, kind: "plastic", description: "Clear Plastics", sku: "BX411", fitsWidth: 4,     fitsHeight: 11 },
+  { id: "p-8.5x11",  name: '8.5 x 11',   width: 8.9375, height: 11.25,  kind: "plastic", description: "Clear Plastics", sku: "B811",  fitsWidth: 8.5,   fitsHeight: 11 },
+  { id: "p-8x8",     name: '8 x 8',      width: 8.4375, height: 8.25,   kind: "plastic", description: "Clear Plastics", sku: "B8x8",  fitsWidth: 8,     fitsHeight: 8 },
+  { id: "p-9x9",     name: '9 x 9',      width: 9.4375, height: 9.25,   kind: "plastic", description: "Clear Plastics", sku: "B99",   fitsWidth: 9,     fitsHeight: 9 },
+  { id: "p-custom",  name: 'Custom',      width: 0,      height: 0,      kind: "plastic", description: "Manual entry",   fitsWidth: 0, fitsHeight: 0 },
 ]
 
 // ─── Context ─────────────────────────────────────────────
@@ -189,11 +210,15 @@ export function MailingProvider({ children }: { children: ReactNode }) {
     setPieces((prev) => prev.map((p) => {
       if (p.id !== id) return p
       const updated = { ...p, ...patch }
-      // If envelope and standard size selected, auto-set dims
-      if (updated.type === "envelope" && patch.envelopeId && patch.envelopeId !== "custom") {
-        const env = STANDARD_ENVELOPES.find((e) => e.id === patch.envelopeId)
-        if (env) { updated.width = env.width; updated.height = env.height }
-      }
+  // If envelope and standard size selected, auto-set dims + kind
+  if (updated.type === "envelope" && patch.envelopeId && patch.envelopeId !== "custom" && patch.envelopeId !== "p-custom") {
+  const env = STANDARD_ENVELOPES.find((e) => e.id === patch.envelopeId)
+  if (env) {
+    updated.width = env.width
+    updated.height = env.height
+    updated.envelopeKind = env.kind
+  }
+  }
       return updated
     }))
   }, [])

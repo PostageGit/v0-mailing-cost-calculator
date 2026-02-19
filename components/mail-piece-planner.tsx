@@ -315,34 +315,57 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     </div>
 
                     {/* Envelope-specific: kind + standard size */}
-                    {piece.type === "envelope" && (
+                    {piece.type === "envelope" && (() => {
+                      const activeKind = piece.envelopeKind || "paper"
+                      const filteredEnvelopes = STANDARD_ENVELOPES.filter((e) => e.kind === activeKind)
+                      return (
                       <div className="flex flex-wrap items-center gap-2 mb-3">
                         <div className="flex gap-1">
                           {(["paper", "plastic"] as const).map((k) => (
                             <button key={k} type="button"
-                              onClick={() => m.updatePiece(piece.id, { envelopeKind: piece.envelopeKind === k ? "" : k })}
+                              onClick={() => {
+                                // Switching kind -- clear the selected envelope since sizes differ
+                                if (piece.envelopeKind !== k) {
+                                  m.updatePiece(piece.id, { envelopeKind: k, envelopeId: undefined, width: null, height: null })
+                                }
+                              }}
                               className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                                piece.envelopeKind === k ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
+                                activeKind === k ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
                               }`}>
                               {k === "paper" ? "Paper" : "Plastic"}
                             </button>
                           ))}
                         </div>
-                        <Select value={piece.envelopeId || "none"} onValueChange={(v) => { if (v !== "none") m.updatePiece(piece.id, { envelopeId: v }) }}>
-                          <SelectTrigger className="h-8 text-xs border-border bg-background rounded-lg w-[180px]">
-                            <SelectValue placeholder="Standard size..." />
+                        <Select
+                          value={piece.envelopeId || "none"}
+                          onValueChange={(v) => { if (v !== "none") m.updatePiece(piece.id, { envelopeId: v }) }}
+                        >
+                          <SelectTrigger className="h-8 text-xs border-border bg-background rounded-lg w-[220px]">
+                            <SelectValue placeholder={activeKind === "plastic" ? "Plastic size..." : "Standard size..."} />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Pick size...</SelectItem>
-                            {STANDARD_ENVELOPES.map((env) => (
+                            {filteredEnvelopes.map((env) => (
                               <SelectItem key={env.id} value={env.id}>
-                                {env.name} {env.id !== "custom" ? `(${env.width}" x ${env.height}")` : ""} 
+                                {env.kind === "plastic" && env.sku
+                                  ? `${env.name} (${env.sku}) -- actual ${env.width}" x ${env.height}"`
+                                  : `${env.name}${env.id !== "custom" ? ` (${env.width}" x ${env.height}")` : ""}`}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {activeKind === "plastic" && piece.envelopeId && (() => {
+                          const sel = STANDARD_ENVELOPES.find((e) => e.id === piece.envelopeId)
+                          if (!sel || !sel.fitsWidth) return null
+                          return (
+                            <span className="text-[10px] text-muted-foreground">
+                              Fits {sel.fitsWidth}" x {sel.fitsHeight}" insert
+                            </span>
+                          )
+                        })()}
                       </div>
-                    )}
+                      )
+                    })()}
 
                     {/* Fold type selector -- simplified: Flat, x2, x3, Custom */}
                     {["folded_card", "self_mailer"].includes(piece.type) && (

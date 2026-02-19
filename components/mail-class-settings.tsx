@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
+import { SuppliersSettings } from "@/components/suppliers-settings"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -69,6 +70,7 @@ import {
   UserPlus,
   Search,
   Mail,
+  Boxes,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -181,6 +183,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <ListPlus className="h-3.5 w-3.5" />
                 Job Steps
               </TabsTrigger>
+              <TabsTrigger value="supplies" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Boxes className="h-3.5 w-3.5" />
+                Supplies
+              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Activity className="h-3.5 w-3.5" />
                 System
@@ -224,10 +230,13 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             <TabsContent value="system">
               <SystemDashboardTab />
             </TabsContent>
-            <TabsContent value="team">
-              <TeamTab />
-            </TabsContent>
-          </Tabs>
+  <TabsContent value="supplies">
+  <SuppliersSettings />
+  </TabsContent>
+  <TabsContent value="team">
+  <TeamTab />
+  </TabsContent>
+  </Tabs>
         </CardContent>
       </Card>
     </div>
