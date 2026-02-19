@@ -695,7 +695,9 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               </p>
             </div>
           )}
-          {m.outerPiece?.envelopeKind === "plastic" && (
+          {m.outerPiece?.envelopeKind === "plastic" && (() => {
+            const env = STANDARD_ENVELOPES.find((e) => e.id === m.outerPiece?.envelopeId)
+            return (
             <div className="mt-3 rounded-lg bg-orange-50/80 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/30 px-3 py-2 flex items-center gap-2">
               <div className="shrink-0 h-5 w-5 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
                 <span className="text-orange-600 text-[10px] font-bold">!</span>
@@ -703,14 +705,28 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               <div>
                 <p className="text-xs font-medium text-orange-800 dark:text-orange-300">
                   Plastic / Clear Bag Outer
+                  {env?.sku && <span className="ml-1.5 text-[10px] font-normal text-orange-600 dark:text-orange-400">({env.sku})</span>}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  Clear bag inserting and materials will be flagged in the Services tab.
+                  {env?.fitsWidth
+                    ? `Fits ${env.fitsWidth}" x ${env.fitsHeight}" insert -- actual bag ${env.width}" x ${env.height}". Clear bag inserting flagged in Services.`
+                    : "Clear bag inserting and materials will be flagged in the Services tab."}
                 </p>
               </div>
             </div>
-          )}
-          <p className="text-xs text-muted-foreground mt-2">Based on outer piece dimensions ({m.mailerWidth}" x {m.mailerHeight}")</p>
+            )
+          })()}
+          {(() => {
+            const isPlastic = m.outerPiece?.envelopeKind === "plastic"
+            const env = isPlastic ? STANDARD_ENVELOPES.find((e) => e.id === m.outerPiece?.envelopeId) : null
+            return (
+              <p className="text-xs text-muted-foreground mt-2">
+                {isPlastic && env?.fitsWidth
+                  ? `${env.name} bag (${env.sku}) -- USPS dims: ${m.mailerWidth}" x ${m.mailerHeight}"`
+                  : `Based on outer piece dimensions (${m.mailerWidth}" x ${m.mailerHeight}")`}
+              </p>
+            )
+          })()}
         </div>
       )}
 
