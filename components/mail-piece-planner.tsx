@@ -340,26 +340,24 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                           value={piece.envelopeId || "none"}
                           onValueChange={(v) => { if (v !== "none") m.updatePiece(piece.id, { envelopeId: v }) }}
                         >
-                          <SelectTrigger className="h-8 text-xs border-border bg-background rounded-lg w-[220px]">
-                            <SelectValue placeholder={activeKind === "plastic" ? "Plastic size..." : "Standard size..."} />
+                          <SelectTrigger className="h-8 text-xs border-border bg-background rounded-lg w-[160px]">
+                            <SelectValue placeholder="Size..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">Pick size...</SelectItem>
+                            <SelectItem value="none">Size...</SelectItem>
                             {filteredEnvelopes.map((env) => (
                               <SelectItem key={env.id} value={env.id}>
-                                {env.kind === "plastic" && env.sku
-                                  ? `${env.name} (${env.sku}) -- actual ${env.width}" x ${env.height}"`
-                                  : `${env.name}${env.id !== "custom" ? ` (${env.width}" x ${env.height}")` : ""}`}
+                                {env.name}{env.sku ? ` (${env.sku})` : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        {activeKind === "plastic" && piece.envelopeId && (() => {
+                        {piece.envelopeId && piece.envelopeId !== "none" && piece.envelopeId !== "custom" && piece.envelopeId !== "p-custom" && (() => {
                           const sel = STANDARD_ENVELOPES.find((e) => e.id === piece.envelopeId)
-                          if (!sel || !sel.fitsWidth) return null
+                          if (!sel) return null
                           return (
-                            <span className="text-[10px] text-muted-foreground">
-                              Fits {sel.fitsWidth}" x {sel.fitsHeight}" insert
+                            <span className="text-[10px] text-muted-foreground" title={`Actual: ${sel.width}" x ${sel.height}"${sel.fitsWidth ? ` | Fits: ${sel.fitsWidth}" x ${sel.fitsHeight}"` : ""}`}>
+                              {sel.width}" x {sel.height}"
                             </span>
                           )
                         })()}
