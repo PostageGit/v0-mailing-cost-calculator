@@ -498,7 +498,8 @@ function AppContent() {
                     </div>
 
                     {/* Skip & Next -- separate row, always visible */}
-                    <div className="flex items-center justify-end gap-2 pb-1.5">
+                    {console.log("[v0] SKIP-DEBUG:", { currentStep, stepStatus: getStepStatus(currentStep), completedHas: completedSteps.has(currentStep), skippedHas: skippedSteps.has(currentStep), showSkip: getStepStatus(currentStep) !== "done", itemCount: items.length, postageItems: items.filter(i => i.category === "postage").length })}
+                    <div className="flex items-center justify-end gap-2 pb-1.5" style={{ border: "2px solid red" }}>
                       {stepGateFlash && (
                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap mr-1">
                           Complete or skip this step
