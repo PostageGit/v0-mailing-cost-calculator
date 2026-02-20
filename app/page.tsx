@@ -465,18 +465,29 @@ function AppContent() {
                           </button>
                         )
                       })}
-                      {(() => {
-                        const idx = visibleSteps.findIndex((s) => s.id === currentStep)
-                        if (idx < visibleSteps.length - 1) {
-                          return (
-                            <button onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
-                              className="ml-auto flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0">
-                              Next <ChevronRight className="h-3 w-3" />
-                            </button>
-                          )
-                        }
-                        return null
-                      })()}
+                      {/* Skip & Next buttons */}
+                      <div className="ml-auto flex items-center gap-1 shrink-0">
+                        {getStepStatus(currentStep) !== "done" && (
+                          <button
+                            onClick={handleSkipStep}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border border-dashed border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                          >
+                            <SkipForward className="h-3 w-3" /> Skip
+                          </button>
+                        )}
+                        {(() => {
+                          const idx = visibleSteps.findIndex((s) => s.id === currentStep)
+                          if (idx < visibleSteps.length - 1) {
+                            return (
+                              <button onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+                                Next <ChevronRight className="h-3 w-3" />
+                              </button>
+                            )
+                          }
+                          return null
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -509,25 +520,6 @@ function AppContent() {
                 <div className="flex-1 flex min-h-0 overflow-hidden">
                   <div className="flex-1 min-w-0 overflow-auto px-4 sm:px-6 pt-4 pb-8">
                     <div key={currentStep} className="step-enter">
-                      {/* Step header with skip */}
-                      {getStepStatus(currentStep) !== "done" && (
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            {skippedSteps.has(currentStep) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold">
-                                <SkipForward className="h-2.5 w-2.5" /> Skipped
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={handleSkipStep}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                          >
-                            <SkipForward className="h-3 w-3" />
-                            Skip for now
-                          </button>
-                        </div>
-                      )}
                       <StepErrorBoundary stepId={currentStep}>
                         {renderStep()}
                       </StepErrorBoundary>
