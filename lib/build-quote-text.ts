@@ -19,6 +19,20 @@ function buildFinishingLine(m: Record<string, unknown>): string {
   if (m.sides) parts.push(String(m.sides))
   if (m.hasBleed) parts.push("Bleed")
   if (m.pageCount) parts.push(m.pageCount + "pg")
+  // Score / Fold finishing
+  if (m.scoreFoldEnabled) {
+    const opLabels: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
+    const foldLabels: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion", double_gate: "Dbl Gate" }
+    const op = opLabels[String(m.scoreFoldFinishType)] || String(m.scoreFoldFinishType)
+    const ft = foldLabels[String(m.scoreFoldFoldType)] || String(m.scoreFoldFoldType)
+    const orient = m.scoreFoldOrientation ? ` (${String(m.scoreFoldOrientation).charAt(0).toUpperCase() + String(m.scoreFoldOrientation).slice(1)})` : ""
+    parts.push(`${op}: ${ft}${orient}`)
+  }
+  // Lamination
+  if (m.laminationEnabled) {
+    const lamSides = m.laminationSides === "both" ? "2-sided" : "1-sided"
+    parts.push(`Lam: ${String(m.laminationType || "Gloss")} ${lamSides}`)
+  }
   if (m.envelopeSize) parts.push("Env: " + String(m.envelopeSize))
   if (m.envelopeKind) parts.push(String(m.envelopeKind))
   if (m.production && m.production !== "inhouse") {

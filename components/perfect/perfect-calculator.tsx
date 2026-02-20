@@ -99,6 +99,8 @@ export function PerfectCalculator() {
         paperName: calcResult.insideResult.paper,
         sides: calcResult.insideResult.sides,
         pageCount: inputs.pagesPerBook,
+        laminationEnabled: calcResult.laminationType !== "none" || undefined,
+        laminationType: calcResult.laminationType !== "none" ? calcResult.laminationType : undefined,
       },
     })
   }, [calcResult, inputs, quote, effectiveTotal, perfectPiece])

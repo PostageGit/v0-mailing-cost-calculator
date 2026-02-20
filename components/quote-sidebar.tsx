@@ -140,6 +140,20 @@ function QuoteItemRow({
           if (m.sides) tags.push(String(m.sides))
           if (m.hasBleed) tags.push("Bleed")
           if (m.pageCount) tags.push(m.pageCount + "pg")
+          // Score / Fold finishing
+          if (m.scoreFoldEnabled) {
+            const opLabels: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
+            const foldLabels: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion", double_gate: "Dbl Gate" }
+            const op = opLabels[String(m.scoreFoldFinishType)] || String(m.scoreFoldFinishType)
+            const ft = foldLabels[String(m.scoreFoldFoldType)] || String(m.scoreFoldFoldType)
+            const orient = m.scoreFoldOrientation ? ` (${String(m.scoreFoldOrientation).charAt(0).toUpperCase() + String(m.scoreFoldOrientation).slice(1)})` : ""
+            tags.push(`${op}: ${ft}${orient}`)
+          }
+          // Lamination
+          if (m.laminationEnabled) {
+            const lamSides = m.laminationSides === "both" ? "2-sided" : "1-sided"
+            tags.push(`Lam: ${String(m.laminationType || "Gloss")} ${lamSides}`)
+          }
           if (m.envelopeSize) tags.push("Env: " + String(m.envelopeSize))
           if (m.envelopeKind) tags.push(String(m.envelopeKind))
           if (m.production && m.production !== "inhouse") tags.push(
