@@ -122,7 +122,7 @@ export function ServiceBuilder() {
       outerPieceType: outerPiece?.type || "",
       outerEnvelopeKind: outerPiece?.envelopeKind || "",
       innerPieceCount: innerPieces.length,
-      hasInhousePrinting: pieces.some((p) => p.production === "inhouse"),
+      hasInhousePrinting: pieces.some((p) => p.production === "inhouse" && !(p.position === 1 && outerPiece?.envelopeKind === "plastic")),
       hasFoldedPiece: pieces.some((p) => p.foldType && p.foldType !== "none"),
     })
   }, [shape, mailingQty, mailService, mailing.pieces, mailing.outerPiece])

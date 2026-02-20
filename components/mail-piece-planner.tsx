@@ -326,7 +326,10 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                               onClick={() => {
                                 // Switching kind -- clear the selected envelope since sizes differ
                                 if (piece.envelopeKind !== k) {
-                                  m.updatePiece(piece.id, { envelopeKind: k, envelopeId: undefined, width: null, height: null })
+                                  const patch: Record<string, unknown> = { envelopeKind: k, envelopeId: undefined, width: null, height: null }
+                                  // Can't print on plastic -- force production to "customer"
+                                  if (k === "plastic" && piece.position === 1) patch.production = "customer"
+                                  m.updatePiece(piece.id, patch)
                                 }
                               }}
                               className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
@@ -501,11 +504,20 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     )}
 
                     {/* Production routing */}
+                    {(() => {
+                      const isPlasticOuter = piece.position === 1 && piece.type === "envelope" && piece.envelopeKind === "plastic"
+                      const productionOptions = isPlasticOuter
+                        ? (["customer"] as const)
+                        : (["inhouse", "ohp", "both", "customer"] as const)
+                      return (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground shrink-0">Production:</span>
+                        {isPlasticOuter && (
+                          <span className="text-[10px] text-orange-600 dark:text-orange-400">No printing on plastic</span>
+                        )}
                         <div className="flex gap-1 flex-wrap">
-                          {(["inhouse", "ohp", "both", "customer"] as const).map((r) => (
+                          {productionOptions.map((r) => (
                             <button key={r} type="button"
                               onClick={() => m.updatePiece(piece.id, { production: r })}
                               className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
@@ -622,6 +634,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                         )
                       })()}
                     </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Remove button */}
