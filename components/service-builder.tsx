@@ -241,34 +241,34 @@ export function ServiceBuilder() {
   }, [inferred])
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <h3 className="text-xs font-semibold text-foreground">Services</h3>
-          <span className="text-[10px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="text-sm font-bold text-foreground">Services</h3>
+          <span className="text-xs text-muted-foreground">
             {shape} {mailingQty > 0 && `${mailingQty.toLocaleString()} pcs`}
           </span>
           {mailService && SERVICE_LABELS[mailService] && (
-            <span className="rounded bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5 py-px text-[9px] font-semibold">
+            <span className="rounded-md bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-2 py-0.5 text-xs font-semibold">
               {SERVICE_LABELS[mailService]}
             </span>
           )}
           {isPlasticOuter && (
-            <span className="rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-px text-[9px] font-semibold">
+            <span className="rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 text-xs font-semibold">
               Plastic
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {inferredNotAdded > 0 && (
-            <Button variant="default" size="sm" onClick={addAllInferred} className="h-6 text-[10px] px-2 rounded-md">
-              <Plus className="h-2.5 w-2.5 mr-0.5" />
+            <Button variant="default" size="sm" onClick={addAllInferred} className="h-8 text-xs px-3 rounded-lg">
+              <Plus className="h-3.5 w-3.5 mr-1" />
               Add All ({inferredNotAdded})
             </Button>
           )}
           {addedItems.size > 0 && (
-            <span className="text-[10px] font-bold text-foreground bg-foreground/5 rounded px-1.5 py-0.5">
+            <span className="text-sm font-bold text-foreground bg-foreground/5 rounded-lg px-3 py-1">
               ${runningTotal.toFixed(2)}
             </span>
           )}
@@ -277,11 +277,11 @@ export function ServiceBuilder() {
 
       {/* ── Detected items strip ── */}
       {neededNotAdded.length > 0 && (
-        <div className="rounded-lg border border-blue-200 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-950/10 px-2.5 py-2 space-y-1.5">
-          <p className="text-[9px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-950/10 px-3 py-2.5 space-y-2">
+          <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
             Detected for this job
           </p>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {neededNotAdded.map(({ id, reason, item }) => {
               const price = getPrice(item)
               const canAdd = price !== null && !item.referToPostage
@@ -291,21 +291,21 @@ export function ServiceBuilder() {
                   type="button"
                   onClick={() => canAdd ? addToQuote(item) : setExpandedCat(item.category)}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
                     canAdd
                       ? "border-blue-300 dark:border-blue-700 bg-white dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/50"
                       : "border-blue-200 dark:border-blue-800 bg-white/50 dark:bg-blue-950/20 text-blue-500 dark:text-blue-400"
                   )}
                   title={reason}
                 >
-                  {canAdd && <Plus className="h-2.5 w-2.5" />}
+                  {canAdd && <Plus className="h-3.5 w-3.5" />}
                   <span>{item.name}</span>
                   {canAdd && price !== null && (
-                    <span className="text-blue-400 dark:text-blue-500">
+                    <span className="text-blue-400 dark:text-blue-500 font-semibold">
                       ${calculateItemAmount(item, price, mailingQty, getQty(item)).toFixed(0)}
                     </span>
                   )}
-                  {item.referToPostage && <span className="text-blue-400 text-[9px]">see rate</span>}
+                  {item.referToPostage && <span className="text-blue-400 text-[11px]">see rate</span>}
                 </button>
               )
             })}
@@ -315,17 +315,17 @@ export function ServiceBuilder() {
 
       {/* ── Search ── */}
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-7 pl-7 text-[11px]"
+          className="h-9 pl-9 text-sm"
         />
       </div>
 
       {/* ── Category Pills ── */}
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {CATEGORY_ORDER.map((cat) => {
           const items = grouped[cat]
           if (items.length === 0) return null
@@ -341,26 +341,26 @@ export function ServiceBuilder() {
               type="button"
               onClick={() => setExpandedCat(isExpanded ? null : cat)}
               className={cn(
-                "inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-medium transition-all",
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all",
                 isExpanded
                   ? cn("border-2 shadow-sm", PILL_COLORS[cat].active)
                   : "border-border bg-background hover:bg-accent/50",
-                neededInCat > 0 && !isExpanded && "ring-1 ring-blue-300 dark:ring-blue-700"
+                neededInCat > 0 && !isExpanded && "ring-2 ring-blue-300 dark:ring-blue-700"
               )}
             >
-              <Icon className="h-3 w-3 text-muted-foreground shrink-0" />
+              <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span>{meta.label}</span>
               {neededInCat > 0 && (
-                <span className="rounded-full bg-blue-500 text-white px-1 min-w-[14px] text-center text-[8px] font-bold leading-[14px]">
+                <span className="rounded-full bg-blue-500 text-white px-1.5 min-w-[18px] text-center text-[10px] font-bold leading-[18px]">
                   {neededInCat}
                 </span>
               )}
               {addedInCat > 0 && (
-                <span className={cn("rounded-full text-white px-1 min-w-[14px] text-center text-[8px] font-bold leading-[14px]", PILL_COLORS[cat].badge)}>
+                <span className={cn("rounded-full text-white px-1.5 min-w-[18px] text-center text-[10px] font-bold leading-[18px]", PILL_COLORS[cat].badge)}>
                   {addedInCat}
                 </span>
               )}
-              {isExpanded && <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />}
+              {isExpanded && <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
             </button>
           )
         })}
@@ -368,19 +368,19 @@ export function ServiceBuilder() {
 
       {/* ── Expanded Category Panel ── */}
       {expandedCat && grouped[expandedCat] && grouped[expandedCat].length > 0 && (
-        <div className={cn("rounded-lg border-2 overflow-hidden", PILL_COLORS[expandedCat].active.split(" ")[0])}>
-          <div className={cn("px-3 py-1.5 flex items-center justify-between", PILL_COLORS[expandedCat].active.split(" ").slice(1).join(" "))}>
-            <div className="flex items-center gap-1.5">
-              {(() => { const I = ICONS[CATEGORY_META[expandedCat].icon] || MoreHorizontal; return <I className="h-3 w-3 text-muted-foreground" /> })()}
-              <span className="text-[11px] font-semibold text-foreground">
+        <div className={cn("rounded-xl border-2 overflow-hidden", PILL_COLORS[expandedCat].active.split(" ")[0])}>
+          <div className={cn("px-4 py-2 flex items-center justify-between", PILL_COLORS[expandedCat].active.split(" ").slice(1).join(" "))}>
+            <div className="flex items-center gap-2">
+              {(() => { const I = ICONS[CATEGORY_META[expandedCat].icon] || MoreHorizontal; return <I className="h-4 w-4 text-muted-foreground" /> })()}
+              <span className="text-sm font-bold text-foreground">
                 {CATEGORY_META[expandedCat].label}
               </span>
-              <span className="text-[9px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {grouped[expandedCat].length} item{grouped[expandedCat].length !== 1 ? "s" : ""}
               </span>
             </div>
-            <button type="button" onClick={() => setExpandedCat(null)} className="p-0.5 rounded hover:bg-background/50">
-              <X className="h-3 w-3 text-muted-foreground" />
+            <button type="button" onClick={() => setExpandedCat(null)} className="p-1 rounded-md hover:bg-background/50">
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
           <div className="divide-y divide-border/50 bg-background">
@@ -405,24 +405,24 @@ export function ServiceBuilder() {
 
       {/* ── Added items summary ── */}
       {addedItems.size > 0 && (
-        <div className="rounded-lg border border-emerald-200 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/10 px-2.5 py-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/10 px-3 py-2.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
               Added ({addedItems.size})
             </span>
-            <span className="text-xs font-bold text-foreground">${runningTotal.toFixed(2)}</span>
+            <span className="text-sm font-bold text-foreground">${runningTotal.toFixed(2)}</span>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {Array.from(addedItems.entries()).map(([id, entry]) => {
               const item = SERVICE_CATALOG.find((s) => s.id === id)
               return (
                 <span
                   key={id}
-                  className="inline-flex items-center gap-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 text-[9px] font-medium"
+                  className="inline-flex items-center gap-1 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 px-2 py-1 text-xs font-medium"
                 >
-                  <Check className="h-2 w-2" />
+                  <Check className="h-3 w-3" />
                   {item?.name || id}
-                  {entry.total > 0 && <span className="text-emerald-500">${entry.total.toFixed(0)}</span>}
+                  {entry.total > 0 && <span className="font-semibold text-emerald-600">${entry.total.toFixed(0)}</span>}
                 </span>
               )
             })}
@@ -433,7 +433,7 @@ export function ServiceBuilder() {
   )
 }
 
-// ─── Compact Item Row ────────────────────────────────────
+// ─── Item Row ────────────────────────────────────────────
 
 interface ServiceRowProps {
   item: ServiceItem
@@ -478,7 +478,7 @@ function ServiceRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-3 py-1 text-xs transition-colors",
+        "flex items-center gap-3 px-4 py-2.5 transition-colors",
         isAdded
           ? "bg-emerald-50/50 dark:bg-emerald-950/10"
           : isInferred
@@ -488,32 +488,32 @@ function ServiceRow({
     >
       {/* Name */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <span className={cn(
-            "text-[11px] font-medium truncate",
+            "text-sm font-medium truncate",
             isAdded && "text-emerald-700 dark:text-emerald-400",
             isInferred && !isAdded && "text-blue-700 dark:text-blue-400"
           )}>
             {item.name}
           </span>
           {isInferred && !isAdded && (
-            <span className="shrink-0 text-[8px] font-bold rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-1 cursor-help" title={inferredReason || ""}>
+            <span className="shrink-0 text-[10px] font-bold rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 cursor-help" title={inferredReason || ""}>
               NEEDED
             </span>
           )}
-          {isAdded && <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />}
+          {isAdded && <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
         </div>
       </div>
 
       {/* Price */}
-      <div className="w-16 shrink-0">
+      <div className="w-20 shrink-0">
         {item.referToPostage ? (
-          <span className="text-[9px] text-teal-600 dark:text-teal-400 font-medium">See Rate</span>
+          <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">See Rate</span>
         ) : item.defaultPrice !== null ? (
           <Input
             type="number"
             step="0.01"
-            className="h-5 text-[10px] text-right px-1 w-full"
+            className="h-8 text-sm text-right px-2 w-full"
             value={effectivePrice ?? ""}
             onChange={(e) => onSetPrice(parseFloat(e.target.value) || 0)}
           />
@@ -522,7 +522,7 @@ function ServiceRow({
             type="number"
             step="0.01"
             placeholder="Price"
-            className="h-5 text-[10px] text-right px-1 w-full"
+            className="h-8 text-sm text-right px-2 w-full"
             value={customPrice ?? ""}
             onChange={(e) => onSetPrice(parseFloat(e.target.value) || 0)}
           />
@@ -530,22 +530,22 @@ function ServiceRow({
       </div>
 
       {/* Unit */}
-      <span className="w-14 shrink-0 text-[9px] text-muted-foreground text-center">
+      <span className="w-16 shrink-0 text-xs text-muted-foreground text-center">
         {formatPriceUnit(item.priceUnit)}
       </span>
 
       {/* Qty */}
-      <div className="w-12 shrink-0">
+      <div className="w-14 shrink-0">
         {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" ? (
           <Input
             type="number"
             min={1}
-            className="h-5 text-[10px] text-center px-0.5 w-full"
+            className="h-8 text-sm text-center px-1 w-full"
             value={effectiveQty}
             onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
           />
         ) : (
-          <span className="block text-center text-[9px] text-muted-foreground">
+          <span className="block text-center text-xs text-muted-foreground">
             {item.priceUnit === "1000"
               ? `x${Math.ceil(mailingQty / 1000)}`
               : `x${mailingQty > 0 ? mailingQty.toLocaleString() : "--"}`}
@@ -554,32 +554,32 @@ function ServiceRow({
       </div>
 
       {/* Total */}
-      <div className="w-14 shrink-0 text-right">
+      <div className="w-20 shrink-0 text-right">
         {displayTotal !== null ? (
-          <span className="text-[11px] font-semibold">${displayTotal.toFixed(2)}</span>
+          <span className="text-sm font-bold">${displayTotal.toFixed(2)}</span>
         ) : item.referToPostage ? (
-          <span className="text-[9px] text-muted-foreground">--</span>
+          <span className="text-xs text-muted-foreground">--</span>
         ) : (
-          <span className="text-[9px] text-muted-foreground italic">set price</span>
+          <span className="text-xs text-muted-foreground italic">set price</span>
         )}
       </div>
 
       {/* Add */}
-      <div className="w-6 shrink-0 flex justify-center">
+      <div className="w-8 shrink-0 flex justify-center">
         {isAdded ? (
-          <div className="h-5 w-5 rounded bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-            <Check className="h-2.5 w-2.5 text-emerald-600" />
+          <div className="h-7 w-7 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+            <Check className="h-4 w-4 text-emerald-600" />
           </div>
         ) : (
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5"
+            className="h-7 w-7"
             disabled={needsCustomPrice || item.referToPostage}
             onClick={onAdd}
             title={needsCustomPrice ? "Enter a price first" : "Add to quote"}
           >
-            <Plus className="h-2.5 w-2.5" />
+            <Plus className="h-4 w-4" />
           </Button>
         )}
       </div>
