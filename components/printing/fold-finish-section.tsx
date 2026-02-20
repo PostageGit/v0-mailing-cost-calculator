@@ -17,7 +17,9 @@ import {
   calculateFoldFinish,
   DEFAULT_FOLD_SETTINGS,
   type FoldFinishingSettings,
+  type FoldAlternative,
 } from "@/lib/finishing-fold-engine"
+import { ArrowRight, Lightbulb, AlertTriangle, Info } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -46,6 +48,16 @@ export function FoldFinishSection({
 
   function update(patch: Partial<typeof ff>) {
     onInputsChange({ ...inputs, foldFinish: { ...ff, ...patch } })
+  }
+
+  function applyAlternative(alt: FoldAlternative) {
+    const newFf = { ...ff }
+    const newInputs = { ...inputs }
+    if (alt.finishType) newFf.finishType = alt.finishType
+    if (alt.foldType) newFf.foldType = alt.foldType
+    if (alt.paperName) newInputs.paperName = alt.paperName
+    newInputs.foldFinish = newFf
+    onInputsChange(newInputs)
   }
 
   // Compute live preview
@@ -224,44 +236,79 @@ export function FoldFinishSection({
                 </div>
               </div>
 
-              {/* Warnings */}
-              {preview.warnings.length > 0 && (
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 space-y-1">
-                  {preview.warnings.map((w, i) => (
-                    <p
-                      key={i}
-                      className="text-[11px] text-amber-700 dark:text-amber-400 font-medium"
-                    >
-                      {w}
-                    </p>
-                  ))}
+              {/* Status notices */}
+              {preview.resolution === "hand" && (
+                <div className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-2.5 flex items-start gap-2">
+                  <Info className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-sky-700 dark:text-sky-400 font-medium">
+                    Machine fold not available -- hand fold pricing applied at ${settings.handFoldHourlyRate}/hr.
+                  </p>
+                </div>
+              )}
+              {preview.resolution === "score_only" && (
+                <div className="rounded-lg bg-violet-500/10 border border-violet-500/20 px-3 py-2.5 flex items-start gap-2">
+                  <Info className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-violet-700 dark:text-violet-400 font-medium">
+                    Score only -- machine fold not available. Price covers scoring; customer folds by hand.
+                  </p>
                 </div>
               )}
 
-              {/* Suggestion (auto-upgrade) */}
+              {/* Warnings */}
+              {preview.warnings.length > 0 && (preview.resolution === "na" ? (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 flex items-start gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div className="space-y-0.5">
+                    {preview.warnings.map((w, i) => (
+                      <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{w}</p>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 space-y-0.5">
+                  {preview.warnings.map((w, i) => (
+                    <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{w}</p>
+                  ))}
+                </div>
+              ))}
+
+              {/* Auto-upgrade suggestion */}
               {preview.suggestion && (
-                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2.5 flex items-start gap-2">
+                  <Lightbulb className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                   <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
                     {preview.suggestion}
                   </p>
                 </div>
               )}
 
-              {/* Hand fold / Score only notices */}
-              {preview.resolution === "hand" && (
-                <div className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-2">
-                  <p className="text-[11px] text-sky-700 dark:text-sky-400 font-medium">
-                    Machine fold N/A for this paper/size -- hand fold pricing
-                    applied at ${settings.handFoldHourlyRate}/hr.
-                  </p>
-                </div>
-              )}
-              {preview.resolution === "score_only" && (
-                <div className="rounded-lg bg-violet-500/10 border border-violet-500/20 px-3 py-2">
-                  <p className="text-[11px] text-violet-700 dark:text-violet-400 font-medium">
-                    Score only -- no machine fold available for this
-                    combination. Price includes scoring, customer folds by hand.
-                  </p>
+              {/* Actionable alternatives */}
+              {preview.alternatives.length > 0 && (
+                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Lightbulb className="h-3.5 w-3.5 text-foreground" />
+                    <p className="text-[11px] font-bold text-foreground">Available alternatives</p>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {preview.alternatives.map((alt, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => applyAlternative(alt)}
+                        className={cn(
+                          "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all",
+                          "border-border bg-card hover:bg-muted/60 hover:border-foreground/30 hover:shadow-sm",
+                          "group",
+                        )}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[12px] font-semibold text-foreground">{alt.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{alt.description}</span>
+                        </div>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

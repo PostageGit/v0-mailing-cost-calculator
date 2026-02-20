@@ -320,6 +320,131 @@ function mapFoldTypeToDataKey(foldType: string): string {
   }
 }
 
+// ── ALTERNATIVES FINDER ──
+function findAlternatives(
+  openWidth: number,
+  openHeight: number,
+  qty: number,
+  paperName: string,
+  currentFinishType: string,
+  currentFoldType: string,
+  isBroker: boolean,
+  cfg: FoldFinishingSettings,
+): FoldAlternative[] {
+  const alts: FoldAlternative[] = []
+  const paperMap = mapPaperToFoldKey(paperName)
+
+  // 1. Try switching finish type (fold <-> score_and_fold <-> score_only)
+  const otherFinishTypes = [
+    { id: "fold", label: "Fold", cat: "folding" as FoldCategory },
+    { id: "score_and_fold", label: "Score & Fold", cat: "sf" as FoldCategory },
+    { id: "score_only", label: "Score Only", cat: "sf" as FoldCategory },
+  ].filter((ft) => ft.id !== currentFinishType)
+
+  for (const ft of otherFinishTypes) {
+    const pk = ft.cat === "folding" ? paperMap.foldKey : paperMap.sfKey
+    if (!pk) continue
+    const sk = matchFoldSize(openWidth, openHeight, ft.cat)
+    const dk = mapFoldTypeToDataKey(currentFoldType)
+    const fdk = ft.cat === "sf" ? `Score & ${dk}` : dk
+    const resolved = resolveFinishEntry(ft.cat, pk, sk, fdk)
+    if (resolved.status === "ok" || resolved.status === "score_only") {
+      // Try pricing
+      if (resolved.entry) {
+        const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
+        if (pr) {
+          const price = isBroker ? pr.broker : pr.retail
+          alts.push({
+            type: "switch_finish",
+            label: `Switch to ${ft.label}`,
+            description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} with ${ft.label}`,
+            finishType: ft.id,
+          })
+        }
+      }
+    }
+  }
+
+  // 2. Try alternative papers
+  const paperSuggestions: { name: string; cat: FoldCategory; key: string }[] = []
+  // If current paper is cover/cardstock, suggest text papers for fold
+  if (!paperMap.foldKey && paperMap.sfKey) {
+    paperSuggestions.push(
+      { name: "80lb Text Gloss", cat: "folding", key: "80text_60_70" },
+      { name: "100lb Text Gloss", cat: "folding", key: "100text" },
+    )
+  }
+  // If current paper is text, suggest cover papers for score & fold
+  if (paperMap.foldKey && !paperMap.sfKey) {
+    paperSuggestions.push(
+      { name: "80 Cover Gloss", cat: "sf", key: "100text_80cover" },
+    )
+  }
+  // Also try within the same category with different paper weights
+  if (paperMap.sfKey === "cardstock") {
+    paperSuggestions.push({ name: "80 Cover Gloss", cat: "sf", key: "100text_80cover" })
+  }
+  if (paperMap.sfKey === "100text_80cover") {
+    paperSuggestions.push({ name: "12pt Gloss", cat: "sf", key: "cardstock" })
+  }
+
+  for (const ps of paperSuggestions) {
+    const cat: FoldCategory = currentFinishType === "fold" ? "folding" : "sf"
+    const pk = cat === ps.cat ? ps.key : null
+    if (!pk) continue
+    const sk = matchFoldSize(openWidth, openHeight, cat)
+    const dk = mapFoldTypeToDataKey(currentFoldType)
+    const fdk = cat === "sf" ? `Score & ${dk}` : dk
+    const resolved = resolveFinishEntry(cat, pk, sk, fdk)
+    if (resolved.status === "ok" || resolved.status === "score_only") {
+      if (resolved.entry) {
+        const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
+        if (pr) {
+          const price = isBroker ? pr.broker : pr.retail
+          alts.push({
+            type: "switch_paper",
+            label: `Use ${ps.name}`,
+            description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} on ${ps.name}`,
+            paperName: ps.name,
+          })
+        }
+      }
+    }
+  }
+
+  // 3. Try simpler fold types if current is complex
+  const simplerFolds = [
+    { id: "half", label: "Fold in Half" },
+    { id: "tri", label: "Tri-Fold" },
+  ].filter((f) => f.id !== currentFoldType)
+
+  for (const sf of simplerFolds) {
+    const cat: FoldCategory = currentFinishType === "fold" ? "folding" : "sf"
+    const pk = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
+    if (!pk) continue
+    const sk = matchFoldSize(openWidth, openHeight, cat)
+    const dk = mapFoldTypeToDataKey(sf.id)
+    const fdk = cat === "sf" ? `Score & ${dk}` : dk
+    const resolved = resolveFinishEntry(cat, pk, sk, fdk)
+    if (resolved.status === "ok") {
+      if (resolved.entry) {
+        const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
+        if (pr) {
+          const price = isBroker ? pr.broker : pr.retail
+          alts.push({
+            type: "switch_fold",
+            label: `Use ${sf.label}`,
+            description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} with ${sf.label}`,
+            foldType: sf.id,
+          })
+        }
+      }
+    }
+  }
+
+  return alts
+}
+
 // ── HIGH-LEVEL API ──
 export interface FoldFinishInput {
   openWidth: number
@@ -330,6 +455,16 @@ export interface FoldFinishInput {
   foldType: string
   isBroker: boolean
   orientation: "width" | "height"
+}
+
+export interface FoldAlternative {
+  type: "switch_finish" | "switch_paper" | "switch_fold"
+  label: string
+  description: string
+  /** Values to apply if clicked */
+  finishType?: string
+  paperName?: string
+  foldType?: string
 }
 
 export interface FoldFinishResult {
@@ -346,6 +481,8 @@ export interface FoldFinishResult {
   resolution: "ok" | "hand" | "score_only" | "na"
   /** The level auto-detected from the data (1-5), null if N/A or hand */
   autoLevel: number | null
+  /** Actionable alternatives when combo is unavailable */
+  alternatives: FoldAlternative[]
 }
 
 export function calculateFoldFinish(
@@ -362,15 +499,14 @@ export function calculateFoldFinish(
   const paperLabel = cat === "folding" ? "text" : (paperKey === "cardstock" ? "cardstock" : "cover")
 
   if (!paperKey) {
+    const alts = findAlternatives(openWidth, openHeight, qty, paperName, finishType, foldType, isBroker, cfg)
     return {
       baseCost: 0, setupCost: 0, sellPrice: 0,
       isMinApplied: false, isLongSheet: false,
       warnings: [`${finishType === "fold" ? "Folding" : "Score & Fold"} not available for ${paperName}`],
-      suggestion: finishType === "fold"
-        ? "This paper may require scoring. Try Score & Fold."
-        : "This paper may only need folding. Try Fold.",
-      foldedDimensions: null,       matchedSize: "N/A", paperCategory: paperLabel,
-      resolution: "na", autoLevel: null,
+      suggestion: null,
+      foldedDimensions: null, matchedSize: "N/A", paperCategory: paperLabel,
+      resolution: "na", autoLevel: null, alternatives: alts,
     }
   }
 
@@ -403,6 +539,7 @@ export function calculateFoldFinish(
   const warnings = validationWarnings.map((w) => w.message)
 
   if (resolved.status === "na") {
+    const alts = findAlternatives(openWidth, openHeight, qty, paperName, finishType, foldType, isBroker, cfg)
     return {
       baseCost: 0, setupCost: 0, sellPrice: 0,
       isMinApplied: false, isLongSheet: isLong,
@@ -410,7 +547,7 @@ export function calculateFoldFinish(
       suggestion: null,
       foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
-      resolution: "na", autoLevel: null,
+      resolution: "na", autoLevel: null, alternatives: alts,
     }
   }
 
@@ -419,6 +556,7 @@ export function calculateFoldFinish(
     const estimatedMinutes = (qty / 500) * 60 // rough: 500 pieces/hr
     const handCost = (estimatedMinutes / 60) * cfg.handFoldHourlyRate
     const sellPrice = Math.max(handCost * (1 + cfg.markupPercent / 100), cfg.minimumJobPrice)
+    const alts = findAlternatives(openWidth, openHeight, qty, paperName, finishType, foldType, isBroker, cfg)
     return {
       baseCost: handCost, setupCost: 0, sellPrice: isBroker ? sellPrice * (1 - cfg.brokerDiscountPercent / 100) : sellPrice,
       isMinApplied: sellPrice === cfg.minimumJobPrice,
@@ -427,7 +565,7 @@ export function calculateFoldFinish(
       suggestion: null,
       foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
-      resolution: "hand", autoLevel: null,
+      resolution: "hand", autoLevel: null, alternatives: alts,
     }
   }
 
@@ -436,6 +574,7 @@ export function calculateFoldFinish(
   const priceResult = calculateFoldPrice(entry, qty, isLong, cfg)
 
   if (!priceResult) {
+    const alts = findAlternatives(openWidth, openHeight, qty, paperName, finishType, foldType, isBroker, cfg)
     return {
       baseCost: 0, setupCost: 0, sellPrice: 0,
       isMinApplied: false, isLongSheet: isLong,
@@ -443,7 +582,7 @@ export function calculateFoldFinish(
       suggestion: null,
       foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
-      resolution: "na", autoLevel: null,
+      resolution: "na", autoLevel: null, alternatives: alts,
     }
   }
 
@@ -476,5 +615,6 @@ export function calculateFoldFinish(
     paperCategory: paperLabel,
     resolution: resolved.status,
     autoLevel: priceResult.level,
+    alternatives: [],
   }
 }
