@@ -88,6 +88,9 @@ export function PrintingForm({
                   onInputsChange({ ...inputs, qty: parseInt(e.target.value) || 0 })
                 }
               />
+              {v.attempted && !inputs.qty && (
+                <p className="text-[10px] text-destructive font-medium">Enter quantity</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="print-width" className="text-sm font-medium text-foreground">
@@ -107,6 +110,9 @@ export function PrintingForm({
                   onInputsChange({ ...inputs, width: parseFloat(e.target.value) || 0 })
                 }
               />
+              {v.attempted && !inputs.width && (
+                <p className="text-[10px] text-destructive font-medium">Enter width</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="print-height" className="text-sm font-medium text-foreground">
@@ -126,6 +132,9 @@ export function PrintingForm({
                   onInputsChange({ ...inputs, height: parseFloat(e.target.value) || 0 })
                 }
               />
+              {v.attempted && !inputs.height && (
+                <p className="text-[10px] text-destructive font-medium">Enter height</p>
+              )}
             </div>
           </div>
 
@@ -147,6 +156,9 @@ export function PrintingForm({
                   ))}
                 </SelectContent>
               </Select>
+              {v.attempted && !inputs.paperName && (
+                <p className="text-[10px] text-destructive font-medium">Select a paper type</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="print-sides" className="text-sm font-medium text-foreground">
@@ -168,6 +180,9 @@ export function PrintingForm({
                   ))}
                 </SelectContent>
               </Select>
+              {v.attempted && !inputs.sidesValue && (
+                <p className="text-[10px] text-destructive font-medium">Select sides</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="bleed-checkbox" className="text-sm font-medium text-foreground">Bleed</label>
@@ -244,6 +259,15 @@ export function PrintingForm({
               <span className="text-[10px] text-muted-foreground">(Level 10 default)</span>
             )}
           </div>
+
+          {/* Validation summary */}
+          {v.attempted && (!inputs.qty || !inputs.width || !inputs.height || !inputs.paperName || !inputs.sidesValue) && (
+            <div className="mb-3 rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2">
+              <p className="text-[11px] text-destructive font-medium">
+                Please fill in the highlighted fields above to calculate pricing.
+              </p>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">

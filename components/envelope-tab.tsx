@@ -236,6 +236,9 @@ export function EnvelopeTab() {
                 Rounds to {(Math.ceil(inputs.amount / 50) * 50).toLocaleString()} (nearest 50)
               </span>
             )}
+            {v.attempted && !inputs.amount && (
+              <p className="text-[10px] text-destructive font-medium">Enter quantity</p>
+            )}
           </div>
 
           {/* Item selection */}
@@ -260,6 +263,9 @@ export function EnvelopeTab() {
                 ))}
               </SelectContent>
             </Select>
+            {v.attempted && !inputs.itemName && (
+              <p className="text-[10px] text-destructive font-medium">Select an envelope</p>
+            )}
           </div>
 
           {/* Custom env cost (for Provided stock) */}

@@ -136,6 +136,7 @@ export function SpiralForm({
             value={inputs.bookQty || ""}
             onChange={(e) => update({ bookQty: parseInt(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.bookQty && <p className="text-[10px] text-destructive font-medium">Enter quantity</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-pages" className="text-sm font-medium text-foreground">
@@ -149,6 +150,7 @@ export function SpiralForm({
             value={inputs.pagesPerBook || ""}
             onChange={(e) => update({ pagesPerBook: parseInt(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.pagesPerBook && <p className="text-[10px] text-destructive font-medium">Enter page count</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-page-w" className="text-sm font-medium text-foreground">
@@ -162,6 +164,7 @@ export function SpiralForm({
             value={inputs.pageWidth || ""}
             onChange={(e) => update({ pageWidth: parseFloat(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.pageWidth && <p className="text-[10px] text-destructive font-medium">Enter width</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="spiral-page-h" className="text-sm font-medium text-foreground">
@@ -175,6 +178,7 @@ export function SpiralForm({
             value={inputs.pageHeight || ""}
             onChange={(e) => update({ pageHeight: parseFloat(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.pageHeight && <p className="text-[10px] text-destructive font-medium">Enter height</p>}
         </div>
       </div>
 
@@ -256,6 +260,14 @@ export function SpiralForm({
       {validationError && v.attempted && (
         <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">
           {validationError}
+        </div>
+      )}
+
+      {v.attempted && (!inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) && !validationError && (
+        <div className="mb-3 rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2">
+          <p className="text-[11px] text-destructive font-medium">
+            Please fill in the highlighted fields above to calculate pricing.
+          </p>
         </div>
       )}
 

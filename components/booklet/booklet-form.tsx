@@ -88,6 +88,7 @@ export function BookletForm({
             value={inputs.bookQty || ""}
             onChange={(e) => updateInputs({ bookQty: parseInt(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.bookQty && <p className="text-[10px] text-destructive font-medium">Enter quantity</p>}
         </div>
         <div className="flex flex-col gap-1.5">
 <label htmlFor="pages-per-book" className="text-sm font-medium text-foreground">
@@ -102,6 +103,7 @@ export function BookletForm({
             onChange={(e) => updateInputs({ pagesPerBook: parseInt(e.target.value) || 0 })}
           />
           {pagesError && <p className="text-destructive text-xs">{pagesError}</p>}
+          {v.attempted && !inputs.pagesPerBook && !pagesError && <p className="text-[10px] text-destructive font-medium">Enter page count</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="page-width" className="text-sm font-medium text-foreground">
@@ -114,6 +116,7 @@ export function BookletForm({
             value={inputs.pageWidth || ""}
             onChange={(e) => updateInputs({ pageWidth: parseFloat(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.pageWidth && <p className="text-[10px] text-destructive font-medium">Enter width</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="page-height" className="text-sm font-medium text-foreground">
@@ -126,6 +129,7 @@ export function BookletForm({
             value={inputs.pageHeight || ""}
             onChange={(e) => updateInputs({ pageHeight: parseFloat(e.target.value) || 0 })}
           />
+          {v.attempted && !inputs.pageHeight && <p className="text-[10px] text-destructive font-medium">Enter height</p>}
         </div>
       </div>
 
@@ -281,6 +285,14 @@ export function BookletForm({
       {validationError && v.attempted && (
         <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg mb-4">
           {validationError}
+        </div>
+      )}
+
+      {v.attempted && (!inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) && !validationError && (
+        <div className="mb-3 rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2">
+          <p className="text-[11px] text-destructive font-medium">
+            Please fill in the highlighted fields above to calculate pricing.
+          </p>
         </div>
       )}
 
