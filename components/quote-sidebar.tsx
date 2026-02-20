@@ -208,6 +208,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   const {
     items, projectName, customerId, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote, ensureSaved,
+    contactName, referenceNumber, quantity,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
@@ -240,13 +241,19 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   const hasItems = items.length > 0
 
   const handleCopy = useCallback(async () => {
-    const text = buildQuoteText(items, projectName || undefined)
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch { /* fallback */ }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [items, projectName])
+  const text = buildQuoteText({
+    items,
+    projectName: projectName || undefined,
+    customerName: contactName || undefined,
+    referenceNumber: referenceNumber || undefined,
+    quantity: quantity || undefined,
+  })
+  try {
+  await navigator.clipboard.writeText(text)
+  } catch { /* fallback */ }
+  setCopied(true)
+  setTimeout(() => setCopied(false), 2000)
+  }, [items, projectName, contactName, referenceNumber, quantity])
 
   const saveText = isSaving
     ? "Saving..."

@@ -32,54 +32,58 @@ function buildFinishingLine(m: Record<string, unknown>): string {
   return parts.join(", ")
 }
 
+export interface QuoteTextOptions {
+  items: TextItem[]
+  projectName?: string
+  customerName?: string
+  referenceNumber?: string
+  quantity?: number
+  notes?: string
+}
+
 /**
  * Builds clean plain-text quote output for email / clipboard.
  *
- * Format matches the design spec:
- *   Quote Summary
- *   ------------------------------
- *   PRINTING
- *   Flat Printing
- *   1,000 - 4x6 Flat Prints, 10pt Gloss, 4/0,
- *   $101.63
- *   ----
- *   PRINTING
- *   Fold & Staple
- *   1,000 - 48pg Booklet, 8.5x11 ...
- *   $4,672.00
- *
- *   ------------------------------
- *   Postage / USPS
- *   Postage - Standard (1,000 pc) / Postcard, $0.46/pc
- *   $460.00
- *
- *   ------------------------------
- *   List Work & Mailing Labor
- *   1,000 pc Postcard - Standard, Addressing, Computer Work
- *   $350.00
- *   ------------------------------
- *   TOTAL: $5,583.63
+ * Order:
+ *  1. Company header (name, address, phone, email)
+ *  2. Date/time copied
+ *  3. Job info (name, customer, ref #, quantity)
+ *  4. Line items by category with finishing specs
+ *  5. Total
  */
-export function buildQuoteText(
-  items: TextItem[],
-  projectName?: string,
-  notes?: string
-): string {
+export function buildQuoteText(opts: QuoteTextOptions): string {
+  const { items, projectName, customerName, referenceNumber, quantity, notes } = opts
   const lines: string[] = []
   const divider = "------------------------------"
   const miniDivider = "----"
 
-  // Header
-  lines.push(projectName ? `Quote Summary - ${projectName}` : "Quote Summary")
+  // ── 1. Company header ──
+  lines.push(COMPANY.name)
+  lines.push(COMPANY.fullAddress)
+  lines.push(`${COMPANY.phone} | ${COMPANY.email}`)
   lines.push(divider)
 
-  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect"]
-  const OTHER_CATS: QuoteCategory[] = ["postage", "listwork"]
+  // ── 2. Date / time ──
+  const now = new Date()
+  lines.push(`Date: ${now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} at ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`)
+  lines.push("")
+
+  // ── 3. Job info ──
+  if (projectName) lines.push(`Job: ${projectName}`)
+  if (customerName) lines.push(`Customer: ${customerName}`)
+  if (referenceNumber) lines.push(`PO / Ref #: ${referenceNumber}`)
+  if (quantity) lines.push(`Quantity: ${quantity.toLocaleString()}`)
+  if (projectName || customerName || referenceNumber || quantity) {
+    lines.push(divider)
+  }
+
+  // ── 4. Line items ──
+  const PRINT_CATS: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad"]
+  const OTHER_CATS: QuoteCategory[] = ["envelope", "postage", "listwork", "item", "ohp"]
 
   // --- PRINTING super-group ---
   const printItems = items.filter((i) => PRINT_CATS.includes(i.category))
   if (printItems.length > 0) {
-    // Group by category within printing
     const grouped: Record<string, TextItem[]> = {}
     for (const item of printItems) {
       if (!grouped[item.category]) grouped[item.category] = []
@@ -90,15 +94,10 @@ export function buildQuoteText(
     catKeys.forEach((cat, catIdx) => {
       const catItems = grouped[cat]
       catItems.forEach((item, itemIdx) => {
-        // Add mini-divider between items (not before the first)
-        if (catIdx > 0 || itemIdx > 0) {
-          lines.push(miniDivider)
-        }
+        if (catIdx > 0 || itemIdx > 0) lines.push(miniDivider)
         lines.push("PRINTING")
         lines.push(getCategoryLabel(cat))
-        if (item.description) {
-          lines.push(item.description)
-        }
+        if (item.description) lines.push(item.description)
         if (item.metadata) {
           const finishing = buildFinishingLine(item.metadata)
           if (finishing) lines.push(`  Specs: ${finishing}`)
@@ -106,37 +105,31 @@ export function buildQuoteText(
         lines.push(formatCurrency(item.amount))
       })
     })
-
     lines.push("")
     lines.push(divider)
   }
 
-  // --- Other categories (Postage, Labor) ---
+  // --- Other categories ---
   for (const cat of OTHER_CATS) {
     const catItems = items.filter((i) => i.category === cat)
     if (catItems.length === 0) continue
 
     const label = getCategoryLabel(cat)
     catItems.forEach((item, idx) => {
-      if (idx > 0) {
-        lines.push(miniDivider)
-      }
+      if (idx > 0) lines.push(miniDivider)
       lines.push(label)
-      if (item.description) {
-        lines.push(item.description)
-      }
+      if (item.description) lines.push(item.description)
       if (item.metadata) {
         const finishing = buildFinishingLine(item.metadata)
         if (finishing) lines.push(`  Specs: ${finishing}`)
       }
       lines.push(formatCurrency(item.amount))
     })
-
     lines.push("")
     lines.push(divider)
   }
 
-  // --- Total ---
+  // ── 5. Total ──
   const total = items.reduce((s, i) => s + i.amount, 0)
   lines.push(`TOTAL: ${formatCurrency(total)}`)
 
@@ -145,11 +138,6 @@ export function buildQuoteText(
     lines.push(notes)
   }
 
-  lines.push("")
-  lines.push(divider)
-  lines.push(COMPANY.name)
-  lines.push(COMPANY.fullAddress)
-  lines.push(`${COMPANY.phone} | ${COMPANY.email}`)
   lines.push("")
   return lines.join("\n")
 }

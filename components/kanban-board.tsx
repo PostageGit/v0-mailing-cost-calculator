@@ -1666,7 +1666,14 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
       onSaved(); onClose()
     } finally { setSaving(false) }
   }
-  const buildPlainText = () => buildQuoteText(editItems, name || undefined, notes || undefined)
+  const buildPlainText = () => buildQuoteText({
+  items: editItems,
+  projectName: name || undefined,
+  customerName: quote.contact_name || undefined,
+  referenceNumber: quote.reference_number || undefined,
+  quantity: quote.quantity || undefined,
+  notes: notes || undefined,
+})
   const handleCopy = async () => {
     const text = buildPlainText()
     try { await navigator.clipboard.writeText(text) } catch { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta) }
