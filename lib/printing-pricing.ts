@@ -429,7 +429,6 @@ export function buildFullResult(
   // ENTIRE job total (printing + cutting + finishing + fold + lamination).
   // Only suggest if the total is genuinely cheaper.
   let paperUpgradeSuggestion: FullPrintingResult["paperUpgradeSuggestion"] = null
-  const ff = inputs.foldFinish
   if (ff?.enabled && ff.finishType && ff.foldType) {
     const currentTotal = grandTotal
     // Papers to try: same category or adjacent category
