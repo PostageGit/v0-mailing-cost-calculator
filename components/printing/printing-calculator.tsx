@@ -255,6 +255,9 @@ export function PrintingCalculator() {
     if (!fullResult) return
     const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal
+    // Build finishing metadata
+    const ff = inputs.foldFinish
+    const lam = inputs.lamination
     quote.addItem({
       category: "flat",
       label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
@@ -270,6 +273,15 @@ export function PrintingCalculator() {
         paperName: inputs.paperName,
         sides: inputs.sidesValue,
         hasBleed: inputs.hasBleed || undefined,
+        // Score / Fold finishing
+        scoreFoldEnabled: ff?.enabled || undefined,
+        scoreFoldFinishType: ff?.enabled ? ff.finishType : undefined,
+        scoreFoldFoldType: ff?.enabled ? ff.foldType : undefined,
+        scoreFoldOrientation: ff?.enabled ? ff.orientation : undefined,
+        // Lamination
+        laminationEnabled: lam?.enabled || undefined,
+        laminationType: lam?.enabled ? lam.type : undefined,
+        laminationSides: lam?.enabled ? lam.sides : undefined,
       },
     })
   }, [fullResult, inputs, quote, effectiveTotal, activePiece])
