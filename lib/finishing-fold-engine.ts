@@ -595,7 +595,7 @@ export function calculateFoldFinish(
   const upgrade = findAutoUpgrade(cat, paperKey, sizeKey, finishDataKey, qty, isLong, cfg)
   if (upgrade) {
     const upgradeSell = isBroker ? upgrade.upgradedPrice.broker : upgrade.upgradedPrice.retail
-    suggestion = `Upgrade to ${upgrade.upgradedPaperLabel}: save $${upgrade.savings.toFixed(2)} (${isBroker ? "broker" : "retail"}: $${upgradeSell.toFixed(2)} vs $${sellPrice.toFixed(2)})`
+    suggestion = `${upgrade.upgradedPaperLabel} has a lower fold setup (Level ${upgrade.upgradedEntry.l} vs Level ${entry.l}). Finishing would be $${Math.max(upgradeSell, cfg.minimumJobPrice).toFixed(2)} vs $${finalPrice.toFixed(2)} -- but check total job cost since printing price may differ.`
   }
 
   if (resolved.status === "score_only") {
