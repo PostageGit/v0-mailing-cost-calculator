@@ -531,6 +531,7 @@ function AppContent() {
                         }
                         return null
                       })()}
+                    </div>
                   </div>
                 </div>
 
