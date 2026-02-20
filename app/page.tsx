@@ -495,19 +495,20 @@ function AppContent() {
                         })}
                       </div>
 
-                      {/* Skip & Next -- always visible, outside scroll */}
-                      <div className="flex items-center gap-2 shrink-0 pl-3 border-l border-border/40 ml-2">
+                      {/* Skip & Next -- pinned right, outside scroll */}
+                      <div className="flex items-center gap-1 shrink-0 pl-2 ml-1">
                         {stepGateFlash && (
-                          <span className="text-[10px] text-muted-foreground font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap">
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap mr-1">
                             Complete or skip this step
                           </span>
                         )}
                         {getStepStatus(currentStep) !== "done" && (
                           <button
                             onClick={handleSkipStep}
-                            className="text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors whitespace-nowrap group"
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors whitespace-nowrap"
                           >
-                            skip
+                            <SkipForward className="h-3 w-3" />
+                            Skip
                           </button>
                         )}
                         {(() => {
@@ -517,12 +518,12 @@ function AppContent() {
                             return (
                               <button onClick={handleNextStep}
                                 className={cn(
-                                  "flex items-center gap-0.5 text-[11px] font-medium transition-colors whitespace-nowrap",
+                                  "flex items-center gap-0.5 px-2 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap",
                                   canGo
-                                    ? "text-muted-foreground hover:text-foreground"
+                                    ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
                                     : "text-muted-foreground/30 cursor-not-allowed"
                                 )}>
-                                next <ChevronRight className="h-3 w-3" />
+                                Next <ChevronRight className="h-3 w-3" />
                               </button>
                             )
                           }
