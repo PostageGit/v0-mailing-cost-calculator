@@ -95,6 +95,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   )
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [continueAttempted, setContinueAttempted] = useState(false)
   const [showAddContact, setShowAddContact] = useState(false)
   const [newContactName, setNewContactName] = useState("")
   const [newContactEmail, setNewContactEmail] = useState("")
@@ -144,6 +145,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
     }
   }
   const canContinue = continueBlockers.length === 0
+  // Auto-clear validation state when all blockers are resolved
+  if (continueAttempted && canContinue) setContinueAttempted(false)
 
   // Summary of what steps will be shown
   const stepSummary: string[] = []
@@ -272,7 +275,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
-                <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => { const v = parseInt(e.target.value) || 0; m.setQuantity(v); q.setQuantity(v) }} className="h-9 text-sm border-border bg-background rounded-xl font-mono" />
+                <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => { const v = parseInt(e.target.value) || 0; m.setQuantity(v); q.setQuantity(v) }} className={cn("h-9 text-sm border-border bg-background rounded-xl font-mono", continueAttempted && !m.quantity && "ring-2 ring-destructive/50 border-destructive/40")} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>
@@ -385,8 +388,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
         </div>
 
         {/* Empty state */}
-        {m.pieces.length === 0 && (
-          <div className="text-center py-12 border-2 border-dashed border-border/60 rounded-2xl">
+  {m.pieces.length === 0 && (
+  <div className={cn("text-center py-12 border-2 border-dashed rounded-2xl transition-colors", continueAttempted ? "border-destructive/50 bg-destructive/5" : "border-border/60")}>
             <Mail className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-sm font-semibold text-foreground">No pieces yet</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
@@ -470,7 +473,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                           value={piece.envelopeId || "none"}
                           onValueChange={(v) => { if (v !== "none") m.updatePiece(piece.id, { envelopeId: v }) }}
                         >
-                          <SelectTrigger className="h-8 text-xs border-border bg-background rounded-lg w-[160px]">
+                          <SelectTrigger className={cn("h-8 text-xs border-border bg-background rounded-lg w-[160px]", continueAttempted && !piece.envelopeId && "ring-2 ring-destructive/50 border-destructive/40")}>
                             <SelectValue placeholder="Size..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -570,7 +573,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                   <Input type="number" step="0.125" min="0" placeholder={'0"'}
                                     value={piece.width ?? ""}
                                     onChange={(e) => m.updatePiece(piece.id, { width: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
-                                    className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
+                                    className={cn("h-8 w-20 text-xs border-border bg-background rounded-lg font-mono", piece._suggested ? "ring-2 ring-blue-400" : "", continueAttempted && !piece.width && "ring-2 ring-destructive/50 border-destructive/40")} />
                                 </div>
                                 <span className="text-muted-foreground text-xs">x</span>
                                 <div className="flex items-center gap-1.5">
@@ -578,7 +581,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                   <Input type="number" step="0.125" min="0" placeholder={'0"'}
                                     value={piece.height ?? ""}
                                     onChange={(e) => m.updatePiece(piece.id, { height: e.target.value ? parseFloat(e.target.value) : null, _suggested: undefined })}
-                                    className={`h-8 w-20 text-xs border-border bg-background rounded-lg font-mono ${piece._suggested ? "ring-2 ring-blue-400" : ""}`} />
+                                    className={cn("h-8 w-20 text-xs border-border bg-background rounded-lg font-mono", piece._suggested ? "ring-2 ring-blue-400" : "", continueAttempted && !piece.height && "ring-2 ring-destructive/50 border-destructive/40")} />
                                 </div>
                                 {piece.width && piece.height && !piece._suggested && !isFolded && (
                                   <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
@@ -893,15 +896,15 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
 
       {/* ─── Continue Button ─── */}
       <div className="flex flex-col items-end gap-2">
-        {!canContinue && continueBlockers.length > 0 && (
-          <div className="w-full max-w-md rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3">
-            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+        {continueAttempted && !canContinue && continueBlockers.length > 0 && (
+          <div className="w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <p className="text-[11px] font-semibold text-destructive mb-1.5">
               Before continuing, please fix:
             </p>
             <ul className="flex flex-col gap-1">
               {continueBlockers.map((msg, i) => (
-                <li key={i} className="flex items-start gap-2 text-[11px] text-amber-600 dark:text-amber-400/80">
-                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                <li key={i} className="flex items-start gap-2 text-[11px] text-destructive/80">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive/50 shrink-0" />
                   {msg}
                 </li>
               ))}
@@ -909,9 +912,22 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
           </div>
         )}
         <button
-          onClick={onContinue}
-          disabled={!canContinue}
-          className="flex items-center gap-2 h-12 px-8 bg-foreground text-background text-sm font-semibold rounded-full hover:bg-foreground/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg"
+          onClick={() => {
+            if (canContinue) {
+              setContinueAttempted(false)
+              onContinue()
+            } else {
+              setContinueAttempted(true)
+            }
+          }}
+          className={cn(
+            "flex items-center gap-2 h-12 px-8 text-sm font-semibold rounded-full transition-all shadow-lg",
+            canContinue
+              ? "bg-foreground text-background hover:bg-foreground/90"
+              : continueAttempted
+                ? "bg-destructive/10 text-destructive border border-destructive/30 cursor-default"
+                : "bg-foreground text-background hover:bg-foreground/90"
+          )}
         >
           Continue to Pricing <ArrowRight className="h-4 w-4" />
         </button>
