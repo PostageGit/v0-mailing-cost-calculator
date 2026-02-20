@@ -130,7 +130,20 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
 
   const hasDims = !!(m.mailerWidth && m.mailerHeight)
   const shapes = m.suggestedShapes
-  const canContinue = m.pieces.length > 0 && m.quantity > 0
+  // ── Validation reasons ──
+  const continueBlockers: string[] = []
+  if (m.pieces.length === 0) continueBlockers.push("Add at least one mail piece")
+  if (!m.quantity) continueBlockers.push("Enter mailing quantity")
+  // Check each piece for required fields
+  for (const p of m.pieces) {
+    const meta = PIECE_TYPE_META[p.type]
+    if (p.type === "envelope") {
+      if (!p.envelopeId) continueBlockers.push(`${meta.label} #${p.position}: Select envelope size`)
+    } else {
+      if (!p.width || !p.height) continueBlockers.push(`${meta.label} #${p.position}: Set dimensions`)
+    }
+  }
+  const canContinue = continueBlockers.length === 0
 
   // Summary of what steps will be shown
   const stepSummary: string[] = []
@@ -879,7 +892,22 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
       )}
 
       {/* ─── Continue Button ─── */}
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-2">
+        {!canContinue && continueBlockers.length > 0 && (
+          <div className="w-full max-w-md rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-3">
+            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mb-1.5">
+              Before continuing, please fix:
+            </p>
+            <ul className="flex flex-col gap-1">
+              {continueBlockers.map((msg, i) => (
+                <li key={i} className="flex items-start gap-2 text-[11px] text-amber-600 dark:text-amber-400/80">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                  {msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <button
           onClick={onContinue}
           disabled={!canContinue}
