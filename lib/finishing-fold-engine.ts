@@ -71,11 +71,15 @@ export function calculateFoldPrice(
   isLong: boolean,
   settings: FoldFinishingSettings
 ): FoldPriceResult | null {
+  // Level can be a number, "na" (score-only with b/s), or "hand"
   const lv = opt.l
-  if (typeof lv !== "number" || !opt.b || !opt.s) return null
+  if (!opt.b || !opt.s) return null
+  // For score-only entries, l is "na" but b/s are present — use level 3 as default
+  const effectiveLevel = typeof lv === "number" ? lv : 3
+  if (lv === "hand") return null
 
   // Level is 1-indexed in data, 0-indexed in setupLevels array
-  const levelIdx = Math.max(0, Math.min(lv - 1, settings.setupLevels.length - 1))
+  const levelIdx = Math.max(0, Math.min(effectiveLevel - 1, settings.setupLevels.length - 1))
   const setupMin = settings.setupLevels[levelIdx]?.minutes || 5
   const setupCost = (setupMin / 60) * settings.hourlyRate
   const longFee = isLong ? settings.longSheetSetupFee : 0
@@ -89,7 +93,7 @@ export function calculateFoldPrice(
   const broker = retail * (1 - settings.brokerDiscountPercent / 100)
 
   return {
-    level: lv,
+    level: effectiveLevel,
     setupMinutes: setupMin,
     setupCost,
     longFee,
@@ -324,7 +328,6 @@ export interface FoldFinishInput {
   paperName: string
   finishType: "fold" | "score_and_fold" | "score_only"
   foldType: string
-  setupLevel: number
   isBroker: boolean
   orientation: "width" | "height"
 }
@@ -341,6 +344,8 @@ export interface FoldFinishResult {
   matchedSize: string
   paperCategory: string
   resolution: "ok" | "hand" | "score_only" | "na"
+  /** The level auto-detected from the data (1-5), null if N/A or hand */
+  autoLevel: number | null
 }
 
 export function calculateFoldFinish(
@@ -364,8 +369,8 @@ export function calculateFoldFinish(
       suggestion: finishType === "fold"
         ? "This paper may require scoring. Try Score & Fold."
         : "This paper may only need folding. Try Fold.",
-      foldedDimensions: null, matchedSize: "N/A", paperCategory: paperLabel,
-      resolution: "na",
+      foldedDimensions: null,       matchedSize: "N/A", paperCategory: paperLabel,
+      resolution: "na", autoLevel: null,
     }
   }
 
@@ -405,7 +410,7 @@ export function calculateFoldFinish(
       suggestion: null,
       foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
-      resolution: "na",
+      resolution: "na", autoLevel: null,
     }
   }
 
@@ -422,7 +427,7 @@ export function calculateFoldFinish(
       suggestion: null,
       foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
-      resolution: "hand",
+      resolution: "hand", autoLevel: null,
     }
   }
 
@@ -438,7 +443,7 @@ export function calculateFoldFinish(
       suggestion: null,
       foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
-      resolution: "na",
+      resolution: "na", autoLevel: null,
     }
   }
 
@@ -470,5 +475,6 @@ export function calculateFoldFinish(
     matchedSize: sizeKey,
     paperCategory: paperLabel,
     resolution: resolved.status,
+    autoLevel: priceResult.level,
   }
 }

@@ -25,7 +25,6 @@ const DEFAULT_FOLD_FINISH = {
   enabled: false,
   finishType: "fold" as const,
   foldType: "half" as const,
-  setupLevel: 0,
   orientation: "width" as const,
 }
 
@@ -60,7 +59,6 @@ export function FoldFinishSection({
         paperName: inputs.paperName,
         finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
         foldType: ff.foldType,
-        setupLevel: ff.setupLevel ?? 0,
         isBroker: inputs.isBroker || false,
         orientation: ff.orientation || "width",
       },
@@ -70,7 +68,6 @@ export function FoldFinishSection({
     ff.enabled,
     ff.finishType,
     ff.foldType,
-    ff.setupLevel,
     ff.orientation,
     inputs.width,
     inputs.height,
@@ -150,58 +147,30 @@ export function FoldFinishSection({
             </div>
           </div>
 
-          {/* Row 2: Setup level + Orientation */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground">
-                Setup Level
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {settings.setupLevels.map((level, i) => {
-                  const selected = (ff.setupLevel ?? 0) === i
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => update({ setupLevel: i })}
-                      className={cn(
-                        "px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-all",
-                        selected
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-card text-foreground hover:border-foreground/40",
-                      )}
-                      title={`${level.minutes} minutes`}
-                    >
-                      {level.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-medium text-muted-foreground">
-                Fold Along
-              </label>
-              <div className="flex gap-1.5">
-                {(["width", "height"] as const).map((o) => {
-                  const selected = (ff.orientation || "width") === o
-                  return (
-                    <button
-                      key={o}
-                      type="button"
-                      onClick={() => update({ orientation: o })}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all",
-                        selected
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-card text-foreground hover:border-foreground/40",
-                      )}
-                    >
-                      {o === "width" ? "Width" : "Height"}
-                    </button>
-                  )
-                })}
-              </div>
+          {/* Row 2: Orientation */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-medium text-muted-foreground">
+              Fold Along
+            </label>
+            <div className="flex gap-1.5">
+              {(["width", "height"] as const).map((o) => {
+                const selected = (ff.orientation || "width") === o
+                return (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => update({ orientation: o })}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all",
+                      selected
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-card text-foreground hover:border-foreground/40",
+                    )}
+                  >
+                    {o === "width" ? "Width" : "Height"}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
@@ -247,6 +216,9 @@ export function FoldFinishSection({
                     )}
                     <p className="text-[10px]">
                       Size tier: {preview.matchedSize} | Paper: {preview.paperCategory}
+                      {preview.autoLevel != null && preview.autoLevel > 0 && (
+                        <> | Level {preview.autoLevel} (auto)</>
+                      )}
                     </p>
                   </div>
                 </div>

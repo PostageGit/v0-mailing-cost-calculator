@@ -401,7 +401,6 @@ export function buildFullResult(
       paperName: inputs.paperName,
       finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
       foldType: ff.foldType,
-      setupLevel: ff.setupLevel ?? 0,
       isBroker: inputs.isBroker || false,
       orientation: ff.orientation || "width",
     }, foldFinishSettings)

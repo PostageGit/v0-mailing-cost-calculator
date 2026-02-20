@@ -204,7 +204,6 @@ export function PrintingCalculator() {
     inputs.foldFinish?.enabled,
     inputs.foldFinish?.finishType,
     inputs.foldFinish?.foldType,
-    inputs.foldFinish?.setupLevel,
     inputs.foldFinish?.orientation,
     foldSettings,
     selectedOption,

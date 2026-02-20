@@ -48,7 +48,6 @@ export interface PrintingInputs {
     enabled: boolean
     finishType: string   // "fold" | "score_and_fold" | "score_only"
     foldType: string     // "half" | "tri" | "z" | "gate" | "double_parallel" | "accordion" | "roll"
-    setupLevel: number   // 0-4 index into setupLevels array
     orientation: "width" | "height"  // fold along which axis
   }
   /** Extra percentage on printing cost (default 10) */
