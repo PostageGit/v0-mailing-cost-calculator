@@ -193,26 +193,8 @@ export function PrintingForm({
             currentResult={currentResult}
           />
 
-          {/* Row 4: Printing Markup + Add-on */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-markup-pct" className="text-sm font-medium text-foreground">
-                Printing Markup %
-              </label>
-              <Input
-                id="print-markup-pct"
-                type="number"
-                step="1"
-                min={0}
-                max={100}
-                autoComplete="off"
-                placeholder="10"
-                value={inputs.printingMarkupPct ?? 10}
-                onChange={(e) =>
-                  onInputsChange({ ...inputs, printingMarkupPct: parseFloat(e.target.value) || 0 })
-                }
-              />
-            </div>
+          {/* Row 4: Add-on */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="add-on-charge" className="text-sm font-medium text-foreground">
                 Add on ($)
@@ -230,7 +212,7 @@ export function PrintingForm({
                 }
               />
             </div>
-            <div className="flex flex-col gap-1.5 md:col-span-2">
+            <div className="flex flex-col gap-1.5">
               <label htmlFor="add-on-desc" className="text-sm font-medium text-foreground">
                 Add on Description
               </label>
@@ -274,14 +256,6 @@ export function PrintingForm({
               }`}
             >
               {isEditing ? "Recalculate" : "Calculate"}
-            </Button>
-            <Button
-              type="button"
-              onClick={onAddToOrder}
-              disabled={!canAddToOrder}
-              className="flex-1 font-semibold bg-accent hover:bg-accent/90 text-accent-foreground disabled:opacity-50"
-            >
-              {isEditing ? "Update Order" : "Add to Order"}
             </Button>
             <Button
               type="button"
