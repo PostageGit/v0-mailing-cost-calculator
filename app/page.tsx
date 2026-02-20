@@ -453,27 +453,26 @@ function AppContent() {
               <div className="flex-1 flex flex-col min-h-0">
                 {/* Step Pills */}
                 <div className="shrink-0 bg-background border-b border-border/40">
-                  <div className="px-4 sm:px-6">
-                    <div className="flex items-center gap-0 py-1.5">
-                      {/* Scrollable step pills */}
-                      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0 flex-1">
-                        <button onClick={() => setJobPhase("planner")}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1 min-h-[44px]">
-                          <Layers className="h-3.5 w-3.5" /> Planner
-                        </button>
-                        <div className="w-px h-4 bg-border shrink-0" />
-                        {visibleSteps.map((step, stepIdx) => {
-                          const active = step.id === currentStep
-                          const status = getStepStatus(step.id)
-                          const reachable = canNavigateTo(stepIdx)
-                          return (
-                            <button key={step.id}
+                  <div className="px-4 sm:px-6 py-1.5">
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                      <button onClick={() => setJobPhase("planner")}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1 min-h-[44px]">
+                        <Layers className="h-3.5 w-3.5" /> Planner
+                      </button>
+                      <div className="w-px h-4 bg-border shrink-0" />
+                      {visibleSteps.map((step, stepIdx) => {
+                        const active = step.id === currentStep
+                        const status = getStepStatus(step.id)
+                        const reachable = canNavigateTo(stepIdx)
+                        return (
+                          <div key={step.id} className="relative shrink-0 group/pill">
+                            <button
                               onClick={() => reachable && setCurrentStep(step.id)}
                               className={cn(
-                                "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 min-h-[44px]",
+                                "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap min-h-[44px]",
                                 !reachable && !active && "opacity-30 cursor-not-allowed",
                                 active
-                                  ? "bg-foreground text-background shadow-sm"
+                                  ? "bg-foreground text-background shadow-sm pr-8"
                                   : status === "done"
                                     ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
                                     : status === "skipped"
@@ -491,28 +490,20 @@ function AppContent() {
                                     : <CircleDashed className="h-3 w-3 opacity-40" />}
                               {step.label}
                             </button>
-                          )
-                        })}
-                      </div>
-
-                    </div>
-
-                    {/* Skip & Next -- separate row, always visible */}
-                    <div className="flex items-center justify-end gap-2 pb-1.5">
-                      {stepGateFlash && (
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap mr-1">
-                          Complete or skip this step
-                        </span>
-                      )}
-                      {getStepStatus(currentStep) !== "done" && (
-                        <button
-                          onClick={handleSkipStep}
-                          className="flex items-center gap-1 px-3 py-1 rounded-full text-xs text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                        >
-                          <SkipForward className="h-3 w-3" />
-                          Skip
-                        </button>
-                      )}
+                            {/* Skip icon -- appears on active pill when step is not done */}
+                            {active && status !== "done" && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSkipStep() }}
+                                title="Skip this step"
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-background/50 hover:text-background hover:bg-background/20 transition-colors"
+                              >
+                                <SkipForward className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {/* Next arrow */}
                       {(() => {
                         const idx = visibleSteps.findIndex((s) => s.id === currentStep)
                         if (idx < visibleSteps.length - 1) {
@@ -520,7 +511,7 @@ function AppContent() {
                           return (
                             <button onClick={handleNextStep}
                               className={cn(
-                                "flex items-center gap-0.5 px-2 py-1 rounded-full text-xs transition-colors",
+                                "flex items-center gap-0.5 px-2 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0",
                                 canGo
                                   ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
                                   : "text-muted-foreground/30 cursor-not-allowed"
@@ -531,6 +522,11 @@ function AppContent() {
                         }
                         return null
                       })()}
+                      {stepGateFlash && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap shrink-0">
+                          Complete or skip first
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

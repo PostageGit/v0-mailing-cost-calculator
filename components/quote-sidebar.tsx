@@ -277,55 +277,41 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
         </div>
       </div>
 
-      {/* ── Pending Steps Banner ── */}
-      {pendingSteps && pendingSteps.length > 0 && (
-        <div className="shrink-0 mx-4 mt-3 mb-0 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-3">
-          <div className="flex items-center gap-1.5 mb-2">
-            <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-              {pendingSteps.length} step{pendingSteps.length !== 1 ? "s" : ""} remaining
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {pendingSteps.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => onGoToStep?.(s.id)}
-                className={cn(
-                  "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
-                  s.status === "skipped"
-                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-dashed border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50"
-                    : "bg-white dark:bg-secondary text-muted-foreground border border-border hover:bg-secondary dark:hover:bg-secondary/80"
-                )}
-              >
-                {s.status === "skipped" ? <SkipForward className="h-2.5 w-2.5" /> : null}
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {pendingSteps && pendingSteps.length === 0 && hasItems && (
-        <div className="shrink-0 mx-4 mt-3 mb-0 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 px-3 py-2 flex items-center gap-2">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">All steps complete</span>
-        </div>
-      )}
-
       {/* ── Items ── */}
       <div
         className="flex-1 min-h-0 overflow-y-auto px-4 py-4"
         style={{ overscrollBehavior: "contain" }}
       >
         {!hasItems ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="rounded-2xl bg-secondary/40 p-5 mb-4">
-              <FileText className="h-7 w-7 text-muted-foreground/25" />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="rounded-2xl bg-secondary/40 p-5 mb-4">
+                <FileText className="h-7 w-7 text-muted-foreground/25" />
+              </div>
+              <p className="text-sm font-semibold text-foreground/80 mb-1">No items yet</p>
+              <p className="text-[13px] text-muted-foreground/60 max-w-[220px] leading-relaxed">
+                Add items from any calculator to start building your quote.
+              </p>
             </div>
-            <p className="text-sm font-semibold text-foreground/80 mb-1">No items yet</p>
-            <p className="text-[13px] text-muted-foreground/60 max-w-[220px] leading-relaxed">
-              Add items from any calculator to start building your quote.
-            </p>
+            {/* Show skipped steps even when no items */}
+            {pendingSteps?.filter((s) => s.status === "skipped").map((s) => (
+              <div key={`skip-${s.id}`}>
+                <button
+                  onClick={() => onGoToStep?.(s.id)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-amber-300 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <SkipForward className="h-3.5 w-3.5 text-amber-400" />
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-900/20">
+                      {s.label}
+                    </span>
+                  </div>
+                  <span className="text-[11px] italic text-amber-500/70 dark:text-amber-500/50">
+                    Unfinished
+                  </span>
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -376,6 +362,26 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                 </div>
               )
             })}
+
+            {/* Skipped / unfinished step sections */}
+            {pendingSteps?.filter((s) => s.status === "skipped").map((s) => (
+              <div key={`skip-${s.id}`}>
+                <button
+                  onClick={() => onGoToStep?.(s.id)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-amber-300 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <SkipForward className="h-3.5 w-3.5 text-amber-400" />
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-900/20">
+                      {s.label}
+                    </span>
+                  </div>
+                  <span className="text-[11px] italic text-amber-500/70 dark:text-amber-500/50">
+                    Unfinished
+                  </span>
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
