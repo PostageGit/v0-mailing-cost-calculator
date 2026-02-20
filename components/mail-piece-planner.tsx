@@ -6,6 +6,7 @@ import { useQuote } from "@/lib/quote-context"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import useSWR from "swr"
 import type { Customer } from "@/lib/customer-types"
 import { CustomerSearchCombobox } from "@/components/customer-search-combobox"
@@ -20,6 +21,56 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 interface Contact { id: string; name: string; email?: string; phone?: string }
 
 const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "spiral_book", "perfect_bound", "self_mailer", "letter", "other"]
+
+// ─── Grouped categories for the add-piece menu ────────────
+interface CategoryItem {
+  id: string
+  label: string
+  description: string
+  icon: string  // short badge text
+  color: string // badge color classes
+  type?: PieceType  // direct add (no sub-menu)
+  subItems?: { type: PieceType; label: string; description: string }[]
+}
+
+const ADD_CATEGORIES: CategoryItem[] = [
+  {
+    id: "envelope", label: "Envelope", description: "Paper or plastic mailer",
+    icon: "ENV", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    type: "envelope",
+  },
+  {
+    id: "flat", label: "Flat Printing", description: "Cards, postcards, letters & self-mailers",
+    icon: "FLT", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
+    subItems: [
+      { type: "flat_card",   label: "Flat Card",    description: "Printed flat -- any size" },
+      { type: "postcard",    label: "Postcard",     description: "Standard postcard sizes" },
+      { type: "folded_card", label: "Folded Card",  description: "Printed flat, then folded" },
+      { type: "self_mailer", label: "Self-Mailer",  description: "Folds & mails without envelope" },
+      { type: "letter",      label: "Letter",       description: "8.5 x 11 letter insert" },
+    ],
+  },
+  {
+    id: "book_staple", label: "Book -- Fold & Staple", description: "Saddle-stitched booklet",
+    icon: "BKL", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+    type: "booklet",
+  },
+  {
+    id: "book_spiral", label: "Book -- Spiral", description: "Wire or coil bound",
+    icon: "SPR", color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+    type: "spiral_book",
+  },
+  {
+    id: "book_perfect", label: "Book -- Perfect Bound", description: "Glue-bound soft cover",
+    icon: "PB", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
+    type: "perfect_bound",
+  },
+  {
+    id: "other", label: "Other / Manual", description: "Custom or OHP piece",
+    icon: "OTH", color: "bg-secondary text-foreground",
+    type: "other",
+  },
+]
 
 export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   const m = useMailing()
@@ -38,6 +89,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
     q.customerId ? `/api/customers/${q.customerId}/contacts` : null, fetcher,
   )
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const [showAddContact, setShowAddContact] = useState(false)
   const [newContactName, setNewContactName] = useState("")
   const [newContactEmail, setNewContactEmail] = useState("")
@@ -239,16 +291,72 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
             </button>
             {showAddMenu && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
-                <div className="absolute right-0 top-full mt-2 z-50 bg-card rounded-2xl border border-border shadow-2xl p-2 min-w-[200px]">
-                  {ADDABLE_TYPES.map((type) => {
-                    const meta = PIECE_TYPE_META[type]
+                <div className="fixed inset-0 z-40" onClick={() => { setShowAddMenu(false); setExpandedCategory(null) }} />
+                <div className="absolute right-0 top-full mt-2 z-50 bg-card rounded-2xl border border-border shadow-2xl p-1.5 w-[280px]">
+                  {ADD_CATEGORIES.map((cat) => {
+                    const isExpanded = expandedCategory === cat.id
+                    const hasSubs = !!cat.subItems
+
                     return (
-                      <button key={type} onClick={() => { m.addPiece(type); setShowAddMenu(false) }}
-                        className="w-full flex items-center gap-3 text-left text-sm font-medium px-3 py-2.5 rounded-xl hover:bg-secondary transition-colors">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${meta.color}`}>{meta.short}</span>
-                        {meta.label}
-                      </button>
+                      <div key={cat.id}>
+                        <button
+                          onClick={() => {
+                            if (cat.type && !hasSubs) {
+                              m.addPiece(cat.type)
+                              setShowAddMenu(false)
+                              setExpandedCategory(null)
+                            } else {
+                              setExpandedCategory(isExpanded ? null : cat.id)
+                            }
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-xl transition-all",
+                            isExpanded ? "bg-secondary" : "hover:bg-secondary/60",
+                          )}
+                        >
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${cat.color}`}>
+                            {cat.icon}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-foreground block">{cat.label}</span>
+                            <span className="text-[10px] text-muted-foreground leading-tight">{cat.description}</span>
+                          </div>
+                          {hasSubs && (
+                            <ChevronDown className={cn(
+                              "h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform",
+                              isExpanded && "rotate-180",
+                            )} />
+                          )}
+                        </button>
+
+                        {/* Sub-items for Flat */}
+                        {hasSubs && isExpanded && (
+                          <div className="ml-4 mr-1 mb-1 mt-0.5 border-l-2 border-border pl-2 flex flex-col gap-0.5">
+                            {cat.subItems!.map((sub) => {
+                              const subMeta = PIECE_TYPE_META[sub.type]
+                              return (
+                                <button
+                                  key={sub.type}
+                                  onClick={() => {
+                                    m.addPiece(sub.type)
+                                    setShowAddMenu(false)
+                                    setExpandedCategory(null)
+                                  }}
+                                  className="w-full flex items-center gap-2.5 text-left px-2.5 py-2 rounded-lg hover:bg-secondary/80 transition-colors"
+                                >
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${subMeta.color}`}>
+                                    {subMeta.short}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[13px] font-medium text-foreground block">{sub.label}</span>
+                                    <span className="text-[10px] text-muted-foreground leading-tight">{sub.description}</span>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
