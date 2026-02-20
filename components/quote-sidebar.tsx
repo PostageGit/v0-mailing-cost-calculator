@@ -129,6 +129,37 @@ function QuoteItemRow({
             {item.description}
           </p>
         )}
+        {/* Finishing details from metadata */}
+        {item.metadata && (() => {
+          const m = item.metadata
+          const tags: string[] = []
+          if (m.pieceType) tags.push(String(m.pieceLabel || m.pieceType))
+          if (m.pieceDimensions) tags.push(String(m.pieceDimensions) + '"')
+          if (m.foldType && m.foldType !== "none") tags.push("Fold: " + String(m.foldType).replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
+          if (m.paperName) tags.push(String(m.paperName))
+          if (m.sides) tags.push(String(m.sides))
+          if (m.hasBleed) tags.push("Bleed")
+          if (m.pageCount) tags.push(m.pageCount + "pg")
+          if (m.envelopeSize) tags.push("Env: " + String(m.envelopeSize))
+          if (m.envelopeKind) tags.push(String(m.envelopeKind))
+          if (m.production && m.production !== "inhouse") tags.push(
+            m.production === "ohp" ? "OHP" : m.production === "both" ? "In+OHP" : m.production === "customer" ? "Customer" : String(m.production)
+          )
+          if (m.mailingClass) tags.push(String(m.mailingClass))
+          if (m.mailShape) tags.push(String(m.mailShape).charAt(0).toUpperCase() + String(m.mailShape).slice(1))
+          if (m.tierName) tags.push(String(m.tierName))
+          if (m.entryPoint) tags.push(String(m.entryPoint))
+          if (tags.length === 0) return null
+          return (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {tags.map((t, i) => (
+                <span key={i} className="px-1.5 py-0.5 rounded bg-secondary/60 text-[9px] font-medium text-muted-foreground/70 leading-none">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Amount + hover actions */}

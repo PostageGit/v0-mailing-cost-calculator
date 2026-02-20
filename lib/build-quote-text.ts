@@ -7,6 +7,29 @@ interface TextItem {
   label: string
   description: string
   amount: number
+  metadata?: Record<string, unknown>
+}
+
+/** Build a compact finishing spec line from metadata */
+function buildFinishingLine(m: Record<string, unknown>): string {
+  const parts: string[] = []
+  if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
+  if (m.foldType && m.foldType !== "none") parts.push("Fold: " + String(m.foldType).replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
+  if (m.paperName) parts.push(String(m.paperName))
+  if (m.sides) parts.push(String(m.sides))
+  if (m.hasBleed) parts.push("Bleed")
+  if (m.pageCount) parts.push(m.pageCount + "pg")
+  if (m.envelopeSize) parts.push("Env: " + String(m.envelopeSize))
+  if (m.envelopeKind) parts.push(String(m.envelopeKind))
+  if (m.production && m.production !== "inhouse") {
+    const prodLabels: Record<string, string> = { ohp: "OHP", both: "In+OHP", customer: "Customer Provided" }
+    parts.push(prodLabels[String(m.production)] || String(m.production))
+  }
+  if (m.mailingClass) parts.push(String(m.mailingClass))
+  if (m.mailShape) parts.push(String(m.mailShape).charAt(0).toUpperCase() + String(m.mailShape).slice(1))
+  if (m.tierName) parts.push(String(m.tierName))
+  if (m.entryPoint) parts.push(String(m.entryPoint))
+  return parts.join(", ")
 }
 
 /**
@@ -76,6 +99,10 @@ export function buildQuoteText(
         if (item.description) {
           lines.push(item.description)
         }
+        if (item.metadata) {
+          const finishing = buildFinishingLine(item.metadata)
+          if (finishing) lines.push(`  Specs: ${finishing}`)
+        }
         lines.push(formatCurrency(item.amount))
       })
     })
@@ -97,6 +124,10 @@ export function buildQuoteText(
       lines.push(label)
       if (item.description) {
         lines.push(item.description)
+      }
+      if (item.metadata) {
+        const finishing = buildFinishingLine(item.metadata)
+        if (finishing) lines.push(`  Specs: ${finishing}`)
       }
       lines.push(formatCurrency(item.amount))
     })
