@@ -277,11 +277,16 @@ export function ServiceBuilder() {
 
       {/* ── Detected items strip ── */}
       {neededNotAdded.length > 0 && (
-        <div className="rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/60 dark:bg-blue-950/10 px-3 py-2.5 space-y-2">
-          <p className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
-            Detected for this job
-          </p>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="rounded-2xl bg-gradient-to-b from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 border border-blue-200/80 dark:border-blue-800/40 px-5 py-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold text-blue-900 dark:text-blue-200 tracking-tight">
+              Detected for this job
+            </p>
+            <span className="text-xs font-medium text-blue-500 dark:text-blue-400">
+              {neededNotAdded.length} {neededNotAdded.length === 1 ? "item" : "items"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {neededNotAdded.map(({ id, reason, item }) => {
               const price = getPrice(item)
               const canAdd = price !== null && !item.referToPostage
@@ -291,21 +296,21 @@ export function ServiceBuilder() {
                   type="button"
                   onClick={() => canAdd ? addToQuote(item) : setExpandedCat(item.category)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                    "inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all shadow-sm",
                     canAdd
-                      ? "border-blue-300 dark:border-blue-700 bg-white dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                      : "border-blue-200 dark:border-blue-800 bg-white/50 dark:bg-blue-950/20 text-blue-500 dark:text-blue-400"
+                      ? "border-blue-300/80 dark:border-blue-600 bg-white dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 hover:bg-blue-50 dark:hover:bg-blue-900/50 hover:shadow-md hover:-translate-y-px active:translate-y-0"
+                      : "border-blue-200/60 dark:border-blue-800 bg-white/60 dark:bg-blue-950/20 text-blue-400 dark:text-blue-500"
                   )}
                   title={reason}
                 >
-                  {canAdd && <Plus className="h-3.5 w-3.5" />}
+                  {canAdd && <Plus className="h-4 w-4 text-blue-500" />}
                   <span>{item.name}</span>
                   {canAdd && price !== null && (
-                    <span className="text-blue-400 dark:text-blue-500 font-semibold">
+                    <span className="text-blue-400 dark:text-blue-500 font-bold text-xs bg-blue-50 dark:bg-blue-900/40 rounded-md px-1.5 py-0.5">
                       ${calculateItemAmount(item, price, mailingQty, getQty(item)).toFixed(0)}
                     </span>
                   )}
-                  {item.referToPostage && <span className="text-blue-400 text-[11px]">see rate</span>}
+                  {item.referToPostage && <span className="text-blue-400 dark:text-blue-500 text-xs italic">see rate</span>}
                 </button>
               )
             })}
