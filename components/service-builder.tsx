@@ -329,7 +329,7 @@ export function ServiceBuilder() {
                   <span>{item.name}</span>
                   {canAdd && price !== null && (
                     <span className="text-muted-foreground font-bold text-xs bg-muted rounded-md px-1.5 py-0.5">
-                      ${calculateItemAmount(item, price, mailingQty, getQty(item)).toFixed(0)}
+                      ${calculateItemAmount(item, price, mailingQty, getQty(item)).toFixed(2)}
                     </span>
                   )}
                   {item.referToPostage && <span className="text-muted-foreground text-xs italic">see rate</span>}
@@ -418,9 +418,10 @@ export function ServiceBuilder() {
                 mailingQty={mailingQty}
                 isAdded={addedItems.has(item.id)}
                 inferredReason={inferredMap.get(item.id) || null}
-                customPrice={customPrices.get(item.id)}
-                customQty={customQtys.get(item.id)}
-                total={getTotal(item)}
+  customPrice={customPrices.get(item.id)}
+  customQty={customQtys.get(item.id)}
+  resolvedPrice={getPrice(item)}
+  total={getTotal(item)}
                 onSetPrice={(p) => setCustomPrices((prev) => new Map(prev).set(item.id, p))}
                 onSetQty={(q) => setCustomQtys((prev) => new Map(prev).set(item.id, q))}
                 onAdd={() => addToQuote(item)}
@@ -449,7 +450,7 @@ export function ServiceBuilder() {
                 >
                   <Check className="h-3 w-3" />
                   {item?.name || id}
-                  {entry.total > 0 && <span className="font-semibold text-emerald-600">${entry.total.toFixed(0)}</span>}
+                  {entry.total > 0 && <span className="font-semibold text-emerald-600">${entry.total.toFixed(2)}</span>}
                 </span>
               )
             })}
@@ -469,6 +470,7 @@ interface ServiceRowProps {
   inferredReason: string | null
   customPrice: number | undefined
   customQty: number | undefined
+  resolvedPrice: number | null
   total: number | null
   onSetPrice: (p: number) => void
   onSetQty: (q: number) => void
@@ -482,18 +484,15 @@ function ServiceRow({
   inferredReason,
   customPrice,
   customQty,
+  resolvedPrice,
   total,
   onSetPrice,
   onSetQty,
   onAdd,
 }: ServiceRowProps) {
   const isInferred = !!inferredReason
-  const effectivePrice = item.referToPostage
-    ? null
-    : item.defaultPrice !== null
-    ? customPrice ?? item.defaultPrice
-    : customPrice ?? null
-  const needsCustomPrice = !item.referToPostage && item.defaultPrice === null && customPrice === undefined
+  const effectivePrice = item.referToPostage ? null : resolvedPrice
+  const needsCustomPrice = !item.referToPostage && effectivePrice === null
   const effectiveQty = customQty ?? getAutoQuantity(item, mailingQty)
 
   const displayTotal = item.referToPostage
@@ -536,21 +535,13 @@ function ServiceRow({
       <div className="w-20 shrink-0">
         {item.referToPostage ? (
           <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">See Rate</span>
-        ) : item.defaultPrice !== null ? (
-          <Input
-            type="number"
-            step="0.01"
-            className="h-8 text-sm text-right px-2 w-full"
-            value={effectivePrice ?? ""}
-            onChange={(e) => onSetPrice(parseFloat(e.target.value) || 0)}
-          />
         ) : (
           <Input
             type="number"
             step="0.01"
             placeholder="Price"
             className="h-8 text-sm text-right px-2 w-full"
-            value={customPrice ?? ""}
+            value={effectivePrice ?? ""}
             onChange={(e) => onSetPrice(parseFloat(e.target.value) || 0)}
           />
         )}
@@ -587,7 +578,7 @@ function ServiceRow({
         ) : item.referToPostage ? (
           <span className="text-xs text-muted-foreground">--</span>
         ) : (
-          <span className="text-xs text-muted-foreground italic">set price</span>
+          <span className="text-xs text-muted-foreground italic">{item.linkedSupplierId ? "set in Supplies" : "set price"}</span>
         )}
       </div>
 
