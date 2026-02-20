@@ -493,9 +493,9 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                 onClick={handleCopy}
               >
                 {copied ? (
-                  <><Check className="h-3.5 w-3.5" /> Copied</>
+                  <><Check className="h-3.5 w-3.5" /> Copied!</>
                 ) : (
-                  <><ClipboardCopy className="h-3.5 w-3.5" /> Copy</>
+                  <><ClipboardCopy className="h-3.5 w-3.5" /> Copy to Email</>
                 )}
               </Button>
               <Button
