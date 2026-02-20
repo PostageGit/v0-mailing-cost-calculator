@@ -99,14 +99,14 @@ function PieceRect({ piece, x, y, w, h, showFlat }: {
       )}
 
       {/* Production badge */}
-      {piece.production !== "inhouse" && (
+      {piece.production !== "inhouse" && piece.production !== "no_print" && (
         <>
           <rect x={x + w - 34} y={y + 5} width={28} height={13} rx={3}
-            fill={piece.production === "ohp" ? "#fef3c7" : "#dbeafe"} />
+            fill={piece.production === "ohp" ? "#fef3c7" : piece.production === "customer" ? "#fef3c7" : "#dbeafe"} />
           <text x={x + w - 20} y={y + 14} fontSize={7} fontWeight={700}
-            fill={piece.production === "ohp" ? "#92400e" : "#1e40af"}
+            fill={piece.production === "ohp" ? "#92400e" : piece.production === "customer" ? "#92400e" : "#1e40af"}
             textAnchor="middle" fontFamily="system-ui">
-            {piece.production === "ohp" ? "OHP" : "BOTH"}
+            {piece.production === "ohp" ? "OHP" : piece.production === "customer" ? "CUST" : "BOTH"}
           </text>
         </>
       )}

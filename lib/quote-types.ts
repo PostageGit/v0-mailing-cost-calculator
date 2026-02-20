@@ -15,7 +15,7 @@ export interface QuoteLineItem {
     pieceLabel?: string          // user label from planner
     pieceDimensions?: string     // e.g. "4.375x5.75"
     foldType?: string            // e.g. "half_fold", "tri_fold"
-    production?: string          // "inhouse" | "ohp" | "both" | "customer"
+    production?: string          // "inhouse" | "ohp" | "both" | "customer" | "no_print"
     piecePosition?: number       // 1 = outer, 2+ = inserts
 
     // Postage / mailing

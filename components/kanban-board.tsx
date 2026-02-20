@@ -136,7 +136,7 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
 
   // Production route from metadata
   if (m?.production) {
-  const prodMap: Record<string, string> = { inhouse: "PrintOut", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
+  const prodMap: Record<string, string> = { inhouse: "PrintOut", ohp: "Out of House", both: "Both", customer: "Customer Provided", no_print: "No Print (We Supply)" }
   derived.printed_by = prodMap[m.production as string] || "PrintOut"
   } else {
   derived.printed_by = "PrintOut"
@@ -1325,7 +1325,7 @@ function QuoteCard({
                 const pmVendor = getPm(i).vendor
                 const prodLabel = (() => {
                   if (pmVendor) return pmVendor
-                  const prodLabels: Record<string, string> = { inhouse: "PrintOut", ohp: "OHP", both: "Both", customer: "Customer" }
+                  const prodLabels: Record<string, string> = { inhouse: "PrintOut", ohp: "OHP", both: "Both", customer: "Customer", no_print: "No Print" }
                   return production ? prodLabels[production] || null : null
                 })()
                 return { pc, i, md, sizeStr, isOHP, qtyStr, foundType, printDetails, prodLabel, production, pmVendor }
@@ -1344,6 +1344,7 @@ function QuoteCard({
                     {pieceData.map(({ pc, i, isOHP, qtyStr, sizeStr, foundType, printDetails, prodLabel, production, pmVendor }) => {
                       const pm = getPm(i)
                       const isInhouse = !production || production === "inhouse"
+  const isNoprint = production === "no_print"
                       const internalVendors = (vendors || []).filter((v) => v.is_internal)
                       const externalVendors = (vendors || []).filter((v) => !v.is_internal)
                       const arrived = !!pm.prints_arrived
@@ -1365,8 +1366,9 @@ function QuoteCard({
                                   <span className={cn("text-[7px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0",
                                     prodLabel.startsWith("PrintOut") ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                                     : production === "ohp" || (pmVendor && !pmVendor.startsWith("PrintOut")) ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
-                                    : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                    : "bg-muted text-muted-foreground"
+  : production === "customer" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+  : production === "no_print" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+  : "bg-muted text-muted-foreground"
                                   )}>{prodLabel}</span>
                                 )}
                               </div>
@@ -1945,7 +1947,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       }
       // Production route from metadata
       if (pm?.production && !meta.printed_by) {
-        const prodMap: Record<string, string> = { inhouse: "PrintOut", ohp: "Out of House", both: "Both", customer: "Customer Provided" }
+        const prodMap: Record<string, string> = { inhouse: "PrintOut", ohp: "Out of House", both: "Both", customer: "Customer Provided", no_print: "No Print (We Supply)" }
         meta.printed_by = prodMap[pm.production as string] || undefined
       }
     }
@@ -2019,7 +2021,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           const pm: PieceMeta = {}
           const md = it.metadata as Record<string, unknown> | undefined
           const production = md?.production as string | undefined
-          if (!production || production === "inhouse") {
+          if (production === "no_print") {
+            // Plastic bag / no printing -- we supply, no vendor needed
+            pm.vendor = "No Print"
+          } else if (!production || production === "inhouse") {
             // Default to PrintOut -- user can pick exact location on the job board
             pm.vendor = ""
           } else if (it.category === "ohp") {

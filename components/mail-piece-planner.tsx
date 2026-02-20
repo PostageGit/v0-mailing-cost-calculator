@@ -327,8 +327,8 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                 // Switching kind -- clear the selected envelope since sizes differ
                                 if (piece.envelopeKind !== k) {
                                   const patch: Record<string, unknown> = { envelopeKind: k, envelopeId: undefined, width: null, height: null }
-                                  // Can't print on plastic -- force production to "customer"
-                                  if (k === "plastic" && piece.position === 1) patch.production = "customer"
+                                  // Can't print on plastic -- no printing involved, but we supply the bag
+                                  if (k === "plastic" && piece.position === 1) patch.production = "no_print"
                                   m.updatePiece(piece.id, patch)
                                 }
                               }}
@@ -506,18 +506,22 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     {/* Production routing */}
                     {(() => {
                       const isPlasticOuter = piece.position === 1 && piece.type === "envelope" && piece.envelopeKind === "plastic"
-                      const productionOptions = isPlasticOuter
-                        ? (["customer"] as const)
-                        : (["inhouse", "ohp", "both", "customer"] as const)
+                      if (isPlasticOuter) return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground shrink-0">Production:</span>
+                        <span className="px-3 py-1 text-xs font-semibold rounded-lg bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+                          No Print -- We Supply Bag
+                        </span>
+                      </div>
+                    </div>
+                      )
                       return (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground shrink-0">Production:</span>
-                        {isPlasticOuter && (
-                          <span className="text-[10px] text-orange-600 dark:text-orange-400">No printing on plastic</span>
-                        )}
                         <div className="flex gap-1 flex-wrap">
-                          {productionOptions.map((r) => (
+                          {(["inhouse", "ohp", "both", "customer"] as const).map((r) => (
                             <button key={r} type="button"
                               onClick={() => m.updatePiece(piece.id, { production: r })}
                               className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
