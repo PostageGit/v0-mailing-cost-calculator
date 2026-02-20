@@ -12,12 +12,14 @@ import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
   FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, Send,
+  AlertCircle, SkipForward, CheckCircle2,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
+import { cn } from "@/lib/utils"
 import { buildQuoteText } from "@/lib/build-quote-text"
 
-const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "envelope", "postage", "listwork", "item", "ohp"]
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad", "envelope", "postage", "listwork", "item", "ohp"]
 
 /* ── Inline-editable item row ─────────────────────────── */
 function QuoteItemRow({
@@ -156,12 +158,22 @@ function QuoteItemRow({
 }
 
 /* ── Main sidebar ─────────────────────────────────────── */
+interface PendingStep {
+  id: string
+  label: string
+  status: "skipped" | "pending"
+}
+
 interface QuoteSidebarProps {
   /** Navigate the user to the Export to QB page */
   onGoToExport?: () => void
+  /** Pending / skipped steps to show in the sidebar */
+  pendingSteps?: PendingStep[]
+  /** Navigate to a specific step */
+  onGoToStep?: (stepId: string) => void
 }
 
-export function QuoteSidebar({ onGoToExport }: QuoteSidebarProps = {}) {
+export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSidebarProps = {}) {
   const {
     items, projectName, customerId, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote, ensureSaved,
@@ -264,6 +276,41 @@ export function QuoteSidebar({ onGoToExport }: QuoteSidebarProps = {}) {
           </div>
         </div>
       </div>
+
+      {/* ── Pending Steps Banner ── */}
+      {pendingSteps && pendingSteps.length > 0 && (
+        <div className="shrink-0 mx-4 mt-3 mb-0 rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+              {pendingSteps.length} step{pendingSteps.length !== 1 ? "s" : ""} remaining
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {pendingSteps.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onGoToStep?.(s.id)}
+                className={cn(
+                  "inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                  s.status === "skipped"
+                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-dashed border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+                    : "bg-white dark:bg-secondary text-muted-foreground border border-border hover:bg-secondary dark:hover:bg-secondary/80"
+                )}
+              >
+                {s.status === "skipped" ? <SkipForward className="h-2.5 w-2.5" /> : null}
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {pendingSteps && pendingSteps.length === 0 && hasItems && (
+        <div className="shrink-0 mx-4 mt-3 mb-0 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 px-3 py-2 flex items-center gap-2">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">All steps complete</span>
+        </div>
+      )}
 
       {/* ── Items ── */}
       <div

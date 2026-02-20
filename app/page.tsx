@@ -32,6 +32,7 @@ import {
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Truck, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
+  SkipForward, AlertCircle, CircleDashed, CheckCircle2,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -98,6 +99,7 @@ function AppContent() {
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
+  const [skippedSteps, setSkippedSteps] = useState<Set<StepId>>(new Set())
   const { loadQuote, items, newQuote } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
@@ -126,7 +128,7 @@ function AppContent() {
     [loadQuote],
   )
   const handleNewJob = useCallback(() => {
-    newQuote(); setJobPhase("planner"); setSection("job")
+    newQuote(); setJobPhase("planner"); setSection("job"); setSkippedSteps(new Set())
   }, [newQuote])
 
   const handleContinueToPricing = useCallback(() => {
@@ -141,6 +143,38 @@ function AppContent() {
     }
     return done
   }, [items, visibleSteps])
+
+  // Auto-clear skipped status when step gets items
+  useEffect(() => {
+    setSkippedSteps((prev) => {
+      const newSkipped = new Set(prev)
+      let changed = false
+      for (const id of prev) {
+        if (completedSteps.has(id)) { newSkipped.delete(id); changed = true }
+      }
+      return changed ? newSkipped : prev
+    })
+  }, [completedSteps])
+
+  type StepStatus = "done" | "skipped" | "pending"
+  const getStepStatus = useCallback((id: StepId): StepStatus => {
+    if (completedSteps.has(id)) return "done"
+    if (skippedSteps.has(id)) return "skipped"
+    return "pending"
+  }, [completedSteps, skippedSteps])
+
+  const handleSkipStep = useCallback(() => {
+    setSkippedSteps((prev) => new Set(prev).add(currentStep))
+    // advance to next pending step
+    const idx = visibleSteps.findIndex((s) => s.id === currentStep)
+    const next = visibleSteps.slice(idx + 1).find((s) => !completedSteps.has(s.id))
+    if (next) setCurrentStep(next.id)
+    else if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
+  }, [currentStep, visibleSteps, completedSteps])
+
+  const pendingSteps = useMemo(() =>
+    visibleSteps.filter((s) => !completedSteps.has(s.id)),
+  [visibleSteps, completedSteps])
 
   const renderStep = () => {
     switch (currentStep) {
@@ -407,16 +441,26 @@ function AppContent() {
                       <div className="w-px h-4 bg-border shrink-0" />
                       {visibleSteps.map((step) => {
                         const active = step.id === currentStep
-                        const done = completedSteps.has(step.id)
+                        const status = getStepStatus(step.id)
                         return (
                           <button key={step.id} onClick={() => setCurrentStep(step.id)}
                             className={cn(
                               "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 min-h-[44px]",
-                              active ? "bg-foreground text-background shadow-sm"
-                                : done ? "bg-secondary text-foreground hover:bg-secondary/80"
-                                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                              active
+                                ? "bg-foreground text-background shadow-sm"
+                                : status === "done"
+                                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
+                                  : status === "skipped"
+                                    ? "border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                             )}>
-                            {done && !active ? <Check className="h-3 w-3" /> : step.icon}
+                            {active
+                              ? step.icon
+                              : status === "done"
+                                ? <Check className="h-3 w-3" />
+                                : status === "skipped"
+                                  ? <SkipForward className="h-3 w-3" />
+                                  : <CircleDashed className="h-3 w-3 opacity-40" />}
                             {step.label}
                           </button>
                         )
@@ -465,6 +509,25 @@ function AppContent() {
                 <div className="flex-1 flex min-h-0 overflow-hidden">
                   <div className="flex-1 min-w-0 overflow-auto px-4 sm:px-6 pt-4 pb-8">
                     <div key={currentStep} className="step-enter">
+                      {/* Step header with skip */}
+                      {getStepStatus(currentStep) !== "done" && (
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            {skippedSteps.has(currentStep) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold">
+                                <SkipForward className="h-2.5 w-2.5" /> Skipped
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={handleSkipStep}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                          >
+                            <SkipForward className="h-3 w-3" />
+                            Skip for now
+                          </button>
+                        </div>
+                      )}
                       <StepErrorBoundary stepId={currentStep}>
                         {renderStep()}
                       </StepErrorBoundary>
@@ -472,7 +535,15 @@ function AppContent() {
                   </div>
                   {rightOpen ? (
                     <aside className="hidden lg:block w-[22rem] shrink-0 border-l border-border overflow-y-auto">
-                      <QuoteSidebar onGoToExport={() => setSection("export-qb")} />
+                      <QuoteSidebar
+                        onGoToExport={() => setSection("export-qb")}
+                        pendingSteps={pendingSteps.map((s) => ({
+                          id: s.id,
+                          label: s.label,
+                          status: skippedSteps.has(s.id) ? "skipped" as const : "pending" as const,
+                        }))}
+                        onGoToStep={(id) => setCurrentStep(id as StepId)}
+                      />
                     </aside>
                   ) : (
                     <aside className="hidden lg:flex flex-col items-center pt-2 px-1 shrink-0 border-l border-border">

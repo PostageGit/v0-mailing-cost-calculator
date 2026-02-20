@@ -1,6 +1,6 @@
 // Types for the unified Quote Builder
 
-export type QuoteCategory = "flat" | "booklet" | "spiral" | "perfect" | "postage" | "listwork" | "item" | "ohp" | "envelope"
+export type QuoteCategory = "flat" | "booklet" | "spiral" | "perfect" | "pad" | "postage" | "listwork" | "item" | "ohp" | "envelope"
 
 export interface QuoteLineItem {
   id: number
@@ -60,6 +60,8 @@ export function getCategoryLabel(cat: QuoteCategory): string {
       return "Spiral Binding"
     case "perfect":
       return "Perfect Binding"
+    case "pad":
+      return "Pad Finishing"
     case "postage":
       return "Postage / USPS"
     case "listwork":
@@ -82,6 +84,8 @@ export function getCategoryColor(cat: QuoteCategory): string {
     case "spiral":
       return "bg-foreground/5 text-foreground"
     case "perfect":
+      return "bg-foreground/5 text-foreground"
+    case "pad":
       return "bg-foreground/5 text-foreground"
     case "postage":
       return "bg-foreground/5 text-foreground"
