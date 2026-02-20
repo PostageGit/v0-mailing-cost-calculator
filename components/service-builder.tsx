@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useMemo, useCallback, useEffect } from "react"
+import useSWR from "swr"
+import type { SuppliersConfig } from "@/lib/suppliers"
+import { DEFAULT_SUPPLIERS_CONFIG } from "@/lib/suppliers"
 import { useMailing } from "@/lib/mailing-context"
 import { useQuote } from "@/lib/quote-context"
 import {
@@ -110,6 +113,17 @@ export function ServiceBuilder() {
   const [search, setSearch] = useState("")
   const [expandedCat, setExpandedCat] = useState<ServiceCategory | null>(null)
 
+  // ── Fetch supplier sell prices for list rentals ──
+  const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
+  const supplierPriceMap = useMemo(() => {
+    const cfg: SuppliersConfig = appSettings?.suppliers_config || DEFAULT_SUPPLIERS_CONFIG
+    const m = new Map<string, number>()
+    for (const item of cfg.supplyItems) {
+      if (item.sellPrice > 0) m.set(item.id, item.sellPrice)
+    }
+    return m
+  }, [appSettings])
+
   // ── Smart inference ──
   const inferred = useMemo(() => {
     const pieces = mailing.pieces || []
@@ -157,10 +171,18 @@ export function ServiceBuilder() {
   const getPrice = useCallback(
     (item: ServiceItem): number | null => {
       if (item.referToPostage) return null
-      if (item.defaultPrice !== null) return customPrices.get(item.id) ?? item.defaultPrice
-      return customPrices.get(item.id) ?? null
+      // Custom price always wins
+      const custom = customPrices.get(item.id)
+      if (custom !== undefined) return custom
+      // Check if linked to a supplier item with a sell price set
+      if (item.linkedSupplierId) {
+        const supplierPrice = supplierPriceMap.get(item.linkedSupplierId)
+        if (supplierPrice && supplierPrice > 0) return supplierPrice
+      }
+      if (item.defaultPrice !== null) return item.defaultPrice
+      return null
     },
-    [customPrices]
+    [customPrices, supplierPriceMap]
   )
 
   const getQty = useCallback(
