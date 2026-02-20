@@ -2351,7 +2351,7 @@ function FinishingsSettingsTab() {
     setSfDirty(true)
   }
 
-  const updateSetupLevel = (level: string, minutes: number) => {
+  const updateSfSetupLevel = (level: string, minutes: number) => {
     setScoreFold((prev) => {
       const clone = structuredClone(prev)
       clone.setupLevels[level] = minutes
@@ -2570,7 +2570,7 @@ function FinishingsSettingsTab() {
               {Object.entries(scoreFold.setupLevels).map(([level, mins]) => (
                 <div key={level} className="flex flex-col gap-1">
                   <label className="text-[10px] font-medium text-muted-foreground">{level}</label>
-                  <Input type="number" step="1" value={mins} onChange={(e) => updateSetupLevel(level, parseInt(e.target.value) || 0)} className="h-7 text-xs" />
+                  <Input type="number" step="1" value={mins} onChange={(e) => updateSfSetupLevel(level, parseInt(e.target.value) || 0)} className="h-7 text-xs" />
                 </div>
               ))}
             </div>
