@@ -14,6 +14,7 @@ export type PieceType =
   | "envelope"       // envelope pricing step
   | "self_mailer"    // flat printing calc
   | "letter"         // flat printing calc
+  | "pad"            // pad finishing calc
   | "other"          // manual / OHP
 
 export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; calc: string; color: string }> = {
@@ -26,6 +27,7 @@ export const PIECE_TYPE_META: Record<PieceType, { label: string; short: string; 
   envelope:     { label: "Envelope",      short: "ENV",  calc: "envelope", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
   self_mailer:  { label: "Self-Mailer",   short: "SM",   calc: "flat",     color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
   letter:       { label: "Letter",        short: "LTR",  calc: "flat",     color: "bg-secondary text-foreground" },
+  pad:          { label: "Pad",           short: "PAD",  calc: "pad",      color: "bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-300" },
   other:        { label: "Other",         short: "OTH",  calc: "ohp",      color: "bg-secondary text-foreground" },
 }
 
@@ -143,6 +145,7 @@ interface MailingState {
   needsBooklet: boolean
   needsSpiral: boolean
   needsPerfect: boolean
+  needsPad: boolean
   needsOHP: boolean
   /** For backward compat */
   outerWidth: number | null; outerHeight: number | null
@@ -238,6 +241,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
   const needsSpiral = inhouseOrBoth.some((p) => p.type === "spiral_book")
   const needsPerfect = inhouseOrBoth.some((p) => p.type === "perfect_bound")
+  const needsPad = inhouseOrBoth.some((p) => p.type === "pad")
   const needsOHP = ohpOrBoth.length > 0
 
   // Backward compat setters for outer dims
@@ -253,7 +257,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
       quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
-      needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsOHP,
+      needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsPad, needsOHP,
       outerWidth: mailerWidth, outerHeight: mailerHeight, setOuterWidth, setOuterHeight,
     }}>
       {children}

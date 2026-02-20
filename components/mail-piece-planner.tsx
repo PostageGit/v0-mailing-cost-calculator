@@ -20,7 +20,7 @@ import type { Vendor } from "@/lib/vendor-types"
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 interface Contact { id: string; name: string; email?: string; phone?: string }
 
-const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "spiral_book", "perfect_bound", "self_mailer", "letter", "other"]
+const ADDABLE_TYPES: PieceType[] = ["envelope", "flat_card", "folded_card", "postcard", "booklet", "spiral_book", "perfect_bound", "pad", "self_mailer", "letter", "other"]
 
 // ─── Grouped categories for the add-piece menu ────────────
 interface CategoryItem {
@@ -64,6 +64,11 @@ const ADD_CATEGORIES: CategoryItem[] = [
     id: "book_perfect", label: "Book -- Perfect Bound", description: "Glue-bound soft cover",
     icon: "PB", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
     type: "perfect_bound",
+  },
+  {
+    id: "pad", label: "Pad", description: "Stacked sheets with chip board backing",
+    icon: "PAD", color: "bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-300",
+    type: "pad",
   },
   {
     id: "other", label: "Other / Manual", description: "Custom or OHP piece",
@@ -135,6 +140,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   if (m.needsBooklet) stepSummary.push("Booklet")
   if (m.needsSpiral) stepSummary.push("Spiral")
   if (m.needsPerfect) stepSummary.push("Perfect")
+  if (m.needsPad) stepSummary.push("Pad")
   if (m.needsOHP) stepSummary.push("OHP")
   stepSummary.push("Items")
 
