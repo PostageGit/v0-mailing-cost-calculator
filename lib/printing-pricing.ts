@@ -425,8 +425,8 @@ export function buildFullResult(
   const grandTotal = subtotal
 
   // ── Full-cost paper upgrade check ──
-  // Only if fold finishing is enabled, try alternative papers and compute the
-  // ENTIRE job total (printing + cutting + finishing + fold + lamination).
+  // Only when fold finishing is enabled, try alternative papers and compute
+  // the ENTIRE job total (printing + cutting + finishing + fold + lamination).
   // Only suggest if the total is genuinely cheaper.
   let paperUpgradeSuggestion: FullPrintingResult["paperUpgradeSuggestion"] = null
   if (ff?.enabled && ff.finishType && ff.foldType) {
