@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
+import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "@/lib/finishing-fold-engine"
 import { SuppliersSettings } from "@/components/suppliers-settings"
 import {
   DEFAULT_CLICK_COSTS,
@@ -2259,10 +2260,16 @@ function FinishingsSettingsTab() {
   const [sfDirty, setSfDirty] = useState(false)
   const [sfActiveOp, setSfActiveOp] = useState<"folding" | "scoring">("folding")
 
+  // --- Fold Finishing Settings state ---
+  const dbFoldSettings = (settings?.fold_finishing_settings ?? null) as FoldFinishingSettings | null
+  const [foldSettings, setFoldSettings] = useState<FoldFinishingSettings>(structuredClone(DEFAULT_FOLD_SETTINGS))
+  const [foldDirty, setFoldDirty] = useState(false)
+
   const [loaded, setLoaded] = useState(false)
   if (settings && !loaded) {
     if (dbFinishings && dbFinishings.length > 0) setFinishings(structuredClone(dbFinishings))
     if (dbScoreFold) setScoreFold(structuredClone(dbScoreFold))
+    if (dbFoldSettings) setFoldSettings(structuredClone(dbFoldSettings))
     setLoaded(true)
   }
 
