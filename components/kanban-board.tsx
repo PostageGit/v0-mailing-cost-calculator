@@ -847,13 +847,13 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
   return (
     <div ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/80 hover:text-foreground transition-colors w-full">
+        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap">
         <span className={cn("h-2 w-2 rounded-full shrink-0", getDotColor(value || ""))} />
-        <span className="truncate">{value || "Set status..."}</span>
-        <ChevronDown className={cn("h-3 w-3 text-muted-foreground/40 shrink-0 ml-auto transition-transform", isOpen && "rotate-180")} />
+        <span>{value || "Set status..."}</span>
+        <ChevronDown className={cn("h-3 w-3 text-muted-foreground/40 shrink-0 transition-transform", isOpen && "rotate-180")} />
       </button>
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-1 w-56 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
+        <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
           {steps.map((step) => (
             <button key={step} onClick={() => { onChange(step); setIsOpen(false) }}
               className={cn(
@@ -873,7 +873,7 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
 
 /* ������═══════════════����══════════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ══════════════�����═════���════════════════════��═════════ */
+   ══════════════�����═════���════════���═══════════��═════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
