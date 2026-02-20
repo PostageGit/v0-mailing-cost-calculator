@@ -272,16 +272,6 @@ export function FoldFinishSection({
                 </div>
               ))}
 
-              {/* Auto-upgrade suggestion */}
-              {preview.suggestion && (
-                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2.5 flex items-start gap-2">
-                  <Lightbulb className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-                    {preview.suggestion}
-                  </p>
-                </div>
-              )}
-
               {/* Actionable alternatives */}
               {preview.alternatives.length > 0 && (
                 <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">

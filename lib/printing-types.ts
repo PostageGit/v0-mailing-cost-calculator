@@ -142,6 +142,13 @@ export interface FullPrintingResult {
   grandTotal: number
   result: PrintingCalcResult
   inputs: PrintingInputs
+  /** Full-cost paper upgrade suggestion (only when total is genuinely cheaper) */
+  paperUpgradeSuggestion: {
+    paperName: string
+    currentTotal: number
+    upgradedTotal: number
+    savings: number
+  } | null
 }
 
 export interface OrderItem {

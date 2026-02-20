@@ -109,10 +109,11 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
           </p>
         </div>
       )}
-      {ffc?.suggestion && (
+      {data.paperUpgradeSuggestion && (
         <div className="mt-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2">
           <p className="text-[10px] text-emerald-700 dark:text-emerald-400 italic">
-            {ffc.suggestion}
+            Total job would be ${formatCurrency(data.paperUpgradeSuggestion.savings)} cheaper on{" "}
+            {data.paperUpgradeSuggestion.paperName} (${formatCurrency(data.paperUpgradeSuggestion.upgradedTotal)} vs ${formatCurrency(data.paperUpgradeSuggestion.currentTotal)} -- includes printing + finishing)
           </p>
         </div>
       )}

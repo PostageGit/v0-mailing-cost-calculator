@@ -424,6 +424,63 @@ export function buildFullResult(
   const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0) + foldCost
   const grandTotal = subtotal
 
+  // ── Full-cost paper upgrade check ──
+  // Only if fold finishing is enabled, try alternative papers and compute the
+  // ENTIRE job total (printing + cutting + finishing + fold + lamination).
+  // Only suggest if the total is genuinely cheaper.
+  let paperUpgradeSuggestion: FullPrintingResult["paperUpgradeSuggestion"] = null
+  const ff = inputs.foldFinish
+  if (ff?.enabled && ff.finishType && ff.foldType) {
+    const currentTotal = grandTotal
+    // Papers to try: same category or adjacent category
+    const candidatePapers = PAPER_OPTIONS.filter((p) => p.name !== inputs.paperName)
+
+    for (const altPaper of candidatePapers) {
+      // Must support the same sheet size
+      if (!altPaper.availableSizes.includes(result.sheetSize)) continue
+
+      // Calculate full printing cost on the alternative paper
+      const altInputs: PrintingInputs = { ...inputs, paperName: altPaper.name }
+      const altResult = calculatePrintingCost(altInputs, result.sheetSize)
+      if (!altResult) continue
+
+      const altPrintingCost = altResult.cost
+      const altPctMultiplier = 1 + (altInputs.printingMarkupPct ?? 10) / 100
+      const altPrintingPlus10 = altResult.wasPrintingMinApplied ? altPrintingCost : altPrintingCost * altPctMultiplier
+      const { total: altFinishing } = getFinishingCosts(altInputs, altResult.sheets)
+      const altSfCost = getScoreFoldCost(altInputs)
+      const altLamInputs = altInputs.lamination || LAMINATION_DEFAULTS
+      const altLamResult = calculateLamination(altResult.sheets, altPaper.name, altLamInputs, altInputs.isBroker || false)
+      const altLamCost = altLamResult?.total || 0
+
+      // Calculate fold finishing on alternative paper
+      const altFoldResult = calculateFoldFinish({
+        openWidth: altInputs.width,
+        openHeight: altInputs.height,
+        qty: altInputs.qty,
+        paperName: altPaper.name,
+        finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
+        foldType: ff.foldType,
+        isBroker: altInputs.isBroker || false,
+        orientation: ff.orientation || "width",
+      }, foldFinishSettings)
+      if (altFoldResult.resolution !== "ok" && altFoldResult.resolution !== "score_only") continue
+
+      const altFoldCost = altFoldResult.sellPrice || 0
+      const altTotal = altPrintingPlus10 + altResult.cuttingCost + altInputs.addOnCharge + altFinishing + (altSfCost?.cost || 0) + altLamCost + altFoldCost
+
+      const savings = currentTotal - altTotal
+      if (savings > 1 && (!paperUpgradeSuggestion || savings > paperUpgradeSuggestion.savings)) {
+        paperUpgradeSuggestion = {
+          paperName: altPaper.name,
+          currentTotal,
+          upgradedTotal: altTotal,
+          savings,
+        }
+      }
+    }
+  }
+
   return {
     printingCost,
     printingCostPlus10,
@@ -441,6 +498,7 @@ export function buildFullResult(
     grandTotal,
     result,
     inputs,
+    paperUpgradeSuggestion,
   }
 }
 

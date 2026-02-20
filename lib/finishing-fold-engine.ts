@@ -590,14 +590,6 @@ export function calculateFoldFinish(
   const finalPrice = Math.max(sellPrice, cfg.minimumJobPrice)
   const isMin = finalPrice === cfg.minimumJobPrice && sellPrice < cfg.minimumJobPrice
 
-  // Check for auto-upgrade suggestion
-  let suggestion: string | null = null
-  const upgrade = findAutoUpgrade(cat, paperKey, sizeKey, finishDataKey, qty, isLong, cfg)
-  if (upgrade) {
-    const upgradeSell = isBroker ? upgrade.upgradedPrice.broker : upgrade.upgradedPrice.retail
-    suggestion = `${upgrade.upgradedPaperLabel} has a lower fold setup (Level ${upgrade.upgradedEntry.l} vs Level ${entry.l}). Finishing would be $${Math.max(upgradeSell, cfg.minimumJobPrice).toFixed(2)} vs $${finalPrice.toFixed(2)} -- but check total job cost since printing price may differ.`
-  }
-
   if (resolved.status === "score_only") {
     warnings.push("Score only -- no machine fold available")
   }
@@ -609,7 +601,7 @@ export function calculateFoldFinish(
     isMinApplied: isMin,
     isLongSheet: isLong,
     warnings,
-    suggestion,
+    suggestion: null,
     foldedDimensions: { w: foldedW, h: foldedH },
     matchedSize: sizeKey,
     paperCategory: paperLabel,
