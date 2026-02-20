@@ -496,32 +496,33 @@ function AppContent() {
                       </div>
 
                       {/* Skip & Next -- always visible, outside scroll */}
-                      <div className="flex items-center gap-1.5 shrink-0 pl-2 border-l border-border/40 ml-2">
+                      <div className="flex items-center gap-2 shrink-0 pl-3 border-l border-border/40 ml-2">
                         {stepGateFlash && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap">
-                            Complete or skip first
+                          <span className="text-[10px] text-muted-foreground font-medium animate-in fade-in slide-in-from-right-2 duration-200 whitespace-nowrap">
+                            Complete or skip this step
                           </span>
                         )}
                         {getStepStatus(currentStep) !== "done" && (
                           <button
                             onClick={handleSkipStep}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border border-dashed border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors whitespace-nowrap"
+                            className="text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors whitespace-nowrap group"
                           >
-                            <SkipForward className="h-3 w-3" /> Skip
+                            skip
                           </button>
                         )}
                         {(() => {
                           const idx = visibleSteps.findIndex((s) => s.id === currentStep)
                           if (idx < visibleSteps.length - 1) {
+                            const canGo = getStepStatus(currentStep) !== "pending"
                             return (
                               <button onClick={handleNextStep}
                                 className={cn(
-                                  "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap",
-                                  getStepStatus(currentStep) === "pending"
-                                    ? "text-muted-foreground/40 cursor-not-allowed"
-                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                  "flex items-center gap-0.5 text-[11px] font-medium transition-colors whitespace-nowrap",
+                                  canGo
+                                    ? "text-muted-foreground hover:text-foreground"
+                                    : "text-muted-foreground/30 cursor-not-allowed"
                                 )}>
-                                Next <ChevronRight className="h-3 w-3" />
+                                next <ChevronRight className="h-3 w-3" />
                               </button>
                             )
                           }
