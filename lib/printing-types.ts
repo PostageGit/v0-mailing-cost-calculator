@@ -43,6 +43,14 @@ export interface PrintingInputs {
   finishingCalcIds?: string[]
   /** Override the auto-detected level (1-8) */
   levelOverride?: number
+  /** New fold finishing engine settings */
+  foldFinish?: {
+    enabled: boolean
+    finishType: string   // "fold" | "score_and_fold" | "score_only"
+    foldType: string     // "half" | "tri" | "z" | "gate" | "double_parallel" | "accordion" | "roll"
+    setupLevel: number   // 0-4 index into setupLevels array
+    orientation: "width" | "height"  // fold along which axis
+  }
   /** Extra percentage on printing cost (default 10) */
   printingMarkupPct: number
   /** Lamination settings */
@@ -96,6 +104,19 @@ export interface ScoreFoldCostLine {
   suggestion?: string
 }
 
+export interface FoldFinishCostLine {
+  finishType: string
+  foldType: string
+  baseCost: number
+  setupCost: number
+  sellPrice: number
+  isMinApplied: boolean
+  isLongSheet: boolean
+  warnings: string[]
+  suggestion: string | null
+  foldedDimensions: { w: number; h: number } | null
+}
+
 export interface LaminationCostLine {
   type: string
   sides: string
@@ -113,6 +134,7 @@ export interface FullPrintingResult {
   finishingCosts: FinishingCostLine[]
   totalFinishing: number
   scoreFoldCost: ScoreFoldCostLine | null
+  foldFinishCost: FoldFinishCostLine | null
   laminationCost: LaminationCostLine | null
   /** Costs from custom finishing calculators */
   finishingCalcCosts: { id: string; name: string; cost: number }[]

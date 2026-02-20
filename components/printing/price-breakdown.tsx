@@ -62,6 +62,15 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
       accent: true,
     })
   }
+  const ffc = data.foldFinishCost
+  if (ffc && ffc.sellPrice > 0) {
+    const ftLabel = ffc.finishType === "fold" ? "Fold" : ffc.finishType === "score_and_fold" ? "Score & Fold" : "Score Only"
+    costLines.push({
+      label: `${ftLabel} (${ffc.foldType})${ffc.isMinApplied ? " min." : ""}${ffc.isLongSheet ? " +long" : ""}`,
+      value: ffc.sellPrice,
+      accent: true,
+    })
+  }
   if (laminationCost) {
     costLines.push({
       label: `${laminationCost.type} Lamination (${laminationCost.sides})${laminationCost.isMinimumApplied ? " min." : ""}`,
@@ -98,6 +107,25 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
           <p className="text-[10px] text-amber-700 dark:text-amber-400 italic">
             {scoreFoldCost.suggestion}
           </p>
+        </div>
+      )}
+      {ffc?.suggestion && (
+        <div className="mt-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2">
+          <p className="text-[10px] text-emerald-700 dark:text-emerald-400 italic">
+            {ffc.suggestion}
+          </p>
+        </div>
+      )}
+      {ffc?.warnings && ffc.warnings.length > 0 && (
+        <div className="mt-2 bg-amber-50 dark:bg-amber-950/20 rounded-lg p-2 space-y-0.5">
+          {ffc.warnings.map((w: string, i: number) => (
+            <p key={i} className="text-[10px] text-amber-700 dark:text-amber-400 italic">{w}</p>
+          ))}
+        </div>
+      )}
+      {ffc?.foldedDimensions && (
+        <div className="mt-1">
+          <DetailRow label="Folded Size:" value={`${ffc.foldedDimensions.w.toFixed(2)}" x ${ffc.foldedDimensions.h.toFixed(2)}"`} />
         </div>
       )}
     </div>

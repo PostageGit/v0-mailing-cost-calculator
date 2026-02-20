@@ -2305,6 +2305,29 @@ function FinishingsSettingsTab() {
   const removeFinishing = (id: string) => { setFinishings((prev) => prev.filter((f) => f.id !== id)); setSheetDirty(true) }
   const resetSheetDefaults = () => { setFinishings(structuredClone(DEFAULT_FINISHING_OPTIONS)); setSheetDirty(true) }
 
+  // ---------- Fold Finishing Settings helpers ----------
+  const updateFoldSetting = <K extends keyof FoldFinishingSettings>(key: K, val: FoldFinishingSettings[K]) => {
+    setFoldSettings((prev) => ({ ...prev, [key]: val }))
+    setFoldDirty(true)
+  }
+  const updateSetupLevel = (level: number, field: "label" | "minutes", val: string | number) => {
+    setFoldSettings((prev) => {
+      const levels = prev.setupLevels.map((l, i) => i === level ? { ...l, [field]: val } : l)
+      return { ...prev, setupLevels: levels }
+    })
+    setFoldDirty(true)
+  }
+  const saveFoldSettings = async () => {
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fold_finishing_settings: foldSettings }) })
+      setFoldDirty(false)
+      mutate()
+      globalMutate("/api/app-settings")
+    } finally { setSaving(false) }
+  }
+  const resetFoldDefaults = () => { setFoldSettings(structuredClone(DEFAULT_FOLD_SETTINGS)); setFoldDirty(true) }
+
   // ---------- Score & Fold helpers ----------
   const saveScoreFold = async (updated: ScoreFoldConfig) => {
     setSaving(true)
@@ -2643,6 +2666,73 @@ function FinishingsSettingsTab() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── SECTION 3: Fold & Score Pricing Settings ── */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Fold & Score Pricing</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Markup, broker discount, setup levels, and long sheet fee</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={resetFoldDefaults} className="text-xs h-7">Reset</Button>
+            <Button size="sm" onClick={saveFoldSettings} disabled={!foldDirty || saving} className="text-xs h-7">
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Row 1: Markup + Broker + Long sheet fee */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Markup %</label>
+            <Input type="number" step="1" value={foldSettings.markupPercent} onChange={(e) => updateFoldSetting("markupPercent", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
+            <p className="text-[10px] text-muted-foreground">Applied to base cost. E.g., 300 = 4x multiplier</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Broker Discount %</label>
+            <Input type="number" step="1" value={foldSettings.brokerDiscountPercent} onChange={(e) => updateFoldSetting("brokerDiscountPercent", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
+            <p className="text-[10px] text-muted-foreground">Off sell price when broker flag is on</p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Long Sheet Fee ($)</label>
+            <Input type="number" step="1" value={foldSettings.longSheetSetupFee} onChange={(e) => updateFoldSetting("longSheetSetupFee", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
+            <p className="text-[10px] text-muted-foreground">Extra setup for 13x26+ sheets</p>
+          </div>
+        </div>
+
+        {/* Row 2: Setup Levels */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">Setup Levels (minutes per level)</label>
+          <div className="grid grid-cols-5 gap-3">
+            {foldSettings.setupLevels.map((level, i) => (
+              <div key={i} className="space-y-1 rounded-lg border border-border p-2.5">
+                <Input value={level.label} onChange={(e) => updateSetupLevel(i, "label", e.target.value)} className="h-7 text-xs font-medium" />
+                <div className="flex items-center gap-1">
+                  <Input type="number" step="1" value={level.minutes} onChange={(e) => updateSetupLevel(i, "minutes", parseFloat(e.target.value) || 0)} className="h-7 text-xs w-full" />
+                  <span className="text-[10px] text-muted-foreground shrink-0">min</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 3: Hourly rate + Min job price */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Hourly Rate ($)</label>
+            <Input type="number" step="1" value={foldSettings.hourlyRate} onChange={(e) => updateFoldSetting("hourlyRate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Min Job Price ($)</label>
+            <Input type="number" step="1" value={foldSettings.minimumJobPrice} onChange={(e) => updateFoldSetting("minimumJobPrice", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Hand Fold Hourly ($)</label>
+            <Input type="number" step="1" value={foldSettings.handFoldHourlyRate} onChange={(e) => updateFoldSetting("handFoldHourlyRate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
           </div>
         </div>
       </div>

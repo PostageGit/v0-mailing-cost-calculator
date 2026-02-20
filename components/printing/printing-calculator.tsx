@@ -67,6 +67,9 @@ export function PrintingCalculator() {
   // Finishing calculators from DB
   const { data: finCalcs } = useSWR<FinishingCalculator[]>("/api/finishing-calculators", swrFetcher)
   const { data: finRates } = useSWR<FinishingGlobalRates>("/api/finishing-global-rates", swrFetcher)
+  // Fold finishing settings
+  const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
+  const foldSettings = appSettings?.fold_finishing_settings || undefined
 
   // Form state
   const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
@@ -181,13 +184,13 @@ export function PrintingCalculator() {
   // (e.g. user toggles lamination or score/fold after picking a sheet)
   useEffect(() => {
     if (selectedOption && showResults) {
-      const fcCosts = getFinCalcCosts(inputs.qty, selectedOption.result.sheets, inputs.isBroker || false)
-      const result = buildFullResult(inputs, selectedOption.result, fcCosts)
-      setFullResult(result)
-    }
+  const fcCosts = getFinCalcCosts(inputs.qty, selectedOption.result.sheets, inputs.isBroker || false)
+  const result = buildFullResult(inputs, selectedOption.result, fcCosts, foldSettings)
+  setFullResult(result)
+  }
   }, [
-    inputs.finishingIds?.join(","),
-    inputs.finishingCalcIds?.join(","),
+  inputs.finishingIds?.join(","),
+  inputs.finishingCalcIds?.join(","),
     inputs.scoreFoldOperation,
     inputs.scoreFoldType,
     inputs.addOnCharge,
@@ -198,6 +201,12 @@ export function PrintingCalculator() {
     inputs.lamination?.sides,
     inputs.lamination?.markupPct,
     inputs.lamination?.brokerDiscountPct,
+    inputs.foldFinish?.enabled,
+    inputs.foldFinish?.finishType,
+    inputs.foldFinish?.foldType,
+    inputs.foldFinish?.setupLevel,
+    inputs.foldFinish?.orientation,
+    foldSettings,
     selectedOption,
     showResults,
     getFinCalcCosts,
@@ -208,11 +217,11 @@ export function PrintingCalculator() {
     (option: SheetOptionRow) => {
       setSelectedOption(option)
       const fcCosts = getFinCalcCosts(inputs.qty, option.result.sheets, inputs.isBroker || false)
-      const result = buildFullResult(inputs, option.result, fcCosts)
+      const result = buildFullResult(inputs, option.result, fcCosts, foldSettings)
       setFullResult(result)
       setShowResults(true)
     },
-    [inputs, getFinCalcCosts]
+    [inputs, getFinCalcCosts, foldSettings]
   )
 
   // Change pricing level override
@@ -225,7 +234,7 @@ export function PrintingCalculator() {
     const newCalcResult = calculatePrintingCost(updatedInputs, selectedOption.size)
     if (!newCalcResult) return
     const fcCosts = getFinCalcCosts(inputs.qty, newCalcResult.sheets, inputs.isBroker || false)
-    const result = buildFullResult(updatedInputs, newCalcResult, fcCosts)
+    const result = buildFullResult(updatedInputs, newCalcResult, fcCosts, foldSettings)
     setInputs(updatedInputs)
     setFullResult(result)
   }, [fullResult, selectedOption, inputs, getFinCalcCosts])

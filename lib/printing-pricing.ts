@@ -13,6 +13,8 @@ import type {
 } from "./printing-types"
 import { getActiveConfig, calculateFinishingCost, calculateScoreFoldCost } from "./pricing-config"
 import { calculateLamination, LAMINATION_DEFAULTS } from "./lamination-pricing"
+import { calculateFoldFinish, DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "./finishing-fold-engine"
+import type { FoldFinishCostLine } from "./printing-types"
 
 // ==================== DATA CONSTANTS ====================
 
@@ -374,6 +376,7 @@ export function buildFullResult(
   inputs: PrintingInputs,
   result: PrintingCalcResult,
   finishingCalcCosts?: { id: string; name: string; cost: number }[],
+  foldFinishSettings?: FoldFinishingSettings,
 ): FullPrintingResult {
   const printingCost = result.cost
   const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
@@ -387,9 +390,39 @@ export function buildFullResult(
     ? { type: lamInputs.type, sides: lamInputs.sides, cost: lamResult.total, isMinimumApplied: lamResult.isMinimumApplied, timeMinutes: lamResult.timeMinutes }
     : null
 
+  // ── Fold finish cost (new engine) ──
+  let foldFinishCost: FoldFinishCostLine | null = null
+  const ff = inputs.foldFinish
+  if (ff?.enabled && ff.finishType && ff.foldType && inputs.width && inputs.height) {
+    const foldResult = calculateFoldFinish({
+      openWidth: inputs.width,
+      openHeight: inputs.height,
+      qty: inputs.qty,
+      paperName: inputs.paperName,
+      finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
+      foldType: ff.foldType,
+      setupLevel: ff.setupLevel ?? 0,
+      isBroker: inputs.isBroker || false,
+      orientation: ff.orientation || "width",
+    }, foldFinishSettings)
+    foldFinishCost = {
+      finishType: ff.finishType,
+      foldType: ff.foldType,
+      baseCost: foldResult.baseCost,
+      setupCost: foldResult.setupCost,
+      sellPrice: foldResult.sellPrice,
+      isMinApplied: foldResult.isMinApplied,
+      isLongSheet: foldResult.isLongSheet,
+      warnings: foldResult.warnings,
+      suggestion: foldResult.suggestion,
+      foldedDimensions: foldResult.foldedDimensions,
+    }
+  }
+
   const fcCosts = finishingCalcCosts || []
   const totalFinishingCalcCost = fcCosts.reduce((sum, c) => sum + c.cost, 0)
-  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0)
+  const foldCost = foldFinishCost?.sellPrice || 0
+  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0) + foldCost
   const grandTotal = subtotal
 
   return {
@@ -401,6 +434,7 @@ export function buildFullResult(
     finishingCosts,
     totalFinishing,
     scoreFoldCost,
+    foldFinishCost,
     laminationCost,
     finishingCalcCosts: fcCosts,
     totalFinishingCalcCost,

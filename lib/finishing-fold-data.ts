@@ -200,6 +200,25 @@ export const FINISH_TYPES = {
 }
 export type FoldCategory = "folding" | "sf"
 
+// ── UI-friendly finish type / fold type arrays for components ──
+export type FoldTypeId = "half" | "tri" | "z" | "gate" | "double_parallel" | "accordion" | "roll"
+
+export const FOLD_TYPES: { id: FoldTypeId; label: string; dataKey: string; panels: number }[] = [
+  { id: "half", label: "Fold in Half", dataKey: "Fold in Half", panels: 2 },
+  { id: "tri", label: "Tri-Fold", dataKey: "Fold in 3", panels: 3 },
+  { id: "z", label: "Z-Fold", dataKey: "Fold in 3", panels: 3 },
+  { id: "gate", label: "Gate Fold", dataKey: "Gate Fold", panels: 4 },
+  { id: "double_parallel", label: "Double Parallel", dataKey: "Fold in 4", panels: 4 },
+  { id: "accordion", label: "Accordion", dataKey: "Fold in 4", panels: 4 },
+  { id: "roll", label: "Roll Fold", dataKey: "Fold in 3", panels: 3 },
+]
+
+export const FINISH_TYPE_OPTIONS: { id: string; label: string; category: FoldCategory }[] = [
+  { id: "fold", label: "Fold", category: "folding" },
+  { id: "score_and_fold", label: "Score & Fold", category: "sf" },
+  { id: "score_only", label: "Score Only", category: "sf" },
+]
+
 // ── SIZE MATCHING ──
 // Maps open/flat sheet dimensions to a pricing tier key
 export function matchFoldSize(w: number, h: number, cat: FoldCategory): string {

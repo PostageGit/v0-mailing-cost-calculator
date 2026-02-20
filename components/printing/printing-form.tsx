@@ -18,6 +18,7 @@ import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 
 
 import { FinishingAddOns } from "@/components/finishing-add-ons"
+import { FoldFinishSection } from "@/components/printing/fold-finish-section"
 import { useFormValidation } from "@/hooks/use-form-validation"
 import { LAMINATION_TYPES, LAMINATION_DEFAULTS, toLaminationPaperCategory } from "@/lib/lamination-pricing"
 import type { LaminationType, LaminationSides } from "@/lib/lamination-pricing"
@@ -436,6 +437,16 @@ function FinishingsSection({
           </div>
         )}
       </div>
+
+      {/* Divider */}
+      <div className="border-t border-border" />
+
+      {/* Fold / Score Finishing */}
+      <FoldFinishSection
+        inputs={inputs}
+        onInputsChange={onInputsChange}
+        currentResult={currentResult}
+      />
 
       {/* Divider */}
       <div className="border-t border-border" />
