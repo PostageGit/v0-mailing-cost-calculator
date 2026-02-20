@@ -99,8 +99,8 @@ function AppContent() {
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
-  const [skippedSteps, setSkippedSteps] = useState<Set<StepId>>(new Set())
-  const { loadQuote, items, newQuote } = useQuote()
+  const [stepGateFlash, setStepGateFlash] = useState(false)
+  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
 
@@ -128,13 +128,16 @@ function AppContent() {
     [loadQuote],
   )
   const handleNewJob = useCallback(() => {
-    newQuote(); setJobPhase("planner"); setSection("job"); setSkippedSteps(new Set())
+    newQuote(); setJobPhase("planner"); setSection("job")
   }, [newQuote])
 
   const handleContinueToPricing = useCallback(() => {
     setJobPhase("pricing")
     setCurrentStep(visibleSteps[0]?.id || "usps")
   }, [visibleSteps])
+
+  // ── Step workflow state ──
+  const skippedSteps = useMemo(() => new Set(savedSkipped as StepId[]), [savedSkipped])
 
   const completedSteps = useMemo(() => {
     const done = new Set<StepId>()
@@ -144,17 +147,11 @@ function AppContent() {
     return done
   }, [items, visibleSteps])
 
-  // Auto-clear skipped status when step gets items
+  // Auto-clear skipped status when step gets items (completed)
   useEffect(() => {
-    setSkippedSteps((prev) => {
-      const newSkipped = new Set(prev)
-      let changed = false
-      for (const id of prev) {
-        if (completedSteps.has(id)) { newSkipped.delete(id); changed = true }
-      }
-      return changed ? newSkipped : prev
-    })
-  }, [completedSteps])
+    const cleaned = savedSkipped.filter((id) => !completedSteps.has(id as StepId))
+    if (cleaned.length !== savedSkipped.length) saveSkipped(cleaned)
+  }, [completedSteps, savedSkipped, saveSkipped])
 
   type StepStatus = "done" | "skipped" | "pending"
   const getStepStatus = useCallback((id: StepId): StepStatus => {
@@ -163,14 +160,38 @@ function AppContent() {
     return "pending"
   }, [completedSteps, skippedSteps])
 
+  // The "progress frontier" -- the furthest step you can reach.
+  // You can click any step up to (and including) the first pending step.
+  const progressFrontier = useMemo(() => {
+    for (let i = 0; i < visibleSteps.length; i++) {
+      const s = visibleSteps[i].id
+      if (!completedSteps.has(s) && !skippedSteps.has(s)) return i
+    }
+    return visibleSteps.length - 1 // all done/skipped
+  }, [visibleSteps, completedSteps, skippedSteps])
+
+  const canNavigateTo = useCallback((stepIdx: number) => {
+    return stepIdx <= progressFrontier
+  }, [progressFrontier])
+
   const handleSkipStep = useCallback(() => {
-    setSkippedSteps((prev) => new Set(prev).add(currentStep))
-    // advance to next pending step
+    saveSkipped([...savedSkipped, currentStep])
+    // advance to next step
     const idx = visibleSteps.findIndex((s) => s.id === currentStep)
-    const next = visibleSteps.slice(idx + 1).find((s) => !completedSteps.has(s.id))
-    if (next) setCurrentStep(next.id)
-    else if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
-  }, [currentStep, visibleSteps, completedSteps])
+    if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
+  }, [currentStep, visibleSteps, savedSkipped, saveSkipped])
+
+  const handleNextStep = useCallback(() => {
+    const idx = visibleSteps.findIndex((s) => s.id === currentStep)
+    const status = getStepStatus(currentStep)
+    if (status === "pending") {
+      // Can't advance -- flash the gate
+      setStepGateFlash(true)
+      setTimeout(() => setStepGateFlash(false), 1500)
+      return
+    }
+    if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
+  }, [currentStep, visibleSteps, getStepStatus])
 
   const pendingSteps = useMemo(() =>
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
@@ -439,20 +460,25 @@ function AppContent() {
                         <Layers className="h-3.5 w-3.5" /> Planner
                       </button>
                       <div className="w-px h-4 bg-border shrink-0" />
-                      {visibleSteps.map((step) => {
+                      {visibleSteps.map((step, stepIdx) => {
                         const active = step.id === currentStep
                         const status = getStepStatus(step.id)
+                        const reachable = canNavigateTo(stepIdx)
                         return (
-                          <button key={step.id} onClick={() => setCurrentStep(step.id)}
+                          <button key={step.id}
+                            onClick={() => reachable && setCurrentStep(step.id)}
                             className={cn(
                               "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap shrink-0 min-h-[44px]",
+                              !reachable && !active && "opacity-30 cursor-not-allowed",
                               active
                                 ? "bg-foreground text-background shadow-sm"
                                 : status === "done"
                                   ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50"
                                   : status === "skipped"
                                     ? "border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                    : reachable
+                                      ? "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                      : "text-muted-foreground"
                             )}>
                             {active
                               ? step.icon
@@ -465,8 +491,13 @@ function AppContent() {
                           </button>
                         )
                       })}
-                      {/* Skip & Next buttons */}
-                      <div className="ml-auto flex items-center gap-1 shrink-0">
+                      {/* Skip & Next */}
+                      <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                        {stepGateFlash && (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in slide-in-from-right-2 duration-200">
+                            Complete or skip first
+                          </span>
+                        )}
                         {getStepStatus(currentStep) !== "done" && (
                           <button
                             onClick={handleSkipStep}
@@ -479,8 +510,13 @@ function AppContent() {
                           const idx = visibleSteps.findIndex((s) => s.id === currentStep)
                           if (idx < visibleSteps.length - 1) {
                             return (
-                              <button onClick={() => setCurrentStep(visibleSteps[idx + 1].id)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+                              <button onClick={handleNextStep}
+                                className={cn(
+                                  "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-colors",
+                                  getStepStatus(currentStep) === "pending"
+                                    ? "text-muted-foreground/40 cursor-not-allowed"
+                                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                )}>
                                 Next <ChevronRight className="h-3 w-3" />
                               </button>
                             )

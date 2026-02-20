@@ -20,7 +20,7 @@ import {
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
-  LayoutPanelLeft, Zap, Info, MapPin, Users,
+  LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -43,6 +43,8 @@ interface JobMeta {
   zendesk_ticket?: string; next_step?: string; quick_notes?: string
   /** Per-piece vendor / expected date / arrived, keyed by piece index */
   piece_meta?: PieceMeta[]
+  /** Steps that were skipped during quoting -- need to be completed */
+  skipped_steps?: string[]
 }
 interface Quote {
   id: string; project_name: string; status: string; column_id: string | null
@@ -1163,6 +1165,20 @@ function QuoteCard({
               <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
             </div>
           </div>
+
+          {/* Skipped/incomplete steps indicator */}
+          {meta.skipped_steps && meta.skipped_steps.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap pt-1">
+              <SkipForward className="h-3 w-3 text-amber-500 shrink-0" />
+              {(meta.skipped_steps as string[]).map((step) => (
+                <span key={step}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium border border-dashed border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20"
+                >
+                  {step.charAt(0).toUpperCase() + step.slice(1)}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Activate Job (quote board only) */}
           {!isArchived && boardType === "quote" && onConvertToJob && (

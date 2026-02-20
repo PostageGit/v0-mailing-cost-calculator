@@ -51,7 +51,11 @@ export async function PATCH(
   if (body.converted_at !== undefined) updates.converted_at = body.converted_at
   if (body.archived !== undefined) updates.archived = body.archived
   if (body.archived_at !== undefined) updates.archived_at = body.archived_at
-  if (body.job_meta !== undefined) updates.job_meta = body.job_meta
+  if (body.job_meta !== undefined) {
+    // Merge with existing job_meta instead of replacing
+    const { data: existing } = await supabase.from("quotes").select("job_meta").eq("id", id).single()
+    updates.job_meta = { ...(existing?.job_meta || {}), ...body.job_meta }
+  }
   if (body.quantity !== undefined) updates.quantity = body.quantity
 
   // Auto-assign job_number when activating a quote into a job

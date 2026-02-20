@@ -42,6 +42,9 @@ interface QuoteContextValue {
   newQuote: () => void
   logActivity: (event: string, detail?: string) => Promise<void>
   refreshLog: () => Promise<void>
+  /** Steps the user explicitly skipped -- persisted via job_meta */
+  skippedSteps: string[]
+  setSkippedSteps: (steps: string[]) => void
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
@@ -60,6 +63,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [isSaving, setIsSaving] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
+  const [skippedSteps, setSkippedStepsRaw] = useState<string[]>([])
 
   // Track whether there are unsaved changes
   const dirtyRef = useRef(false)
@@ -80,6 +84,10 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       // Use refs to get latest state at call time
       const currentItems = itemsRef.current
       const total = currentItems.reduce((s, i) => s + i.amount, 0)
+      // Build job_meta with skipped steps
+      const currentSkipped = skippedStepsRef.current
+      const jobMetaPatch = currentSkipped.length > 0 ? { skipped_steps: currentSkipped } : { skipped_steps: [] }
+
       const payload = {
         project_name: projectNameRef.current || "Untitled Quote",
         items: currentItems,
@@ -88,6 +96,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         contact_name: contactNameRef.current || "",
         reference_number: referenceNumberRef.current || "",
         quantity: quantityRef.current || 0,
+        job_meta: jobMetaPatch,
       }
 
       let id = savedIdRef.current
@@ -129,6 +138,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const contactNameRef = useRef(contactName)
   const referenceNumberRef = useRef(referenceNumber)
   const quantityRef = useRef(quantity)
+  const skippedStepsRef = useRef(skippedSteps)
 
   useEffect(() => { itemsRef.current = items }, [items])
   useEffect(() => { projectNameRef.current = projectName }, [projectName])
@@ -136,6 +146,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   useEffect(() => { contactNameRef.current = contactName }, [contactName])
   useEffect(() => { referenceNumberRef.current = referenceNumber }, [referenceNumber])
   useEffect(() => { quantityRef.current = quantity }, [quantity])
+  useEffect(() => { skippedStepsRef.current = skippedSteps }, [skippedSteps])
 
   // Schedule auto-save
   const scheduleSave = useCallback(() => {
@@ -169,6 +180,11 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
 
   const setQuantity = useCallback((qty: number) => {
     setQuantityRaw(qty)
+    scheduleSave()
+  }, [scheduleSave])
+
+  const setSkippedSteps = useCallback((steps: string[]) => {
+    setSkippedStepsRaw(steps)
     scheduleSave()
   }, [scheduleSave])
 
@@ -241,6 +257,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setReferenceNumberRaw(data.reference_number || "")
       setQuantityRaw(data.quantity || 0)
       setItems(data.items || [])
+      setSkippedStepsRaw(data.job_meta?.skipped_steps || [])
       dirtyRef.current = false
       setLastSavedAt(Date.now())
       // Load activity log
@@ -285,6 +302,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setReferenceNumberRaw("")
     setQuantityRaw(0)
     setItems([])
+    setSkippedStepsRaw([])
     dirtyRef.current = false
     setLastSavedAt(null)
   }, [])
@@ -320,6 +338,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         newQuote,
         logActivity,
         refreshLog,
+        skippedSteps,
+        setSkippedSteps,
       }}
     >
       {children}
