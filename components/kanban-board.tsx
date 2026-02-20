@@ -1383,6 +1383,13 @@ function QuoteCard({
                           </div>
 
                           {/* ── Bottom: Tracking ── */}
+                          {isNoprint ? (
+                          <div className="px-3 py-2.5 bg-sky-50/60 dark:bg-sky-950/15">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">Plastic Bag -- We Supply, No Print</span>
+                            </div>
+                          </div>
+                          ) : (
                           <div className={cn(
                             "px-3 py-2 space-y-1.5 overflow-hidden",
                             arrived ? "bg-emerald-100/40 dark:bg-emerald-900/15" : "bg-muted/25"
@@ -1455,6 +1462,7 @@ function QuoteCard({
                               {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
                             </div>
                           </div>
+                          )}
                         </div>
                       )
                     })}
