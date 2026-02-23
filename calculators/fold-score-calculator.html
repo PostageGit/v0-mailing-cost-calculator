@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finishing Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c0d12;--s1:#14161e;--s2:#1c1f2b;--s3:#252938;--bdr:#2e3348;--tx:#e4e6f0;--dim:#6b7194;--green:#34d399;--green2:#10b981;--gbg:rgba(52,211,153,.08);--amber:#fbbf24;--abg:rgba(251,191,36,.08);--red:#f87171;--rbg:rgba(248,113,113,.08);--blue:#60a5fa;--bbg:rgba(96,165,250,.08);--purple:#a78bfa;--pbg:rgba(167,139,250,.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--s1);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:50}
+.topbar h1{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--green);letter-spacing:1.5px;text-transform:uppercase}
+.tabs{display:flex;gap:4px}
+.tab{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--dim);transition:all .15s;border:1px solid transparent}
+.tab:hover{color:var(--tx);background:var(--s2)}
+.tab.on{color:var(--green);background:var(--gbg);border-color:rgba(52,211,153,.2)}
+.wrap{max-width:700px;margin:0 auto;padding:20px 16px 120px}
+.page{display:none}.page.on{display:block}
+
+/* Inputs */
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.row.r3{grid-template-columns:1fr 1fr 1fr}
+.row.r1{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dim)}
+.fg select,.fg input{background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none;width:100%;transition:border .15s}
+.fg select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%236b7194' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:28px}
+.fg select:focus,.fg input:focus{border-color:var(--green)}
+.fg select option{background:var(--s2)}
+.size-input-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:10px}
+.size-input-row .x{color:var(--dim);font-size:18px;font-weight:700;padding-bottom:10px}
+.x-swap{display:flex;align-items:end;padding-bottom:4px}
+.swap-btn{
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  background:var(--s2);border:1px solid var(--bdr);border-radius:8px;
+  color:var(--dim);font-size:18px;cursor:pointer;transition:all .15s;user-select:none;
+}
+.swap-btn:hover{border-color:var(--green);color:var(--green);background:var(--gbg)}
+.swap-btn:active{transform:scale(.92)}
+.orient-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.orient-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);white-space:nowrap}
+.orient-toggle{display:flex;gap:4px;flex:1}
+.ot-opt{
+  flex:1;text-align:center;padding:7px 8px;border-radius:7px;font-size:12px;font-weight:600;
+  cursor:pointer;color:var(--dim);background:var(--s2);border:1px solid var(--bdr);
+  transition:all .15s;user-select:none;
+}
+.ot-opt:hover{color:var(--tx);border-color:var(--green)}
+.ot-opt.on{color:var(--green);background:var(--gbg);border-color:rgba(52,211,153,.3)}
+
+/* Size viz */
+.size-viz{background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:20px;margin-bottom:16px;display:none}
+.size-viz.show{display:block}
+.viz-row{display:grid;grid-template-columns:1fr 40px 1fr;gap:12px;align-items:center}
+.viz-box{text-align:center}
+.viz-box .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);margin-bottom:10px}
+.viz-box .lbl-green{color:var(--green)}
+.viz-box .lbl-purple{color:var(--purple)}
+.viz-arrow{text-align:center;font-size:22px;color:var(--dim)}
+.sheet-wrap{display:flex;justify-content:center;align-items:center;min-height:140px}
+.sheet{border:2px solid var(--green);border-radius:4px;position:relative;display:flex;align-items:center;justify-content:center;transition:all .3s}
+.sheet.folded{border-color:var(--purple)}
+.sheet .dim-w{position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--green)}
+.sheet.folded .dim-w{color:var(--purple)}
+.sheet .dim-h{position:absolute;right:-42px;top:0;bottom:0;display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--green);writing-mode:vertical-rl}
+.sheet.folded .dim-h{color:var(--purple)}
+.fold-lines{position:absolute;top:0;bottom:0;left:0;right:0;pointer-events:none}
+.fold-line{position:absolute;top:0;bottom:0;border-left:2px dashed rgba(251,191,36,.5)}
+.size-text{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;margin-top:8px}
+.size-text.green{color:var(--green)}
+.size-text.purple{color:var(--purple)}
+
+/* Matched size badge */
+.match-badge{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--dim);margin-bottom:16px}
+.match-badge .dot{width:6px;height:6px;border-radius:50%}
+
+/* Alerts */
+.al{border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5}
+.al.red{background:var(--rbg);border:1px solid rgba(248,113,113,.2);color:var(--red)}
+.al.amber{background:var(--abg);border:1px solid rgba(251,191,36,.2);color:var(--amber)}
+.al.blue{background:var(--bbg);border:1px solid rgba(96,165,250,.2);color:var(--blue)}
+.al.green{background:var(--gbg);border:1px solid rgba(52,211,153,.2);color:var(--green)}
+.al .ic{font-size:15px;flex-shrink:0}
+
+/* Big price */
+.hero{text-align:center;padding:28px 20px;margin:16px 0;background:linear-gradient(135deg,var(--s1),var(--s2));border:1px solid var(--bdr);border-radius:16px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:-50%;background:radial-gradient(circle,rgba(52,211,153,.04),transparent 60%);pointer-events:none}
+.hero .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:6px}
+.hero .amt{font-family:'JetBrains Mono',monospace;font-size:50px;font-weight:700;color:var(--green);line-height:1}
+.hero .pp{font-size:12px;color:var(--dim);margin-top:6px;font-family:'JetBrains Mono',monospace}
+.hero .brk{font-size:15px;color:var(--purple);margin-top:10px;font-family:'JetBrains Mono',monospace;font-weight:600}
+
+/* Upgrade banner */
+.upg{background:var(--gbg);border:1px solid rgba(52,211,153,.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--green);line-height:1.5}
+.upg b{display:block;font-size:14px;margin-bottom:2px}
+
+/* Collapsible */
+.coll-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;color:var(--dim);transition:all .15s;user-select:none;margin-top:6px}
+.coll-h:hover{color:var(--tx);border-color:var(--green)}
+.coll-h .arr{transition:transform .2s;font-size:10px}
+.coll-h.open .arr{transform:rotate(180deg)}
+.coll-b{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.coll-b.open{max-height:600px}
+.coll-inner{padding:10px 14px;background:var(--s1);border:1px solid var(--bdr);border-top:none;border-radius:0 0 9px 9px}
+.dr{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid rgba(46,51,72,.4)}
+.dr:last-child{border-bottom:none}
+.dr .k{color:var(--dim)}.dr .v{font-family:'JetBrains Mono',monospace;font-weight:500}
+.dr.sep{border-top:2px solid var(--bdr);margin-top:3px;padding-top:6px}
+
+/* Settings */
+.sc{background:var(--s1);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:12px}
+.sc h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:12px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.si{background:var(--s2);border-radius:8px;padding:10px}
+.si label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);display:block;margin-bottom:5px}
+.si input{background:var(--s1);border:1px solid var(--bdr);border-radius:6px;padding:7px 10px;color:var(--green);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;width:100%;outline:none}
+.si input:focus{border-color:var(--green)}
+.si .h{font-size:9px;color:var(--dim);margin-top:3px}
+.tr{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bdr)}
+.tr:last-child{border-bottom:none}
+.tl{font-size:13px;font-weight:500}
+.tl span{display:block;font-size:10px;color:var(--dim);margin-top:1px}
+.tog{width:38px;height:20px;background:var(--s3);border-radius:10px;cursor:pointer;position:relative;transition:background .15s;flex-shrink:0}
+.tog.on{background:var(--green)}
+.tog::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .15s}
+.tog.on::after{transform:translateX(18px)}
+
+/* Rules */
+.rule{padding:10px 12px;border-left:3px solid var(--s3);margin-bottom:6px;font-size:12px;color:var(--dim);line-height:1.6}
+.rule:hover{border-left-color:var(--green);color:var(--tx)}
+.rule b{color:var(--tx)}
+
+.empty{text-align:center;padding:50px 20px;color:var(--dim)}
+.empty .em{font-size:36px;margin-bottom:10px}
+.empty p{font-size:13px}
+
+/* Open size box */
+.open-size-box{background:var(--s1);border:2px solid rgba(52,211,153,.25);border-radius:12px;padding:16px 14px 12px;margin-bottom:14px;position:relative}
+.open-size-label{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green);letter-spacing:1px;text-align:center;margin-bottom:12px}
+.open-size-label span{font-weight:400;color:var(--dim);font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:0}
+
+@media(max-width:600px){
+  .row,.row.r3,.sg{grid-template-columns:1fr}
+  .size-input-row{grid-template-columns:1fr auto 1fr}
+  .hero .amt{font-size:38px}
+  .viz-row{grid-template-columns:1fr;gap:16px}
+  .viz-arrow{transform:rotate(90deg)}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>⚡ FinishCalc</h1>
+  <div class="tabs">
+    <div class="tab on" onclick="go('calc')">Calc</div>
+    <div class="tab" onclick="go('settings')">Settings</div>
+    <div class="tab" onclick="go('rules')">Rules</div>
+  </div>
+</div>
+<div class="wrap">
+
+<!-- ====== CALC ====== -->
+<div id="p-calc" class="page on">
+  <div class="row">
+    <div class="fg"><label>Category</label>
+      <select id="cat" onchange="catCh()"><option value="">Pick one…</option><option value="folding">Folding</option><option value="sf">Score & Fold</option></select>
+    </div>
+    <div class="fg"><label>Paper</label>
+      <select id="paper" onchange="papCh()"><option value="">—</option></select>
+    </div>
+  </div>
+
+  <div class="open-size-box">
+    <div class="open-size-label">📄 OPEN / FLAT SHEET SIZE <span>(before folding)</span></div>
+    <div class="size-input-row">
+      <div class="fg"><label>Width (inches)</label><input type="number" id="sw" placeholder="e.g. 11" step="0.25" min="0" oninput="calc()"></div>
+      <div class="x-swap">
+        <div class="swap-btn" onclick="swapWH()" title="Swap width ↔ height">⇄</div>
+      </div>
+      <div class="fg"><label>Height (inches)</label><input type="number" id="sh" placeholder="e.g. 17" step="0.25" min="0" oninput="calc()"></div>
+    </div>
+    <div class="orient-row">
+      <div class="orient-label">Fold along:</div>
+      <div class="orient-toggle">
+        <div class="ot-opt" id="ot-w" onclick="setOrient('w')">← Width →</div>
+        <div class="ot-opt" id="ot-h" onclick="setOrient('h')">↕ Height</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="fg"><label>Finish</label>
+      <select id="finish" onchange="calc()"><option value="">—</option></select>
+    </div>
+    <div class="fg"><label>Quantity</label>
+      <input type="number" id="qty" placeholder="How many?" min="1" oninput="calc()">
+    </div>
+  </div>
+
+  <div id="out"><div class="empty"><div class="em">☝️</div><p>Enter your <b>open flat sheet size</b> and pick options</p></div></div>
+</div>
+
+<!-- ====== SETTINGS ====== -->
+<div id="p-settings" class="page">
+  <div class="sc"><h3>💰 Pricing</h3>
+    <div class="sg">
+      <div class="si"><label>Labor $/hr</label><input type="number" id="s-labor" value="60" oninput="ss()"><div class="h">Setup time</div></div>
+      <div class="si"><label>Running $/hr</label><input type="number" id="s-run" value="30" oninput="ss()"><div class="h">Production</div></div>
+      <div class="si"><label>Markup %</label><input type="number" id="s-markup" value="300" oninput="ss()"><div class="h">On base cost</div></div>
+      <div class="si"><label>Broker Disc %</label><input type="number" id="s-bdisc" value="30" oninput="ss()"><div class="h">Off retail</div></div>
+      <div class="si"><label>Long Sheet Setup $</label><input type="number" id="s-long" value="35" oninput="ss()"><div class="h">Flat fee for 13×26+ sheets</div></div>
+    </div>
+  </div>
+  <div class="sc"><h3>⏱️ Setup Min per Level</h3>
+    <div class="sg">
+      <div class="si"><label>Level 1</label><input type="number" id="s-l1" value="5" oninput="ss()"></div>
+      <div class="si"><label>Level 2</label><input type="number" id="s-l2" value="7" oninput="ss()"></div>
+      <div class="si"><label>Level 3</label><input type="number" id="s-l3" value="10" oninput="ss()"></div>
+      <div class="si"><label>Level 4</label><input type="number" id="s-l4" value="12" oninput="ss()"></div>
+      <div class="si"><label>Level 5</label><input type="number" id="s-l5" value="15" oninput="ss()"></div>
+    </div>
+  </div>
+  <div class="sc"><h3>🔧 Toggles</h3>
+    <div class="tr"><div class="tl">Broker Mode<span>Show broker price</span></div><div class="tog" id="t-broker" onclick="tb()"></div></div>
+    <div class="tr"><div class="tl">Auto-Upgrade Paper<span>Rule 5: switch to thicker if cheaper</span></div><div class="tog on" id="t-upg" onclick="tu()"></div></div>
+  </div>
+</div>
+
+<!-- ====== RULES ====== -->
+<div id="p-rules" class="page">
+  <div class="rule"><b>Rule 1</b> — N/A options show the closest alternative.</div>
+  <div class="rule"><b>Rule 2</b> — Score & Fold N/A → "Score Only." Otherwise change size/paper.</div>
+  <div class="rule"><b>Rule 3</b> — Max trifold height = <b>11″</b></div>
+  <div class="rule"><b>Rule 4</b> — Max fold width = <b>13″</b> (length = any)</div>
+  <div class="rule"><b>Rule 5</b> — Level > 1 → auto-checks thicker paper. Cheaper = <b>auto-upgrade</b>.</div>
+  <div class="rule"><b>Rule 6</b> — Long sheets (13×26+) get a <b>$35 flat setup fee</b> added on top of normal setup. Applies to Score & Fold only. Changeable in Settings.</div>
+  <div class="sc" style="margin-top:14px"><h3>📐 Size Limits</h3>
+    <div class="rule">Trifold max height: <b>11″</b></div>
+    <div class="rule">Max fold width: <b>13″</b></div>
+    <div class="rule">Length: <b>no limit</b></div>
+  </div>
+</div>
+
+</div>
+<script>
+// ========== DATA ==========
+const FOLD={
+  "80text_60_70":{label:"80 Text / 60lb / 70lb",thick:0,sizes:{
+    "11x17+":{lbl:"11×17+","Fold in Half":{l:3,b:100,s:40},"Fold in 3":{l:3,b:100,s:45},"Fold in 4":{l:5,b:100,s:120},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock"}},
+    "8.5x11":{lbl:"8.5×11","Fold in Half":{l:3,b:100,s:30},"Fold in 3":{l:3,b:10,s:35},"Fold in 4":{l:"na",alt:"Thicker paper (100 text+) or bigger size"},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock"}},
+    "8.5x5.5":{lbl:"8.5×5.5","Fold in Half":{l:3,b:100,s:25},"Fold in 3":{l:"na",alt:"Change to 100 text or 80 cover"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
+    "7x4":{lbl:"7×4","Fold in Half":{l:4,b:100,s:40},"Fold in 3":{l:"na",alt:"Change to 100 text or 80 cover"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}}
+  }},
+  "100text":{label:"100 Text",thick:1,sizes:{
+    "11x17+":{lbl:"11×17+","Fold in Half":{l:2,b:100,s:40},"Fold in 3":{l:3,b:100,s:45},"Fold in 4":{l:5,b:100,s:120},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
+    "8.5x11":{lbl:"8.5×11","Fold in Half":{l:2,b:100,s:30},"Fold in 3":{l:3,b:10,s:35},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
+    "8.5x5.5":{lbl:"8.5×5.5","Fold in Half":{l:2,b:100,s:25},"Fold in 3":{l:"na",alt:"Change to 100 text/80 cover or size to 8.5×11+"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
+    "7.5x5":{lbl:"7.5×5","Fold in Half":{l:4,b:100,s:40},"Fold in 3":{l:"na",alt:"Change to 100 text/80 cover or size to 8.5×11+"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}}
+  }}
+};
+const SF={
+  "100text_80cover":{label:"100 Text / 80 Cover",thick:0,sizes:{
+    "long":{lbl:"Long (13×26+)",isLong:true,"Score & Fold in Half":{l:2,b:100,s:215,long:true},"Score & Fold in 3":{l:3,b:100,s:225,long:true},"Score & Fold in 4":{l:"hand",long:true},"Score & Gate Fold":{l:"na",alt:"Use Card Stock",long:true}},
+    "11x17+":{lbl:"11×17+","Score & Fold in Half":{l:2,b:100,s:215},"Score & Fold in 3":{l:3,b:100,s:225},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},
+    "8.5x11":{lbl:"8.5×11","Score & Fold in Half":{l:2,b:100,s:260},"Score & Fold in 3":{l:3,b:100,s:260},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},
+    "8.5x5.5":{lbl:"8.5×5.5","Score & Fold in Half":{l:3,b:100,s:120},"Score & Fold in 3":{l:4,b:100,s:140,so:1},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},
+    "7.5x5":{lbl:"7.5×5","Score & Fold in Half":{l:5,b:100,s:180},"Score & Fold in 3":{l:5,b:100,s:180,so:1},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}}
+  }},
+  "cardstock":{label:"Card Stock (Any)",thick:1,sizes:{
+    "long":{lbl:"Long (13×26+)",isLong:true,"Score & Fold in Half":{l:1,b:100,s:155,long:true},"Score & Fold in 3":{l:2,b:100,s:225,long:true},"Score & Fold in 4":{l:3,b:100,s:240,long:true},"Score & Gate Fold":{l:3,b:100,s:240,long:true}},
+    "11x17+":{lbl:"11×17+","Score & Fold in Half":{l:1,b:100,s:155},"Score & Fold in 3":{l:2,b:100,s:225},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",b:100,s:240}},
+    "8.5x11":{lbl:"8.5×11","Score & Fold in Half":{l:1,b:100,s:140},"Score & Fold in 3":{l:4,b:100,s:200},"Score & Fold in 4":{l:4,b:100,s:200,so:1},"Score & Gate Fold":{l:4,b:100,s:200,so:1}},
+    "8.5x5.5":{lbl:"8.5×5.5","Score & Fold in Half":{l:2,b:100,s:120},"Score & Fold in 3":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}},
+    "7.5x5":{lbl:"7.5×5","Score & Fold in Half":{l:4,b:100,s:180},"Score & Fold in 3":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}}
+  }}
+};
+
+// Predefined sizes for matching: [key, minW, maxW, minH, maxH]
+const SIZE_MAP=[
+  {key:"11x17+",w:11,h:17,label:"11×17+",minW:11,minH:17},
+  {key:"8.5x11",w:8.5,h:11,label:"8.5×11",minW:8.5,maxW:10.99,minH:11,maxH:16.99},
+  {key:"8.5x5.5",w:8.5,h:5.5,label:"8.5×5.5",minW:5.5,maxW:8.5,minH:5.5,maxH:10.99},
+  {key:"7.5x5",w:7.5,h:5,label:"7.5×5",minW:0,maxW:8,minH:0,maxH:5.49},
+  {key:"7x4",w:7,h:4,label:"7×4",minW:0,maxW:7.49,minH:0,maxH:5.49},
+];
+
+// Finish types by category
+const FINISHES={
+  folding:["Fold in Half","Fold in 3","Fold in 4","Gate Fold"],
+  sf:["Score & Fold in Half","Score & Fold in 3","Score & Fold in 4","Score & Gate Fold"]
+};
+
+// Orientation: 'w' = fold along width, 'h' = fold along height
+let foldAxis='w';
+function setOrient(axis){
+  foldAxis=axis;
+  document.getElementById('ot-w').className='ot-opt'+(axis==='w'?' on':'');
+  document.getElementById('ot-h').className='ot-opt'+(axis==='h'?' on':'');
+  calc();
+}
+function swapWH(){
+  const wEl=document.getElementById('sw'),hEl=document.getElementById('sh');
+  const tmp=wEl.value;wEl.value=hEl.value;hEl.value=tmp;
+  calc();
+}
+
+// Fold math: given W,H, axis, and finish → {fw, fh, panels, lines[]}
+function foldMath(w,h,finish){
+  let fw,fh,panels,lines=[];
+  const f=finish.replace('Score & ','');
+  // Which dimension to divide
+  const divW = foldAxis==='w'; // true = fold along width, false = fold along height
+  const foldDim = divW ? w : h;
+  const keepDim = divW ? h : w;
+
+  if(f==='Fold in Half'){panels=2;}
+  else if(f==='Fold in 3'){panels=3;}
+  else if(f==='Fold in 4'||f==='Gate Fold'){panels=4;}
+  else{panels=1;}
+
+  const divided = panels>1 ? foldDim/panels : foldDim;
+  for(let i=1;i<panels;i++) lines.push(i/panels);
+
+  if(divW){fw=Math.round(divided*100)/100;fh=h;}
+  else{fw=w;fh=Math.round(divided*100)/100;}
+
+  return {fw,fh,panels,lines,divW};
+}
+
+// Match sheet size to pricing tier
+function matchSize(w,h,cat){
+  // Normalize: ensure nw<=nh
+  let nw=Math.min(w,h), nh=Math.max(w,h);
+  // Long sheet: any dimension > 17 (only for Score & Fold)
+  if(cat==='sf' && (nh>17 || nw>13)) return "long";
+  // 11x17+ catch
+  if(nw>=11||nh>=17) return "11x17+";
+  if(nw>=8&&nw<=11&&nh>=11&&nh<17) return "8.5x11";
+  if(nw>=5&&nw<=8.5&&nh>=5.5&&nh<11) return "8.5x5.5";
+  if(nw>=4&&nw<=7.5&&nh>=4&&nh<=5.5) return "7.5x5";
+  if(nw<7.5&&nh<5.5) return "7x4";
+  // Fallback: go up
+  if(nh>=11) return "11x17+";
+  if(nh>=5.5) return "8.5x11";
+  return "8.5x5.5";
+}
+
+// ========== SETTINGS ==========
+let S={labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};
+function ls(){try{const x=localStorage.getItem('fc3');if(x)S={...S,...JSON.parse(x)};}catch(e){}applyS();}
+function applyS(){
+  document.getElementById('s-labor').value=S.labor;document.getElementById('s-run').value=S.run;
+  document.getElementById('s-markup').value=S.markup;document.getElementById('s-bdisc').value=S.bdisc;
+  document.getElementById('s-long').value=S.longSetup;
+  for(let i=1;i<=5;i++)document.getElementById('s-l'+i).value=S.lv[i];
+  document.getElementById('t-broker').className='tog'+(S.broker?' on':'');
+  document.getElementById('t-upg').className='tog'+(S.upgrade?' on':'');
+}
+function ss(){
+  S.labor=+document.getElementById('s-labor').value||60;S.run=+document.getElementById('s-run').value||30;
+  S.markup=+document.getElementById('s-markup').value||300;S.bdisc=+document.getElementById('s-bdisc').value||30;
+  S.longSetup=+document.getElementById('s-long').value||35;
+  for(let i=1;i<=5;i++)S.lv[i]=+document.getElementById('s-l'+i).value||5;
+  try{localStorage.setItem('fc3',JSON.stringify(S));}catch(e){}calc();
+}
+function tb(){S.broker=!S.broker;document.getElementById('t-broker').className='tog'+(S.broker?' on':'');ss();}
+function tu(){S.upgrade=!S.upgrade;document.getElementById('t-upg').className='tog'+(S.upgrade?' on':'');ss();}
+
+// ========== NAV ==========
+function go(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.getElementById('p-'+p).classList.add('on');
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['calc','settings','rules'][i]===p));
+}
+
+// ========== DROPDOWNS ==========
+function catCh(){
+  const c=document.getElementById('cat').value;
+  const ps=document.getElementById('paper');
+  ps.innerHTML='<option value="">—</option>';
+  const fs=document.getElementById('finish');
+  fs.innerHTML='<option value="">—</option>';
+  document.getElementById('out').innerHTML='';
+  if(!c)return;
+  const d=c==='folding'?FOLD:SF;
+  for(const[k,v]of Object.entries(d)){const o=document.createElement('option');o.value=k;o.textContent=v.label;ps.appendChild(o);}
+  // Populate finishes for this category
+  for(const f of FINISHES[c]){const o=document.createElement('option');o.value=f;o.textContent=f;fs.appendChild(o);}
+}
+function papCh(){calc();}
+
+// ========== PRICE ENGINE ==========
+function priceIt(opt,qty,isLong){
+  const lv=opt.l;if(typeof lv!=='number'||!opt.b)return null;
+  const sm=S.lv[lv]||5,sc=(sm/60)*S.labor;
+  const longFee=isLong?S.longSetup:0;
+  const rs=qty/opt.b*opt.s,rm=rs/60,rc=(rm/60)*S.run;
+  const base=sc+longFee+rc,retail=base*(1+S.markup/100),broker=retail*(1-S.bdisc/100);
+  return{lv,sm,sc,longFee,rm,rc,base,retail,broker,pp:retail/qty,bp:broker/qty,b:opt.b,s:opt.s,isLong};
+}
+
+// ========== SHEET VIZ SVG ==========
+function sheetSVG(w,h,lines,color,dimColor,foldDir){
+  // foldDir: 'w'=vertical lines, 'h'=horizontal lines, undefined=no lines
+  const maxDim=120;
+  const ratio=Math.min(maxDim/w,maxDim/h);
+  const sw=Math.max(w*ratio,30), sh=Math.max(h*ratio,30);
+  const pad=35;
+  let svg=`<svg width="${sw+pad*2}" height="${sh+pad+10}" viewBox="0 0 ${sw+pad*2} ${sh+pad+10}">`;
+  svg+=`<rect x="${pad}" y="5" width="${sw}" height="${sh}" rx="2" fill="none" stroke="${color}" stroke-width="2"/>`;
+  if(lines&&lines.length){
+    for(const pct of lines){
+      if(foldDir==='h'){
+        const y=5+pct*sh;
+        svg+=`<line x1="${pad}" y1="${y}" x2="${pad+sw}" y2="${y}" stroke="rgba(251,191,36,.6)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+      } else {
+        const x=pad+pct*sw;
+        svg+=`<line x1="${x}" y1="5" x2="${x}" y2="${5+sh}" stroke="rgba(251,191,36,.6)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+      }
+    }
+  }
+  svg+=`<text x="${pad+sw/2}" y="${sh+28}" text-anchor="middle" fill="${dimColor}" font-family="JetBrains Mono,monospace" font-size="12" font-weight="600">${w}″</text>`;
+  svg+=`<text x="${pad+sw+18}" y="${5+sh/2+4}" text-anchor="middle" fill="${dimColor}" font-family="JetBrains Mono,monospace" font-size="12" font-weight="600" transform="rotate(90 ${pad+sw+18} ${5+sh/2+4})">${h}″</text>`;
+  svg+=`</svg>`;
+  return svg;
+}
+
+// ========== MAIN CALC ==========
+function calc(){
+  const c=document.getElementById('cat').value;
+  const p=document.getElementById('paper').value;
+  const w=parseFloat(document.getElementById('sw').value)||0;
+  const h=parseFloat(document.getElementById('sh').value)||0;
+  const f=document.getElementById('finish').value;
+  const qty=parseInt(document.getElementById('qty').value)||0;
+  const out=document.getElementById('out');
+
+  if(!c||!p||!w||!h||!f){
+    out.innerHTML='<div class="empty"><div class="em">☝️</div><p>Enter your <b>open flat sheet size</b> & pick all options</p></div>';
+    return;
+  }
+
+  let html='';
+  const db=c==='folding'?FOLD:SF;
+
+  // Fold math
+  const fm=foldMath(w,h,f);
+
+  // Size validation
+  let warnings=[];
+  const fType=f.replace('Score & ','');
+  if(fType==='Fold in 3'){
+    const maxH = fm.divW ? h : fm.fh;
+    if(maxH>11) warnings.push({t:'amber',msg:`⚠️ <b>Rule 3:</b> Trifold max height is 11″ — your finished height is ${maxH}″.`});
+  }
+  const foldedWidth = fm.divW ? fm.fw : w;
+  if(foldedWidth>13) warnings.push({t:'amber',msg:`⚠️ <b>Rule 4:</b> Max fold width is 13″ — your folded width would be ${foldedWidth}″.`});
+
+  // Show size visualization
+  const foldDirLabel = fm.divW ? 'folding along width' : 'folding along height';
+  html+=`<div class="size-viz show">
+    <div class="viz-row">
+      <div class="viz-box">
+        <div class="lbl lbl-green">📄 OPEN SIZE (what you input)</div>
+        <div class="sheet-wrap">${sheetSVG(w,h,fm.lines,'#34d399','#34d399',fm.divW?'w':'h')}</div>
+        <div class="size-text green">${w}″ × ${h}″</div>
+      </div>
+      <div class="viz-arrow">→</div>
+      <div class="viz-box">
+        <div class="lbl lbl-purple">${f.includes('Score')?'✂️ AFTER SCORING':'📁 AFTER FOLDING'}</div>
+        <div class="sheet-wrap">${sheetSVG(fm.fw,fm.fh,[],'#a78bfa','#a78bfa')}</div>
+        <div class="size-text purple">${fm.fw}″ × ${fm.fh}″</div>
+        <div style="font-size:11px;color:var(--dim);margin-top:4px;">${fm.panels} panel${fm.panels>1?'s':''} · ${foldDirLabel}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Show warnings
+  for(const wr of warnings) html+=al(wr.t,wr.msg);
+
+  // Match to pricing tier
+  const sizeKey=matchSize(w,h,c);
+  const sizeData=db[p]?.sizes[sizeKey];
+
+  if(!sizeData){
+    html+=al('red',`⛔ No pricing data for <b>${db[p]?.label||'this paper'}</b> at <b>${sizeKey}</b>.`);
+    out.innerHTML=html;return;
+  }
+
+  const tierLabel=sizeData.lbl||sizeKey;
+  const isLong=sizeKey==='long';
+  html+=`<div class="match-badge"><div class="dot" style="background:${isLong?'var(--amber)':'var(--blue)'}"></div>Pricing tier: <b style="margin-left:4px;color:var(--tx);">${tierLabel}</b><span style="margin-left:6px;">(matched from ${w}″×${h}″)</span>${isLong?'<span style="margin-left:6px;color:var(--amber);font-weight:600;"> · +$'+S.longSetup+' long setup</span>':''}</div>`;
+
+  const opt=sizeData[f];
+  if(!opt){
+    html+=al('red',`⛔ <b>${f}</b> not found for this size/paper combo.`);
+    out.innerHTML=html;return;
+  }
+
+  if(!qty){
+    html+=`<div style="text-align:center;padding:20px;color:var(--dim);font-size:13px;">Enter quantity to see price</div>`;
+    out.innerHTML=html;return;
+  }
+
+  // N/A no fallback
+  if(opt.l==='na'&&!opt.so){
+    html+=al('red',`⛔ <b>Not Available</b> — ${opt.alt||'No alternative.'}`);
+    out.innerHTML=html;return;
+  }
+  // Hand fold
+  if(opt.l==='hand'){
+    html+=al('amber','🤚 <b>Hand Fold</b> — Manual calc needed. Contact production.');
+    out.innerHTML=html;return;
+  }
+  // Score only fallback
+  let isScoreOnly=false;
+  let useOpt=opt;
+  if(opt.l==='na'&&opt.so){isScoreOnly=true;html+=al('blue','ℹ️ <b>Score Only</b> — Full fold N/A. Pricing as Score Only.');}
+  else if(opt.so){isScoreOnly=true;}
+
+  // Long sheet alert
+  if(isLong) html+=al('amber',`📏 <b>Long Sheet Detected</b> — $${S.longSetup} flat setup fee added (configurable in Settings).`);
+
+  // Rule 5 auto-upgrade
+  let upgraded=false,origPrice=null,upgPaper='';
+  if(S.upgrade&&typeof useOpt.l==='number'&&useOpt.l>1){
+    origPrice=priceIt(useOpt,qty,isLong);
+    for(const[pk,pv]of Object.entries(db)){
+      if(pk===p||pv.thick<=db[p].thick)continue;
+      const sd=pv.sizes[sizeKey];if(!sd)continue;
+      const fd=sd[f];
+      if(!fd||fd.l==='na'||fd.l==='hand'||typeof fd.l!=='number')continue;
+      if(fd.l<useOpt.l){
+        const trial=priceIt(fd,qty,isLong);
+        if(trial&&origPrice&&trial.retail<origPrice.retail){useOpt=fd;upgraded=true;upgPaper=pv.label;}
+      }
+    }
+  }
+
+  const price=priceIt(useOpt,qty,isLong);
+  if(!price){html+=al('red','⚠️ Missing rate data.');out.innerHTML=html;return;}
+
+  if(upgraded&&origPrice){
+    const saved=origPrice.retail-price.retail;
+    html+=`<div class="upg">⬆️ <div><b>Auto-Upgraded → ${upgPaper}</b>Level ${origPrice.lv} → ${price.lv} · Save <b>$${saved.toFixed(2)}</b> · Was $${origPrice.retail.toFixed(2)} → <b>$${price.retail.toFixed(2)}</b></div></div>`;
+  }
+
+  // Big price
+  html+=`<div class="hero">
+    <div class="lbl">${S.broker?'Retail':'Total'} · ${qty.toLocaleString()} pcs${isScoreOnly?' · Score Only':''}${isLong?' · Long Sheet':''}</div>
+    <div class="amt">$${price.retail.toFixed(2)}</div>
+    <div class="pp">$${price.pp.toFixed(4)} / piece</div>
+    ${S.broker?`<div class="brk">Broker: $${price.broker.toFixed(2)} ($${price.bp.toFixed(4)}/pc)</div>`:''}
+  </div>`;
+
+  // Collapsible details
+  html+=`<div class="coll-h" onclick="tC(this)"><span>📊 How it's calculated</span><span class="arr">▼</span></div>
+  <div class="coll-b"><div class="coll-inner">
+    ${dr('Level',price.lv+(isScoreOnly?' (Score Only)':''))}
+    ${dr('Setup',price.sm+' min → $'+price.sc.toFixed(2))}
+    ${isLong?dr('Long Sheet Setup','+ $'+price.longFee.toFixed(2)+' <span style="color:var(--amber);font-size:11px;">(flat fee)</span>'):''}
+    ${dr('Rate',price.b+' pcs / '+price.s+' sec')}
+    ${dr('Run time',price.rm.toFixed(1)+' min → $'+price.rc.toFixed(2))}
+    <div class="dr sep"><span class="k">Base</span><span class="v">$${price.base.toFixed(2)}</span></div>
+    ${dr('Markup ('+S.markup+'%)','+ $'+(price.retail-price.base).toFixed(2))}
+    <div class="dr"><span class="k" style="color:var(--green);font-weight:600">Retail</span><span class="v" style="color:var(--green);font-weight:700">$${price.retail.toFixed(2)}</span></div>
+    ${S.broker?'<div class="dr"><span class="k" style="color:var(--purple)">Broker (−'+S.bdisc+'%)</span><span class="v" style="color:var(--purple)">$'+price.broker.toFixed(2)+'</span></div>':''}
+  </div></div>`;
+
+  out.innerHTML=html;
+}
+
+function al(t,m){return '<div class="al '+t+'">'+m+'</div>';}
+function dr(k,v){return '<div class="dr"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';}
+function tC(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
+ls();
+document.getElementById('ot-w').classList.add('on');
+</script>
+</body>
+</html>
