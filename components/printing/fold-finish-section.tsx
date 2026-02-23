@@ -46,6 +46,9 @@ export function FoldFinishSection({
   const settings: FoldFinishingSettings =
     appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
+  // Check if the original HTML calculator is loaded on the server
+  const { data: bridgeStatus } = useSWR("/api/fold-calc", fetcher)
+
   function update(patch: Partial<typeof ff>) {
     onInputsChange({ ...inputs, foldFinish: { ...ff, ...patch } })
   }
@@ -106,6 +109,16 @@ export function FoldFinishSection({
         >
           Fold / Score Finishing
         </label>
+        {bridgeStatus?.loaded && (
+          <span className="ml-2 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+            HTML
+          </span>
+        )}
+        {bridgeStatus?.error && !bridgeStatus?.loaded && (
+          <span className="ml-2 text-[9px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full" title={bridgeStatus.error}>
+            fallback
+          </span>
+        )}
       </div>
 
       {ff.enabled && (
@@ -230,6 +243,9 @@ export function FoldFinishSection({
                       Size tier: {preview.matchedSize} | Paper: {preview.paperCategory}
                       {preview.autoLevel != null && preview.autoLevel > 0 && (
                         <> | Level {preview.autoLevel} (auto)</>
+                      )}
+                      {preview.fromBridge && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium"> | via HTML calc</span>
                       )}
                     </p>
                   </div>

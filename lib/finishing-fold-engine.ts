@@ -1,5 +1,11 @@
 // ============================================================
-// Finishing Fold Pricing Engine — ported from HTML calculator
+// Finishing Fold Pricing Engine
+// ============================================================
+// This engine now calls the ORIGINAL calculator via the bridge
+// API (/api/fold-calc) which reads calculators/fold-score-calculator.html.
+//
+// If the bridge is unavailable (HTML not uploaded yet), it falls
+// back to the commented-out local data below.
 // ============================================================
 
 import {
@@ -12,20 +18,15 @@ import {
 
 // ── Settings type (matches the settings UI) ──
 export interface FoldFinishingSettings {
-  /** Hourly rate $/hr for setup & production */
   hourlyRate: number
-  /** Markup percentage (e.g. 300 = 4x multiplier) */
   markupPercent: number
-  /** Broker discount percentage (e.g. 30 = 30% off retail) */
   brokerDiscountPercent: number
-  /** Long sheet flat setup fee $ */
   longSheetSetupFee: number
-  /** Hand fold hourly rate */
   handFoldHourlyRate: number
-  /** Minimum job price $ */
   minimumJobPrice: number
-  /** Setup levels: label + minutes */
   setupLevels: { label: string; minutes: number }[]
+  /** Hourly rate for machine running (original code uses separate "run" rate) */
+  runRate?: number
 }
 
 export const DEFAULT_FOLD_SETTINGS: FoldFinishingSettings = {
@@ -35,6 +36,7 @@ export const DEFAULT_FOLD_SETTINGS: FoldFinishingSettings = {
   longSheetSetupFee: 35,
   handFoldHourlyRate: 25,
   minimumJobPrice: 45,
+  runRate: 30,
   setupLevels: [
     { label: "Level 1", minutes: 5 },
     { label: "Level 2", minutes: 7 },
@@ -64,29 +66,28 @@ export interface FoldPriceResult {
   isScoreOnly: boolean
 }
 
-// ── Core pricing function (exact port of priceIt) ──
+// ── FALLBACK: Core pricing function (used only when bridge unavailable) ──
 export function calculateFoldPrice(
   opt: FoldFinishEntry,
   qty: number,
   isLong: boolean,
   settings: FoldFinishingSettings
 ): FoldPriceResult | null {
-  // Level can be a number, "na" (score-only with b/s), or "hand"
   const lv = opt.l
   if (!opt.b || !opt.s) return null
-  // For score-only entries, l is "na" but b/s are present — use level 3 as default
   const effectiveLevel = typeof lv === "number" ? lv : 3
   if (lv === "hand") return null
 
-  // Level is 1-indexed in data, 0-indexed in setupLevels array
   const levelIdx = Math.max(0, Math.min(effectiveLevel - 1, settings.setupLevels.length - 1))
   const setupMin = settings.setupLevels[levelIdx]?.minutes || 5
   const setupCost = (setupMin / 60) * settings.hourlyRate
   const longFee = isLong ? settings.longSheetSetupFee : 0
 
+  // Original code: (qty/b*s) / 60 / 60 * runRate
+  const runRate = settings.runRate || settings.hourlyRate
   const runSec = (qty / opt.b) * opt.s
   const runMin = runSec / 60
-  const runCost = (runMin / 60) * settings.hourlyRate
+  const runCost = (runMin / 60) * runRate
 
   const base = setupCost + longFee + runCost
   const retail = base * (1 + settings.markupPercent / 100)
@@ -113,7 +114,6 @@ export function calculateFoldPrice(
 }
 
 // ── Auto-upgrade check (Rule 5) ──
-// When level > 1, check if a thicker paper results in cheaper pricing
 export interface UpgradeResult {
   upgradedEntry: FoldFinishEntry
   upgradedPaperLabel: string
@@ -134,44 +134,29 @@ export function findAutoUpgrade(
   const db = cat === "folding" ? FOLD_DATA : SF_DATA
   const currentPaper = db[paperKey]
   if (!currentPaper) return null
-
   const currentSizeData = currentPaper.sizes[sizeKey]
   if (!currentSizeData) return null
-
   const currentOpt = currentSizeData[finish] as FoldFinishEntry | undefined
   if (!currentOpt || typeof currentOpt.l !== "number" || currentOpt.l <= 1) return null
-
   const origPrice = calculateFoldPrice(currentOpt, qty, isLong, settings)
   if (!origPrice) return null
-
   let best: UpgradeResult | null = null
-
   for (const [pk, pv] of Object.entries(db)) {
     if (pk === paperKey || pv.thick <= currentPaper.thick) continue
-
     const sd = pv.sizes[sizeKey]
     if (!sd) continue
-
     const fd = sd[finish] as FoldFinishEntry | undefined
     if (!fd || fd.l === "na" || fd.l === "hand" || typeof fd.l !== "number") continue
-
     if (fd.l < currentOpt.l) {
       const trial = calculateFoldPrice(fd, qty, isLong, settings)
       if (trial && trial.retail < origPrice.retail) {
         const savings = origPrice.retail - trial.retail
         if (!best || savings > best.savings) {
-          best = {
-            upgradedEntry: fd,
-            upgradedPaperLabel: pv.label,
-            upgradedPrice: trial,
-            originalPrice: origPrice,
-            savings,
-          }
+          best = { upgradedEntry: fd, upgradedPaperLabel: pv.label, upgradedPrice: trial, originalPrice: origPrice, savings }
         }
       }
     }
   }
-
   return best
 }
 
@@ -181,128 +166,57 @@ export interface FoldWarning {
   message: string
 }
 
-export function validateFoldCombo(
-  w: number,
-  h: number,
-  finish: string,
-  axis: "w" | "h"
-): FoldWarning[] {
+export function validateFoldCombo(w: number, h: number, finish: string, axis: "w" | "h"): FoldWarning[] {
   const warnings: FoldWarning[] = []
   const f = finish.replace("Score & ", "")
   const divW = axis === "w"
   const foldDim = divW ? w : h
-
   let panels: number
   if (f === "Fold in Half") panels = 2
   else if (f === "Fold in 3") panels = 3
   else if (f === "Fold in 4" || f === "Gate Fold") panels = 4
   else panels = 1
-
   const foldedDim = panels > 1 ? foldDim / panels : foldDim
   const foldedW = divW ? foldedDim : w
   const fh = divW ? h : foldedDim
-
-  // Rule 3: Trifold max height
   if (f === "Fold in 3") {
     const maxH = divW ? h : fh
-    if (maxH > 11) {
-      warnings.push({
-        type: "amber",
-        message: `Rule 3: Trifold max height is 11" -- your finished height is ${maxH.toFixed(2)}".`,
-      })
-    }
+    if (maxH > 11) warnings.push({ type: "amber", message: `Rule 3: Trifold max height is 11" -- your finished height is ${maxH.toFixed(2)}".` })
   }
-
-  // Rule 4: Max fold width
-  if (foldedW > 13) {
-    warnings.push({
-      type: "amber",
-      message: `Rule 4: Max fold width is 13" -- your folded width would be ${foldedW.toFixed(2)}".`,
-    })
-  }
-
+  if (foldedW > 13) warnings.push({ type: "amber", message: `Rule 4: Max fold width is 13" -- your folded width would be ${foldedW.toFixed(2)}".` })
   return warnings
 }
 
-// ── Resolve finish entry with N/A + score-only + hand handling ──
+// ── Resolve finish entry ──
 export interface ResolvedFinish {
   status: "ok" | "score_only" | "hand" | "na"
   entry: FoldFinishEntry | null
   message?: string
 }
 
-export function resolveFinishEntry(
-  cat: FoldCategory,
-  paperKey: string,
-  sizeKey: string,
-  finish: string
-): ResolvedFinish {
+export function resolveFinishEntry(cat: FoldCategory, paperKey: string, sizeKey: string, finish: string): ResolvedFinish {
   const db = cat === "folding" ? FOLD_DATA : SF_DATA
   const paper = db[paperKey]
   if (!paper) return { status: "na", entry: null, message: "Paper type not found" }
-
   const sizeData = paper.sizes[sizeKey]
   if (!sizeData) return { status: "na", entry: null, message: `No pricing data for ${paper.label} at ${sizeKey}` }
-
   const opt = sizeData[finish] as FoldFinishEntry | undefined
   if (!opt) return { status: "na", entry: null, message: `${finish} not found for this size/paper combo` }
-
-  // Hand fold
-  if (opt.l === "hand") {
-    return { status: "hand", entry: opt, message: "Hand Fold -- Manual calc needed. Contact production." }
-  }
-
-  // N/A with score-only fallback
-  if (opt.l === "na" && opt.so) {
-    return {
-      status: "score_only",
-      entry: opt,
-      message: "Score Only -- Full fold N/A. Pricing as Score Only.",
-    }
-  }
-
-  // N/A no fallback
-  if (opt.l === "na") {
-    return {
-      status: "na",
-      entry: null,
-      message: opt.alt || "Not available for this combination.",
-    }
-  }
-
-  // OK -- also check if score-only flag is set
-  if (opt.so) {
-    return { status: "score_only", entry: opt }
-  }
-
+  if (opt.l === "hand") return { status: "hand", entry: opt, message: "Hand Fold -- Manual calc needed. Contact production." }
+  if (opt.l === "na" && opt.so) return { status: "score_only", entry: opt, message: "Score Only -- Full fold N/A. Pricing as Score Only." }
+  if (opt.l === "na") return { status: "na", entry: null, message: opt.alt || "Not available for this combination." }
+  if (opt.so) return { status: "score_only", entry: opt }
   return { status: "ok", entry: opt }
 }
 
 // ── Paper name → fold data key mapping ──
 function mapPaperToFoldKey(paperName: string): { foldKey: string | null; sfKey: string | null } {
   const lower = paperName.toLowerCase()
-
-  // 80 Text / 60lb / 70lb → FOLD only
-  if (lower.includes("60lb") || lower.includes("70lb") || lower.includes("80lb text")) {
-    return { foldKey: "80text_60_70", sfKey: null }
-  }
-  // 100 Text → FOLD only
-  if (lower.includes("100lb text") || lower.includes("100 text")) {
-    return { foldKey: "100text", sfKey: null }
-  }
-  // 80 Cover / 67 Cover → SF
-  if (lower.includes("80 cover") || lower.includes("67 cover") || lower.includes("80cover")) {
-    return { foldKey: null, sfKey: "100text_80cover" }
-  }
-  // Cardstock / 10pt / 12pt / 14pt → SF cardstock
-  if (lower.includes("10pt") || lower.includes("12pt") || lower.includes("14pt") || lower.includes("card")) {
-    return { foldKey: null, sfKey: "cardstock" }
-  }
-  // 20lb / sticker → treat like 80 text for folds
-  if (lower.includes("20lb") || lower.includes("sticker")) {
-    return { foldKey: "80text_60_70", sfKey: null }
-  }
-  // Fallback
+  if (lower.includes("60lb") || lower.includes("70lb") || lower.includes("80lb text")) return { foldKey: "80text_60_70", sfKey: null }
+  if (lower.includes("100lb text") || lower.includes("100 text")) return { foldKey: "100text", sfKey: null }
+  if (lower.includes("80 cover") || lower.includes("67 cover") || lower.includes("80cover")) return { foldKey: null, sfKey: "100text_80cover" }
+  if (lower.includes("10pt") || lower.includes("12pt") || lower.includes("14pt") || lower.includes("card")) return { foldKey: null, sfKey: "cardstock" }
+  if (lower.includes("20lb") || lower.includes("sticker")) return { foldKey: "80text_60_70", sfKey: null }
   return { foldKey: "80text_60_70", sfKey: "100text_80cover" }
 }
 
@@ -322,19 +236,11 @@ function mapFoldTypeToDataKey(foldType: string): string {
 
 // ── ALTERNATIVES FINDER ──
 function findAlternatives(
-  openWidth: number,
-  openHeight: number,
-  qty: number,
-  paperName: string,
-  currentFinishType: string,
-  currentFoldType: string,
-  isBroker: boolean,
-  cfg: FoldFinishingSettings,
+  openWidth: number, openHeight: number, qty: number, paperName: string,
+  currentFinishType: string, currentFoldType: string, isBroker: boolean, cfg: FoldFinishingSettings,
 ): FoldAlternative[] {
   const alts: FoldAlternative[] = []
   const paperMap = mapPaperToFoldKey(paperName)
-
-  // 1. Try switching finish type (fold <-> score_and_fold <-> score_only)
   const otherFinishTypes = [
     { id: "fold", label: "Fold", cat: "folding" as FoldCategory },
     { id: "score_and_fold", label: "Score & Fold", cat: "sf" as FoldCategory },
@@ -348,45 +254,24 @@ function findAlternatives(
     const dk = mapFoldTypeToDataKey(currentFoldType)
     const fdk = ft.cat === "sf" ? `Score & ${dk}` : dk
     const resolved = resolveFinishEntry(ft.cat, pk, sk, fdk)
-    if (resolved.status === "ok" || resolved.status === "score_only") {
-      // Try pricing
-      if (resolved.entry) {
-        const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
-        if (pr) {
-          const price = isBroker ? pr.broker : pr.retail
-          alts.push({
-            type: "switch_finish",
-            label: `Switch to ${ft.label}`,
-            description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} with ${ft.label}`,
-            finishType: ft.id,
-          })
-        }
+    if ((resolved.status === "ok" || resolved.status === "score_only") && resolved.entry) {
+      const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
+      if (pr) {
+        const price = isBroker ? pr.broker : pr.retail
+        alts.push({ type: "switch_finish", label: `Switch to ${ft.label}`, description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} with ${ft.label}`, finishType: ft.id })
       }
     }
   }
 
-  // 2. Try alternative papers
   const paperSuggestions: { name: string; cat: FoldCategory; key: string }[] = []
-  // If current paper is cover/cardstock, suggest text papers for fold
   if (!paperMap.foldKey && paperMap.sfKey) {
-    paperSuggestions.push(
-      { name: "80lb Text Gloss", cat: "folding", key: "80text_60_70" },
-      { name: "100lb Text Gloss", cat: "folding", key: "100text" },
-    )
+    paperSuggestions.push({ name: "80lb Text Gloss", cat: "folding", key: "80text_60_70" }, { name: "100lb Text Gloss", cat: "folding", key: "100text" })
   }
-  // If current paper is text, suggest cover papers for score & fold
   if (paperMap.foldKey && !paperMap.sfKey) {
-    paperSuggestions.push(
-      { name: "80 Cover Gloss", cat: "sf", key: "100text_80cover" },
-    )
-  }
-  // Also try within the same category with different paper weights
-  if (paperMap.sfKey === "cardstock") {
     paperSuggestions.push({ name: "80 Cover Gloss", cat: "sf", key: "100text_80cover" })
   }
-  if (paperMap.sfKey === "100text_80cover") {
-    paperSuggestions.push({ name: "12pt Gloss", cat: "sf", key: "cardstock" })
-  }
+  if (paperMap.sfKey === "cardstock") paperSuggestions.push({ name: "80 Cover Gloss", cat: "sf", key: "100text_80cover" })
+  if (paperMap.sfKey === "100text_80cover") paperSuggestions.push({ name: "12pt Gloss", cat: "sf", key: "cardstock" })
 
   for (const ps of paperSuggestions) {
     const cat: FoldCategory = currentFinishType === "fold" ? "folding" : "sf"
@@ -396,28 +281,16 @@ function findAlternatives(
     const dk = mapFoldTypeToDataKey(currentFoldType)
     const fdk = cat === "sf" ? `Score & ${dk}` : dk
     const resolved = resolveFinishEntry(cat, pk, sk, fdk)
-    if (resolved.status === "ok" || resolved.status === "score_only") {
-      if (resolved.entry) {
-        const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
-        if (pr) {
-          const price = isBroker ? pr.broker : pr.retail
-          alts.push({
-            type: "switch_paper",
-            label: `Use ${ps.name}`,
-            description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} on ${ps.name}`,
-            paperName: ps.name,
-          })
-        }
+    if ((resolved.status === "ok" || resolved.status === "score_only") && resolved.entry) {
+      const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
+      if (pr) {
+        const price = isBroker ? pr.broker : pr.retail
+        alts.push({ type: "switch_paper", label: `Use ${ps.name}`, description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} on ${ps.name}`, paperName: ps.name })
       }
     }
   }
 
-  // 3. Try simpler fold types if current is complex
-  const simplerFolds = [
-    { id: "half", label: "Fold in Half" },
-    { id: "tri", label: "Tri-Fold" },
-  ].filter((f) => f.id !== currentFoldType)
-
+  const simplerFolds = [{ id: "half", label: "Fold in Half" }, { id: "tri", label: "Tri-Fold" }].filter((f) => f.id !== currentFoldType)
   for (const sf of simplerFolds) {
     const cat: FoldCategory = currentFinishType === "fold" ? "folding" : "sf"
     const pk = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
@@ -426,18 +299,11 @@ function findAlternatives(
     const dk = mapFoldTypeToDataKey(sf.id)
     const fdk = cat === "sf" ? `Score & ${dk}` : dk
     const resolved = resolveFinishEntry(cat, pk, sk, fdk)
-    if (resolved.status === "ok") {
-      if (resolved.entry) {
-        const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
-        if (pr) {
-          const price = isBroker ? pr.broker : pr.retail
-          alts.push({
-            type: "switch_fold",
-            label: `Use ${sf.label}`,
-            description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} with ${sf.label}`,
-            foldType: sf.id,
-          })
-        }
+    if (resolved.status === "ok" && resolved.entry) {
+      const pr = calculateFoldPrice(resolved.entry, qty, sk === "long", cfg)
+      if (pr) {
+        const price = isBroker ? pr.broker : pr.retail
+        alts.push({ type: "switch_fold", label: `Use ${sf.label}`, description: `$${Math.max(price, cfg.minimumJobPrice).toFixed(2)} with ${sf.label}`, foldType: sf.id })
       }
     }
   }
@@ -461,7 +327,6 @@ export interface FoldAlternative {
   type: "switch_finish" | "switch_paper" | "switch_fold"
   label: string
   description: string
-  /** Values to apply if clicked */
   finishType?: string
   paperName?: string
   foldType?: string
@@ -479,12 +344,151 @@ export interface FoldFinishResult {
   matchedSize: string
   paperCategory: string
   resolution: "ok" | "hand" | "score_only" | "na"
-  /** The level auto-detected from the data (1-5), null if N/A or hand */
   autoLevel: number | null
-  /** Actionable alternatives when combo is unavailable */
   alternatives: FoldAlternative[]
+  /** true when pricing came from the original HTML calculator via bridge */
+  fromBridge?: boolean
 }
 
+/**
+ * Try the bridge API first. If it returns valid data, use it.
+ * Otherwise fall back to the local (commented-out) logic.
+ */
+async function tryBridge(input: FoldFinishInput, cfg: FoldFinishingSettings): Promise<FoldFinishResult | null> {
+  try {
+    const cat: "folding" | "sf" = input.finishType === "fold" ? "folding" : "sf"
+    const paperMap = mapPaperToFoldKey(input.paperName)
+    const paperKey = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
+    if (!paperKey) return null
+
+    const dataFoldKey = mapFoldTypeToDataKey(input.foldType)
+    const finishDataKey = cat === "sf" ? `Score & ${dataFoldKey}` : dataFoldKey
+
+    const resp = await fetch(`${typeof window !== "undefined" ? "" : "http://localhost:3000"}/api/fold-calc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cat,
+        paperKey,
+        w: input.openWidth,
+        h: input.openHeight,
+        finish: finishDataKey,
+        qty: input.qty,
+        axis: input.orientation === "width" ? "w" : "h",
+        settings: {
+          labor: cfg.hourlyRate,
+          run: cfg.runRate || cfg.hourlyRate,
+          markup: cfg.markupPercent,
+          bdisc: cfg.brokerDiscountPercent,
+          longSetup: cfg.longSheetSetupFee,
+          lv: Object.fromEntries(cfg.setupLevels.map((s, i) => [i + 1, s.minutes])),
+        },
+      }),
+    })
+
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}))
+      if (data.fallback) return null // bridge not loaded, use fallback
+      return null
+    }
+
+    const data = await resp.json()
+
+    if (data.error && data.resolution === "na") {
+      // Bridge says N/A -- build result
+      const axis = input.orientation === "width" ? "w" : "h"
+      const divW = axis === "w"
+      const foldDim = divW ? input.openWidth : input.openHeight
+      const dk = dataFoldKey
+      let panels = 1
+      if (dk === "Fold in Half") panels = 2
+      else if (dk === "Fold in 3") panels = 3
+      else if (dk === "Fold in 4" || dk === "Gate Fold") panels = 4
+      const divided = panels > 1 ? foldDim / panels : foldDim
+      const foldedW = divW ? Math.round(divided * 100) / 100 : input.openWidth
+      const foldedH = divW ? input.openHeight : Math.round(divided * 100) / 100
+      const validationWarnings = validateFoldCombo(input.openWidth, input.openHeight, finishDataKey, axis)
+      const warnings = [...validationWarnings.map((w) => w.message), data.error]
+
+      // Get alternatives from local logic (faster than another API call)
+      const alts = findAlternatives(input.openWidth, input.openHeight, input.qty, input.paperName, input.finishType, input.foldType, input.isBroker, cfg)
+
+      return {
+        baseCost: 0, setupCost: 0, sellPrice: 0,
+        isMinApplied: false, isLongSheet: data.sizeKey === "long",
+        warnings, suggestion: null,
+        foldedDimensions: { w: foldedW, h: foldedH },
+        matchedSize: data.sizeKey || "N/A",
+        paperCategory: cat === "folding" ? "text" : (paperKey === "cardstock" ? "cardstock" : "cover"),
+        resolution: data.resolution === "hand" ? "hand" : "na",
+        autoLevel: null, alternatives: alts, fromBridge: true,
+      }
+    }
+
+    if (data.price) {
+      const p = data.price
+      const axis = input.orientation === "width" ? "w" : "h"
+      const divW = axis === "w"
+      const foldDim = divW ? input.openWidth : input.openHeight
+      const dk = dataFoldKey
+      let panels = 1
+      if (dk === "Fold in Half") panels = 2
+      else if (dk === "Fold in 3") panels = 3
+      else if (dk === "Fold in 4" || dk === "Gate Fold") panels = 4
+      const divided = panels > 1 ? foldDim / panels : foldDim
+      const foldedW = divW ? Math.round(divided * 100) / 100 : input.openWidth
+      const foldedH = divW ? input.openHeight : Math.round(divided * 100) / 100
+      const validationWarnings = validateFoldCombo(input.openWidth, input.openHeight, finishDataKey, axis)
+      const warnings = validationWarnings.map((w) => w.message)
+      if (data.isScoreOnly) warnings.push("Score only -- no machine fold available")
+
+      const sellPrice = input.isBroker ? p.broker : p.retail
+      const finalPrice = Math.max(sellPrice, cfg.minimumJobPrice)
+
+      return {
+        baseCost: p.base,
+        setupCost: p.setupCost + p.longFee,
+        sellPrice: finalPrice,
+        isMinApplied: finalPrice === cfg.minimumJobPrice && sellPrice < cfg.minimumJobPrice,
+        isLongSheet: data.isLong,
+        warnings, suggestion: null,
+        foldedDimensions: { w: foldedW, h: foldedH },
+        matchedSize: data.sizeKey,
+        paperCategory: cat === "folding" ? "text" : (paperKey === "cardstock" ? "cardstock" : "cover"),
+        resolution: data.isScoreOnly ? "score_only" : "ok",
+        autoLevel: p.level, alternatives: [], fromBridge: true,
+      }
+    }
+
+    return null // unexpected response, fall back
+  } catch {
+    return null // network error, fall back
+  }
+}
+
+/**
+ * Main entry point. Tries bridge first, falls back to local logic.
+ * The async version is preferred -- use calculateFoldFinishSync for
+ * contexts where async isn't possible.
+ */
+export async function calculateFoldFinishAsync(
+  input: FoldFinishInput,
+  settings?: FoldFinishingSettings,
+): Promise<FoldFinishResult> {
+  const cfg = settings || DEFAULT_FOLD_SETTINGS
+
+  // Try bridge first
+  const bridgeResult = await tryBridge(input, cfg)
+  if (bridgeResult) return bridgeResult
+
+  // Fall back to local logic
+  return calculateFoldFinish(input, cfg)
+}
+
+/**
+ * Synchronous version (uses local data only -- no bridge).
+ * This is the original logic, kept as fallback.
+ */
 export function calculateFoldFinish(
   input: FoldFinishInput,
   settings?: FoldFinishingSettings,
@@ -492,7 +496,6 @@ export function calculateFoldFinish(
   const cfg = settings || DEFAULT_FOLD_SETTINGS
   const { openWidth, openHeight, qty, paperName, finishType, foldType, isBroker, orientation } = input
 
-  // Determine category and paper key
   const cat: FoldCategory = finishType === "fold" ? "folding" : "sf"
   const paperMap = mapPaperToFoldKey(paperName)
   const paperKey = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
@@ -504,24 +507,17 @@ export function calculateFoldFinish(
       baseCost: 0, setupCost: 0, sellPrice: 0,
       isMinApplied: false, isLongSheet: false,
       warnings: [`${finishType === "fold" ? "Folding" : "Score & Fold"} not available for ${paperName}`],
-      suggestion: null,
-      foldedDimensions: null, matchedSize: "N/A", paperCategory: paperLabel,
+      suggestion: null, foldedDimensions: null, matchedSize: "N/A", paperCategory: paperLabel,
       resolution: "na", autoLevel: null, alternatives: alts,
     }
   }
 
-  // Match size tier
   const sizeKey = matchFoldSize(openWidth, openHeight, cat)
   const isLong = sizeKey === "long"
-
-  // Map fold type ID to data key with prefix
   const dataFoldKey = mapFoldTypeToDataKey(foldType)
   const finishDataKey = cat === "sf" ? `Score & ${dataFoldKey}` : dataFoldKey
-
-  // Resolve entry
   const resolved = resolveFinishEntry(cat, paperKey, sizeKey, finishDataKey)
 
-  // Calculate fold dimensions
   const axis = orientation === "width" ? "w" : "h"
   const foldDim = axis === "w" ? openWidth : openHeight
   let panels: number
@@ -534,7 +530,6 @@ export function calculateFoldFinish(
   const foldedW = axis === "w" ? Math.round(divided * 100) / 100 : openWidth
   const foldedH = axis === "w" ? openHeight : Math.round(divided * 100) / 100
 
-  // Warnings from validation
   const validationWarnings = validateFoldCombo(openWidth, openHeight, finishDataKey, axis)
   const warnings = validationWarnings.map((w) => w.message)
 
@@ -544,32 +539,27 @@ export function calculateFoldFinish(
       baseCost: 0, setupCost: 0, sellPrice: 0,
       isMinApplied: false, isLongSheet: isLong,
       warnings: [...warnings, resolved.message || "Not available"],
-      suggestion: null,
-      foldedDimensions: { w: foldedW, h: foldedH },
+      suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
       resolution: "na", autoLevel: null, alternatives: alts,
     }
   }
 
   if (resolved.status === "hand") {
-    // Hand fold: estimate based on hourly rate
-    const estimatedMinutes = (qty / 500) * 60 // rough: 500 pieces/hr
+    const estimatedMinutes = (qty / 500) * 60
     const handCost = (estimatedMinutes / 60) * cfg.handFoldHourlyRate
     const sellPrice = Math.max(handCost * (1 + cfg.markupPercent / 100), cfg.minimumJobPrice)
     const alts = findAlternatives(openWidth, openHeight, qty, paperName, finishType, foldType, isBroker, cfg)
     return {
       baseCost: handCost, setupCost: 0, sellPrice: isBroker ? sellPrice * (1 - cfg.brokerDiscountPercent / 100) : sellPrice,
-      isMinApplied: sellPrice === cfg.minimumJobPrice,
-      isLongSheet: isLong,
+      isMinApplied: sellPrice === cfg.minimumJobPrice, isLongSheet: isLong,
       warnings: [...warnings, "Hand fold required -- machine fold not available"],
-      suggestion: null,
-      foldedDimensions: { w: foldedW, h: foldedH },
+      suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
       resolution: "hand", autoLevel: null, alternatives: alts,
     }
   }
 
-  // Calculate price using entry
   const entry = resolved.entry!
   const priceResult = calculateFoldPrice(entry, qty, isLong, cfg)
 
@@ -579,8 +569,7 @@ export function calculateFoldFinish(
       baseCost: 0, setupCost: 0, sellPrice: 0,
       isMinApplied: false, isLongSheet: isLong,
       warnings: [...warnings, "Could not calculate price"],
-      suggestion: null,
-      foldedDimensions: { w: foldedW, h: foldedH },
+      suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
       matchedSize: sizeKey, paperCategory: paperLabel,
       resolution: "na", autoLevel: null, alternatives: alts,
     }
@@ -590,23 +579,17 @@ export function calculateFoldFinish(
   const finalPrice = Math.max(sellPrice, cfg.minimumJobPrice)
   const isMin = finalPrice === cfg.minimumJobPrice && sellPrice < cfg.minimumJobPrice
 
-  if (resolved.status === "score_only") {
-    warnings.push("Score only -- no machine fold available")
-  }
+  if (resolved.status === "score_only") warnings.push("Score only -- no machine fold available")
 
   return {
     baseCost: priceResult.base,
     setupCost: priceResult.setupCost + priceResult.longFee,
     sellPrice: finalPrice,
-    isMinApplied: isMin,
-    isLongSheet: isLong,
-    warnings,
-    suggestion: null,
+    isMinApplied: isMin, isLongSheet: isLong,
+    warnings, suggestion: null,
     foldedDimensions: { w: foldedW, h: foldedH },
-    matchedSize: sizeKey,
-    paperCategory: paperLabel,
+    matchedSize: sizeKey, paperCategory: paperLabel,
     resolution: resolved.status,
-    autoLevel: priceResult.level,
-    alternatives: [],
+    autoLevel: priceResult.level, alternatives: [],
   }
 }

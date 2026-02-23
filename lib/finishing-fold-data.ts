@@ -1,5 +1,15 @@
 // ============================================================
-// Finishing Fold Data — ported exactly from HTML calculator
+// Finishing Fold Data — FALLBACK DATA
+// ============================================================
+// SOURCE OF TRUTH: calculators/fold-score-calculator.html
+//   (uploaded by user to GitHub, read at runtime by the bridge)
+//
+// This file is the FALLBACK used when the HTML calculator has
+// not been uploaded yet. Once the HTML file exists in the repo,
+// the bridge (/api/fold-calc -> lib/calculators/fold-score-bridge.ts)
+// reads and executes the original JavaScript from that HTML file.
+//
+// DO NOT UPDATE PRICING DATA HERE. Update the HTML file instead.
 // ============================================================
 
 /** Entry for a single finish type at a given paper + size combo */
