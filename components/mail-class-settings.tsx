@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pricing"
 import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculators-settings"
+import { PaperWeightsSettingsTab } from "@/components/paper-weights-settings"
 import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "@/lib/finishing-fold-engine"
 import { SuppliersSettings } from "@/components/suppliers-settings"
 import {
@@ -72,6 +73,7 @@ import {
   Search,
   Mail,
   Boxes,
+  Scale,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -176,6 +178,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <DollarSign className="h-3.5 w-3.5" />
                 Pricing
               </TabsTrigger>
+              <TabsTrigger value="paper-weights" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Scale className="h-3.5 w-3.5" />
+                Paper Weights
+              </TabsTrigger>
               <TabsTrigger value="envelopes" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Mail className="h-3.5 w-3.5" />
                 Envelopes
@@ -221,6 +227,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="pricing">
               <PricingSettingsTab />
+            </TabsContent>
+            <TabsContent value="paper-weights">
+              <PaperWeightsSettingsTab />
             </TabsContent>
             <TabsContent value="envelopes">
               <EnvelopeSettingsTab />
