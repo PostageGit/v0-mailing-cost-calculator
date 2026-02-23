@@ -74,10 +74,16 @@ interface CalcContext {
 
 let _ctx: CalcContext | null = null
 let _loadError: string | null = null
+let _lastLoadTime = 0
+const CACHE_TTL_MS = 5000 // Re-read HTML file every 5 seconds at most
 
 function loadCalculator(): CalcContext | null {
-  if (_ctx) return _ctx
-  if (_loadError) return null
+  // Re-read the HTML file periodically so GitHub changes are picked up
+  const now = Date.now()
+  if (_ctx && (now - _lastLoadTime) < CACHE_TTL_MS) return _ctx
+  // Reset for fresh load
+  _ctx = null
+  _loadError = null
 
   try {
     // Try multiple possible paths (dev vs build)
@@ -166,6 +172,7 @@ function loadCalculator(): CalcContext | null {
       foldAxis: (sandbox.foldAxis as string) || "w",
     }
 
+    _lastLoadTime = Date.now()
     console.log("[fold-score-bridge] Successfully loaded fold-score-calculator.html")
     return _ctx
   } catch (err) {
