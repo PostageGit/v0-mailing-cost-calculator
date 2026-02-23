@@ -19,8 +19,8 @@ export interface OriginalFoldEntry {
   s?: number
   long?: boolean
   alt?: string
-  so?: 1
-}
+  so?: number // score-only flag (1 = score only available, fold N/A)
+  }
 
 export interface OriginalSizeEntry {
   lbl: string

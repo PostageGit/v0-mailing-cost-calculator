@@ -71,14 +71,24 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Handle l === "na" (not available)
+    // Handle l === "na" (not available, no score-only fallback)
     if (opt.l === "na" && !opt.so) {
+      // Find which finishes ARE available for this paper/size
+      const availableFinishes: string[] = []
+      for (const [fKey, fEntry] of Object.entries(sizeData)) {
+        if (fKey === "lbl" || fKey === "isLong") continue
+        const fe = fEntry as OriginalFoldEntry
+        if (fe && typeof fe.l === "number" && fe.l > 0) {
+          availableFinishes.push(fKey)
+        }
+      }
       return NextResponse.json({
         resolution: "na",
         sizeKey,
         sizeLabel: sizeData.lbl || sizeKey,
         alt: opt.alt,
-        error: `Not Available -- ${opt.alt || "No alternative."}`,
+        availableFinishes,
+        error: `Not available: ${opt.alt || "No alternative."}`,
       })
     }
 
@@ -92,7 +102,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Score-only fallback
+    // Score-only fallback: l === "na" but so flag means score-only is available
     const isScoreOnly = opt.l === "na" && !!opt.so
 
     if (!qty) {
@@ -103,6 +113,7 @@ export async function POST(req: NextRequest) {
         isLong,
         isScoreOnly,
         entry: opt,
+        alt: opt.alt,
         needsQty: true,
       })
     }
@@ -119,14 +130,46 @@ export async function POST(req: NextRequest) {
         }
       : undefined
 
-    const price = bridgePriceIt(opt, qty, isLong, settingsMap)
+    // For score-only entries: opt.l is "na" so priceIt returns null.
+    // We create a modified entry with a numeric level for score-only pricing.
+    // Score-only uses the entry's b and s values with a default level of 3.
+    let priceableOpt = opt
+    if (isScoreOnly && typeof opt.l !== "number" && opt.b && opt.s) {
+      priceableOpt = { ...opt, l: 3 } // Default score-only level
+    }
+
+    const price = bridgePriceIt(priceableOpt, qty, isLong, settingsMap)
 
     if (!price) {
+      // Check the original entry for alt text explaining why
+      const altText = opt.alt || null
+      // Find which finishes ARE available for this paper/size
+      const availableFinishes: string[] = []
+      for (const [fKey, fEntry] of Object.entries(sizeData)) {
+        if (fKey === "lbl" || fKey === "isLong") continue
+        const fe = fEntry as OriginalFoldEntry
+        if (fe && typeof fe.l === "number" && fe.l > 0) {
+          availableFinishes.push(fKey)
+        }
+      }
+      // Build a clear error message based on the data
+      let errorMsg: string
+      if (altText) {
+        errorMsg = `Not available: ${altText}`
+      } else if (availableFinishes.length > 0) {
+        errorMsg = `${finish} not available for ${paper.label} at this size. Available: ${availableFinishes.join(", ")}`
+      } else {
+        errorMsg = `${finish} not available for ${paper.label} at size tier ${sizeKey}`
+      }
+
       return NextResponse.json({
         resolution: "na",
         sizeKey,
         sizeLabel: sizeData.lbl || sizeKey,
-        error: "Missing rate data",
+        alt: altText,
+        availableFinishes,
+        isScoreOnly: false,
+        error: errorMsg,
       })
     }
 
