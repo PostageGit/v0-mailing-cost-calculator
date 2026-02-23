@@ -153,14 +153,57 @@ export function FoldFinishSection({
 
     // Bridge returned an error / N/A
     if (bridgeData.error && (bridgeData.resolution === "na" || bridgeData.resolution === "hand")) {
+      // Build alternatives from the bridge response
+      const alts: FoldAlternative[] = []
+
+      // If bridge tells us which finishes ARE available for this paper/size, suggest them
+      if (bridgeData.availableFinishes && Array.isArray(bridgeData.availableFinishes)) {
+        for (const avail of bridgeData.availableFinishes) {
+          // Map bridge finish name back to our fold type
+          const cleanFinish = avail.replace("Score & ", "")
+          const foldTypeMap: Record<string, string> = {
+            "Fold in Half": "half", "Fold in 3": "tri", "Fold in 4": "accordion",
+            "Z Fold": "z", "Gate Fold": "gate", "Roll Fold": "roll",
+            "Double Parallel": "double_parallel",
+          }
+          const mappedType = foldTypeMap[cleanFinish]
+          if (mappedType && mappedType !== ff.foldType) {
+            const isScoreFold = avail.startsWith("Score & ")
+            alts.push({
+              type: "switch_fold",
+              label: `Switch to ${avail}`,
+              description: `Available for ${inputs.paperName} at ${bridgeData.sizeKey || "this size"}`,
+              finishType: isScoreFold ? "score_and_fold" : cat === "sf" ? "score_and_fold" : "fold",
+              foldType: mappedType,
+            })
+          }
+        }
+      }
+
+      // If Score & Fold not available, suggest plain Fold
+      if (cat === "sf" && !paperKey) {
+        const foldMap = mapPaperToFoldKey(inputs.paperName)
+        if (foldMap.foldKey) {
+          alts.push({
+            type: "switch_finish",
+            label: "Switch to Fold",
+            description: `Folding available for ${inputs.paperName}`,
+            finishType: "fold",
+          })
+        }
+      }
+
+      // Use the alt text from the original data if available
+      const errorMsg = bridgeData.alt || bridgeData.error
+
       return {
         baseCost: 0, setupCost: 0, sellPrice: 0,
         isMinApplied: false, isLongSheet: bridgeData.sizeKey === "long",
-        warnings: [...warnings, bridgeData.error],
+        warnings: [...warnings, errorMsg],
         suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
         matchedSize: bridgeData.sizeKey || "N/A", paperCategory: paperLabel,
         resolution: bridgeData.resolution === "hand" ? "hand" : "na",
-        autoLevel: null, alternatives: [], fromBridge: true,
+        autoLevel: null, alternatives: alts, fromBridge: true,
       }
     }
 
