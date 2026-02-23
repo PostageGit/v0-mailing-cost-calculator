@@ -220,10 +220,8 @@ export const FINISH_TYPE_OPTIONS: { id: string; label: string; category: FoldCat
 ]
 
 // ── SIZE MATCHING ──
-// Maps open/flat sheet dimensions to a pricing tier key.
-// Exact port of matchSize() from the original HTML calculator.
-// Minimum size for Score & Fold / 100 Text fold: 7.5x5
-// Minimum size for 80 Text fold: 7x4
+// Exact port of matchSize() from the original HTML calculator (line 332-347).
+// Brackets checked sequentially, same order and same min/max values.
 export function matchFoldSize(w: number, h: number, cat: FoldCategory): string {
   // Normalize: nw = shorter side, nh = longer side
   const nw = Math.min(w, h)
@@ -232,13 +230,16 @@ export function matchFoldSize(w: number, h: number, cat: FoldCategory): string {
   // Long sheet: any dimension > 17 or width > 13 (Score & Fold only)
   if (cat === "sf" && (nh > 17 || nw > 13)) return "long"
 
-  // Sequential bracket matching (same order as original HTML calculator)
+  // Sequential bracket matching — exact copy of original:
+  // if(nw>=11||nh>=17) return "11x17+";
   if (nw >= 11 || nh >= 17) return "11x17+"
+  // if(nw>=8&&nw<=11&&nh>=11&&nh<17) return "8.5x11";
   if (nw >= 8 && nw <= 11 && nh >= 11 && nh < 17) return "8.5x11"
+  // if(nw>=5&&nw<=8.5&&nh>=5.5&&nh<11) return "8.5x5.5";
   if (nw >= 5 && nw <= 8.5 && nh >= 5.5 && nh < 11) return "8.5x5.5"
-  // 7.5x5 bracket: short side up to 8, long side up to 5.49
-  if (nw >= 0 && nw <= 8 && nh >= 0 && nh <= 5.49) return "7.5x5"
-  // 7x4 bracket: short side up to 7.49, long side up to 5.49 (only used by 80text fold data)
+  // if(nw>=4&&nw<=7.5&&nh>=4&&nh<=5.5) return "7.5x5";
+  if (nw >= 4 && nw <= 7.5 && nh >= 4 && nh <= 5.5) return "7.5x5"
+  // if(nw<7.5&&nh<5.5) return "7x4";
   if (nw < 7.5 && nh < 5.5) return "7x4"
 
   // Fallback: go up to nearest valid tier
