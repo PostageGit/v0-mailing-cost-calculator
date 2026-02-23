@@ -151,8 +151,8 @@ export function FoldFinishSection({
     // Still loading from bridge
     if (bridgeLoading || !bridgeData) return null
 
-    // Bridge returned an error / N/A
-    if (bridgeData.error && (bridgeData.resolution === "na" || bridgeData.resolution === "hand")) {
+    // Bridge returned an error / N/A / score_only (no pricing)
+    if (bridgeData.error && (bridgeData.resolution === "na" || bridgeData.resolution === "hand" || bridgeData.resolution === "score_only")) {
       // Build alternatives from the bridge response
       const alts: FoldAlternative[] = []
 
@@ -216,7 +216,7 @@ export function FoldFinishSection({
         warnings: warningMessages,
         suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
         matchedSize: bridgeData.sizeKey || "N/A", paperCategory: paperLabel,
-        resolution: bridgeData.resolution === "hand" ? "hand" : "na",
+        resolution: bridgeData.resolution === "hand" ? "hand" : bridgeData.resolution === "score_only" ? "score_only" : "na",
         autoLevel: null, alternatives: alts, fromBridge: true,
       }
     }
@@ -459,22 +459,36 @@ export function FoldFinishSection({
               )}
 
               {/* Warnings */}
-              {preview.warnings.length > 0 && (preview.resolution === "na" ? (
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 flex items-start gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                  <div className="space-y-0.5">
+              {preview.warnings.length > 0 && (
+                preview.resolution === "score_only" && preview.sellPrice === 0 ? (
+                  /* Score-only with no pricing: blue info style (matches original HTML) */
+                  <div className="rounded-lg bg-sky-500/10 border border-sky-500/20 px-3 py-2.5 flex items-start gap-2">
+                    <Info className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 mt-0.5 shrink-0" />
+                    <div className="space-y-0.5">
+                      {preview.warnings.map((w, i) => (
+                        <p key={i} className="text-[11px] text-sky-700 dark:text-sky-400 font-medium">{w}</p>
+                      ))}
+                    </div>
+                  </div>
+                ) : preview.resolution === "na" ? (
+                  /* Not available: amber warning style */
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2.5 flex items-start gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="space-y-0.5">
+                      {preview.warnings.map((w, i) => (
+                        <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{w}</p>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* General warnings: amber style */
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 space-y-0.5">
                     {preview.warnings.map((w, i) => (
                       <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{w}</p>
                     ))}
                   </div>
-                </div>
-              ) : (
-                <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 space-y-0.5">
-                  {preview.warnings.map((w, i) => (
-                    <p key={i} className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{w}</p>
-                  ))}
-                </div>
-              ))}
+                )
+              )}
 
               {/* Actionable alternatives */}
               {preview.alternatives.length > 0 && (
