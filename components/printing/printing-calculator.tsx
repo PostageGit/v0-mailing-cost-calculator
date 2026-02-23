@@ -73,6 +73,24 @@ export function PrintingCalculator() {
   const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
   const foldSettings = appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
+  // Form state
+  const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
+
+  // Calculation state
+  const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
+  const [selectedOption, setSelectedOption] = useState<SheetOptionRow | null>(null)
+  const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
+  const [hasCalculated, setHasCalculated] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [calcError, setCalcError] = useState<{
+    message: string
+    suggestions: { name: string; largestSheet: string }[]
+  } | null>(null)
+
+  // Order state
+  const [editingItemId] = useState<number | null>(null)
+  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
+
   // Bridge: get fold cost from the HTML calculator via /api/fold-calc
   const foldBridgeBody = useMemo(() => {
     const ff = inputs.foldFinish
@@ -127,24 +145,6 @@ export function PrintingCalculator() {
       foldedDimensions: null,
     }
   }, [inputs, foldBridgeData, foldSettings])
-
-  // Form state
-  const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
-
-  // Calculation state
-  const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
-  const [selectedOption, setSelectedOption] = useState<SheetOptionRow | null>(null)
-  const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
-  const [hasCalculated, setHasCalculated] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const [calcError, setCalcError] = useState<{
-    message: string
-    suggestions: { name: string; largestSheet: string }[]
-  } | null>(null)
-
-  // Order state
-  const [editingItemId] = useState<number | null>(null)
-  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
   // Load a planner piece into the form
   const loadPiece = useCallback((piece: MailPiece) => {
