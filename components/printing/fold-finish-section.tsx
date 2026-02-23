@@ -67,11 +67,13 @@ export function FoldFinishSection({
   const bridgeRequestBody = useMemo(() => {
     if (!ff.enabled || !ff.finishType || !ff.foldType || !inputs.width || !inputs.height) return null
 
+    // "fold" → FOLD data, "score_and_fold" or "score_only" → SF data
     const cat: "folding" | "sf" = ff.finishType === "fold" ? "folding" : "sf"
     const paperMap = mapPaperToFoldKey(inputs.paperName)
     const paperKey = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
 
     const dataFoldKey = mapFoldTypeToDataKey(ff.foldType)
+    // For SF category, the data keys are "Score & Fold in Half", "Score & Fold in 3", etc.
     const finishDataKey = cat === "sf" ? `Score & ${dataFoldKey}` : dataFoldKey
 
     return {

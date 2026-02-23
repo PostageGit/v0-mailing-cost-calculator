@@ -80,15 +80,41 @@ export interface FoldFinishInput {
 }
 
 // ── Paper name → fold data key mapping ──
-// (still needed to translate UI paper names to data keys for the bridge API)
+// Exact mapping from the original HTML calculator data:
+//   FOLD has: "80text_60_70" (80 Text / 60lb / 70lb), "100text" (100 Text)
+//   SF has:   "100text_80cover" (100 Text / 80 Cover), "cardstock" (Card Stock Any)
+//
+// Rules pulled from original HTML:
+//   - 20lb Offset: too thin → no fold, no S&F
+//   - 60lb Offset: FOLD under "80text_60_70", no S&F
+//   - 80lb Text Gloss: FOLD under "80text_60_70", no S&F
+//   - 100lb Text Gloss: FOLD under "100text", S&F under "100text_80cover"
+//   - 67 Cover (White): no fold (cover stock), no S&F (not in SF data)
+//   - 80 Cover Gloss: no fold (cover stock), S&F under "100text_80cover"
+//   - 10pt/12pt/14pt (any cardstock): no fold, S&F under "cardstock"
+//   - Sticker: no fold, no S&F
 export function mapPaperToFoldKey(paperName: string): { foldKey: string | null; sfKey: string | null } {
   const lower = paperName.toLowerCase()
-  if (lower.includes("60lb") || lower.includes("70lb") || lower.includes("80lb text")) return { foldKey: "80text_60_70", sfKey: null }
-  if (lower.includes("100lb text") || lower.includes("100 text")) return { foldKey: "100text", sfKey: null }
-  if (lower.includes("80 cover") || lower.includes("67 cover") || lower.includes("80cover")) return { foldKey: null, sfKey: "100text_80cover" }
+  // 20lb Offset — too thin for fold or S&F
+  if (lower.includes("20lb")) return { foldKey: null, sfKey: null }
+  // Sticker — not foldable or scoreable
+  if (lower.includes("sticker")) return { foldKey: null, sfKey: null }
+  // 60lb Offset — FOLD only under "80text_60_70"
+  if (lower.includes("60lb")) return { foldKey: "80text_60_70", sfKey: null }
+  // 70lb Offset — FOLD only under "80text_60_70"
+  if (lower.includes("70lb")) return { foldKey: "80text_60_70", sfKey: null }
+  // 80lb Text Gloss — FOLD only under "80text_60_70"
+  if (lower.includes("80lb text") || lower.includes("80 text")) return { foldKey: "80text_60_70", sfKey: null }
+  // 100lb Text Gloss — FOLD under "100text", S&F under "100text_80cover"
+  if (lower.includes("100lb text") || lower.includes("100 text")) return { foldKey: "100text", sfKey: "100text_80cover" }
+  // 80 Cover Gloss — no fold, S&F under "100text_80cover"
+  if (lower.includes("80 cover") || lower.includes("80cover")) return { foldKey: null, sfKey: "100text_80cover" }
+  // 67 Cover (White) — not in any original data
+  if (lower.includes("67 cover")) return { foldKey: null, sfKey: null }
+  // Cardstock: 10pt, 12pt, 14pt — no fold, S&F under "cardstock"
   if (lower.includes("10pt") || lower.includes("12pt") || lower.includes("14pt") || lower.includes("card")) return { foldKey: null, sfKey: "cardstock" }
-  if (lower.includes("20lb") || lower.includes("sticker")) return { foldKey: "80text_60_70", sfKey: null }
-  return { foldKey: "80text_60_70", sfKey: "100text_80cover" }
+  // Fallback: unknown paper → no fold, no S&F (safe)
+  return { foldKey: null, sfKey: null }
 }
 
 // ── Fold type ID → data key mapping ──
@@ -106,7 +132,19 @@ export function mapFoldTypeToDataKey(foldType: string): string {
   }
 }
 
-// ── Validation warnings (pure logic, no data dependency) ──
+// ── Validation warnings ──
+// Exact port of all rules from original HTML calculator (Rules page lines 232-242):
+//   Rule 1: N/A options show the closest alternative
+//   Rule 2: Score & Fold N/A → "Score Only." Otherwise change size/paper
+//   Rule 3: Max trifold height = 11"
+//   Rule 4: Max fold width = 13" (length = any)
+//   Rule 5: Level > 1 → auto-checks thicker paper; cheaper = auto-upgrade
+//   Rule 6: Long sheets (13x26+) get a flat setup fee (Score & Fold only)
+// Also from original HTML size limits:
+//   - Trifold max height: 11"
+//   - Max fold width: 13"
+//   - Length: no limit
+//   - Minimum fold size: 4" x 4" (from matchSize line 341: nw>=4 && nh>=4)
 export interface FoldWarning {
   type: "amber" | "red" | "blue"
   message: string
@@ -125,11 +163,23 @@ export function validateFoldCombo(w: number, h: number, finish: string, axis: "w
   const foldedDim = panels > 1 ? foldDim / panels : foldDim
   const foldedW = divW ? foldedDim : w
   const fh = divW ? h : foldedDim
+
+  // Rule 3: Trifold max height = 11"
   if (f === "Fold in 3") {
     const maxH = divW ? h : fh
     if (maxH > 11) warnings.push({ type: "amber", message: `Rule 3: Trifold max height is 11" -- your finished height is ${maxH.toFixed(2)}".` })
   }
+
+  // Rule 4: Max fold width = 13"
   if (foldedW > 13) warnings.push({ type: "amber", message: `Rule 4: Max fold width is 13" -- your folded width would be ${foldedW.toFixed(2)}".` })
+
+  // Size minimum: from matchSize (line 341) both dimensions must be >= 4"
+  const nw = Math.min(w, h)
+  const nh = Math.max(w, h)
+  if (nh <= 5.5 && (nw < 4 || nh < 4)) {
+    warnings.push({ type: "red", message: `Minimum fold/score size is 4" x 4". Your sheet is ${w}" x ${h}".` })
+  }
+
   return warnings
 }
 
