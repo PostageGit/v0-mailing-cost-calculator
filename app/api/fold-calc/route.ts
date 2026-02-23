@@ -48,54 +48,57 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Match size -- try the primary tier first, then fall back to any
-    // tier that exists in this paper's data
-    let sizeKey = bridgeMatchSize(w, h, cat)
+    // Match size using the original matchSize function (no fallback -- exact match to original behavior)
+    const sizeKey = bridgeMatchSize(w, h, cat)
     const isLong = sizeKey === "long"
-    let sizeData = paper.sizes[sizeKey]
+    const sizeData = paper.sizes[sizeKey]
 
-    // Size tier fallback: if the matched tier doesn't exist for this paper,
-    // try smaller available tiers first (the sheet fits in them), then larger.
-    // This handles 80text_60_70 having "7x4" but not "7.5x5".
     if (!sizeData) {
-      const allTiers = ["7x4", "7.5x5", "8.5x5.5", "8.5x11", "11x17+", "long"]
-      const matchedIdx = allTiers.indexOf(sizeKey)
-      // Try tiers from smallest up to the matched one (sheet fits in these)
-      let foundFallback = false
-      for (let i = matchedIdx - 1; i >= 0; i--) {
-        if (paper.sizes[allTiers[i]]) {
-          sizeKey = allTiers[i]
-          sizeData = paper.sizes[sizeKey]
-          foundFallback = true
-          break
-        }
-      }
-      // If no smaller tier, try larger tiers
-      if (!foundFallback) {
-        for (let i = matchedIdx + 1; i < allTiers.length; i++) {
-          if (paper.sizes[allTiers[i]]) {
-            sizeKey = allTiers[i]
-            sizeData = paper.sizes[sizeKey]
-            foundFallback = true
-            break
-          }
-        }
+      // The matched size tier doesn't exist for this paper.
+      // Figure out WHY and give a clear explanation + alternatives.
+      const nw = Math.min(w, h)
+      const nh = Math.max(w, h)
+      const availableTiers = Object.keys(paper.sizes)
+      const availableTierLabels = availableTiers.map(k => paper.sizes[k].lbl || k)
+
+      // Determine the smallest tier this paper supports
+      const tierOrder = ["7x4", "7.5x5", "8.5x5.5", "8.5x11", "11x17+", "long"]
+      const smallestAvailIdx = tierOrder.findIndex(t => paper.sizes[t])
+      const smallestAvail = smallestAvailIdx >= 0 ? tierOrder[smallestAvailIdx] : null
+      const matchedIdx = tierOrder.indexOf(sizeKey)
+
+      let errorMsg: string
+      let suggestion: string | null = null
+
+      if (matchedIdx < smallestAvailIdx) {
+        // Sheet matched to a tier BELOW what this paper supports = too small
+        const minLabel = smallestAvail ? (paper.sizes[smallestAvail]?.lbl || smallestAvail) : "unknown"
+        errorMsg = `Sheet ${nw}" x ${nh}" is below the minimum size for ${paper.label}. Smallest available tier: ${minLabel}.`
+        suggestion = `Increase sheet size to at least ${minLabel} for ${cat === "folding" ? "folding" : "score & fold"} on ${paper.label}.`
+      } else if (matchedIdx > tierOrder.length - 1) {
+        errorMsg = `Sheet ${nw}" x ${nh}" exceeds the maximum size for ${paper.label}.`
+      } else {
+        // Tier exists in the system but not for this paper
+        errorMsg = `No pricing data for ${paper.label} at size tier ${sizeKey} (${nw}" x ${nh}").`
+        suggestion = `Available tiers for ${paper.label}: ${availableTierLabels.join(", ")}.`
       }
 
-      if (!sizeData) {
-        // Normalize dimensions to explain the actual problem
-        const nw = Math.min(w, h)
-        const nh = Math.max(w, h)
-        const availableSizes = Object.keys(paper.sizes).map(k => {
-          const sd = paper.sizes[k]
-          return sd.lbl || k
-        }).join(", ")
-        return NextResponse.json({
-          resolution: "na",
-          sizeKey,
-          error: `Sheet size ${nw}" x ${nh}" does not fit any available size tier for ${paper.label}. Available tiers: ${availableSizes}`,
-        })
+      // Find which OTHER papers DO have this size tier
+      const allDb = cat === "folding" ? getFOLD() : getSF()
+      const papersWithTier: string[] = []
+      for (const [pk, pv] of Object.entries(allDb)) {
+        if (pk === paperKey) continue
+        if (pv.sizes[sizeKey]) papersWithTier.push(pv.label)
       }
+
+      return NextResponse.json({
+        resolution: "na",
+        sizeKey,
+        error: errorMsg,
+        alt: suggestion,
+        availableTiers: availableTierLabels,
+        papersWithTier,
+      })
     }
 
     const opt = sizeData[finish] as OriginalFoldEntry | undefined
