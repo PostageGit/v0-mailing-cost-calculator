@@ -116,41 +116,70 @@ function loadCalculator(): CalcContext | null {
       return null
     }
 
-    let scriptCode = scriptMatch[1]
+    const scriptCode = scriptMatch[1]
 
-    // Remove DOM-dependent code that won't work in Node:
-    // - Remove ls() call at the bottom (loads from localStorage)
-    // - Remove document.getElementById references in functions: setOrient, swapWH, catCh, calc, ss, applyS, go, sheetSVG, tb, tu
-    // - Keep: FOLD, SF, SIZE_MAP, FINISHES, S (defaults), matchSize, foldMath, priceIt
-    // We strip functions that touch the DOM and only keep pure logic + data
+    // Instead of stripping DOM functions (fragile with nested braces),
+    // extract ONLY the data and pure functions we need via targeted regex.
+    // We need: FOLD, SF, SIZE_MAP, FINISHES, S, foldMath, matchSize, priceIt
 
-    // Remove the function calls at the bottom that touch DOM
-    scriptCode = scriptCode.replace(/ls\(\);[\s\S]*$/, "")
+    // 1. Extract FOLD data block: "const FOLD={...};"
+    const foldMatch = scriptCode.match(/const\s+FOLD\s*=\s*(\{[\s\S]*?\n\};)/m)
+    // 2. Extract SF data block: "const SF={...};"
+    const sfMatch = scriptCode.match(/const\s+SF\s*=\s*(\{[\s\S]*?\n\};)/m)
+    // 3. Extract SIZE_MAP
+    const sizeMapMatch = scriptCode.match(/const\s+SIZE_MAP\s*=\s*(\[[\s\S]*?\];)/m)
+    // 4. Extract FINISHES
+    const finishesMatch = scriptCode.match(/const\s+FINISHES\s*=\s*(\{[\s\S]*?\};)/m)
+    // 5. Extract S (settings defaults)
+    const sMatch = scriptCode.match(/let\s+S\s*=\s*(\{[^}]+\})\s*;/)
+    // 6. Extract foldAxis
+    const foldAxisMatch = scriptCode.match(/let\s+foldAxis\s*=\s*'(\w)'\s*;/)
 
-    // Remove DOM-touching functions but keep their declarations so the script parses
-    // We'll replace them with no-ops
-    const domFunctions = ["setOrient", "swapWH", "catCh", "papCh", "calc", "ss", "applyS", "ls", "go", "sheetSVG", "al", "dr", "tC", "tb", "tu"]
-    for (const fn of domFunctions) {
-      // Replace function body with empty body -- match "function name(...){" to closing "}"
-      const regex = new RegExp(`function\\s+${fn}\\s*\\([^)]*\\)\\s*\\{`, "g")
-      scriptCode = scriptCode.replace(regex, `function ${fn}(){return;/*DOM-stripped*/`)
-      // Note: this is imperfect for nested braces, but the original HTML functions
-      // don't have complex nesting. We handle this by running in a try/catch.
+    // 7. Extract pure functions by finding "function name(" to the matching closing "}"
+    function extractFunction(code: string, name: string): string | null {
+      const startRegex = new RegExp(`function\\s+${name}\\s*\\(`)
+      const match = startRegex.exec(code)
+      if (!match) return null
+      const start = match.index
+      // Find matching closing brace
+      let depth = 0
+      let inStr: string | null = null
+      for (let i = start; i < code.length; i++) {
+        const ch = code[i]
+        if (inStr) { if (ch === inStr && code[i - 1] !== "\\") inStr = null; continue }
+        if (ch === "'" || ch === '"' || ch === "`") { inStr = ch; continue }
+        if (ch === "{") depth++
+        if (ch === "}") { depth--; if (depth === 0) return code.slice(start, i + 1) }
+      }
+      return null
     }
 
-    // Set default S values (normally set by ls/applyS which we stripped)
-    // The original default is already in the code: let S={labor:60,run:30,...}
-    // So S will have the right defaults.
+    const foldMathFn = extractFunction(scriptCode, "foldMath")
+    const matchSizeFn = extractFunction(scriptCode, "matchSize")
+    const priceItFn = extractFunction(scriptCode, "priceIt")
 
-    // Create sandbox context
+    if (!foldMatch || !sfMatch || !foldMathFn || !matchSizeFn || !priceItFn) {
+      _loadError = `Could not extract required code. FOLD:${!!foldMatch} SF:${!!sfMatch} foldMath:${!!foldMathFn} matchSize:${!!matchSizeFn} priceIt:${!!priceItFn}`
+      console.warn("[fold-score-bridge]", _loadError)
+      return null
+    }
+
+    // Build a clean script with only what we need
+    const cleanScript = [
+      `var FOLD = ${foldMatch[1]}`,
+      `var SF = ${sfMatch[1]}`,
+      sizeMapMatch ? `var SIZE_MAP = ${sizeMapMatch[1]}` : `var SIZE_MAP = [];`,
+      finishesMatch ? `var FINISHES = ${finishesMatch[1]}` : `var FINISHES = {folding:[],sf:[]};`,
+      sMatch ? `var S = ${sMatch[1]};` : `var S = {labor:60,run:30,markup:300,bdisc:30,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};`,
+      `var foldAxis = '${foldAxisMatch ? foldAxisMatch[1] : "w"}';`,
+      foldMathFn,
+      matchSizeFn,
+      priceItFn,
+    ].join("\n\n")
+
+    // Create sandbox context with only what the pure functions need
     const sandbox: Record<string, unknown> = {
       console: { log: () => {}, warn: () => {}, error: () => {} },
-      document: {
-        getElementById: () => ({ value: "", className: "", innerHTML: "", classList: { add: () => {}, remove: () => {}, toggle: () => {} } }),
-        querySelectorAll: () => [],
-        createElement: () => ({ value: "", textContent: "", appendChild: () => {} }),
-      },
-      localStorage: { getItem: () => null, setItem: () => {} },
       parseInt,
       parseFloat,
       Math,
@@ -158,7 +187,7 @@ function loadCalculator(): CalcContext | null {
     }
 
     const context = vm.createContext(sandbox)
-    vm.runInContext(scriptCode, context, { timeout: 2000 })
+    vm.runInContext(cleanScript, context, { timeout: 2000 })
 
     _ctx = {
       FOLD: sandbox.FOLD as CalcContext["FOLD"],
@@ -174,6 +203,8 @@ function loadCalculator(): CalcContext | null {
 
     _lastLoadTime = Date.now()
     console.log("[fold-score-bridge] Successfully loaded fold-score-calculator.html")
+    console.log("[fold-score-bridge] FOLD keys:", Object.keys(_ctx.FOLD))
+    console.log("[fold-score-bridge] SF keys:", Object.keys(_ctx.SF))
     return _ctx
   } catch (err) {
     _loadError = `Failed to load calculator: ${err instanceof Error ? err.message : String(err)}`
