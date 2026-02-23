@@ -156,10 +156,9 @@ export function FoldFinishSection({
       // Build alternatives from the bridge response
       const alts: FoldAlternative[] = []
 
-      // If bridge tells us which finishes ARE available for this paper/size, suggest them
+      // 1. If bridge tells us which finishes ARE available for this paper/size, suggest them
       if (bridgeData.availableFinishes && Array.isArray(bridgeData.availableFinishes)) {
         for (const avail of bridgeData.availableFinishes) {
-          // Map bridge finish name back to our fold type
           const cleanFinish = avail.replace("Score & ", "")
           const foldTypeMap: Record<string, string> = {
             "Fold in Half": "half", "Fold in 3": "tri", "Fold in 4": "accordion",
@@ -172,7 +171,7 @@ export function FoldFinishSection({
             alts.push({
               type: "switch_fold",
               label: `Switch to ${avail}`,
-              description: `Available for ${inputs.paperName} at ${bridgeData.sizeKey || "this size"}`,
+              description: `Available for ${inputs.paperName} at ${bridgeData.sizeLabel || bridgeData.sizeKey || "this size"}`,
               finishType: isScoreFold ? "score_and_fold" : cat === "sf" ? "score_and_fold" : "fold",
               foldType: mappedType,
             })
@@ -180,26 +179,41 @@ export function FoldFinishSection({
         }
       }
 
-      // If Score & Fold not available, suggest plain Fold
-      if (cat === "sf" && !paperKey) {
+      // 2. If bridge tells us other papers work at this size, suggest them
+      if (bridgeData.papersWithTier && Array.isArray(bridgeData.papersWithTier)) {
+        for (const altPaper of bridgeData.papersWithTier) {
+          alts.push({
+            type: "switch_paper",
+            label: `Try ${altPaper}`,
+            description: `${altPaper} supports ${cat === "folding" ? "folding" : "score & fold"} at size ${bridgeData.sizeKey || "this tier"}. Change paper type above.`,
+          })
+        }
+      }
+
+      // 3. If Score & Fold not available, suggest plain Fold
+      if (cat === "sf") {
         const foldMap = mapPaperToFoldKey(inputs.paperName)
         if (foldMap.foldKey) {
           alts.push({
             type: "switch_finish",
-            label: "Switch to Fold",
+            label: "Switch to Fold (no score)",
             description: `Folding available for ${inputs.paperName}`,
             finishType: "fold",
           })
         }
       }
 
-      // Use the alt text from the original data if available
-      const errorMsg = bridgeData.alt || bridgeData.error
+      // Build warning messages: show the main error, the alt/suggestion, and available tiers
+      const warningMessages = [...warnings]
+      warningMessages.push(bridgeData.error)
+      if (bridgeData.alt && bridgeData.alt !== bridgeData.error) {
+        warningMessages.push(bridgeData.alt)
+      }
 
       return {
         baseCost: 0, setupCost: 0, sellPrice: 0,
         isMinApplied: false, isLongSheet: bridgeData.sizeKey === "long",
-        warnings: [...warnings, errorMsg],
+        warnings: warningMessages,
         suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
         matchedSize: bridgeData.sizeKey || "N/A", paperCategory: paperLabel,
         resolution: bridgeData.resolution === "hand" ? "hand" : "na",
