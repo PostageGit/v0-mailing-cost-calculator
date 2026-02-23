@@ -145,8 +145,36 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Score-only fallback: l === "na" but so flag means score-only is available
-    const isScoreOnly = opt.l === "na" && !!opt.so
+    // Score-only detection:
+    // Case A: opt.l === "na" && opt.so → full fold N/A, score-only available
+    // Case B: typeof opt.l === "number" && opt.so → score-only, but HAS a level so CAN be priced
+    const isScoreOnly = !!opt.so
+    const isScoreOnlyNoPricing = opt.l === "na" && !!opt.so // has so flag but no numeric level
+
+    // For score-only entries where l === "na": the original HTML shows
+    // "Score Only -- Full fold N/A. Pricing as Score Only." then tries priceIt
+    // which returns null, then shows "Missing rate data."
+    // We return a clear "score_only" resolution with the alt text instead.
+    if (isScoreOnlyNoPricing) {
+      const availableFinishes: string[] = []
+      for (const [fKey, fEntry] of Object.entries(sizeData)) {
+        if (fKey === "lbl" || fKey === "isLong") continue
+        const fe = fEntry as OriginalFoldEntry
+        if (fe && typeof fe.l === "number" && fe.l > 0) {
+          availableFinishes.push(fKey)
+        }
+      }
+      return NextResponse.json({
+        resolution: "score_only",
+        sizeKey,
+        sizeLabel: sizeData.lbl || sizeKey,
+        isLong,
+        isScoreOnly: true,
+        alt: opt.alt || "Score Only -- full fold not available at this size.",
+        availableFinishes,
+        error: `Score Only -- ${opt.alt || "Full fold not available. Only scoring is available at this size/paper."}`,
+      })
+    }
 
     if (!qty) {
       return NextResponse.json({
@@ -173,15 +201,7 @@ export async function POST(req: NextRequest) {
         }
       : undefined
 
-    // For score-only entries: opt.l is "na" so priceIt returns null.
-    // We create a modified entry with a numeric level for score-only pricing.
-    // Score-only uses the entry's b and s values with a default level of 3.
-    let priceableOpt = opt
-    if (isScoreOnly && typeof opt.l !== "number" && opt.b && opt.s) {
-      priceableOpt = { ...opt, l: 3 } // Default score-only level
-    }
-
-    const price = bridgePriceIt(priceableOpt, qty, isLong, settingsMap)
+    const price = bridgePriceIt(opt, qty, isLong, settingsMap)
 
     if (!price) {
       // Check the original entry for alt text explaining why

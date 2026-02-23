@@ -173,12 +173,9 @@ export function validateFoldCombo(w: number, h: number, finish: string, axis: "w
   // Rule 4: Max fold width = 13"
   if (foldedW > 13) warnings.push({ type: "amber", message: `Rule 4: Max fold width is 13" -- your folded width would be ${foldedW.toFixed(2)}".` })
 
-  // Size minimum: from matchSize (line 341) both dimensions must be >= 4"
-  const nw = Math.min(w, h)
-  const nh = Math.max(w, h)
-  if (nh <= 5.5 && (nw < 4 || nh < 4)) {
-    warnings.push({ type: "red", message: `Minimum fold/score size is 4" x 4". Your sheet is ${w}" x ${h}".` })
-  }
+  // Note: there is no universal minimum size in the original HTML calculator.
+  // The matchSize function maps ANY small sheet to "7x4" or "7.5x5" tier,
+  // and the data entries handle availability (l:"na" + alt text) per tier.
 
   return warnings
 }
