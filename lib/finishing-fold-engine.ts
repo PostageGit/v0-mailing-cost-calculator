@@ -144,7 +144,7 @@ export function mapFoldTypeToDataKey(foldType: string): string {
 //   - Trifold max height: 11"
 //   - Max fold width: 13"
 //   - Length: no limit
-//   - Minimum fold size: 4" x 4" (from matchSize line 341: nw>=4 && nh>=4)
+//   - No universal minimum fold size -- matchSize maps all small sheets to "7x4" or "7.5x5" tier
 export interface FoldWarning {
   type: "amber" | "red" | "blue"
   message: string

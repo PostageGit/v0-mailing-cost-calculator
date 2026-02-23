@@ -70,16 +70,14 @@ export async function POST(req: NextRequest) {
       let errorMsg: string
       let suggestion: string | null = null
 
-      if (matchedIdx < smallestAvailIdx) {
-        // Sheet matched to a tier BELOW what this paper supports = too small
+      if (smallestAvailIdx >= 0 && matchedIdx >= 0 && matchedIdx < smallestAvailIdx) {
+        // Sheet matched to a tier below what this paper supports
         const minLabel = smallestAvail ? (paper.sizes[smallestAvail]?.lbl || smallestAvail) : "unknown"
-        errorMsg = `Sheet ${nw}" x ${nh}" is below the minimum size for ${paper.label}. Smallest available tier: ${minLabel}.`
-        suggestion = `Increase sheet size to at least ${minLabel} for ${cat === "folding" ? "folding" : "score & fold"} on ${paper.label}.`
-      } else if (matchedIdx > tierOrder.length - 1) {
-        errorMsg = `Sheet ${nw}" x ${nh}" exceeds the maximum size for ${paper.label}.`
+        errorMsg = `${paper.label} ${cat === "folding" ? "folding" : "score & fold"} is not available at size ${nw}" x ${nh}". The smallest tier for ${paper.label} is ${minLabel}.`
+        suggestion = `Try a larger sheet size (at least ${minLabel} tier) or switch to a paper that supports smaller sizes.`
       } else {
-        // Tier exists in the system but not for this paper
-        errorMsg = `No pricing data for ${paper.label} at size tier ${sizeKey} (${nw}" x ${nh}").`
+        // Tier exists in the matchSize system but not for this paper
+        errorMsg = `${paper.label} does not have ${cat === "folding" ? "folding" : "score & fold"} pricing at size tier ${sizeKey} (${nw}" x ${nh}").`
         suggestion = `Available tiers for ${paper.label}: ${availableTierLabels.join(", ")}.`
       }
 
