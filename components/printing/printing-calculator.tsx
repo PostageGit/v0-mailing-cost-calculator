@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { PrintingForm } from "./printing-form"
 import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
@@ -27,6 +27,8 @@ import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { FinishingCalculator, FinishingGlobalRates } from "@/lib/finishing-calculator-types"
 import { computeFinishingCalcTotals } from "@/components/finishing-add-ons"
+import { mapPaperToFoldKey, mapFoldTypeToDataKey, DEFAULT_FOLD_SETTINGS } from "@/lib/finishing-fold-engine"
+import type { FoldFinishCostLine } from "@/lib/printing-types"
 
 const swrFetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -69,7 +71,62 @@ export function PrintingCalculator() {
   const { data: finRates } = useSWR<FinishingGlobalRates>("/api/finishing-global-rates", swrFetcher)
   // Fold finishing settings
   const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
-  const foldSettings = appSettings?.fold_finishing_settings || undefined
+  const foldSettings = appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
+
+  // Bridge: get fold cost from the HTML calculator via /api/fold-calc
+  const foldBridgeBody = useMemo(() => {
+    const ff = inputs.foldFinish
+    if (!ff?.enabled || !ff.finishType || !ff.foldType || !inputs.width || !inputs.height) return null
+    const cat: "folding" | "sf" = ff.finishType === "fold" ? "folding" : "sf"
+    const paperMap = mapPaperToFoldKey(inputs.paperName)
+    const paperKey = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
+    if (!paperKey) return null
+    const dataFoldKey = mapFoldTypeToDataKey(ff.foldType)
+    const finishDataKey = cat === "sf" ? `Score & ${dataFoldKey}` : dataFoldKey
+    const s = foldSettings
+    return {
+      cat, paperKey, w: inputs.width, h: inputs.height,
+      finish: finishDataKey, qty: inputs.qty || 1,
+      axis: (ff.orientation || "width") === "width" ? "w" : "h",
+      settings: {
+        labor: s.hourlyRate, run: s.runRate || s.hourlyRate,
+        markup: s.markupPercent, bdisc: s.brokerDiscountPercent,
+        longSetup: s.longSheetSetupFee,
+        lv: Object.fromEntries(s.setupLevels.map((sl: { label: string; minutes: number }, i: number) => [i + 1, sl.minutes])),
+      },
+    }
+  }, [inputs, foldSettings])
+
+  const foldBridgeKey = foldBridgeBody
+    ? ["/api/fold-calc", JSON.stringify(foldBridgeBody)]
+    : null
+
+  const { data: foldBridgeData } = useSWR(
+    foldBridgeKey,
+    ([url, body]: [string, string]) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body }).then((r) => r.json()),
+    { revalidateOnFocus: false, dedupingInterval: 300 }
+  )
+
+  // Transform bridge response into FoldFinishCostLine for buildFullResult
+  const precomputedFoldCost: FoldFinishCostLine | null = useMemo(() => {
+    const ff = inputs.foldFinish
+    if (!ff?.enabled || !foldBridgeData?.price) return null
+    const p = foldBridgeData.price
+    const sellPrice = inputs.isBroker ? p.broker : p.retail
+    const finalPrice = Math.max(sellPrice, foldSettings.minimumJobPrice)
+    return {
+      finishType: ff.finishType!,
+      foldType: ff.foldType!,
+      baseCost: p.base,
+      setupCost: (p.setupCost || 0) + (p.longFee || 0),
+      sellPrice: finalPrice,
+      isMinApplied: finalPrice === foldSettings.minimumJobPrice && sellPrice < foldSettings.minimumJobPrice,
+      isLongSheet: foldBridgeData.isLong || false,
+      warnings: [],
+      suggestion: null,
+      foldedDimensions: null,
+    }
+  }, [inputs, foldBridgeData, foldSettings])
 
   // Form state
   const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
@@ -185,7 +242,7 @@ export function PrintingCalculator() {
   useEffect(() => {
     if (selectedOption && showResults) {
   const fcCosts = getFinCalcCosts(inputs.qty, selectedOption.result.sheets, inputs.isBroker || false)
-  const result = buildFullResult(inputs, selectedOption.result, fcCosts, foldSettings)
+  const result = buildFullResult(inputs, selectedOption.result, fcCosts, foldSettings, precomputedFoldCost)
   setFullResult(result)
   }
   }, [
@@ -199,6 +256,7 @@ export function PrintingCalculator() {
     JSON.stringify(inputs.lamination),
     JSON.stringify(inputs.foldFinish),
     foldSettings,
+    precomputedFoldCost,
     selectedOption,
     showResults,
     getFinCalcCosts,
@@ -209,11 +267,11 @@ export function PrintingCalculator() {
     (option: SheetOptionRow) => {
       setSelectedOption(option)
       const fcCosts = getFinCalcCosts(inputs.qty, option.result.sheets, inputs.isBroker || false)
-      const result = buildFullResult(inputs, option.result, fcCosts, foldSettings)
+      const result = buildFullResult(inputs, option.result, fcCosts, foldSettings, precomputedFoldCost)
       setFullResult(result)
       setShowResults(true)
     },
-    [inputs, getFinCalcCosts, foldSettings]
+    [inputs, getFinCalcCosts, foldSettings, precomputedFoldCost]
   )
 
   // Change pricing level override
@@ -226,7 +284,7 @@ export function PrintingCalculator() {
     const newCalcResult = calculatePrintingCost(updatedInputs, selectedOption.size)
     if (!newCalcResult) return
     const fcCosts = getFinCalcCosts(inputs.qty, newCalcResult.sheets, inputs.isBroker || false)
-    const result = buildFullResult(updatedInputs, newCalcResult, fcCosts, foldSettings)
+    const result = buildFullResult(updatedInputs, newCalcResult, fcCosts, foldSettings, precomputedFoldCost)
     setInputs(updatedInputs)
     setFullResult(result)
   }, [fullResult, selectedOption, inputs, getFinCalcCosts])

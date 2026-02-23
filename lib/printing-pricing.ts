@@ -13,7 +13,7 @@ import type {
 } from "./printing-types"
 import { getActiveConfig, calculateFinishingCost, calculateScoreFoldCost } from "./pricing-config"
 import { calculateLamination, LAMINATION_DEFAULTS } from "./lamination-pricing"
-import { calculateFoldFinish, DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "./finishing-fold-engine"
+import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "./finishing-fold-engine"
 import type { FoldFinishCostLine } from "./printing-types"
 
 // ==================== DATA CONSTANTS ====================
@@ -377,6 +377,8 @@ export function buildFullResult(
   result: PrintingCalcResult,
   finishingCalcCosts?: { id: string; name: string; cost: number }[],
   foldFinishSettings?: FoldFinishingSettings,
+  /** Pre-computed fold cost from the bridge API (passed in from UI) */
+  precomputedFoldCost?: FoldFinishCostLine | null,
 ): FullPrintingResult {
   const printingCost = result.cost
   const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
@@ -390,33 +392,12 @@ export function buildFullResult(
     ? { type: lamInputs.type, sides: lamInputs.sides, cost: lamResult.total, isMinimumApplied: lamResult.isMinimumApplied, timeMinutes: lamResult.timeMinutes }
     : null
 
-  // ── Fold finish cost (new engine) ──
-  let foldFinishCost: FoldFinishCostLine | null = null
+  // ── Fold finish cost ──
+  // All fold/score pricing now comes from the HTML calculator via the bridge API.
+  // The pre-computed fold cost is passed in from the UI (fold-finish-section.tsx)
+  // which calls /api/fold-calc using SWR.
+  const foldFinishCost: FoldFinishCostLine | null = precomputedFoldCost || null
   const ff = inputs.foldFinish
-  if (ff?.enabled && ff.finishType && ff.foldType && inputs.width && inputs.height) {
-    const foldResult = calculateFoldFinish({
-      openWidth: inputs.width,
-      openHeight: inputs.height,
-      qty: inputs.qty,
-      paperName: inputs.paperName,
-      finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
-      foldType: ff.foldType,
-      isBroker: inputs.isBroker || false,
-      orientation: ff.orientation || "width",
-    }, foldFinishSettings)
-    foldFinishCost = {
-      finishType: ff.finishType,
-      foldType: ff.foldType,
-      baseCost: foldResult.baseCost,
-      setupCost: foldResult.setupCost,
-      sellPrice: foldResult.sellPrice,
-      isMinApplied: foldResult.isMinApplied,
-      isLongSheet: foldResult.isLongSheet,
-      warnings: foldResult.warnings,
-      suggestion: foldResult.suggestion,
-      foldedDimensions: foldResult.foldedDimensions,
-    }
-  }
 
   const fcCosts = finishingCalcCosts || []
   const totalFinishingCalcCost = fcCosts.reduce((sum, c) => sum + c.cost, 0)
@@ -424,61 +405,13 @@ export function buildFullResult(
   const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0) + foldCost
   const grandTotal = subtotal
 
-  // ── Full-cost paper upgrade check ──
-  // Only when fold finishing is enabled, try alternative papers and compute
-  // the ENTIRE job total (printing + cutting + finishing + fold + lamination).
-  // Only suggest if the total is genuinely cheaper.
-  let paperUpgradeSuggestion: FullPrintingResult["paperUpgradeSuggestion"] = null
-  if (ff?.enabled && ff.finishType && ff.foldType) {
-    const currentTotal = grandTotal
-    // Papers to try: same category or adjacent category
-    const candidatePapers = PAPER_OPTIONS.filter((p) => p.name !== inputs.paperName)
-
-    for (const altPaper of candidatePapers) {
-      // Must support the same sheet size
-      if (!altPaper.availableSizes.includes(result.sheetSize)) continue
-
-      // Calculate full printing cost on the alternative paper
-      const altInputs: PrintingInputs = { ...inputs, paperName: altPaper.name }
-      const altResult = calculatePrintingCost(altInputs, result.sheetSize)
-      if (!altResult) continue
-
-      const altPrintingCost = altResult.cost
-      const altPctMultiplier = 1 + (altInputs.printingMarkupPct ?? 10) / 100
-      const altPrintingPlus10 = altResult.wasPrintingMinApplied ? altPrintingCost : altPrintingCost * altPctMultiplier
-      const { total: altFinishing } = getFinishingCosts(altInputs, altResult.sheets)
-      const altSfCost = getScoreFoldCost(altInputs)
-      const altLamInputs = altInputs.lamination || LAMINATION_DEFAULTS
-      const altLamResult = calculateLamination(altResult.sheets, altPaper.name, altLamInputs, altInputs.isBroker || false)
-      const altLamCost = altLamResult?.total || 0
-
-      // Calculate fold finishing on alternative paper
-      const altFoldResult = calculateFoldFinish({
-        openWidth: altInputs.width,
-        openHeight: altInputs.height,
-        qty: altInputs.qty,
-        paperName: altPaper.name,
-        finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
-        foldType: ff.foldType,
-        isBroker: altInputs.isBroker || false,
-        orientation: ff.orientation || "width",
-      }, foldFinishSettings)
-      if (altFoldResult.resolution !== "ok" && altFoldResult.resolution !== "score_only") continue
-
-      const altFoldCost = altFoldResult.sellPrice || 0
-      const altTotal = altPrintingPlus10 + altResult.cuttingCost + altInputs.addOnCharge + altFinishing + (altSfCost?.cost || 0) + altLamCost + altFoldCost
-
-      const savings = currentTotal - altTotal
-      if (savings > 1 && (!paperUpgradeSuggestion || savings > paperUpgradeSuggestion.savings)) {
-        paperUpgradeSuggestion = {
-          paperName: altPaper.name,
-          currentTotal,
-          upgradedTotal: altTotal,
-          savings,
-        }
-      }
-    }
-  }
+  // ── Paper upgrade check ──
+  // NOTE: Full-cost paper upgrade check with fold pricing has been disabled
+  // because fold pricing now runs exclusively from the HTML calculator via
+  // the bridge API. The upgrade check would need an async API call for each
+  // candidate paper, which is not feasible in this sync function.
+  // The fold-finish-section shows alternatives directly from the bridge.
+  const paperUpgradeSuggestion: FullPrintingResult["paperUpgradeSuggestion"] = null
 
   return {
     printingCost,

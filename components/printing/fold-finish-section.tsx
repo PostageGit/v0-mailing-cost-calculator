@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useCallback } from "react"
 import useSWR from "swr"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -14,14 +14,28 @@ import { cn } from "@/lib/utils"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 import { FINISH_TYPE_OPTIONS, FOLD_TYPES, type FoldTypeId } from "@/lib/finishing-fold-data"
 import {
-  calculateFoldFinish,
   DEFAULT_FOLD_SETTINGS,
   type FoldFinishingSettings,
+  type FoldFinishResult,
   type FoldAlternative,
+  mapPaperToFoldKey,
+  mapFoldTypeToDataKey,
+  validateFoldCombo,
 } from "@/lib/finishing-fold-engine"
-import { ArrowRight, Lightbulb, AlertTriangle, Info } from "lucide-react"
+import { ArrowRight, Lightbulb, AlertTriangle, Info, Loader2 } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+
+/** POST fetcher for SWR -- calls the bridge API */
+async function bridgeFetcher(url: string, body: unknown): Promise<FoldFinishResult> {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  const data = await resp.json()
+  return data
+}
 
 const DEFAULT_FOLD_FINISH = {
   enabled: false,
@@ -46,6 +60,145 @@ export function FoldFinishSection({
   const settings: FoldFinishingSettings =
     appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
+  // Check if the original HTML calculator is loaded on the server
+  const { data: bridgeStatus } = useSWR("/api/fold-calc", fetcher)
+
+  // Build the bridge API request body from current inputs
+  const bridgeRequestBody = useMemo(() => {
+    if (!ff.enabled || !ff.finishType || !ff.foldType || !inputs.width || !inputs.height) return null
+
+    const cat: "folding" | "sf" = ff.finishType === "fold" ? "folding" : "sf"
+    const paperMap = mapPaperToFoldKey(inputs.paperName)
+    const paperKey = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
+
+    const dataFoldKey = mapFoldTypeToDataKey(ff.foldType)
+    const finishDataKey = cat === "sf" ? `Score & ${dataFoldKey}` : dataFoldKey
+
+    return {
+      cat,
+      paperKey,
+      w: inputs.width,
+      h: inputs.height,
+      finish: finishDataKey,
+      qty: inputs.qty || 1,
+      axis: (ff.orientation || "width") === "width" ? "w" : "h",
+      settings: {
+        labor: settings.hourlyRate,
+        run: settings.runRate || settings.hourlyRate,
+        markup: settings.markupPercent,
+        bdisc: settings.brokerDiscountPercent,
+        longSetup: settings.longSheetSetupFee,
+        lv: Object.fromEntries(settings.setupLevels.map((s, i) => [i + 1, s.minutes])),
+      },
+    }
+  }, [
+    ff.enabled, ff.finishType, ff.foldType, ff.orientation,
+    inputs.width, inputs.height, inputs.qty, inputs.paperName,
+    settings,
+  ])
+
+  // SWR key: serialize the request body so SWR dedupes properly
+  const swrKey = bridgeRequestBody
+    ? ["/api/fold-calc", JSON.stringify(bridgeRequestBody)]
+    : null
+
+  const { data: bridgeData, isLoading: bridgeLoading } = useSWR(
+    swrKey,
+    ([url, body]) => bridgeFetcher(url, JSON.parse(body)),
+    { revalidateOnFocus: false, dedupingInterval: 300 }
+  )
+
+  // Transform bridge API response into a FoldFinishResult for the UI
+  const preview = useMemo((): FoldFinishResult | null => {
+    if (!ff.enabled || !bridgeRequestBody) return null
+
+    const cat: "folding" | "sf" = ff.finishType === "fold" ? "folding" : "sf"
+    const paperMap = mapPaperToFoldKey(inputs.paperName)
+    const paperKey = cat === "folding" ? paperMap.foldKey : paperMap.sfKey
+    const paperLabel = cat === "folding" ? "text" : (paperKey === "cardstock" ? "cardstock" : "cover")
+
+    // Fold math for dimensions (pure math, no data dependency)
+    const axis = (ff.orientation || "width") === "width" ? "w" : "h"
+    const divW = axis === "w"
+    const foldDim = divW ? inputs.width : inputs.height
+    const dataFoldKey = mapFoldTypeToDataKey(ff.foldType)
+    let panels = 1
+    if (dataFoldKey === "Fold in Half") panels = 2
+    else if (dataFoldKey === "Fold in 3") panels = 3
+    else if (dataFoldKey === "Fold in 4" || dataFoldKey === "Gate Fold") panels = 4
+    const divided = panels > 1 ? foldDim / panels : foldDim
+    const foldedW = divW ? Math.round(divided * 100) / 100 : inputs.width
+    const foldedH = divW ? inputs.height : Math.round(divided * 100) / 100
+
+    const finishDataKey = cat === "sf" ? `Score & ${dataFoldKey}` : dataFoldKey
+    const validationWarnings = validateFoldCombo(inputs.width, inputs.height, finishDataKey, axis)
+    const warnings = validationWarnings.map((w) => w.message)
+
+    // If paper not supported for this finish type, show N/A immediately
+    if (!paperKey) {
+      return {
+        baseCost: 0, setupCost: 0, sellPrice: 0,
+        isMinApplied: false, isLongSheet: false,
+        warnings: [`${ff.finishType === "fold" ? "Folding" : "Score & Fold"} not available for ${inputs.paperName}`],
+        suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
+        matchedSize: "N/A", paperCategory: paperLabel,
+        resolution: "na", autoLevel: null, alternatives: [], fromBridge: true,
+      }
+    }
+
+    // Still loading from bridge
+    if (bridgeLoading || !bridgeData) return null
+
+    // Bridge returned an error / N/A
+    if (bridgeData.error && (bridgeData.resolution === "na" || bridgeData.resolution === "hand")) {
+      return {
+        baseCost: 0, setupCost: 0, sellPrice: 0,
+        isMinApplied: false, isLongSheet: bridgeData.sizeKey === "long",
+        warnings: [...warnings, bridgeData.error],
+        suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
+        matchedSize: bridgeData.sizeKey || "N/A", paperCategory: paperLabel,
+        resolution: bridgeData.resolution === "hand" ? "hand" : "na",
+        autoLevel: null, alternatives: [], fromBridge: true,
+      }
+    }
+
+    // Bridge returned a price
+    if (bridgeData.price) {
+      const p = bridgeData.price
+      if (bridgeData.isScoreOnly) warnings.push("Score only -- no machine fold available")
+
+      const sellPrice = inputs.isBroker ? p.broker : p.retail
+      const finalPrice = Math.max(sellPrice, settings.minimumJobPrice)
+
+      return {
+        baseCost: p.base,
+        setupCost: (p.setupCost || 0) + (p.longFee || 0),
+        sellPrice: finalPrice,
+        isMinApplied: finalPrice === settings.minimumJobPrice && sellPrice < settings.minimumJobPrice,
+        isLongSheet: bridgeData.isLong,
+        warnings, suggestion: null,
+        foldedDimensions: { w: foldedW, h: foldedH },
+        matchedSize: bridgeData.sizeKey, paperCategory: paperLabel,
+        resolution: bridgeData.isScoreOnly ? "score_only" : "ok",
+        autoLevel: p.level, alternatives: [], fromBridge: true,
+      }
+    }
+
+    // Bridge returned fallback flag (HTML not loaded)
+    if (bridgeData.fallback) {
+      return {
+        baseCost: 0, setupCost: 0, sellPrice: 0,
+        isMinApplied: false, isLongSheet: false,
+        warnings: ["HTML calculator not loaded -- upload fold-score-calculator.html to calculators/ folder"],
+        suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
+        matchedSize: "N/A", paperCategory: paperLabel,
+        resolution: "na", autoLevel: null, alternatives: [], fromBridge: false,
+      }
+    }
+
+    return null
+  }, [ff, inputs, bridgeRequestBody, bridgeData, bridgeLoading, settings])
+
   function update(patch: Partial<typeof ff>) {
     onInputsChange({ ...inputs, foldFinish: { ...ff, ...patch } })
   }
@@ -59,35 +212,6 @@ export function FoldFinishSection({
     newInputs.foldFinish = newFf
     onInputsChange(newInputs)
   }
-
-  // Compute live preview
-  const preview = useMemo(() => {
-    if (!ff.enabled || !ff.finishType || !ff.foldType || !inputs.width || !inputs.height) return null
-    return calculateFoldFinish(
-      {
-        openWidth: inputs.width,
-        openHeight: inputs.height,
-        qty: inputs.qty || 1,
-        paperName: inputs.paperName,
-        finishType: ff.finishType as "fold" | "score_and_fold" | "score_only",
-        foldType: ff.foldType,
-        isBroker: inputs.isBroker || false,
-        orientation: ff.orientation || "width",
-      },
-      settings,
-    )
-  }, [
-    ff.enabled,
-    ff.finishType,
-    ff.foldType,
-    ff.orientation,
-    inputs.width,
-    inputs.height,
-    inputs.qty,
-    inputs.paperName,
-    inputs.isBroker,
-    settings,
-  ])
 
   return (
     <div className="flex flex-col gap-3">
@@ -106,6 +230,16 @@ export function FoldFinishSection({
         >
           Fold / Score Finishing
         </label>
+        {bridgeStatus?.loaded && (
+          <span className="ml-2 text-[9px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+            HTML
+          </span>
+        )}
+        {bridgeStatus && !bridgeStatus.loaded && (
+          <span className="ml-2 text-[9px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full" title={bridgeStatus.error || "HTML not loaded"}>
+            no calc
+          </span>
+        )}
       </div>
 
       {ff.enabled && (
@@ -186,8 +320,16 @@ export function FoldFinishSection({
             </div>
           </div>
 
+          {/* Loading state */}
+          {bridgeLoading && ff.enabled && bridgeRequestBody && (
+            <div className="rounded-lg border border-border bg-card p-4 flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="text-[11px] text-muted-foreground">Calculating from HTML...</span>
+            </div>
+          )}
+
           {/* Preview: fold visualization + pricing */}
-          {preview && (
+          {preview && !bridgeLoading && (
             <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-3">
               {/* Fold visualization */}
               <div className="flex items-center gap-4">
@@ -230,6 +372,9 @@ export function FoldFinishSection({
                       Size tier: {preview.matchedSize} | Paper: {preview.paperCategory}
                       {preview.autoLevel != null && preview.autoLevel > 0 && (
                         <> | Level {preview.autoLevel} (auto)</>
+                      )}
+                      {preview.fromBridge && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium"> | via HTML calc</span>
                       )}
                     </p>
                   </div>
@@ -328,114 +473,33 @@ function FoldVisualization({
   const padding = 8
   const maxW = svgW - padding * 2
   const maxH = svgH - padding * 2
-
-  // Scale to fit
   const scale = Math.min(maxW / openW, maxH / openH)
   const rW = openW * scale
   const rH = openH * scale
   const ox = (svgW - rW) / 2
   const oy = (svgH - rH) / 2
-
-  // Generate fold lines
   const foldLines: number[] = []
-  const isHoriz = orientation === "width" // fold along width = horizontal lines
-  const dim = isHoriz ? openH : openW
-  const scaledDim = isHoriz ? rH : rW
+  const isHoriz = orientation === "width"
 
   switch (foldType) {
-    case "half":
-      foldLines.push(0.5)
-      break
-    case "tri":
-    case "z":
-    case "roll":
-      foldLines.push(1 / 3, 2 / 3)
-      break
-    case "gate":
-      foldLines.push(0.25, 0.75)
-      break
-    case "double_parallel":
-      foldLines.push(0.25, 0.5, 0.75)
-      break
-    case "accordion":
-      foldLines.push(0.25, 0.5, 0.75)
-      break
+    case "half": foldLines.push(0.5); break
+    case "tri": case "z": case "roll": foldLines.push(1 / 3, 2 / 3); break
+    case "gate": foldLines.push(0.25, 0.75); break
+    case "double_parallel": case "accordion": foldLines.push(0.25, 0.5, 0.75); break
   }
 
   return (
-    <svg
-      width={svgW}
-      height={svgH}
-      viewBox={`0 0 ${svgW} ${svgH}`}
-      className="shrink-0 rounded border border-border bg-muted/20"
-    >
-      {/* Sheet rectangle */}
-      <rect
-        x={ox}
-        y={oy}
-        width={rW}
-        height={rH}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.2}
-        rx={1}
-        className="text-foreground"
-      />
-      {/* Fold lines */}
-      {foldLines.map((frac, i) => {
-        if (isHoriz) {
-          const y = oy + rH * frac
-          return (
-            <line
-              key={i}
-              x1={ox + 2}
-              y1={y}
-              x2={ox + rW - 2}
-              y2={y}
-              stroke="currentColor"
-              strokeWidth={0.8}
-              strokeDasharray="3 2"
-              className="text-primary"
-            />
-          )
-        } else {
-          const x = ox + rW * frac
-          return (
-            <line
-              key={i}
-              x1={x}
-              y1={oy + 2}
-              x2={x}
-              y2={oy + rH - 2}
-              stroke="currentColor"
-              strokeWidth={0.8}
-              strokeDasharray="3 2"
-              className="text-primary"
-            />
-          )
-        }
-      })}
-      {/* Dimension labels */}
-      <text
-        x={svgW / 2}
-        y={oy - 2}
-        textAnchor="middle"
-        className="fill-muted-foreground"
-        fontSize={7}
-        fontFamily="system-ui"
-      >
-        {openW}"
-      </text>
-      <text
-        x={ox - 2}
-        y={svgH / 2}
-        textAnchor="end"
-        className="fill-muted-foreground"
-        fontSize={7}
-        fontFamily="system-ui"
-      >
-        {openH}"
-      </text>
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} className="shrink-0 rounded border border-border bg-muted/20">
+      <rect x={ox} y={oy} width={rW} height={rH} fill="none" stroke="currentColor" strokeWidth={1.2} rx={1} className="text-foreground" />
+      {foldLines.map((frac, i) =>
+        isHoriz ? (
+          <line key={i} x1={ox + 2} y1={oy + rH * frac} x2={ox + rW - 2} y2={oy + rH * frac} stroke="currentColor" strokeWidth={0.8} strokeDasharray="3 2" className="text-primary" />
+        ) : (
+          <line key={i} x1={ox + rW * frac} y1={oy + 2} x2={ox + rW * frac} y2={oy + rH - 2} stroke="currentColor" strokeWidth={0.8} strokeDasharray="3 2" className="text-primary" />
+        )
+      )}
+      <text x={svgW / 2} y={oy - 2} textAnchor="middle" className="fill-muted-foreground" fontSize={7} fontFamily="system-ui">{openW}"</text>
+      <text x={ox - 2} y={svgH / 2} textAnchor="end" className="fill-muted-foreground" fontSize={7} fontFamily="system-ui">{openH}"</text>
     </svg>
   )
 }
