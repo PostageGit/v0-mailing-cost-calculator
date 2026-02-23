@@ -48,26 +48,66 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Match size
-    const sizeKey = bridgeMatchSize(w, h, cat)
+    // Match size -- try the primary tier first, then fall back to any
+    // tier that exists in this paper's data
+    let sizeKey = bridgeMatchSize(w, h, cat)
     const isLong = sizeKey === "long"
-    const sizeData = paper.sizes[sizeKey]
+    let sizeData = paper.sizes[sizeKey]
 
+    // Size tier fallback: if the matched tier doesn't exist for this paper,
+    // try smaller available tiers first (the sheet fits in them), then larger.
+    // This handles 80text_60_70 having "7x4" but not "7.5x5".
     if (!sizeData) {
-      return NextResponse.json({
-        resolution: "na",
-        sizeKey,
-        error: `No pricing data for ${paper.label} at size tier ${sizeKey}`,
-      })
+      const allTiers = ["7x4", "7.5x5", "8.5x5.5", "8.5x11", "11x17+", "long"]
+      const matchedIdx = allTiers.indexOf(sizeKey)
+      // Try tiers from smallest up to the matched one (sheet fits in these)
+      let foundFallback = false
+      for (let i = matchedIdx - 1; i >= 0; i--) {
+        if (paper.sizes[allTiers[i]]) {
+          sizeKey = allTiers[i]
+          sizeData = paper.sizes[sizeKey]
+          foundFallback = true
+          break
+        }
+      }
+      // If no smaller tier, try larger tiers
+      if (!foundFallback) {
+        for (let i = matchedIdx + 1; i < allTiers.length; i++) {
+          if (paper.sizes[allTiers[i]]) {
+            sizeKey = allTiers[i]
+            sizeData = paper.sizes[sizeKey]
+            foundFallback = true
+            break
+          }
+        }
+      }
+
+      if (!sizeData) {
+        // Normalize dimensions to explain the actual problem
+        const nw = Math.min(w, h)
+        const nh = Math.max(w, h)
+        const availableSizes = Object.keys(paper.sizes).map(k => {
+          const sd = paper.sizes[k]
+          return sd.lbl || k
+        }).join(", ")
+        return NextResponse.json({
+          resolution: "na",
+          sizeKey,
+          error: `Sheet size ${nw}" x ${nh}" does not fit any available size tier for ${paper.label}. Available tiers: ${availableSizes}`,
+        })
+      }
     }
 
     const opt = sizeData[finish] as OriginalFoldEntry | undefined
     if (!opt) {
+      // Show what finishes ARE available for this paper/size
+      const availableFinishes = Object.keys(sizeData).filter(k => k !== "lbl" && k !== "isLong")
       return NextResponse.json({
         resolution: "na",
         sizeKey,
         sizeLabel: sizeData.lbl || sizeKey,
-        error: `${finish} not found for ${paper.label} at ${sizeKey}`,
+        availableFinishes,
+        error: `${finish} not listed for ${paper.label} at ${sizeData.lbl || sizeKey}. Available: ${availableFinishes.join(", ")}`,
       })
     }
 
