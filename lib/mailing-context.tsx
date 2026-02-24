@@ -39,14 +39,15 @@ export type ProductionRoute = "inhouse" | "ohp" | "both" | "customer"
 // Fold multiplier computes the FLAT print sheet size
 // Convention: fold "along width" = crease runs horizontally = HEIGHT expands
 //             fold "along height" = crease runs vertically = WIDTH expands
-export type FoldType = "none" | "x2h" | "x2w" | "x3h" | "x3w" | "custom"
+export type FoldType = "none" | "x2h" | "x2w" | "x3h" | "x3w" | "x3long" | "custom"
 export const FOLD_OPTIONS: { id: FoldType; label: string; desc: string; multW: number; multH: number }[] = [
-  { id: "none",   label: "Flat",    desc: "No fold",                                        multW: 1, multH: 1 },
-  { id: "x2h",    label: "x2 (H)", desc: "Half fold -- width doubles (fold along height)",   multW: 2, multH: 1 },
-  { id: "x2w",    label: "x2 (W)", desc: "Half fold -- height doubles (fold along width)",  multW: 1, multH: 2 },
-  { id: "x3h",    label: "x3 (H)", desc: "Tri-fold -- width triples (fold along height)",   multW: 3, multH: 1 },
-  { id: "x3w",    label: "x3 (W)", desc: "Tri-fold -- height triples (fold along width)",   multW: 1, multH: 3 },
-  { id: "custom",  label: "Custom", desc: "Enter flat size manually",                        multW: 1, multH: 1 },
+  { id: "none",    label: "Flat",      desc: "No fold",                                                     multW: 1, multH: 1 },
+  { id: "x2h",    label: "x2 (H)",    desc: "Half fold -- width doubles (fold along height)",               multW: 2, multH: 1 },
+  { id: "x2w",    label: "x2 (W)",    desc: "Half fold -- height doubles (fold along width)",               multW: 1, multH: 2 },
+  { id: "x3h",    label: "x3 (H)",    desc: "Tri-fold -- width triples (fold along height)",                multW: 3, multH: 1 },
+  { id: "x3w",    label: "x3 (W)",    desc: "Tri-fold -- height triples (fold along width)",                multW: 1, multH: 3 },
+  { id: "x3long", label: "x3 (Long)", desc: "Tri-fold on long sheet -- width triples (13x26+ long pricing)", multW: 3, multH: 1 },
+  { id: "custom",  label: "Custom",   desc: "Enter flat size manually",                                     multW: 1, multH: 1 },
 ]
 
 /** Compute the flat (print) sheet size from finished size + fold type */
