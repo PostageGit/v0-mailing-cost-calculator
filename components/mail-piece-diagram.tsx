@@ -34,6 +34,10 @@ function FoldLines({ x, y, w, h, fold, pieceW, pieceH }: {
   } else if (fold === "x3h") {
     lines.push({ x1: x + 2, y1: y + h / 3, x2: x + w - 2, y2: y + h / 3 })
     lines.push({ x1: x + 2, y1: y + (h * 2) / 3, x2: x + w - 2, y2: y + (h * 2) / 3 })
+  } else if (fold === "x3long") {
+    // Same as x3h visually (vertical fold lines, width triples)
+    lines.push({ x1: x + w / 3, y1: y + 2, x2: x + w / 3, y2: y + h - 2 })
+    lines.push({ x1: x + (w * 2) / 3, y1: y + 2, x2: x + (w * 2) / 3, y2: y + h - 2 })
   }
 
   return (
