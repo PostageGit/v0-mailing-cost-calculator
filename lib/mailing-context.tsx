@@ -42,10 +42,10 @@ export type ProductionRoute = "inhouse" | "ohp" | "both" | "customer"
 export type FoldType = "none" | "x2h" | "x2w" | "x3h" | "x3w" | "custom"
 export const FOLD_OPTIONS: { id: FoldType; label: string; desc: string; multW: number; multH: number }[] = [
   { id: "none",   label: "Flat",    desc: "No fold",                                        multW: 1, multH: 1 },
-  { id: "x2h",    label: "x2 (H)", desc: "Half fold -- height doubles, width stays",        multW: 1, multH: 2 },
-  { id: "x2w",    label: "x2 (W)", desc: "Half fold -- width doubles, height stays",        multW: 2, multH: 1 },
-  { id: "x3h",    label: "x3 (H)", desc: "Tri-fold -- height triples, width stays",         multW: 1, multH: 3 },
-  { id: "x3w",    label: "x3 (W)", desc: "Tri-fold -- width triples, height stays",         multW: 3, multH: 1 },
+  { id: "x2h",    label: "x2 (H)", desc: "Half fold -- width doubles (fold along height)",   multW: 2, multH: 1 },
+  { id: "x2w",    label: "x2 (W)", desc: "Half fold -- height doubles (fold along width)",  multW: 1, multH: 2 },
+  { id: "x3h",    label: "x3 (H)", desc: "Tri-fold -- width triples (fold along height)",   multW: 3, multH: 1 },
+  { id: "x3w",    label: "x3 (W)", desc: "Tri-fold -- height triples (fold along width)",   multW: 1, multH: 3 },
   { id: "custom",  label: "Custom", desc: "Enter flat size manually",                        multW: 1, multH: 1 },
 ]
 
