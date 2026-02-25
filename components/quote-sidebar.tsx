@@ -135,7 +135,7 @@ function QuoteItemRow({
           const tags: string[] = []
           if (m.pieceType) tags.push(String(m.pieceLabel || m.pieceType))
           if (m.pieceDimensions) tags.push(String(m.pieceDimensions) + '"')
-          if (m.foldType && m.foldType !== "none") tags.push("Fold: " + String(m.foldType).replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
+          if (m.foldType && m.foldType !== "none") tags.push("Fold: " + String(m.foldType).replace("x3long","Tri(Long)").replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
           if (m.paperName) tags.push(String(m.paperName))
           if (m.sides) tags.push(String(m.sides))
           if (m.hasBleed) tags.push("Bleed")

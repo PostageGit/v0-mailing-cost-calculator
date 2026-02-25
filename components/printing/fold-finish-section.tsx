@@ -151,8 +151,15 @@ export function FoldFinishSection({
     // Still loading from bridge
     if (bridgeLoading || !bridgeData) return null
 
-    // Bridge returned an error / N/A / score_only (no pricing)
-    if (bridgeData.error && (bridgeData.resolution === "na" || bridgeData.resolution === "hand" || bridgeData.resolution === "score_only")) {
+    // Bridge returned an error / N/A / too_small / hand
+    // Note: score_only with a price falls through to the price block below
+    const isErrorResolution = bridgeData.error && (
+      bridgeData.resolution === "na" ||
+      bridgeData.resolution === "hand" ||
+      bridgeData.resolution === "too_small" ||
+      (bridgeData.resolution === "score_only" && !bridgeData.price)
+    )
+    if (isErrorResolution) {
       // Build alternatives from the bridge response
       const alts: FoldAlternative[] = []
 
@@ -216,15 +223,19 @@ export function FoldFinishSection({
         warnings: warningMessages,
         suggestion: null, foldedDimensions: { w: foldedW, h: foldedH },
         matchedSize: bridgeData.sizeKey || "N/A", paperCategory: paperLabel,
-        resolution: bridgeData.resolution === "hand" ? "hand" : bridgeData.resolution === "score_only" ? "score_only" : "na",
+        resolution: bridgeData.resolution === "hand" ? "hand" : bridgeData.resolution === "score_only" ? "score_only" : bridgeData.resolution === "too_small" ? "na" : "na",
         autoLevel: null, alternatives: alts, fromBridge: true,
       }
     }
 
-    // Bridge returned a price
+    // Bridge returned a price (may include score_only with pricing)
     if (bridgeData.price) {
       const p = bridgeData.price
-      if (bridgeData.isScoreOnly) warnings.push("Score only -- no machine fold available")
+      if (bridgeData.isScoreOnly) warnings.push("Score Only -- full fold not available for this combo")
+      // Include bridge alerts (long sheet fee, etc.)
+      if (bridgeData.alerts && Array.isArray(bridgeData.alerts)) {
+        for (const a of bridgeData.alerts) warnings.push(a)
+      }
 
       const sellPrice = inputs.isBroker ? p.broker : p.retail
       const finalPrice = Math.max(sellPrice, settings.minimumJobPrice)

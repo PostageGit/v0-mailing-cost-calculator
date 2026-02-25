@@ -14,7 +14,7 @@ interface TextItem {
 function buildFinishingLine(m: Record<string, unknown>): string {
   const parts: string[] = []
   if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
-  if (m.foldType && m.foldType !== "none") parts.push("Fold: " + String(m.foldType).replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
+  if (m.foldType && m.foldType !== "none") parts.push("Fold: " + String(m.foldType).replace("x3long","Tri(Long)").replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
   if (m.paperName) parts.push(String(m.paperName))
   if (m.sides) parts.push(String(m.sides))
   if (m.hasBleed) parts.push("Bleed")
