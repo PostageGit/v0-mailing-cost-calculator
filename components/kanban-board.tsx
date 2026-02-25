@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { buildQuoteText } from "@/lib/build-quote-text"
+import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
 import {
@@ -1746,6 +1747,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
           <div className="flex flex-wrap gap-2">
             <Button size="sm" className="gap-1.5 text-xs h-9" onClick={handleSave} disabled={saving}><Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Changes"}</Button>
             <Button variant={copied ? "default" : "outline"} size="sm" className="gap-1.5 text-xs h-9" onClick={handleCopy}>{copied ? <><Check className="h-3.5 w-3.5" />Copied</> : <><ClipboardCopy className="h-3.5 w-3.5" />Copy for Email</>}</Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => { const pdfOpts = { items: editItems, projectName: name || undefined, customerName: quote.contact_name || undefined, referenceNumber: quote.reference_number || undefined, quoteNumber: quote.quote_number || undefined, quantity: quote.quantity || undefined, notes: notes || undefined }; buildQuotePDF(pdfOpts).save(quotePdfFilename(pdfOpts)) }}><Download className="h-3.5 w-3.5" /> PDF</Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => setShowPlainText(!showPlainText)}><FileText className="h-3.5 w-3.5" /> {showPlainText ? "Hide Text" : "View as Text"}</Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => onLoadIntoCalculator(quote.id)}><Pencil className="h-3.5 w-3.5" /> Edit in Calculator</Button>
           </div>

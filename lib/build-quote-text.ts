@@ -20,7 +20,7 @@ interface TextItem {
  *
  * Intentionally excluded: production method, tier names, entry points, broker flags.
  */
-function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory): string {
+export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory): string {
   const parts: string[] = []
 
   // ── ENVELOPE specs ──
@@ -92,6 +92,15 @@ function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory
 
   // Intentionally excluded: production, tierName, entryPoint, envelopeKind (handled above)
   return parts.join(", ")
+}
+
+/** Strip internal tier names and entry points from postage description */
+export function cleanPostageDescription(desc: string): string {
+  return desc
+    .replace(/\s*(AADC|Mixed AADC|Mixed|3-Digit|5-Digit|Basic|SCF|NDC|DDU)\s*/gi, " ")
+    .replace(/\s*(ORIGIN|DNDC|DSCF|DADC)\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
 }
 
 /** Customer-facing category label for email. "item" and "listwork" become "Mail Work". */
@@ -204,13 +213,7 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
     lines.push("POSTAGE / USPS")
     postageItems.forEach((item) => {
       if (item.description) {
-        // Strip internal tier names, sort levels, and entry points from description
-        let desc = item.description
-          .replace(/\s*(AADC|Mixed AADC|Mixed|3-Digit|5-Digit|Basic|SCF|NDC|DDU)\s*/gi, " ")
-          .replace(/\s*(ORIGIN|DNDC|DSCF|DADC)\s*/gi, "")
-          .replace(/\s{2,}/g, " ")
-          .trim()
-        lines.push(desc)
+        lines.push(cleanPostageDescription(item.description))
       }
       lines.push(formatCurrency(item.amount))
     })

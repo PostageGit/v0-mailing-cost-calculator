@@ -18,6 +18,8 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { buildQuoteText } from "@/lib/build-quote-text"
+import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
+import { Download } from "lucide-react"
 
 const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad", "envelope", "postage", "listwork", "item", "ohp"]
 
@@ -270,6 +272,19 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   setTimeout(() => setCopied(false), 2000)
   }, [items, projectName, contactName, referenceNumber, quoteNumber, quantity])
 
+  const handleDownloadPDF = useCallback(() => {
+    const pdfOpts = {
+      items,
+      projectName: projectName || undefined,
+      customerName: contactName || undefined,
+      referenceNumber: referenceNumber || undefined,
+      quoteNumber: quoteNumber || undefined,
+      quantity: quantity || undefined,
+    }
+    const doc = buildQuotePDF(pdfOpts)
+    doc.save(quotePdfFilename(pdfOpts))
+  }, [items, projectName, contactName, referenceNumber, quoteNumber, quantity])
+
   const saveText = isSaving
     ? "Saving..."
     : lastSavedAt
@@ -512,6 +527,15 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                 ) : (
                   <><ClipboardCopy className="h-3.5 w-3.5" /> Copy to Email</>
                 )}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                onClick={handleDownloadPDF}
+                title="Download PDF quote"
+              >
+                <Download className="h-3.5 w-3.5" /> PDF
               </Button>
               <Button
                 variant="secondary"
