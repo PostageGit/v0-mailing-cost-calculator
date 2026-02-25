@@ -161,7 +161,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   stepSummary.push("Items")
 
   return (
-    <div className="max-w-4xl mx-auto w-full pb-28">
+    <div className="max-w-4xl mx-auto w-full pb-8">
       {/* ─── Header ─── */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
@@ -295,15 +295,15 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
       {/* ═══════════════════════════════════════════════════════
           MAIL PIECES -- the heart of the planner
          ═══════════════════════════════════════════════════════ */}
-      <div className="rounded-2xl border border-border bg-card p-6 mb-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-foreground flex items-center justify-center">
-              <Layers className="h-4.5 w-4.5 text-background" />
+      <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center">
+              <Layers className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">Mail Pieces</h2>
-              <p className="text-xs text-muted-foreground">
+              <h2 className="text-sm font-bold text-foreground leading-tight">Mail Pieces</h2>
+              <p className="text-[11px] text-muted-foreground">
                 {m.pieces.length === 0 ? "What's being mailed?" : `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""} defined`}
               </p>
             </div>
@@ -395,38 +395,35 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
 
         {/* Empty state */}
   {m.pieces.length === 0 && (
-  <div className={cn("py-10 border-2 border-dashed rounded-2xl transition-colors", continueAttempted ? "border-destructive/50 bg-destructive/5" : "border-border/60")}>
-            <div className="text-center mb-6">
-              <div className="h-12 w-12 rounded-2xl bg-secondary mx-auto mb-3 flex items-center justify-center">
-                <Mail className="h-5 w-5 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm font-semibold text-foreground">Start by adding the outer piece</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                What is being mailed? Pick the outermost piece first.
+  <div className="py-8 border border-dashed border-border rounded-2xl bg-secondary/30">
+            <div className="text-center mb-5">
+              <p className="text-sm font-semibold text-foreground">What are you mailing?</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Pick the outermost piece first, then add inserts.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2 px-6">
               {[
-                { type: "envelope" as PieceType, label: "Envelope", icon: "ENV", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40" },
-                { type: "postcard" as PieceType, label: "Postcard", icon: "PC", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 border-sky-200 dark:border-sky-800/40" },
-                { type: "booklet" as PieceType, label: "Booklet", icon: "BKL", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-violet-200 dark:border-violet-800/40" },
-                { type: "self_mailer" as PieceType, label: "Self-Mailer", icon: "SM", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 border-sky-200 dark:border-sky-800/40" },
+                { type: "envelope" as PieceType, label: "Envelope", icon: "ENV" },
+                { type: "postcard" as PieceType, label: "Postcard", icon: "PC" },
+                { type: "booklet" as PieceType, label: "Booklet", icon: "BKL" },
+                { type: "self_mailer" as PieceType, label: "Self-Mailer", icon: "SM" },
               ].map((item) => (
                 <button
                   key={item.type}
                   onClick={() => m.addPiece(item.type)}
-                  className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:shadow-md hover:-translate-y-0.5", item.color)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground transition-all hover:shadow-md hover:border-foreground/20 hover:-translate-y-0.5"
                 >
-                  <span className="text-[10px] font-bold opacity-60">{item.icon}</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">{item.icon}</span>
                   {item.label}
                 </button>
               ))}
               <button
                 onClick={() => setShowAddMenu(true)}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-all"
               >
                 <Plus className="h-3.5 w-3.5" />
-                More...
+                More
               </button>
             </div>
           </div>
@@ -943,70 +940,63 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
         </div>
       )}
 
-      {/* ─── Sticky Continue Bar ─── */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 pointer-events-none">
-        <div className="max-w-4xl mx-auto w-full px-4 pb-4 sm:pb-6">
-          <div className="pointer-events-auto">
-            {/* Error panel */}
-            {continueAttempted && !canContinue && continueBlockers.length > 0 && (
-              <div className="rounded-t-2xl border border-b-0 border-destructive/30 bg-destructive/5 backdrop-blur-sm px-5 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <p className="text-[11px] font-bold text-destructive mb-1.5">
-                  Please fix before continuing:
-                </p>
-                <ul className="flex flex-col gap-1">
-                  {continueBlockers.map((msg, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[11px] text-destructive/80">
-                      <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive/50 shrink-0" />
-                      {msg}
-                    </li>
-                  ))}
-                </ul>
+      {/* ─── Continue Bar ─── */}
+      <div className="mt-4">
+        {/* Error panel */}
+        {continueAttempted && !canContinue && continueBlockers.length > 0 && (
+          <div className="rounded-t-2xl border border-b-0 border-destructive/20 bg-destructive/5 px-5 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <ul className="flex flex-col gap-1">
+              {continueBlockers.map((msg, i) => (
+                <li key={i} className="flex items-start gap-2 text-[11px] text-destructive/80 font-medium">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive/40 shrink-0" />
+                  {msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {/* Main bar */}
+        <div className={cn(
+          "flex items-center justify-between gap-4 bg-foreground text-background px-5 py-3.5 shadow-lg transition-all",
+          continueAttempted && !canContinue ? "rounded-b-2xl" : "rounded-2xl",
+        )}>
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className={cn("h-2 w-2 rounded-full", m.pieces.length > 0 ? "bg-emerald-400" : "bg-background/30")} />
+              <span className="text-background/60 font-medium">
+                {m.pieces.length > 0 ? `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""}` : "No pieces"}
+              </span>
+            </div>
+            {m.quantity > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="text-background/60 font-medium font-mono">{m.quantity.toLocaleString()} pcs</span>
               </div>
             )}
-            {/* Main bar */}
-            <div className={cn(
-              "flex items-center justify-between gap-4 bg-foreground text-background px-5 py-3.5 shadow-2xl transition-all",
-              continueAttempted && !canContinue ? "rounded-b-2xl" : "rounded-2xl",
-            )}>
-              <div className="flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("h-2 w-2 rounded-full", m.pieces.length > 0 ? "bg-emerald-400" : "bg-background/30")} />
-                  <span className="text-background/60 font-medium">
-                    {m.pieces.length > 0 ? `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""}` : "No pieces"}
-                  </span>
-                </div>
-                {m.quantity > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                    <span className="text-background/60 font-medium font-mono">{m.quantity.toLocaleString()} pcs</span>
-                  </div>
-                )}
-                {q.projectName && (
-                  <span className="text-background/40 font-medium truncate max-w-[140px]">{q.projectName}</span>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  if (canContinue) {
-                    setContinueAttempted(false)
-                    onContinue()
-                  } else {
-                    setContinueAttempted(true)
-                  }
-                }}
-                className={cn(
-                  "flex items-center gap-2 h-10 px-6 text-sm font-semibold rounded-full transition-all shrink-0",
-                  canContinue
-                    ? "bg-background text-foreground hover:bg-background/90"
-                    : continueAttempted
-                      ? "bg-destructive/80 text-white"
-                      : "bg-background text-foreground hover:bg-background/90"
-                )}
-              >
-                Continue <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
+            {q.projectName && (
+              <span className="text-background/40 font-medium truncate max-w-[140px]">{q.projectName}</span>
+            )}
           </div>
+          <button
+            onClick={() => {
+              if (canContinue) {
+                setContinueAttempted(false)
+                onContinue()
+              } else {
+                setContinueAttempted(true)
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2 h-10 px-6 text-sm font-semibold rounded-full transition-all shrink-0",
+              canContinue
+                ? "bg-background text-foreground hover:bg-background/90"
+                : continueAttempted
+                  ? "bg-destructive/80 text-white"
+                  : "bg-background text-foreground hover:bg-background/90"
+            )}
+          >
+            Continue <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
