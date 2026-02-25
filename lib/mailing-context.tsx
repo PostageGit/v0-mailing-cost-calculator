@@ -80,6 +80,8 @@ export interface MailPiece {
   customerProvidedVendor?: string     // vendor name or custom text (when production === "customer")
   customerProvidedDate?: string       // ISO date string (when production === "customer")
   _suggested?: boolean       // true if size was auto-suggested and needs user verification
+  _suggestedW?: number | null // original suggested width (for reset after override)
+  _suggestedH?: number | null // original suggested height (for reset after override)
 }
 
 // ─── Standard envelope sizes ─────────────────────────────
@@ -205,6 +207,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
         foldType: defaultFold,
         production: "inhouse",
         _suggested: sugW && sugH ? true : undefined,
+        _suggestedW: sugW, _suggestedH: sugH,
       } as MailPiece]
     })
   }, [])

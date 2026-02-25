@@ -543,6 +543,9 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                               {"0.25\" total clearance from piece above. "}
                               {maxInnerW && maxInnerH && <span className="font-mono">Max allowed: {maxInnerW}" x {maxInnerH}"</span>}
                             </p>
+                            <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1">
+                              {"Or type custom dimensions below to override"}
+                            </p>
                           </div>
                           <button
                             onClick={() => m.updatePiece(piece.id, { _suggested: undefined })}
@@ -586,6 +589,16 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                 </div>
                                 {piece.width && piece.height && !piece._suggested && !isFolded && (
                                   <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
+                                )}
+                                {/* Show "Overridden" tag + reset when user changed from suggested values */}
+                                {!piece._suggested && piece._suggestedW && piece._suggestedH && piece.width && piece.height && (piece.width !== piece._suggestedW || piece.height !== piece._suggestedH) && (
+                                  <button
+                                    onClick={() => m.updatePiece(piece.id, { width: piece._suggestedW, height: piece._suggestedH })}
+                                    className="ml-2 text-[10px] text-amber-600 dark:text-amber-400 hover:underline"
+                                    title={`Reset to suggested ${piece._suggestedW}" x ${piece._suggestedH}"`}
+                                  >
+                                    {'Overridden \u2022 Reset to ' + piece._suggestedW + '" x ' + piece._suggestedH + '"'}
+                                  </button>
                                 )}
                               </>
                             ) : (
