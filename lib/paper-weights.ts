@@ -90,7 +90,9 @@ export const DEFAULT_PAPER_WEIGHTS: PaperWeightEntry[] = [
 
   // ── Cover (Uncoated) ──
   { name: "65lb Cover",          category: "cover",  basisWeight: 65,  gsm: 176.0,  caliperInches: 0.009,  isCardstock: true },
+  { name: "65 Cover (White)",    category: "cover",  basisWeight: 65,  gsm: 176.0,  caliperInches: 0.009,  isCardstock: true },
   { name: "67 Cover (White)",    category: "cover",  basisWeight: 67,  gsm: 181.0,  caliperInches: 0.009,  isCardstock: true },
+  { name: "67 Cover (Off-White)",category: "cover",  basisWeight: 67,  gsm: 181.0,  caliperInches: 0.009,  isCardstock: true },
   { name: "80lb Cover",          category: "cover",  basisWeight: 80,  gsm: 216.0,  caliperInches: 0.010,  isCardstock: true },
   { name: "110lb Cover",         category: "cover",  basisWeight: 110, gsm: 298.0,  caliperInches: 0.013,  isCardstock: true },
 
