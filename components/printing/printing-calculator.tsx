@@ -152,7 +152,7 @@ export function PrintingCalculator() {
     setActivePiece(piece)
     setInputs((prev) => ({
       ...prev,
-      qty: mailing.quantity || prev.qty,
+      qty: mailing.printQty || prev.qty,
       width: flat.w || piece.width || prev.width,
       height: flat.h || piece.height || prev.height,
     }))
@@ -162,7 +162,7 @@ export function PrintingCalculator() {
     setFullResult(null)
     setHasCalculated(false)
     setShowResults(false)
-  }, [mailing.quantity])
+  }, [mailing.printQty])
 
   // Helper to compute finishing calculator costs
   const getFinCalcCosts = useCallback(

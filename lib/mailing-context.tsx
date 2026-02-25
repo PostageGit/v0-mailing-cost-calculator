@@ -123,6 +123,8 @@ export const STANDARD_ENVELOPES: EnvelopeSize[] = [
 // ─── Context ─────────────────────────────────────────────
 interface MailingState {
   quantity: number; setQuantity: (n: number) => void
+  /** Print/envelope overage: quantity + 50 (accounts for spoilage/waste) */
+  printQty: number
   shape: string; className: string; suggestedShapes: USPSShape[]
   setShape: (s: string) => void; setClassName: (n: string) => void
   /** USPS service code from Tab 1/2 e.g. "FCM_COMM","MKT_COMM","MKT_NP","FCM_RETAIL","PS","MM","LM","BPM" */
@@ -174,6 +176,7 @@ let _counter = 0
 
 export function MailingProvider({ children }: { children: ReactNode }) {
   const [quantity, setQuantity] = useState(0)
+  const printQty = quantity > 0 ? quantity + 50 : 0
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
   const [mailService, setMailService] = useState("")
@@ -255,7 +258,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
+      quantity, setQuantity, printQty, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
       needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsPad, needsOHP,

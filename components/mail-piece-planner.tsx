@@ -276,6 +276,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
                 <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => { const v = parseInt(e.target.value) || 0; m.setQuantity(v); q.setQuantity(v) }} className={cn("h-9 text-sm border-border bg-background rounded-xl font-mono", continueAttempted && !m.quantity && "ring-2 ring-destructive/50 border-destructive/40")} />
+                {m.quantity > 0 && <p className="text-[10px] text-muted-foreground mt-0.5">{'Print/Env: ' + m.printQty.toLocaleString() + ' (+50 overage)'}</p>}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>

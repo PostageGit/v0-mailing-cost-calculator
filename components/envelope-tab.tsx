@@ -85,8 +85,8 @@ export function EnvelopeTab() {
 
   const [inputs, setInputs] = useState<EnvelopeInputs>(() => {
     const def = defaultEnvelopeInputs()
-    // Pre-fill amount from planner quantity
-    if (mailing.quantity > 0) def.amount = mailing.quantity
+    // Pre-fill amount from planner printQty (mailing qty + 50 overage)
+    if (mailing.printQty > 0) def.amount = mailing.printQty
     // Pre-select envelope from planner's envelope piece
     const envPiece = mailing.pieces.find((p) => p.type === "envelope")
     if (envPiece) {
@@ -184,7 +184,7 @@ export function EnvelopeTab() {
   const handleReset = useCallback(() => {
     v.reset()
     const def = defaultEnvelopeInputs()
-    if (mailing.quantity > 0) def.amount = mailing.quantity
+    if (mailing.printQty > 0) def.amount = mailing.printQty
     // Re-match planner envelope on reset too
     const envPiece = mailing.pieces.find((p) => p.type === "envelope")
     if (envPiece) {
@@ -195,7 +195,7 @@ export function EnvelopeTab() {
     setCalcResult(null)
     setError("")
     setSettings(structuredClone(DEFAULT_ENVELOPE_SETTINGS))
-  }, [mailing.quantity, mailing.pieces, v])
+  }, [mailing.printQty, mailing.pieces, v])
 
   // Current item's bleed capability
   const currentItem = settings.items.find((i) => i.name === inputs.itemName)
