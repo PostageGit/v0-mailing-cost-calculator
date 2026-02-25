@@ -173,6 +173,8 @@ export function EnvelopeTab() {
         piecePosition: envPiece?.position || 1,
         envelopeSize: envPiece?.envelopeId || undefined,
         envelopeKind: envPiece?.envelopeKind || undefined,
+        inkType: inputs.inkType || undefined,
+        printType: inputs.printType || undefined,
         hasBleed: inputs.hasBleed || undefined,
         customerProvided: envPiece?.production === "customer" || undefined,
         providerVendor: envPiece?.customerProvidedVendor || undefined,

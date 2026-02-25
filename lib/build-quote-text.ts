@@ -12,27 +12,70 @@ interface TextItem {
 
 /**
  * Build a customer-facing spec line from metadata.
- * Excludes internal info: production method (In+OHP, OHP), tier names (3-Digit),
- * entry points (ORIGIN, DNDC), and other operational details.
+ *
+ * Industry-standard print description order:
+ *   Size, Pages (books), Paper stock, Color (sides), Bleed, Fold, Lamination
+ *
+ * For envelopes: "Paper Envelope" / "Plastic Envelope", size, printing method
+ *
+ * Intentionally excluded: production method, tier names, entry points, broker flags.
  */
-function buildCustomerSpecs(m: Record<string, unknown>): string {
+function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory): string {
   const parts: string[] = []
+
+  // ── ENVELOPE specs ──
+  if (category === "envelope") {
+    // "Paper Envelope" or "Plastic Envelope"
+    const kind = m.envelopeKind ? String(m.envelopeKind).toLowerCase() : "paper"
+    parts.push(kind === "plastic" ? "Plastic Envelope" : "Paper Envelope")
+    // Size (use envelopeSize or pieceDimensions, not both -- they're usually the same)
+    if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
+    else if (m.envelopeSize) parts.push(String(m.envelopeSize))
+    // Printing method: derive Color/BW from printType
+    if (m.printType) {
+      const pt = String(m.printType).toLowerCase()
+      const ink = m.inkType ? String(m.inkType) : ""
+      if (pt.includes("color") || pt.includes("full")) {
+        parts.push(ink ? `${ink} Color` : "Color")
+      } else if (pt.includes("bw") || pt.includes("black")) {
+        parts.push(ink ? `${ink} B&W` : "B&W")
+      } else if (pt.includes("text") || pt.includes("logo")) {
+        parts.push(ink ? `${ink} ${String(m.printType)}` : String(m.printType))
+      } else {
+        parts.push(ink ? `${ink} ${String(m.printType)}` : String(m.printType))
+      }
+    }
+    return parts.join(", ")
+  }
+
+  // ── PRINTING specs (flat, booklet, spiral, perfect, pad) ──
+  // 1. Size
   if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
+
+  // 2. Pages (for books -- spelled out, listed early)
+  if (m.pageCount) parts.push(m.pageCount + " Pages")
+
+  // 3. Paper stock
   if (m.paperName) parts.push(String(m.paperName))
+
+  // 4. Color / sides (4/0, 4/4 etc.)
   if (m.sides) parts.push(String(m.sides))
-  if (m.pageCount) parts.push(m.pageCount + "pg")
+
+  // 5. Bleed
   if (m.hasBleed) parts.push("Bleed")
-  // Fold type from planner
+
+  // 6. Fold (from planner fold type)
   if (m.foldType && m.foldType !== "none") {
     const fLabel = String(m.foldType)
-      .replace("x3long", "Tri-Fold (Long)")
+      .replace("x3long", "Tri-Fold")
       .replace("x2h", "Half Fold")
       .replace("x2w", "Half Fold")
       .replace("x3h", "Tri-Fold")
       .replace("x3w", "Tri-Fold")
     parts.push(fLabel)
   }
-  // Score / Fold finishing
+
+  // 7. Score / Fold finishing
   if (m.scoreFoldEnabled) {
     const opLabels: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
     const foldLabels: Record<string, string> = { half: "Half Fold", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate Fold", roll: "Roll Fold", accordion: "Accordion Fold", double_gate: "Double Gate Fold", double_parallel: "Double Parallel Fold" }
@@ -40,29 +83,14 @@ function buildCustomerSpecs(m: Record<string, unknown>): string {
     const ft = foldLabels[String(m.scoreFoldFoldType)] || String(m.scoreFoldFoldType)
     parts.push(`${op}: ${ft}`)
   }
-  // Lamination
+
+  // 8. Lamination
   if (m.laminationEnabled) {
     const lamSides = m.laminationSides === "both" ? "both sides" : "one side"
-    parts.push(`Lamination: ${String(m.laminationType || "Gloss")} (${lamSides})`)
+    parts.push(`${String(m.laminationType || "Gloss")} Lamination (${lamSides})`)
   }
-  // Envelope (customer-facing) -- show size and color/BW
-  if (m.envelopeSize) parts.push("Envelope: " + String(m.envelopeSize))
-  if (m.envelopeKind) {
-    const kind = String(m.envelopeKind).toLowerCase()
-    if (kind === "paper") {
-      // Instead of just "paper", show if color or BW based on inkType
-      const inkType = m.inkType ? String(m.inkType).toLowerCase() : ""
-      if (inkType.includes("color") || inkType.includes("full")) parts.push("Color")
-      else if (inkType.includes("bw") || inkType.includes("black")) parts.push("Black & White")
-      else parts.push("Paper")
-    } else {
-      parts.push(String(m.envelopeKind))
-    }
-  }
-  // Postage: only show class and shape, NOT tier/entry (internal)
-  if (m.mailingClass) parts.push(String(m.mailingClass))
-  if (m.mailShape) parts.push(String(m.mailShape).charAt(0).toUpperCase() + String(m.mailShape).slice(1))
-  // Intentionally excluded: production, tierName, entryPoint
+
+  // Intentionally excluded: production, tierName, entryPoint, envelopeKind (handled above)
   return parts.join(", ")
 }
 
@@ -135,7 +163,7 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
       if (item.category !== "flat") lines.push(catSub)
       // Only show description if there are NO metadata specs (fallback)
       if (item.metadata) {
-        const specs = buildCustomerSpecs(item.metadata)
+        const specs = buildCustomerSpecs(item.metadata, item.category)
         if (specs) lines.push(`>  ${specs}`)
       } else if (item.description) {
         lines.push(item.description)
@@ -146,14 +174,22 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   }
 
   // --- ENVELOPES ---
+  // Description (e.g. "Laser BW, Broker") may contain internal info.
+  // We only show the clean ">" spec line (Paper/Plastic Envelope, size, sides).
   const envItems = items.filter((i) => i.category === "envelope")
   if (envItems.length > 0) {
     lines.push("ENVELOPES")
     envItems.forEach((item) => {
-      if (item.description) lines.push(item.description)
       if (item.metadata) {
-        const specs = buildCustomerSpecs(item.metadata)
+        const specs = buildCustomerSpecs(item.metadata, "envelope")
         if (specs) lines.push(`>  ${specs}`)
+      } else if (item.description) {
+        // Fallback: strip internal words from description
+        const desc = item.description
+          .replace(/,?\s*Broker/gi, "")
+          .replace(/,?\s*Regular/gi, "")
+          .trim()
+        if (desc) lines.push(desc)
       }
       lines.push(formatCurrency(item.amount))
     })
@@ -168,9 +204,9 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
     lines.push("POSTAGE / USPS")
     postageItems.forEach((item) => {
       if (item.description) {
-        // Strip internal tier names and entry points from description
+        // Strip internal tier names, sort levels, and entry points from description
         let desc = item.description
-          .replace(/\s*(AADC|Mixed AADC|3-Digit|5-Digit|Basic|SCF|NDC|DDU)\s*/gi, " ")
+          .replace(/\s*(AADC|Mixed AADC|Mixed|3-Digit|5-Digit|Basic|SCF|NDC|DDU)\s*/gi, " ")
           .replace(/\s*(ORIGIN|DNDC|DSCF|DADC)\s*/gi, "")
           .replace(/\s{2,}/g, " ")
           .trim()
