@@ -33,7 +33,7 @@ interface QuoteItem {
 interface BoardColumn {
   id: string; title: string; color: string; sort_order: number; board_type?: string
 }
-interface PieceMeta { vendor?: string; expected_date?: string; expected_time?: string; prints_arrived?: boolean }
+interface PieceMeta { vendor?: string; expected_date?: string; expected_time?: string; prints_arrived?: boolean; vendor_po?: string }
 interface JobMeta {
   piece_desc?: string; insert_count?: number; inserts_desc?: string
   mailing_class?: string; drop_off?: string; international?: boolean
@@ -1308,6 +1308,14 @@ function QuoteCard({
               }
               // Helper to update per-piece meta
               const pieceMetas: PieceMeta[] = meta.piece_meta || []
+              // Migrate legacy job-level vendor_job to first OHP piece
+              if (meta.vendor_job && !pieceMetas.some((pm) => pm.vendor_po)) {
+                const ohpIdx = pieces.findIndex((p) => p.category === "ohp")
+                if (ohpIdx >= 0) {
+                  while (pieceMetas.length <= ohpIdx) pieceMetas.push({})
+                  pieceMetas[ohpIdx] = { ...pieceMetas[ohpIdx], vendor_po: meta.vendor_job }
+                }
+              }
               const getPm = (idx: number): PieceMeta => pieceMetas[idx] || {}
               const setPm = (idx: number, patch: Partial<PieceMeta>) => {
                 const arr = [...pieceMetas]
@@ -1478,6 +1486,18 @@ function QuoteCard({
                               </div>
                               {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
                             </div>
+                            {/* Row 3: Vendor PO # */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-muted-foreground/50 font-medium shrink-0 w-[28px]">PO #</span>
+                              <input
+                                type="text"
+                                value={pm.vendor_po || ""}
+                                placeholder="PO-2024-..."
+                                onChange={(e) => { e.stopPropagation(); setPm(i, { vendor_po: e.target.value }) }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 text-[10px] font-medium font-mono text-foreground bg-background border border-border rounded-md px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-ring/30 transition-all placeholder:text-muted-foreground/30"
+                              />
+                            </div>
                           </div>
                           )}
                         </div>
@@ -1502,11 +1522,6 @@ function QuoteCard({
                   </label>
                 </div>
               </div>
-            </div>
-
-            {/* ── ROW: Vendor Job # ── */}
-            <div className="rounded-lg border border-border bg-card p-3">
-              <FieldInput label="Vendor Job / PO #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
             </div>
 
             {/* ── ROW: List/Mail + Billing (2 col) ── */}
