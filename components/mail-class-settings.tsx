@@ -34,6 +34,9 @@ import {
   type ScoreFoldConfig,
   type ScoreFoldEntry,
   type EnvelopeSettings,
+  type AddressingConfig,
+  type AddressingBracket,
+  DEFAULT_ADDRESSING_CONFIG,
 } from "@/lib/pricing-config"
 import {
   DEFAULT_ENVELOPE_SETTINGS,
@@ -186,7 +189,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Mail className="h-3.5 w-3.5" />
                 Envelopes
               </TabsTrigger>
-              <TabsTrigger value="steps" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+              <TabsTrigger value="addressing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+              Addressing
+            </TabsTrigger>
+            <TabsTrigger value="steps" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <ListPlus className="h-3.5 w-3.5" />
                 Job Steps
               </TabsTrigger>
@@ -234,7 +240,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             <TabsContent value="envelopes">
               <EnvelopeSettingsTab />
             </TabsContent>
-            <TabsContent value="steps">
+            <TabsContent value="addressing">
+          <AddressingBracketsSettings />
+        </TabsContent>
+        <TabsContent value="steps">
               <JobStepsTab />
             </TabsContent>
             <TabsContent value="system">
@@ -3343,5 +3352,200 @@ function EnvelopeSettingsInlinePanel({
         </div>
       ))}
     </div>
+  )
+}
+
+// =========== ADDRESSING BRACKETS SETTINGS ===========
+
+function AddressingBracketsSettings() {
+  const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [config, setConfig] = useState<AddressingConfig | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  if (appSettings && !loaded) {
+    const saved = appSettings.addressing_config as AddressingConfig | undefined
+    setConfig(saved ?? structuredClone(DEFAULT_ADDRESSING_CONFIG))
+    setLoaded(true)
+  }
+
+  const save = async () => {
+    if (!config) return
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addressing_config: config }),
+      })
+      applyOverrides({ addressing_config: config })
+      globalMutate("/api/app-settings")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateBracket = (type: "letterPostcard" | "flat", idx: number, updates: Partial<AddressingBracket>) => {
+    if (!config) return
+    setConfig({
+      ...config,
+      [type]: config[type].map((b, i) => (i === idx ? { ...b, ...updates } : b)),
+    })
+  }
+
+  const addBracket = (type: "letterPostcard" | "flat") => {
+    if (!config) return
+    const brackets = config[type]
+    // Insert before the last (unlimited) bracket
+    const newBracket: AddressingBracket = { maxQty: 10000, perPiece: 0.03 }
+    const updated = [...brackets]
+    updated.splice(Math.max(0, brackets.length - 1), 0, newBracket)
+    setConfig({ ...config, [type]: updated })
+  }
+
+  const removeBracket = (type: "letterPostcard" | "flat", idx: number) => {
+    if (!config) return
+    if (config[type].length <= 1) return
+    setConfig({ ...config, [type]: config[type].filter((_, i) => i !== idx) })
+  }
+
+  if (isLoading || !config) return <div className="p-8 text-center text-sm text-muted-foreground">Loading...</div>
+
+  return (
+    <div className="space-y-6 p-1">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">Addressing Rate Brackets</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Set tiered pricing for addressing. Each bracket either has a flat minimum or per-piece rate.
+          </p>
+        </div>
+        <Button size="sm" onClick={save} disabled={saving} className="gap-1.5">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Save
+        </Button>
+      </div>
+
+      <BracketEditor
+        label="Letters / Postcards"
+        description="Non-flat mail pieces"
+        brackets={config.letterPostcard}
+        type="letterPostcard"
+        onUpdate={updateBracket}
+        onAdd={addBracket}
+        onRemove={removeBracket}
+      />
+
+      <BracketEditor
+        label="Flats"
+        description="Flat mail pieces (large envelopes, catalogs)"
+        brackets={config.flat}
+        type="flat"
+        onUpdate={updateBracket}
+        onAdd={addBracket}
+        onRemove={removeBracket}
+      />
+    </div>
+  )
+}
+
+function BracketEditor({
+  label,
+  description,
+  brackets,
+  type,
+  onUpdate,
+  onAdd,
+  onRemove,
+}: {
+  label: string
+  description: string
+  brackets: AddressingBracket[]
+  type: "letterPostcard" | "flat"
+  onUpdate: (type: "letterPostcard" | "flat", idx: number, updates: Partial<AddressingBracket>) => void
+  onAdd: (type: "letterPostcard" | "flat") => void
+  onRemove: (type: "letterPostcard" | "flat", idx: number) => void
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold">{label}</CardTitle>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+          <span>Up to (qty)</span>
+          <span />
+          <span>Price</span>
+          <span />
+        </div>
+        {brackets.map((b, i) => {
+          const isLast = b.maxQty === null
+          const hasFlat = b.flatMin != null
+          return (
+            <div key={i} className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center">
+              <div>
+                {isLast ? (
+                  <span className="text-xs font-medium text-muted-foreground px-2">Unlimited</span>
+                ) : (
+                  <Input
+                    type="number"
+                    className="h-8 text-sm"
+                    value={b.maxQty ?? ""}
+                    onChange={(e) => onUpdate(type, i, { maxQty: parseInt(e.target.value) || 0 })}
+                  />
+                )}
+              </div>
+              <Select
+                value={hasFlat ? "flat" : "piece"}
+                onValueChange={(v) => {
+                  if (v === "flat") {
+                    onUpdate(type, i, { flatMin: 125, perPiece: undefined })
+                  } else {
+                    onUpdate(type, i, { perPiece: 0.05, flatMin: undefined })
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="flat">Flat Min $</SelectItem>
+                  <SelectItem value="piece">Per Piece $</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
+                <Input
+                  type="number"
+                  step={hasFlat ? "1" : "0.001"}
+                  className="h-8 text-sm pl-5"
+                  value={hasFlat ? (b.flatMin ?? "") : (b.perPiece ?? "")}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 0
+                    if (hasFlat) {
+                      onUpdate(type, i, { flatMin: val })
+                    } else {
+                      onUpdate(type, i, { perPiece: val })
+                    }
+                  }}
+                />
+              </div>
+              <button
+                onClick={() => onRemove(type, i)}
+                disabled={brackets.length <= 1}
+                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-20"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )
+        })}
+        <Button variant="outline" size="sm" className="w-full gap-1.5 mt-2" onClick={() => onAdd(type)}>
+          <Plus className="h-3.5 w-3.5" />
+          Add Bracket
+        </Button>
+      </CardContent>
+    </Card>
   )
 }

@@ -2,6 +2,8 @@
 // Master list of all services/items available for quoting,
 // derived from the QuickBooks Items CSV.
 
+import { getActiveConfig, type AddressingBracket } from "./pricing-config"
+
 export type ServiceCategory =
   | "PRINTING"
   | "LIST_WORK"
@@ -73,7 +75,7 @@ export interface ServiceItem {
   /** Links to supplier item ID in suppliers config (for list rentals, etc.) */
   linkedSupplierId?: string
   /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
-  pricingRule?: "per1000_after_1000" | "min_then_per_pc"
+  pricingRule?: "per1000_after_1000" | "min_then_per_pc" | "addressing_bracket"
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -104,11 +106,9 @@ export const SERVICE_CATALOG: ServiceItem[] = [
   { id: "list-rent-linden",       name: "Linden",             category: "LIST_RENTAL", description: "Renting the Linden mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-linden" },
   { id: "list-rent-lakewood",     name: "Lakewood",           category: "LIST_RENTAL", description: "Renting the Lakewood mailing list",            defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-lakewood" },
 
-  // ── ADDRESSING ──
-  { id: "addr-2500",     name: "Addressing (up to 2,500)",   category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (up to 2,500 qty)",        defaultPrice: 125,  priceUnit: "1000", postcard: true, letter: true,  flat: false, qtyMin: 1, qtyMax: 2500, autoInclude: true },
-  { id: "addr-5000",     name: "Addressing (2,500 - 5,000)", category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (2,500 to 5,000 qty)",      defaultPrice: 0.05, priceUnit: "piece", postcard: true, letter: true,  flat: false, qtyMin: 2501, qtyMax: 5000, autoInclude: true },
-  { id: "addr-5000plus", name: "Addressing (5,000+)",        category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (above 5,000 qty)",         defaultPrice: 0.04, priceUnit: "piece", postcard: true, letter: true,  flat: false, qtyMin: 5001, qtyMax: null, autoInclude: true },
-  { id: "addr-flats",    name: "Addressing Flats",           category: "ADDRESSING", description: "Printing mailing addresses on FLAT mail pieces",                              defaultPrice: 200,  priceUnit: "1000", postcard: false, letter: false, flat: true, autoInclude: true },
+  // ── ADDRESSING ── (pricing comes from addressing brackets in config)
+  { id: "addr-letter",   name: "Addressing",                 category: "ADDRESSING", description: "Printing mailing addresses on letter/postcard mail pieces",                   defaultPrice: 125,  priceUnit: "piece", postcard: true, letter: true,  flat: false, autoInclude: true, pricingRule: "addressing_bracket" },
+  { id: "addr-flats",    name: "Addressing Flats",           category: "ADDRESSING", description: "Printing mailing addresses on FLAT mail pieces",                              defaultPrice: 200,  priceUnit: "piece", postcard: false, letter: false, flat: true, autoInclude: true, pricingRule: "addressing_bracket" },
 
   // ── COMPUTER WORK ──
   { id: "computer-work",  name: "Computer Work",         category: "COMPUTER_WORK", description: "Computer work for the job",                        defaultPrice: 125, priceUnit: "job", postcard: null, letter: null, flat: null, autoInclude: true },
@@ -164,12 +164,9 @@ export const SERVICE_CATALOG: ServiceItem[] = [
 
 // ─── Helpers ─────────────────────────────────────────────
 
-/** Get the correct addressing tier for a given quantity */
-export function getAddressingTierId(qty: number, isFlat: boolean): string | null {
-  if (isFlat) return "addr-flats"
-  if (qty <= 2500) return "addr-2500"
-  if (qty <= 5000) return "addr-5000"
-  return "addr-5000plus"
+/** Get the correct addressing item for the shape */
+export function getAddressingTierId(_qty: number, isFlat: boolean): string | null {
+  return isFlat ? "addr-flats" : "addr-letter"
 }
 
 /** Filter catalog by USPS shape */
@@ -217,6 +214,13 @@ export function calculateItemAmount(
     const perPiece = unitPrice / 1000
     return (unitPrice + extra * perPiece) * itemQty
   }
+  if (item.pricingRule === "addressing_bracket") {
+    // Tiered addressing: look up brackets from config
+    const cfg = getActiveConfig().addressingConfig
+    const isFlat = item.id === "addr-flats"
+    const brackets: AddressingBracket[] = isFlat ? cfg.flat : cfg.letterPostcard
+    return calculateAddressingBracket(brackets, mailingQty) * itemQty
+  }
 
   switch (item.priceUnit) {
   case "1000":
@@ -238,6 +242,26 @@ export function calculateItemAmount(
     default:
       return unitPrice * itemQty
   }
+}
+
+/**
+ * Calculate addressing cost from bracket tiers.
+ * Each bracket either has a flatMin (minimum charge for that range) or perPiece rate.
+ * The qty falls into exactly ONE bracket.
+ */
+function calculateAddressingBracket(brackets: AddressingBracket[], qty: number): number {
+  for (const b of brackets) {
+    const inBracket = b.maxQty === null ? true : qty <= b.maxQty
+    if (inBracket) {
+      if (b.flatMin != null) return b.flatMin
+      if (b.perPiece != null) return b.perPiece * qty
+      return 0
+    }
+  }
+  // Fallback: use last bracket
+  const last = brackets[brackets.length - 1]
+  if (last?.perPiece != null) return last.perPiece * qty
+  return last?.flatMin ?? 0
 }
 
 /** Get the auto-quantity for an item based on its price unit and mailing qty */

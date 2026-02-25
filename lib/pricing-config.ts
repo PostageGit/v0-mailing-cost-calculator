@@ -338,6 +338,36 @@ export function calculateScoreFoldCost(
   return { cost: finalCost, isMinApplied, suggestion }
 }
 
+// ==================== ADDRESSING BRACKET CONFIG ====================
+
+export interface AddressingBracket {
+  /** Max qty for this bracket (null = unlimited) */
+  maxQty: number | null
+  /** If set, this is a flat minimum charge (ignores qty) */
+  flatMin?: number
+  /** Per-piece rate (used when flatMin is not set) */
+  perPiece?: number
+}
+
+export interface AddressingConfig {
+  /** Brackets for letters/postcards (non-flat), ordered by maxQty ascending */
+  letterPostcard: AddressingBracket[]
+  /** Brackets for flats */
+  flat: AddressingBracket[]
+}
+
+export const DEFAULT_ADDRESSING_CONFIG: AddressingConfig = {
+  letterPostcard: [
+    { maxQty: 2500, flatMin: 125 },
+    { maxQty: 5000, perPiece: 0.05 },
+    { maxQty: null, perPiece: 0.04 },
+  ],
+  flat: [
+    { maxQty: 1000, flatMin: 200 },
+    { maxQty: null, perPiece: 0.20 },
+  ],
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -348,6 +378,7 @@ export interface PricingConfig {
   finishings: FinishingOption[]
   scoreFold: ScoreFoldConfig
   envelopeSettings: EnvelopeSettings
+  addressingConfig: AddressingConfig
 }
 
 export type { EnvelopeSettings }
@@ -361,6 +392,7 @@ let _activeConfig: PricingConfig = {
   finishings: structuredClone(DEFAULT_FINISHING_OPTIONS),
   scoreFold: structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
   envelopeSettings: structuredClone(DEFAULT_ENVELOPE_SETTINGS),
+  addressingConfig: structuredClone(DEFAULT_ADDRESSING_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -379,6 +411,7 @@ export function applyOverrides(overrides: Partial<{
   pricing_finishings: FinishingOption[]
   pricing_score_fold: ScoreFoldConfig
   envelope_settings: EnvelopeSettings
+  addressing_config: AddressingConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -402,6 +435,9 @@ export function applyOverrides(overrides: Partial<{
     envelopeSettings: overrides.envelope_settings
       ? structuredClone(overrides.envelope_settings)
       : structuredClone(DEFAULT_ENVELOPE_SETTINGS),
+    addressingConfig: overrides.addressing_config
+      ? structuredClone(overrides.addressing_config)
+      : structuredClone(DEFAULT_ADDRESSING_CONFIG),
   }
 }
 

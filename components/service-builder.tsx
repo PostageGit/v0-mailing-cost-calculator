@@ -535,6 +535,8 @@ function ServiceRow({
       <div className="w-20 shrink-0">
         {item.referToPostage ? (
           <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">See Rate</span>
+        ) : item.pricingRule === "addressing_bracket" ? (
+          <span className="text-xs text-muted-foreground font-medium text-center block">Bracket</span>
         ) : (
           <Input
             type="number"
@@ -549,7 +551,7 @@ function ServiceRow({
 
       {/* Unit */}
       <span className="w-16 shrink-0 text-xs text-muted-foreground text-center">
-        {formatPriceUnit(item.priceUnit)}
+        {item.pricingRule === "addressing_bracket" ? "tiered" : formatPriceUnit(item.priceUnit)}
       </span>
 
       {/* Qty */}
@@ -572,6 +574,8 @@ function ServiceRow({
               ? mailingQty <= 1000
                 ? "min"
                 : `${mailingQty.toLocaleString()} pc`
+              : item.pricingRule === "addressing_bracket"
+              ? `${mailingQty > 0 ? mailingQty.toLocaleString() : "--"} pc`
               : item.priceUnit === "1000"
               ? `x${Math.ceil(mailingQty / 1000)}`
               : `x${mailingQty > 0 ? mailingQty.toLocaleString() : "--"}`}
