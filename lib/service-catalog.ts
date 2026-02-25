@@ -341,10 +341,10 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
     items.push({ id: "printing", reason: "In-house printing selected for this job" })
   }
 
-  // 9. PERMIT -- always needed for presorted mail (we use our permit)
-  if (isPresorted) {
-    items.push({ id: "permit", reason: "Presorted mail uses Postage Plus permit" })
-  }
+  // 9. PERMIT -- only when using our permit WITHOUT computer work
+  // When computer work is included (presorted mail), the permit is already bundled
+  // This is only for jobs that use the permit standalone (e.g. stamp mailings needing the permit)
+  // So we do NOT auto-detect it for presorted mail since computer work covers it
 
   return items
 }
