@@ -1,20 +1,21 @@
 /**
  * Paper Weight Library
  *
- * Derives per-piece weight from the user-editable "lbs per 1,000 sheets of 11x17"
- * stored in PricingConfig.paperWeightConfig.
+ * Calculates per-piece weight from the user-editable "lbs per 1,000 sheets"
+ * stored per sheet size in PricingConfig.paperWeightConfig.
  *
  * FORMULA:
- *   One 11x17 sheet weighs: (lbsPer1000 / 1000) lbs = (lbsPer1000 / 1000) * 16 oz
- *   Area of 11x17 = 187 sq in
- *   Weight per sq in = sheetWeightOz / 187
- *   Weight of custom size = weightPerSqIn * (w * h)
+ *   1. Find the smallest parent sheet that can contain the piece dimensions
+ *   2. sheetWeightOz = (lbsPer1000[size] / 1000) * 16
+ *   3. sheetArea = W * H of that parent sheet
+ *   4. pieceWeight = sheetWeightOz * (pieceArea / sheetArea)
+ *
+ * For booklets: cover = 1 sheet of cover stock, inside = N sheets of text stock
  */
 
-import { getActiveConfig } from "./pricing-config"
+import { getActiveConfig, WEIGHT_SHEET_SIZES, parseSheetSize, type PaperWeightEntry } from "./pricing-config"
 
 // ── Constants ──
-const SHEET_11x17_AREA = 11 * 17 // 187 sq in
 
 /**
  * Standard envelope weights in ounces.
@@ -36,47 +37,105 @@ export const ENVELOPE_WEIGHTS: Record<string, number> = {
 }
 
 /**
- * Get weight of a single 11x17 sheet in ounces from the config.
+ * Find the paper weight entry from config (fuzzy match by name).
  */
-function getSheetWeight11x17Oz(paperName: string): number | null {
+function findPaperWeightEntry(paperName: string): PaperWeightEntry | null {
   const cfg = getActiveConfig().paperWeightConfig
   // Direct match
-  if (cfg[paperName] != null) {
-    return (cfg[paperName] / 1000) * 16
-  }
+  if (cfg[paperName]) return cfg[paperName]
   // Case-insensitive
   const lower = paperName.toLowerCase()
   for (const [key, val] of Object.entries(cfg)) {
-    if (key.toLowerCase() === lower) return (val / 1000) * 16
+    if (key.toLowerCase() === lower) return val
   }
   // Partial match
   for (const [key, val] of Object.entries(cfg)) {
     if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) {
-      return (val / 1000) * 16
+      return val
     }
   }
   return null
 }
 
 /**
- * Calculate weight of a single sheet in ounces.
+ * Find the best parent sheet size for a given piece dimension.
+ * Returns the smallest sheet that can fit the piece, and the lbs/1000 for that sheet.
+ *
+ * A piece fits if: (pieceW <= sheetW && pieceH <= sheetH) OR (pieceW <= sheetH && pieceH <= sheetW)
+ */
+function findBestSheet(
+  entry: PaperWeightEntry,
+  pieceW: number,
+  pieceH: number,
+): { sheetW: number; sheetH: number; lbsPer1000: number } | null {
+  let best: { sheetW: number; sheetH: number; lbsPer1000: number; area: number } | null = null
+
+  for (const sizeKey of WEIGHT_SHEET_SIZES) {
+    const lbs = entry[sizeKey]
+    if (lbs == null || lbs <= 0) continue
+
+    const [sw, sh] = parseSheetSize(sizeKey)
+    // Check if piece fits in this sheet (either orientation)
+    const fits =
+      (pieceW <= sw + 0.01 && pieceH <= sh + 0.01) ||
+      (pieceW <= sh + 0.01 && pieceH <= sw + 0.01)
+    if (!fits) continue
+
+    const area = sw * sh
+    if (!best || area < best.area) {
+      best = { sheetW: sw, sheetH: sh, lbsPer1000: lbs, area }
+    }
+  }
+
+  return best ? { sheetW: best.sheetW, sheetH: best.sheetH, lbsPer1000: best.lbsPer1000 } : null
+}
+
+/**
+ * Calculate weight of a single sheet/piece in ounces.
  *
  * @param paperName - Name of paper (must match PAPER_OPTIONS / paperWeightConfig)
- * @param widthIn - Width in inches
- * @param heightIn - Height in inches
- * @returns Weight in ounces, or null if paper not found
+ * @param widthIn - Width of the printed piece in inches
+ * @param heightIn - Height of the printed piece in inches
+ * @returns Weight in ounces, or null if paper not found or no sheet fits
  */
 export function calcSheetWeightOz(
   paperName: string,
   widthIn: number,
   heightIn: number,
 ): number | null {
-  const sheetOz11x17 = getSheetWeight11x17Oz(paperName)
-  if (sheetOz11x17 === null) return null
+  const entry = findPaperWeightEntry(paperName)
+  if (!entry) return null
 
-  const ozPerSqIn = sheetOz11x17 / SHEET_11x17_AREA
-  const areaIn2 = widthIn * heightIn
-  return Math.round(ozPerSqIn * areaIn2 * 10000) / 10000
+  const sheet = findBestSheet(entry, widthIn, heightIn)
+  if (!sheet) {
+    // Fallback: use the largest available sheet and do area ratio
+    let largestLbs = 0
+    let largestArea = 0
+    let largestW = 0
+    let largestH = 0
+    for (const sizeKey of WEIGHT_SHEET_SIZES) {
+      const lbs = entry[sizeKey]
+      if (lbs == null || lbs <= 0) continue
+      const [sw, sh] = parseSheetSize(sizeKey)
+      const area = sw * sh
+      if (area > largestArea) {
+        largestArea = area
+        largestLbs = lbs
+        largestW = sw
+        largestH = sh
+      }
+    }
+    if (largestArea === 0) return null
+    // Extrapolate by area ratio
+    const sheetOz = (largestLbs / 1000) * 16
+    const ozPerSqIn = sheetOz / largestArea
+    return Math.round(ozPerSqIn * widthIn * heightIn * 10000) / 10000
+  }
+
+  const sheetOz = (sheet.lbsPer1000 / 1000) * 16
+  const sheetArea = sheet.sheetW * sheet.sheetH
+  const pieceArea = widthIn * heightIn
+  return Math.round(sheetOz * (pieceArea / sheetArea) * 10000) / 10000
 }
 
 /**
@@ -103,7 +162,7 @@ export function calcMailPieceWeightOz(params: {
     if (sheetOz === null) return null
     const pieceOz = sheetOz * piece.sheetsPerPiece
     breakdown.push({
-      label: `${piece.paperName} ${piece.widthIn}x${piece.heightIn} (${piece.sheetsPerPiece} sheet${piece.sheetsPerPiece !== 1 ? "s" : ""})`,
+      label: `${piece.paperName} ${piece.widthIn}x${piece.heightIn} (${piece.sheetsPerPiece} sht${piece.sheetsPerPiece !== 1 ? "s" : ""})`,
       oz: Math.round(pieceOz * 100) / 100,
     })
     totalOz += pieceOz

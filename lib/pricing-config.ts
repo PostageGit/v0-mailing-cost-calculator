@@ -387,29 +387,44 @@ export const DEFAULT_TABBING_CONFIG: TabbingConfig = {
 // ==================== PAPER WEIGHT CONFIG ====================
 
 /**
- * Paper weight config: weight in POUNDS per 1,000 sheets of 11x17.
+ * Paper weight config: weight in POUNDS per 1,000 sheets at each sheet size.
  * User-editable in Settings. Used for mail piece weight estimation.
- * Key = paper name (must match PAPER_OPTIONS), value = lbs per 1000 sheets 11x17.
+ *
+ * Key = paper name (must match PAPER_OPTIONS)
+ * Value = record of sheet size -> lbs per 1,000 sheets
+ *   e.g. { "8.5x11": 12, "11x17": 24, "12x18": 28, "13x19": 32 }
  *
  * To convert: weightPerSheet(oz) = (lbsPer1000 / 1000) * 16
- *             weightPerSqIn(oz) = weightPerSheet(oz) / (11 * 17)
+ *
+ * The weight calculator picks the sheet size that can contain the printed piece,
+ * then computes: pieceWeight = sheetWeight * (pieceArea / sheetArea)
  */
-export type PaperWeightConfig = Record<string, number>
+export const WEIGHT_SHEET_SIZES = ["8.5x11", "11x17", "12x18", "13x19"] as const
+export type WeightSheetSize = typeof WEIGHT_SHEET_SIZES[number]
+
+/** Parse "WxH" -> [w, h] */
+export function parseSheetSize(s: string): [number, number] {
+  const [w, h] = s.split("x").map(Number)
+  return [w, h]
+}
+
+export type PaperWeightEntry = Partial<Record<WeightSheetSize, number>>
+export type PaperWeightConfig = Record<string, PaperWeightEntry>
 
 export const DEFAULT_PAPER_WEIGHT_CONFIG: PaperWeightConfig = {
-  "20lb Offset":           24,
-  "60lb Offset":           38,
-  "80lb Text Gloss":       46,
-  "100lb Text Gloss":      56,
-  "65 Cover (White)":      68,
-  "67 Cover (White)":      70,
-  "67 Cover (Off-White)":  70,
-  "80 Cover Gloss":        82,
-  "10pt Offset":           95,
-  "10pt Gloss":            100,
-  "12pt Gloss":            118,
-  "14pt Gloss":            135,
-  "Sticker (Crack & Peel)": 70,
+  "20lb Offset":            { "8.5x11": 12, "11x17": 24, "12x18": 28, "13x19": 32 },
+  "60lb Offset":            { "8.5x11": 19, "11x17": 38, "12x18": 44, "13x19": 50 },
+  "80lb Text Gloss":        { "8.5x11": 23, "11x17": 46, "12x18": 53, "13x19": 61 },
+  "100lb Text Gloss":       { "8.5x11": 28, "11x17": 56, "12x18": 65, "13x19": 74 },
+  "65 Cover (White)":       { "8.5x11": 34, "11x17": 68 },
+  "67 Cover (White)":       { "8.5x11": 35, "11x17": 70 },
+  "67 Cover (Off-White)":   { "8.5x11": 35, "11x17": 70 },
+  "80 Cover Gloss":         { "8.5x11": 41, "11x17": 82, "12x18": 95, "13x19": 108 },
+  "10pt Offset":            { "8.5x11": 47, "11x17": 95, "12x18": 110, "13x19": 125 },
+  "10pt Gloss":             { "8.5x11": 50, "11x17": 100, "12x18": 116, "13x19": 132 },
+  "12pt Gloss":             { "8.5x11": 59, "11x17": 118, "12x18": 137, "13x19": 156 },
+  "14pt Gloss":             { "8.5x11": 67, "11x17": 135, "12x18": 156, "13x19": 178 },
+  "Sticker (Crack & Peel)": { "8.5x11": 35, "11x17": 70, "12x18": 81, "13x19": 92 },
 }
 
 // ==================== RUNTIME CONFIG ====================

@@ -14,9 +14,12 @@ import {
 } from "@/components/ui/select"
 import {
   applyOverrides,
-  getActiveConfig,
   DEFAULT_PAPER_WEIGHT_CONFIG,
+  WEIGHT_SHEET_SIZES,
+  parseSheetSize,
   type PaperWeightConfig,
+  type PaperWeightEntry,
+  type WeightSheetSize,
 } from "@/lib/pricing-config"
 import { PAPER_OPTIONS } from "@/lib/printing-pricing"
 import { formatWeight, ENVELOPE_WEIGHTS } from "@/lib/paper-weights"
@@ -26,9 +29,9 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 /**
  * Paper Weights settings tab.
  *
- * Shows every paper from PAPER_OPTIONS with one editable field:
- * "lbs per 1,000 sheets of 11x17". This drives the mail piece weight
- * estimate on quotes. Persisted in app_settings.paper_weight_config.
+ * For each paper from PAPER_OPTIONS, shows editable "lbs per 1,000 sheets"
+ * fields for each sheet size (8.5x11, 11x17, 12x18, 13x19).
+ * Only shows columns for sizes that paper is available in.
  */
 export function PaperWeightsSettingsTab() {
   const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
@@ -44,15 +47,17 @@ export function PaperWeightsSettingsTab() {
 
   // Load once from DB
   if (appSettings && !loaded) {
-    const saved = appSettings.paper_weight_config as PaperWeightConfig | undefined
-    // Merge: start with defaults for all current PAPER_OPTIONS, overlay saved values
+    const savedCfg = appSettings.paper_weight_config as PaperWeightConfig | undefined
+    // Merge: start with defaults for all PAPER_OPTIONS, overlay saved values
     const base: PaperWeightConfig = {}
     for (const p of PAPER_OPTIONS) {
-      base[p.name] = DEFAULT_PAPER_WEIGHT_CONFIG[p.name] ?? 0
+      base[p.name] = { ...(DEFAULT_PAPER_WEIGHT_CONFIG[p.name] ?? {}) }
     }
-    if (saved) {
-      for (const [k, v] of Object.entries(saved)) {
-        if (k in base) base[k] = v
+    if (savedCfg) {
+      for (const [k, v] of Object.entries(savedCfg)) {
+        if (k in base && v && typeof v === "object") {
+          base[k] = { ...base[k], ...v }
+        }
       }
     }
     setConfig(base)
@@ -80,25 +85,63 @@ export function PaperWeightsSettingsTab() {
   const handleReset = () => {
     const base: PaperWeightConfig = {}
     for (const p of PAPER_OPTIONS) {
-      base[p.name] = DEFAULT_PAPER_WEIGHT_CONFIG[p.name] ?? 0
+      base[p.name] = { ...(DEFAULT_PAPER_WEIGHT_CONFIG[p.name] ?? {}) }
     }
     setConfig(base)
   }
 
-  const updateWeight = (name: string, value: number) => {
+  const updateWeight = (name: string, size: WeightSheetSize, value: number) => {
     if (!config) return
-    setConfig({ ...config, [name]: value })
+    const current = config[name] ?? {}
+    setConfig({ ...config, [name]: { ...current, [size]: value } })
   }
 
-  // Test: apply config temporarily to get weight
+  // Weight tester: compute weight for given paper + piece dimensions
   const testResult = useMemo(() => {
     if (!config || !testPaper || !testWidth || !testHeight) return null
-    // Temporarily apply current config for the test
-    const lbsPer1000 = config[testPaper]
-    if (!lbsPer1000) return null
-    const sheetOz11x17 = (lbsPer1000 / 1000) * 16
-    const ozPerSqIn = sheetOz11x17 / (11 * 17)
-    return Math.round(ozPerSqIn * testWidth * testHeight * 10000) / 10000
+    const entry = config[testPaper]
+    if (!entry) return null
+
+    // Find smallest sheet that fits
+    const pieceW = testWidth
+    const pieceH = testHeight
+    let bestLbs = 0
+    let bestArea = Infinity
+
+    for (const sizeKey of WEIGHT_SHEET_SIZES) {
+      const lbs = entry[sizeKey]
+      if (!lbs || lbs <= 0) continue
+      const [sw, sh] = parseSheetSize(sizeKey)
+      const fits =
+        (pieceW <= sw + 0.01 && pieceH <= sh + 0.01) ||
+        (pieceW <= sh + 0.01 && pieceH <= sw + 0.01)
+      if (!fits) continue
+      const area = sw * sh
+      if (area < bestArea) {
+        bestArea = area
+        bestLbs = lbs
+      }
+    }
+
+    if (bestLbs === 0) {
+      // Fallback: largest sheet, area ratio extrapolation
+      let largestLbs = 0
+      let largestArea = 0
+      for (const sizeKey of WEIGHT_SHEET_SIZES) {
+        const lbs = entry[sizeKey]
+        if (!lbs || lbs <= 0) continue
+        const [sw, sh] = parseSheetSize(sizeKey)
+        const area = sw * sh
+        if (area > largestArea) { largestArea = area; largestLbs = lbs }
+      }
+      if (largestArea === 0) return null
+      const sheetOz = (largestLbs / 1000) * 16
+      const ozPerSqIn = sheetOz / largestArea
+      return Math.round(ozPerSqIn * pieceW * pieceH * 10000) / 10000
+    }
+
+    const sheetOz = (bestLbs / 1000) * 16
+    return Math.round(sheetOz * ((pieceW * pieceH) / bestArea) * 10000) / 10000
   }, [config, testPaper, testWidth, testHeight])
 
   if (isLoading || !config) {
@@ -112,8 +155,8 @@ export function PaperWeightsSettingsTab() {
         <div>
           <h3 className="text-sm font-semibold text-foreground">Paper Weight Table</h3>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed max-w-lg">
-            Enter the weight in pounds per 1,000 sheets of 11x17 for each paper you carry.
-            This is used to auto-calculate per-piece weight on quotes for postage estimation.
+            Enter the weight in lbs per 1,000 sheets for each sheet size you carry.
+            The system uses this to compute per-piece weight for any printed size.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -133,7 +176,7 @@ export function PaperWeightsSettingsTab() {
         <div className="flex items-center gap-2 mb-3">
           <Calculator className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs font-semibold text-foreground">Weight Tester</span>
-          <span className="text-[10px] text-muted-foreground">-- pick paper + sheet size to test</span>
+          <span className="text-[10px] text-muted-foreground">-- pick paper + any custom piece size</span>
         </div>
         <div className="flex items-end gap-3 flex-wrap">
           <div className="flex flex-col gap-1 min-w-[160px]">
@@ -152,7 +195,7 @@ export function PaperWeightsSettingsTab() {
             </Select>
           </div>
           <div className="flex flex-col gap-1 w-20">
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Width</label>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Width {"(\""}</label>
             <Input
               type="number"
               step="0.125"
@@ -162,7 +205,7 @@ export function PaperWeightsSettingsTab() {
             />
           </div>
           <div className="flex flex-col gap-1 w-20">
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Height</label>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Height {"(\""}</label>
             <Input
               type="number"
               step="0.125"
@@ -172,7 +215,7 @@ export function PaperWeightsSettingsTab() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Per Sheet</label>
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Per Piece</label>
             <div className="h-9 flex items-center px-3 rounded-md bg-foreground text-background text-sm font-mono font-bold tabular-nums min-w-[100px]">
               {testResult !== null ? formatWeight(testResult) : "--"}
             </div>
@@ -180,52 +223,81 @@ export function PaperWeightsSettingsTab() {
         </div>
       </div>
 
-      {/* Paper table */}
-      <div className="rounded-xl border border-border/40 overflow-hidden">
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_60px_180px_100px] gap-3 px-4 py-2.5 bg-secondary/30 border-b border-border/30">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Paper</span>
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">Type</span>
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Lbs / 1,000 sheets (11x17)</span>
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">Per sheet (oz)</span>
-        </div>
+      {/* Paper weight table with per-size columns */}
+      <div className="rounded-xl border border-border/40 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-secondary/30 border-b border-border/30">
+              <th className="text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-4 py-2.5 whitespace-nowrap">
+                Paper
+              </th>
+              <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5 w-14">
+                Type
+              </th>
+              {WEIGHT_SHEET_SIZES.map((size) => (
+                <th key={size} className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5 whitespace-nowrap">
+                  {size}
+                  <div className="text-[8px] font-normal normal-case tracking-normal text-muted-foreground/50">lbs/1000</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {PAPER_OPTIONS.map((paper) => {
+              const entry = config[paper.name] ?? {}
+              // Determine which sizes this paper is available in
+              const availableSizes = new Set(paper.availableSizes ?? [])
 
-        {PAPER_OPTIONS.map((paper) => {
-          const lbs = config[paper.name] ?? 0
-          const ozPerSheet = lbs > 0 ? ((lbs / 1000) * 16) : 0
+              return (
+                <tr
+                  key={paper.name}
+                  className="border-b border-border/20 last:border-b-0 hover:bg-secondary/20 transition-colors"
+                >
+                  <td className="px-4 py-2 font-medium text-foreground whitespace-nowrap">
+                    {paper.name}
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                      paper.isCardstock
+                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                        : "bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400"
+                    }`}>
+                      {paper.isCardstock ? "Card" : "Text"}
+                    </span>
+                  </td>
+                  {WEIGHT_SHEET_SIZES.map((size) => {
+                    // Normalize: paper may have "12.5x19" but we show "13x19" column
+                    const hasSize = availableSizes.has(size) ||
+                      (size === "13x19" && availableSizes.has("12.5x19")) ||
+                      (size === "13x19" && availableSizes.has("13x26"))
 
-          return (
-            <div
-              key={paper.name}
-              className="grid grid-cols-[1fr_60px_180px_100px] gap-3 items-center px-4 py-2 border-b border-border/20 last:border-b-0 hover:bg-secondary/20 transition-colors"
-            >
-              <span className="text-sm font-medium text-foreground">{paper.name}</span>
-              <span className="text-center">
-                <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                  paper.isCardstock
-                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                    : "bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400"
-                }`}>
-                  {paper.isCardstock ? "Card" : "Paper"}
-                </span>
-              </span>
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.5"
-                  value={lbs || ""}
-                  placeholder="Enter weight..."
-                  onChange={(e) => updateWeight(paper.name, parseFloat(e.target.value) || 0)}
-                  className="h-8 text-sm tabular-nums pr-10"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50 font-medium">lbs</span>
-              </div>
-              <span className="text-right text-xs font-mono tabular-nums text-muted-foreground">
-                {ozPerSheet > 0 ? `${ozPerSheet.toFixed(3)} oz` : "--"}
-              </span>
-            </div>
-          )
-        })}
+                    if (!hasSize) {
+                      return (
+                        <td key={size} className="px-2 py-2 text-center">
+                          <span className="text-[10px] text-muted-foreground/30">--</span>
+                        </td>
+                      )
+                    }
+
+                    const value = entry[size] ?? 0
+                    return (
+                      <td key={size} className="px-2 py-2">
+                        <Input
+                          type="number"
+                          step="0.5"
+                          value={value || ""}
+                          placeholder="0"
+                          onChange={(e) => updateWeight(paper.name, size, parseFloat(e.target.value) || 0)}
+                          className="h-7 text-xs tabular-nums text-center w-20 mx-auto"
+                        />
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Envelope weights (read-only reference) */}
@@ -252,9 +324,10 @@ export function PaperWeightsSettingsTab() {
       {/* Info */}
       <div className="flex gap-2.5 rounded-xl bg-secondary/20 border border-border/30 p-3">
         <span className="text-[10px] text-muted-foreground/60 leading-relaxed">
-          Enter the actual weight from your paper supplier (lbs per 1,000 sheets of 11x17).
-          The system derives per-sheet ounces from this value. When new papers are added to any
-          calculator, they automatically appear here for you to fill in.
+          Enter the actual weight from your paper supplier (lbs per 1,000 sheets) for each sheet size.
+          The system computes per-piece weight by finding the parent sheet size, then applying
+          the area ratio for any custom printed dimension. New papers added to any calculator
+          automatically appear here.
         </span>
       </div>
     </div>
