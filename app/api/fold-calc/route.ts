@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       finish: string
       qty: number
       axis?: "w" | "h"
-      settings?: { labor?: number; run?: number; markup?: number; bdisc?: number; longSetup?: number; lv?: Record<number, number> }
+      settings?: { labor?: number; run?: number; markup?: number; bdisc?: number; longSetup?: number; handRate?: number; lv?: Record<number, number> }
     }
 
     if (!isCalculatorLoaded()) {
@@ -118,13 +118,54 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Handle l === "hand"
+    // Handle l === "hand" -- now priced using handRate ($/pc)
     if (opt.l === "hand") {
+      const handRate = settings?.handRate ?? 0.25
+      const markup = settings?.markup ?? 300
+      const bdisc = settings?.bdisc ?? 30
+
+      if (!qty) {
+        return NextResponse.json({
+          resolution: "hand",
+          sizeKey,
+          sizeLabel: sizeData.lbl || sizeKey,
+          handRate,
+          needsQty: true,
+          error: `Hand Fold -- $${handRate.toFixed(2)}/pc`,
+        })
+      }
+
+      const handBase = qty * handRate
+      const handRetail = handBase * (1 + markup / 100)
+      const handBroker = handRetail * (1 - bdisc / 100)
+      const handPP = handRetail / qty
+      const handBP = handBroker / qty
+
       return NextResponse.json({
         resolution: "hand",
         sizeKey,
         sizeLabel: sizeData.lbl || sizeKey,
-        error: "Hand Fold -- Manual calc needed. Contact production for pricing.",
+        isLong: sizeKey === "long",
+        handRate,
+        alerts: [`Hand Fold -- $${handRate.toFixed(2)}/pc`],
+        price: {
+          level: 0,
+          setupMinutes: 0,
+          setupCost: 0,
+          longFee: 0,
+          runMinutes: 0,
+          runCost: 0,
+          base: handBase,
+          retail: handRetail,
+          broker: handBroker,
+          perPiece: handPP,
+          brokerPerPiece: handBP,
+          batchSize: 1,
+          secondsPerBatch: 0,
+          isHandFold: true,
+          handRate,
+          markup,
+        },
       })
     }
 

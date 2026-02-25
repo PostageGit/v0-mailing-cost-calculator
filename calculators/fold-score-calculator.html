@@ -400,6 +400,7 @@ body.pos-light .pos-btog.on{background:#7c3aed}
     <div class="s-item"><label>Markup %</label><input type="number" id="s-markup" value="300" oninput="saveS()"></div>
     <div class="s-item"><label>Broker Disc %</label><input type="number" id="s-bdisc" value="30" oninput="saveS()"></div>
     <div class="s-item"><label>Long Sheet $</label><input type="number" id="s-long" value="35" oninput="saveS()"></div>
+    <div class="s-item"><label>Hand Fold $/pc</label><input type="number" id="s-hand" value="0.25" step="0.01" oninput="saveS()"></div>
   </div></div>
   <div class="s-card"><div class="s-title">Setup Min/Level</div><div class="s-grid">
     <div class="s-item"><label>Lv 1</label><input type="number" id="s-l1" value="5" oninput="saveS()"></div>
@@ -424,12 +425,12 @@ const FIN={folding:["Fold in Half","Fold in 3","Fold in 4","Gate Fold"],sf:["Sco
 const FS={"Fold in Half":"Half","Fold in 3":"Tri-Fold","Fold in 4":"Quad","Gate Fold":"Gate","Score & Fold in Half":"Half","Score & Fold in 3":"Tri-Fold","Score & Fold in 4":"Quad","Score & Gate Fold":"Gate"};
 
 let cur=0,sel={cat:'',paper:'',w:0,h:0,finish:'',qty:500,ori:'w'},mode='wiz';
-let S={labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};
+let S={labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,handRate:0.25,lv:{1:5,2:7,3:10,4:12,5:15}};
 
 // SETTINGS
 function loadS(){try{const x=localStorage.getItem('fc4');if(x)S={...S,...JSON.parse(x)};}catch(e){}applyS();}
-function applyS(){document.getElementById('s-labor').value=S.labor;document.getElementById('s-run').value=S.run;document.getElementById('s-markup').value=S.markup;document.getElementById('s-bdisc').value=S.bdisc;document.getElementById('s-long').value=S.longSetup;for(let i=1;i<=5;i++)document.getElementById('s-l'+i).value=S.lv[i];document.getElementById('t-broker').className='s-tog'+(S.broker?' on':'');document.getElementById('t-upg').className='s-tog'+(S.upgrade?' on':'');}
-function saveS(){S.labor=+document.getElementById('s-labor').value||60;S.run=+document.getElementById('s-run').value||30;S.markup=+document.getElementById('s-markup').value||300;S.bdisc=+document.getElementById('s-bdisc').value||30;S.longSetup=+document.getElementById('s-long').value||35;for(let i=1;i<=5;i++)S.lv[i]=+document.getElementById('s-l'+i).value||5;try{localStorage.setItem('fc4',JSON.stringify(S));}catch(e){}}
+function applyS(){document.getElementById('s-labor').value=S.labor;document.getElementById('s-run').value=S.run;document.getElementById('s-markup').value=S.markup;document.getElementById('s-bdisc').value=S.bdisc;document.getElementById('s-long').value=S.longSetup;document.getElementById('s-hand').value=S.handRate;for(let i=1;i<=5;i++)document.getElementById('s-l'+i).value=S.lv[i];document.getElementById('t-broker').className='s-tog'+(S.broker?' on':'');document.getElementById('t-upg').className='s-tog'+(S.upgrade?' on':'');}
+function saveS(){S.labor=+document.getElementById('s-labor').value||60;S.run=+document.getElementById('s-run').value||30;S.markup=+document.getElementById('s-markup').value||300;S.bdisc=+document.getElementById('s-bdisc').value||30;S.longSetup=+document.getElementById('s-long').value||35;S.handRate=+document.getElementById('s-hand').value||0.25;for(let i=1;i<=5;i++)S.lv[i]=+document.getElementById('s-l'+i).value||5;try{localStorage.setItem('fc4',JSON.stringify(S));}catch(e){}}
 function togB(){S.broker=!S.broker;document.getElementById('t-broker').className='s-tog'+(S.broker?' on':'');saveS();if(mode==='pos')pCalc();}
 function togU(){S.upgrade=!S.upgrade;document.getElementById('t-upg').className='s-tog'+(S.upgrade?' on':'');saveS();if(mode==='pos')pCalc();}
 function toggleSettings(){document.getElementById('settings-page').classList.toggle('show');}
@@ -505,7 +506,17 @@ function doCalc(cat,paper,w,h,finish,qty,ori){
     return ra([{c:'red',m:'Not Available for this combination'}])+html+sugH;
   }
   if(opt.l==='hand'){
-    return ra([{c:'orange',m:'Hand Fold Required'}])+html+'<div class="sug-box"><div class="sug-title">✋ Hand Fold</div><div class="sug-item"><div class="sug-icon">🔧</div><div class="sug-text"><strong>Contact production</strong> for manual pricing — machine fold not available for this setup</div></div><div class="sug-item"><div class="sug-icon">💡</div><div class="sug-text">Try <strong>Fold in Half</strong> or <strong>Fold in 3</strong> for machine pricing</div></div></div>';
+    alerts.push({c:'orange',m:'Hand Fold — $'+S.handRate.toFixed(2)+'/pc'});
+    if(!qty)return ra(alerts)+html+'<div style="text-align:center;padding:24px;color:var(--tx3);font-size:14px">Enter quantity to get pricing</div>';
+    const handBase=qty*S.handRate;
+    const handRetail=handBase*(1+S.markup/100);
+    const handBroker=handRetail*(1-S.bdisc/100);
+    const handPP=handRetail/qty;
+    let hResult=ra(alerts)+html;
+    hResult+='<div class="result-card"><div class="result-price" style="background:linear-gradient(135deg,#fffbeb,#fefce8)"><div class="result-label">'+(S.broker?'Retail':'Total')+' · '+qty.toLocaleString()+' pcs · Hand Fold</div><div class="result-amt" style="color:var(--orange)">$'+handRetail.toFixed(2)+'</div><div class="result-pp">$'+handPP.toFixed(4)+' / pc</div>'+(S.broker?'<div class="result-broker">Broker: $'+handBroker.toFixed(2)+'</div>':'')+'<div class="broker-row"><span class="broker-lbl'+(S.broker?' on':'')+'">Broker</span><div class="broker-tog'+(S.broker?' on':'')+'" onclick="toggleBroker()"></div></div></div><div class="result-meta"><div class="meta-item"><div class="meta-k">Type</div><div class="meta-v">Hand</div></div><div class="meta-item"><div class="meta-k">Rate</div><div class="meta-v">$'+S.handRate.toFixed(2)+'/pc</div></div><div class="meta-item"><div class="meta-k">Base</div><div class="meta-v">$'+handBase.toFixed(2)+'</div></div><div class="meta-item"><div class="meta-k">Markup</div><div class="meta-v">'+S.markup+'%</div></div><div class="meta-item"><div class="meta-k">Folded</div><div class="meta-v">'+fm.fw+'×'+fm.fh+'</div></div><div class="meta-item"><div class="meta-k">Qty</div><div class="meta-v">'+qty.toLocaleString()+'</div></div></div></div>';
+    hResult+=buildBreakdownHand(qty);
+    hResult+='<div class="sug-box" style="margin-top:10px"><div class="sug-title">💡 Machine alternatives</div><div class="sug-item"><div class="sug-icon">📐</div><div class="sug-text">Try <strong>Fold in Half</strong> or <strong>Fold in 3</strong> for machine pricing</div></div></div>';
+    return hResult;
   }
   if(!qty)return ra(alerts)+html+'<div style="text-align:center;padding:24px;color:var(--tx3);font-size:14px">Enter quantity to get pricing</div>';
   let isScoreOnly=false,useOpt=opt;
@@ -548,6 +559,17 @@ function buildBreakdown(p,label){
   h+='</div></div>';
   return h;
 }function toggleBroker(){S.broker=!S.broker;saveS();const sTog=document.getElementById('t-broker');if(sTog)sTog.className='s-tog'+(S.broker?' on':'');if(mode==='pos')pCalc();else if(cur===5)goResult();}
+function buildBreakdownHand(qty){
+  const base=qty*S.handRate,retail=base*(1+S.markup/100),broker=retail*(1-S.bdisc/100);
+  let h='<div class="breakdown"><div class="bd-title">How this was priced</div><div class="bd-body">';
+  h+='<div class="bd-row"><div class="bd-k">Hand Fold Rate</div><div class="bd-v">$'+S.handRate.toFixed(2)+'/pc</div></div>';
+  h+='<div class="bd-row"><div class="bd-k">Quantity</div><div class="bd-v">'+qty.toLocaleString()+' pcs</div></div>';
+  h+='<div class="bd-row total"><div class="bd-k">Labor Cost<small>'+qty+' × $'+S.handRate.toFixed(2)+'</small></div><div class="bd-v">$'+base.toFixed(2)+'</div></div>';
+  h+='<div class="bd-row"><div class="bd-k">Markup<small>'+S.markup+'%</small></div><div class="bd-v">× '+(1+S.markup/100).toFixed(1)+'</div></div>';
+  h+='<div class="bd-row total"><div class="bd-k">'+(S.broker?'Retail':'Final Price')+'</div><div class="bd-v" style="color:var(--orange)">$'+retail.toFixed(2)+'</div></div>';
+  if(S.broker)h+='<div class="bd-row"><div class="bd-k">Broker Discount<small>'+S.bdisc+'% off</small></div><div class="bd-v" style="color:var(--purple)">$'+broker.toFixed(2)+'</div></div>';
+  h+='</div></div>';return h;
+}
 // WIZARD NAV
 const STEPS=['Type','Paper','Size','Finish','Qty','Price'];
 function renderCrumbs(){let h='';for(let i=0;i<STEPS.length;i++){if(i)h+='<span class="crumb-arrow">›</span>';h+='<span class="crumb '+(i<cur?'done':i===cur?'now':'')+'" '+(i<=cur?'onclick="goStep('+i+')"':'')+'>'+STEPS[i]+'</span>';}document.getElementById('crumbs').innerHTML=h;}
@@ -643,7 +665,17 @@ function pCalc(){
     sug=alt.split(/[,&]/).map(s=>s.trim()).filter(Boolean).map(a=>'→ <strong>'+a+'</strong>').join('<br>');
     document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div class="pos-err"><div class="pos-err-icon">🚫</div><div class="pos-err-title red">NOT AVAILABLE</div><div class="pos-err-text">'+sug+'</div></div>';return;
   }
-  if(opt.l==='hand'){document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div class="pos-err"><div class="pos-err-icon">✋</div><div class="pos-err-title orange">HAND FOLD</div><div class="pos-err-text">Contact production · Try <strong>Half</strong> or <strong>Tri</strong> for machine</div></div>';return;}
+  if(opt.l==='hand'){
+    alerts.push({c:'orange',m:'Hand Fold — $'+S.handRate.toFixed(2)+'/pc'});
+    if(!qty){document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div style="color:#333;font-size:16px;text-align:center;padding:30px">ENTER QTY</div>';return;}
+    const hBase=qty*S.handRate,hRetail=hBase*(1+S.markup/100),hBroker=hRetail*(1-S.bdisc/100);
+    let out=pAlerts(alerts);
+    out+='<div class="pos-price-box"><div class="pos-price-label">'+(S.broker?'RETAIL':'TOTAL')+' · '+qty.toLocaleString()+' PCS · HAND FOLD</div><div class="pos-price-amt" style="color:#ffaa00;text-shadow:0 0 30px rgba(255,170,0,.3)">$'+hRetail.toFixed(2)+'</div><div class="pos-price-pp">$'+(hRetail/qty).toFixed(4)+' / pc</div>'+(S.broker?'<div class="pos-broker-amt">Broker $'+hBroker.toFixed(2)+'</div>':'')+'</div>';
+    out+='<div class="pos-broker-row"><span class="pos-broker-lbl'+(S.broker?' on':'')+'">Broker</span><div class="pos-btog'+(S.broker?' on':'')+'" onclick="pTogBroker()"></div></div>';
+    out+='<div class="pos-meta"><div class="pos-meta-item"><div class="pos-meta-k">TYPE</div><div class="pos-meta-v">Hand</div></div><div class="pos-meta-item"><div class="pos-meta-k">RATE</div><div class="pos-meta-v">$'+S.handRate.toFixed(2)+'</div></div><div class="pos-meta-item"><div class="pos-meta-k">BASE</div><div class="pos-meta-v">$'+hBase.toFixed(2)+'</div></div><div class="pos-meta-item"><div class="pos-meta-k">MARKUP</div><div class="pos-meta-v">'+S.markup+'%</div></div><div class="pos-meta-item"><div class="pos-meta-k">FOLDED</div><div class="pos-meta-v">'+fm.fw+'×'+fm.fh+'</div></div><div class="pos-meta-item"><div class="pos-meta-k">QTY</div><div class="pos-meta-v">'+qty.toLocaleString()+'</div></div></div>';
+    out+=pBreakdownHand(qty);
+    document.getElementById('p-out').innerHTML=out;return;
+  }
   if(!qty){document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div style="color:#333;font-size:16px;text-align:center;padding:30px">ENTER QTY</div>';return;}
   let isScoreOnly=false,useOpt=opt;
   if(opt.l==='na'&&opt.so){isScoreOnly=true;useOpt={...opt,l:4};alerts.push({c:'blue',m:'Score Only — full fold N/A'});}
@@ -681,6 +713,21 @@ function pBreakdown(p,label){
   rows.push(['Labor Total','','$'+p.base.toFixed(2),true]);
   rows.push(['×'+S.markup+'% markup','','$'+p.retail.toFixed(2),true]);
   if(S.broker)rows.push(['Broker -'+S.bdisc+'%','','$'+p.broker.toFixed(2),true]);
+  rows.forEach(r=>{
+    h+='<div class="pos-bd-row'+(r[3]?' total':'')+'"><span class="pos-bd-k">'+r[0]+(r[1]?' <span>'+r[1]+'</span>':'')+'</span><span class="pos-bd-v'+(r[3]?' hi':'')+'">'+r[2]+'</span></div>';
+  });
+  h+='</div>';return h;
+}
+function pBreakdownHand(qty){
+  const base=qty*S.handRate,retail=base*(1+S.markup/100),broker=retail*(1-S.bdisc/100);
+  let h='<div class="pos-bd"><div class="pos-bd-title">HOW PRICED</div>';
+  const rows=[
+    ['Hand Rate','$'+S.handRate.toFixed(2)+'/pc','$'+S.handRate.toFixed(2),false],
+    ['Quantity','',''+qty.toLocaleString()+' pcs',false],
+    ['Labor Cost',qty+' × $'+S.handRate.toFixed(2),'$'+base.toFixed(2),true],
+    ['×'+S.markup+'% markup','','$'+retail.toFixed(2),true],
+  ];
+  if(S.broker)rows.push(['Broker -'+S.bdisc+'%','','$'+broker.toFixed(2),true]);
   rows.forEach(r=>{
     h+='<div class="pos-bd-row'+(r[3]?' total':'')+'"><span class="pos-bd-k">'+r[0]+(r[1]?' <span>'+r[1]+'</span>':'')+'</span><span class="pos-bd-v'+(r[3]?' hi':'')+'">'+r[2]+'</span></div>';
   });

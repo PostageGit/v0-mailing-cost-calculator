@@ -75,7 +75,7 @@ interface CalcContext {
   matchSz: (w: number, h: number, cat: string, db: Record<string, OriginalPaperEntry>, paper: string) => string | null
   foldM: (w: number, h: number, finish: string, ori: string) => OriginalFoldMathResult
   priceIt: (opt: OriginalFoldEntry, qty: number, isLong: boolean) => OriginalPriceResult | null
-  S: { labor: number; run: number; markup: number; bdisc: number; broker: boolean; upgrade: boolean; longSetup: number; lv: Record<number, number> }
+  S: { labor: number; run: number; markup: number; bdisc: number; broker: boolean; upgrade: boolean; longSetup: number; handRate: number; lv: Record<number, number> }
 }
 
 let _ctx: CalcContext | null = null
@@ -163,7 +163,7 @@ function loadCalculator(): CalcContext | null {
       sizeMapMatch ? `var SIZE_MAP = ${sizeMapMatch[1]};` : `var SIZE_MAP = [];`,
       finMatch ? `var FIN = ${finMatch[1]};` : `var FIN = {folding:[],sf:[]};`,
       fsMatch ? `var FS = ${fsMatch[1]};` : `var FS = {};`,
-      sMatch ? `var S = ${sMatch[1]};` : `var S = {labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};`,
+      sMatch ? `var S = ${sMatch[1]};` : `var S = {labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,handRate:0.25,lv:{1:5,2:7,3:10,4:12,5:15}};`,
       matchSzFn,
       foldMFn,
       priceItFn,
@@ -242,7 +242,7 @@ export function getSIZE_MAP(): SizeMapEntry[] {
 
 export function getSettings(): CalcContext["S"] {
   const ctx = loadCalculator()
-  return ctx?.S || { labor: 60, run: 30, markup: 300, bdisc: 30, broker: false, upgrade: true, longSetup: 35, lv: { 1: 5, 2: 7, 3: 10, 4: 12, 5: 15 } }
+  return ctx?.S || { labor: 60, run: 30, markup: 300, bdisc: 30, broker: false, upgrade: true, longSetup: 35, handRate: 0.25, lv: { 1: 5, 2: 7, 3: 10, 4: 12, 5: 15 } }
 }
 
 export function updateSettings(newSettings: Partial<CalcContext["S"]>): void {
