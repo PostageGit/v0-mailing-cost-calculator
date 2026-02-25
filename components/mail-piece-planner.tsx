@@ -270,7 +270,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
           <div className="flex flex-col gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Job Name</label>
-              <Input placeholder="Spring Mailer 2026" value={q.projectName} onChange={(e) => q.setProjectName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+              <Input placeholder="Enter job name" value={q.projectName} onChange={(e) => q.setProjectName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
