@@ -239,14 +239,28 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
 
   // --- POSTAGE ---
   const postageItems = items.filter((i) => i.category === "postage")
+  const hasEstimatedPostage = postageItems.some((i) => i.metadata?.isEstimated)
   if (postageItems.length > 0) {
-    sectionHeader("POSTAGE / USPS")
+    sectionHeader(hasEstimatedPostage ? "POSTAGE / USPS (ESTIMATED)" : "POSTAGE / USPS")
     postageItems.forEach((item) => {
-      const desc = item.description
+      const isEst = item.metadata?.isEstimated
+      let desc = item.description
         ? cleanPostageDescription(item.description)
         : item.label || "Postage"
+      if (isEst) desc += "  *Estimated"
       lineItem(desc, null, item.amount)
     })
+    // Postage disclaimer for estimated rates
+    if (hasEstimatedPostage) {
+      checkPage(10)
+      doc.setFont("helvetica", "italic")
+      doc.setFontSize(7)
+      doc.setTextColor(LIGHT_GRAY)
+      const disclaimer = "* Postage rates shown are estimates. Final rates are determined when the mailing list is processed and the mail piece is verified by USPS standards."
+      const wrapped = doc.splitTextToSize(disclaimer, CONTENT_W)
+      doc.text(wrapped, ML + 2, y)
+      y += wrapped.length * 3 + 2
+    }
   }
 
   // --- MAIL WORK ---

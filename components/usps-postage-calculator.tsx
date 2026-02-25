@@ -146,17 +146,74 @@ function ResultsBar({
   isValid,
   perPiece,
   total,
+  quantity,
   disabled,
   onAdd,
+  onAddManual,
 }: {
   isValid: boolean
   perPiece: number
   total: number
+  quantity: number
   disabled: boolean
   onAdd: () => void
+  onAddManual: (ratePerPiece: number) => void
 }) {
+  const [manualRate, setManualRate] = useState<string>("")
+  const parsedRate = parseFloat(manualRate)
+  const hasManual = manualRate.length > 0 && !isNaN(parsedRate) && parsedRate > 0
+  const manualTotal = hasManual ? parsedRate * quantity : 0
+
   return (
-    <div className="sticky bottom-4 z-20">
+    <div className="sticky bottom-4 z-20 flex flex-col gap-2">
+      {/* Manual override input */}
+      <div className="bg-card border border-border rounded-2xl shadow-lg px-5 py-3.5 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex-1">
+            <label htmlFor="manual-rate" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Custom Rate per Piece
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">$</span>
+              <input
+                id="manual-rate"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="e.g. 0.285"
+                className="h-10 w-full max-w-[180px] rounded-lg border border-border bg-background pl-7 pr-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                value={manualRate}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === "" || /^\d*\.?\d{0,4}$/.test(v)) setManualRate(v)
+                }}
+              />
+            </div>
+          </div>
+          {hasManual && (
+            <div className="text-right shrink-0">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-1">Estimated Total</span>
+              <span className="text-lg font-bold font-mono tabular-nums text-foreground">{formatCurrency(manualTotal)}</span>
+            </div>
+          )}
+          {hasManual && (
+            <button
+              onClick={() => { onAddManual(parsedRate); setManualRate("") }}
+              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-full transition-colors shrink-0 min-h-[40px]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Estimated
+            </button>
+          )}
+        </div>
+        {!hasManual && (
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Enter your own rate to add postage as an estimate. Leave blank to use the calculated rate below.
+          </p>
+        )}
+      </div>
+
+      {/* Calculated results bar */}
       <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-baseline gap-6 sm:gap-8">
           <div>
@@ -169,7 +226,7 @@ function ResultsBar({
           </div>
           <div>
             <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-              Total
+              Calculated Total
             </span>
             <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
               {isValid ? formatCurrency(total) : "$0.00"}
@@ -182,7 +239,7 @@ function ResultsBar({
           className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
         >
           <Plus className="h-4 w-4" />
-          Add to Quote
+          Add Calculated
         </button>
       </div>
     </div>
@@ -241,6 +298,23 @@ function Tab2Parcels() {
       },
     })
   }, [result, inputs, quote])
+
+  const handleAddManual = useCallback((ratePerPiece: number) => {
+    const manualTotal = ratePerPiece * inputs.quantity
+    const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
+    const svcLabel = svcLabels[inputs.service]
+    quote.addItem({
+      category: "postage",
+      label: `USPS ${svcLabel} - ${inputs.quantity.toLocaleString()} pc`,
+      description: `${svcLabel} | ${inputs.quantity.toLocaleString()} x $${ratePerPiece.toFixed(3)}`,
+      amount: manualTotal,
+      metadata: {
+        mailingClass: svcLabel,
+        isEstimated: true,
+        manualRate: ratePerPiece,
+      },
+    })
+  }, [inputs, quote])
 
   const svcOptions: { key: Tab2Service; label: string; sub: string }[] = [
     { key: "PS", label: "Parcel Select", sub: "Destination Entry" },
@@ -388,8 +462,10 @@ function Tab2Parcels() {
         isValid={result.isValid}
         perPiece={result.perPiece}
         total={result.total}
+        quantity={inputs.quantity}
         disabled={!result.isValid}
         onAdd={handleAddToQuote}
+        onAddManual={handleAddManual}
       />
     </div>
   )
@@ -526,6 +602,27 @@ function Tab1LettersFlats() {
       },
     })
   }, [result, inputs, quote, tiers])
+
+  const handleAddManual = useCallback((ratePerPiece: number) => {
+    const manualTotal = ratePerPiece * inputs.quantity
+    const classMap: Record<string, string> = {
+      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
+      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
+    }
+    const mailingClass = classMap[inputs.service] || SERVICE_LABELS[inputs.service]
+    quote.addItem({
+      category: "postage",
+      label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
+      description: `${mailingClass} ${inputs.shape.charAt(0) + inputs.shape.slice(1).toLowerCase()} | ${inputs.quantity.toLocaleString()} x $${ratePerPiece.toFixed(3)}`,
+      amount: manualTotal,
+      metadata: {
+        mailingClass,
+        mailShape: inputs.shape.toLowerCase(),
+        isEstimated: true,
+        manualRate: ratePerPiece,
+      },
+    })
+  }, [inputs, quote])
 
   const hasDimensions = !!(mailing.mailerWidth && mailing.mailerHeight)
   const suggestedShapes = mailing.suggestedShapes
@@ -811,8 +908,10 @@ function Tab1LettersFlats() {
         isValid={result.isValid}
         perPiece={result.avgPerPiece}
         total={result.total}
+        quantity={inputs.quantity}
         disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
         onAdd={handleAddToQuote}
+        onAddManual={handleAddManual}
       />
     </div>
   )

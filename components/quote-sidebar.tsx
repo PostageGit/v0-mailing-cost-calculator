@@ -165,9 +165,15 @@ function QuoteItemRow({
           if (m.mailShape) tags.push(String(m.mailShape).charAt(0).toUpperCase() + String(m.mailShape).slice(1))
           if (m.tierName) tags.push(String(m.tierName))
           if (m.entryPoint) tags.push(String(m.entryPoint))
-          if (tags.length === 0) return null
+          const isEstimated = !!m.isEstimated
+          if (tags.length === 0 && !isEstimated) return null
           return (
             <div className="flex flex-wrap gap-1 mt-1">
+              {isEstimated && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-none uppercase tracking-wide">
+                  Estimated
+                </span>
+              )}
               {tags.map((t, i) => (
                 <span key={i} className="px-1.5 py-0.5 rounded bg-secondary/60 text-[9px] font-medium text-muted-foreground/70 leading-none">
                   {t}
@@ -402,12 +408,15 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                       ) : (
                         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50" />
                       )}
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${getCategoryColor(cat)}`}>
-                        {getCategoryLabel(cat)}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground/50 tabular-nums font-normal">
-                        {catItems.length}
-                      </span>
+  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${getCategoryColor(cat)}`}>
+  {getCategoryLabel(cat)}
+  </span>
+  {catItems.some((i) => i.metadata?.isEstimated) && (
+    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 uppercase tracking-wide">Est.</span>
+  )}
+  <span className="text-[11px] text-muted-foreground/50 tabular-nums font-normal">
+  {catItems.length}
+  </span>
                     </div>
                     <span className="text-[13px] font-mono font-semibold text-foreground/80 tabular-nums">
                       {formatCurrency(catTotal)}

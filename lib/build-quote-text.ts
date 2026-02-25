@@ -209,14 +209,20 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   // Description already contains class, qty, rate. Strip internal tier (3-Digit, 5-Digit, etc.)
   // and entry point. Don't add a duplicate ">" spec line since description covers it.
   const postageItems = items.filter((i) => i.category === "postage")
+  const hasEstimatedPostage = postageItems.some((i) => i.metadata?.isEstimated)
   if (postageItems.length > 0) {
-    lines.push("POSTAGE / USPS")
+    lines.push(hasEstimatedPostage ? "POSTAGE / USPS (ESTIMATED)" : "POSTAGE / USPS")
     postageItems.forEach((item) => {
+      const isEst = item.metadata?.isEstimated
       if (item.description) {
         lines.push(cleanPostageDescription(item.description))
       }
-      lines.push(formatCurrency(item.amount))
+      lines.push(isEst ? `${formatCurrency(item.amount)}  *Estimated` : formatCurrency(item.amount))
     })
+    if (hasEstimatedPostage) {
+      lines.push("")
+      lines.push("* Postage rates shown are estimates. Final rates are determined when the mailing list is processed and the mail piece is verified by USPS standards.")
+    }
     lines.push(divider)
   }
 
