@@ -261,7 +261,7 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
   // --- OHP ---
   const ohpItems = items.filter((i) => i.category === "ohp")
   if (ohpItems.length > 0) {
-    sectionHeader("OUT OF HOUSE PRINTING")
+    sectionHeader("PRINTING")
     ohpItems.forEach((item) => {
       lineItem(item.description || item.label || "OHP", null, item.amount)
     })

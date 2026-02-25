@@ -234,7 +234,7 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   // --- OHP ---
   const ohpItems = items.filter((i) => i.category === "ohp")
   if (ohpItems.length > 0) {
-    lines.push("OUT OF HOUSE")
+    lines.push("PRINTING")
     ohpItems.forEach((item) => {
       if (item.description) lines.push(item.description)
       lines.push(formatCurrency(item.amount))
