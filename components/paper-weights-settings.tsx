@@ -15,20 +15,24 @@ import {
 import {
   applyOverrides,
   DEFAULT_PAPER_WEIGHT_CONFIG,
+  DEFAULT_ENVELOPE_WEIGHT_CONFIG,
   WEIGHT_SHEET_SIZES,
   parseSheetSize,
   type PaperWeightConfig,
   type PaperWeightEntry,
   type WeightSheetSize,
+  type EnvelopeWeightConfig,
+  type EnvelopeWeightEntry,
 } from "@/lib/pricing-config"
 import { PAPER_OPTIONS } from "@/lib/printing-pricing"
-import { formatWeight, ENVELOPE_WEIGHTS } from "@/lib/paper-weights"
+import { formatWeight } from "@/lib/paper-weights"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function PaperWeightsSettingsTab() {
   const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
   const [config, setConfig] = useState<PaperWeightConfig | null>(null)
+  const [envConfig, setEnvConfig] = useState<EnvelopeWeightConfig | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -45,6 +49,8 @@ export function PaperWeightsSettingsTab() {
       base[p.name] = savedCfg?.[p.name] ?? DEFAULT_PAPER_WEIGHT_CONFIG[p.name] ?? { size: "11x17", lbs: 0 }
     }
     setConfig(base)
+    const savedEnv = appSettings.envelope_weight_config as EnvelopeWeightConfig | undefined
+    setEnvConfig({ ...structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG), ...savedEnv })
     setLoaded(true)
   }
 
@@ -55,9 +61,9 @@ export function PaperWeightsSettingsTab() {
       await fetch("/api/app-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paper_weight_config: config }),
+        body: JSON.stringify({ paper_weight_config: config, envelope_weight_config: envConfig }),
       })
-      applyOverrides({ paper_weight_config: config })
+      applyOverrides({ paper_weight_config: config, envelope_weight_config: envConfig ?? undefined })
       globalMutate("/api/app-settings")
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -72,6 +78,7 @@ export function PaperWeightsSettingsTab() {
       base[p.name] = DEFAULT_PAPER_WEIGHT_CONFIG[p.name] ?? { size: "11x17", lbs: 0 }
     }
     setConfig(base)
+    setEnvConfig(structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG))
   }
 
   // Weight tester
@@ -87,7 +94,7 @@ export function PaperWeightsSettingsTab() {
     return Math.round(sheetOz * (pieceArea / refArea) * 10000) / 10000
   }, [config, testPaper, testWidth, testHeight])
 
-  if (isLoading || !config) {
+  if (isLoading || !config || !envConfig) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Loading...</div>
   }
 
@@ -278,26 +285,74 @@ export function PaperWeightsSettingsTab() {
         </table>
       </div>
 
-      {/* Envelope weights (reference) */}
-      <div className="flex flex-col gap-3 pt-2">
-        <div className="flex items-center gap-2">
-          <Scale className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">Envelope Weights</h3>
-          <span className="text-[10px] text-muted-foreground">(reference)</span>
-        </div>
-        <div className="rounded-xl border border-border/40 overflow-hidden">
-          <div className="grid grid-cols-[1fr_100px] gap-2 px-4 py-2 bg-secondary/30 border-b border-border/30">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Type</span>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">Weight (oz)</span>
+      {/* Envelope weights + thickness (editable) */}
+      {envConfig && (
+        <div className="flex flex-col gap-3 pt-2">
+          <div className="flex items-center gap-2">
+            <Scale className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold text-foreground">Envelope Weights & Thickness</h3>
           </div>
-          {Object.entries(ENVELOPE_WEIGHTS).filter(([, v]) => v > 0).map(([key, val]) => (
-            <div key={key} className="grid grid-cols-[1fr_100px] gap-2 items-center px-4 py-1.5 border-b border-border/20 last:border-b-0">
-              <span className="text-xs font-medium text-foreground/80">{key}</span>
-              <span className="text-right text-xs font-mono tabular-nums text-muted-foreground">{val.toFixed(2)} oz</span>
-            </div>
-          ))}
+          <div className="rounded-xl border border-border/40 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-secondary/30 border-b border-border/30">
+                  <th className="text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-4 py-2.5">
+                    Envelope
+                  </th>
+                  <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5">
+                    Weight (oz)
+                  </th>
+                  <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5">
+                    Thickness (in)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(envConfig).map(([key, entry]) => (
+                  <tr
+                    key={key}
+                    className="border-b border-border/20 last:border-b-0 hover:bg-secondary/20 transition-colors"
+                  >
+                    <td className="px-4 py-2 font-medium text-foreground whitespace-nowrap text-xs">
+                      {key}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={entry.oz || ""}
+                        placeholder="0.00"
+                        onChange={(e) =>
+                          setEnvConfig({
+                            ...envConfig,
+                            [key]: { ...entry, oz: parseFloat(e.target.value) || 0 },
+                          })
+                        }
+                        className="h-7 text-xs tabular-nums text-center w-20 mx-auto"
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        value={entry.thicknessIn || ""}
+                        placeholder="0.000"
+                        onChange={(e) =>
+                          setEnvConfig({
+                            ...envConfig,
+                            [key]: { ...entry, thicknessIn: parseFloat(e.target.value) || 0 },
+                          })
+                        }
+                        className="h-7 text-xs tabular-nums text-center w-20 mx-auto"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

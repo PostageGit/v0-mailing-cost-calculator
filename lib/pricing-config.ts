@@ -429,6 +429,32 @@ export const DEFAULT_PAPER_WEIGHT_CONFIG: PaperWeightConfig = {
   "Sticker (Crack & Peel)": { size: "11x17", lbs: 70,  thicknessIn: 0.008  },
 }
 
+// ==================== ENVELOPE WEIGHT CONFIG ====================
+
+export interface EnvelopeWeightEntry {
+  /** Weight per envelope in ounces */
+  oz: number
+  /** Thickness per envelope in inches */
+  thicknessIn?: number
+}
+
+export type EnvelopeWeightConfig = Record<string, EnvelopeWeightEntry>
+
+export const DEFAULT_ENVELOPE_WEIGHT_CONFIG: EnvelopeWeightConfig = {
+  "#10":          { oz: 0.16, thicknessIn: 0.005 },
+  "#10 Window":   { oz: 0.17, thicknessIn: 0.005 },
+  "#10 DW":       { oz: 0.18, thicknessIn: 0.005 },
+  "6x9":          { oz: 0.25, thicknessIn: 0.006 },
+  "9x12":         { oz: 0.62, thicknessIn: 0.008 },
+  "10x13":        { oz: 0.75, thicknessIn: 0.008 },
+  "A-2":          { oz: 0.10, thicknessIn: 0.004 },
+  "A-6":          { oz: 0.13, thicknessIn: 0.004 },
+  "A-7":          { oz: 0.16, thicknessIn: 0.005 },
+  "A-9":          { oz: 0.25, thicknessIn: 0.005 },
+  "A-10":         { oz: 0.30, thicknessIn: 0.006 },
+  "6.5x9.5":      { oz: 0.30, thicknessIn: 0.006 },
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -442,6 +468,7 @@ export interface PricingConfig {
   addressingConfig: AddressingConfig
   tabbingConfig: TabbingConfig
   paperWeightConfig: PaperWeightConfig
+  envelopeWeightConfig: EnvelopeWeightConfig
 }
 
 export type { EnvelopeSettings }
@@ -458,6 +485,7 @@ let _activeConfig: PricingConfig = {
   addressingConfig: structuredClone(DEFAULT_ADDRESSING_CONFIG),
   tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
   paperWeightConfig: structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
+  envelopeWeightConfig: structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -479,6 +507,7 @@ export function applyOverrides(overrides: Partial<{
   addressing_config: AddressingConfig
   tabbing_config: TabbingConfig
   paper_weight_config: PaperWeightConfig
+  envelope_weight_config: EnvelopeWeightConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -511,6 +540,9 @@ export function applyOverrides(overrides: Partial<{
     paperWeightConfig: overrides.paper_weight_config
       ? { ...structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG), ...overrides.paper_weight_config }
       : structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
+    envelopeWeightConfig: overrides.envelope_weight_config
+      ? { ...structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG), ...overrides.envelope_weight_config }
+      : structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
   }
 }
 

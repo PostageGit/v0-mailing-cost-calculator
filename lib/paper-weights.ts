@@ -14,23 +14,41 @@
 
 import { getActiveConfig, parseSheetSize, type PaperWeightEntry } from "./pricing-config"
 
-// ── Envelope weights (oz) ──
+// ── Envelope weights -- read from config ──
 
-export const ENVELOPE_WEIGHTS: Record<string, number> = {
-  "#10":          0.16,
-  "#10 Window":   0.17,
-  "#10 DW":       0.18,
-  "6x9":          0.25,
-  "9x12":         0.62,
-  "10x13":        0.75,
-  "A-2":          0.10,
-  "A-6":          0.13,
-  "A-7":          0.16,
-  "A-9":          0.25,
-  "A-10":         0.30,
-  "6.5x9.5":      0.30,
-  "Postcard":     0,
+/** Get all envelope entries from config (for settings UI) */
+export function getEnvelopeWeightEntries() {
+  return getActiveConfig().envelopeWeightConfig
 }
+
+/**
+ * Legacy compat -- returns Record<string, number> for components that just need oz values.
+ * Reads from the editable config, not hardcoded.
+ */
+export function getEnvelopeWeightsRecord(): Record<string, number> {
+  const cfg = getActiveConfig().envelopeWeightConfig
+  const result: Record<string, number> = {}
+  for (const [key, entry] of Object.entries(cfg)) {
+    result[key] = entry.oz
+  }
+  result["Postcard"] = 0
+  return result
+}
+
+/** For backward compatibility with components importing ENVELOPE_WEIGHTS */
+export const ENVELOPE_WEIGHTS = new Proxy({} as Record<string, number>, {
+  get(_target, prop: string) {
+    if (prop === "Postcard") return 0
+    const cfg = getActiveConfig().envelopeWeightConfig
+    return cfg[prop]?.oz ?? 0
+  },
+  ownKeys() {
+    return [...Object.keys(getActiveConfig().envelopeWeightConfig), "Postcard"]
+  },
+  getOwnPropertyDescriptor(_target, prop: string) {
+    return { configurable: true, enumerable: true, value: this.get!(_target, prop, _target) }
+  },
+})
 
 // ── Lookup ──
 
@@ -121,13 +139,27 @@ export function calcMailPieceWeightOz(params: {
 // ── Helpers ──
 
 export function getEnvelopeWeightOz(envelopeType: string): number {
-  if (ENVELOPE_WEIGHTS[envelopeType] !== undefined) return ENVELOPE_WEIGHTS[envelopeType]
+  if (envelopeType === "Postcard" || !envelopeType) return 0
+  const cfg = getActiveConfig().envelopeWeightConfig
+  if (cfg[envelopeType]) return cfg[envelopeType].oz
   const n = envelopeType.replace(/\s+/g, "").toLowerCase()
-  for (const [key, val] of Object.entries(ENVELOPE_WEIGHTS)) {
-    if (key.replace(/\s+/g, "").toLowerCase() === n) return val
+  for (const [key, entry] of Object.entries(cfg)) {
+    if (key.replace(/\s+/g, "").toLowerCase() === n) return entry.oz
   }
-  for (const [key, val] of Object.entries(ENVELOPE_WEIGHTS)) {
-    if (n.includes(key.replace(/\s+/g, "").toLowerCase())) return val
+  for (const [key, entry] of Object.entries(cfg)) {
+    if (n.includes(key.replace(/\s+/g, "").toLowerCase())) return entry.oz
+  }
+  return 0
+}
+
+/** Get envelope thickness in inches */
+export function getEnvelopeThicknessIn(envelopeType: string): number {
+  if (envelopeType === "Postcard" || !envelopeType) return 0
+  const cfg = getActiveConfig().envelopeWeightConfig
+  if (cfg[envelopeType]) return cfg[envelopeType].thicknessIn ?? 0
+  const n = envelopeType.replace(/\s+/g, "").toLowerCase()
+  for (const [key, entry] of Object.entries(cfg)) {
+    if (key.replace(/\s+/g, "").toLowerCase() === n) return entry.thicknessIn ?? 0
   }
   return 0
 }
