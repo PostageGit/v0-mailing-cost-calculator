@@ -367,8 +367,9 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
     items.push({ id: "tabbing", reason: "Self-mailers require tabs to stay closed" })
   }
 
-  // 7. FOLDING -- needed if any piece is folded
-  if (ctx.hasFoldedPiece) {
+  // 7. FOLDING -- needed if any piece is folded, BUT NOT for self-mailers
+  //    (self-mailer folding is typically done during printing)
+  if (ctx.hasFoldedPiece && ctx.outerPieceType !== "self_mailer") {
     items.push({ id: "folding", reason: "Folded piece(s) need mechanical or hand folding" })
   }
 
