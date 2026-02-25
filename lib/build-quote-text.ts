@@ -45,9 +45,20 @@ function buildCustomerSpecs(m: Record<string, unknown>): string {
     const lamSides = m.laminationSides === "both" ? "both sides" : "one side"
     parts.push(`Lamination: ${String(m.laminationType || "Gloss")} (${lamSides})`)
   }
-  // Envelope (customer-facing)
+  // Envelope (customer-facing) -- show size and color/BW
   if (m.envelopeSize) parts.push("Envelope: " + String(m.envelopeSize))
-  if (m.envelopeKind) parts.push(String(m.envelopeKind))
+  if (m.envelopeKind) {
+    const kind = String(m.envelopeKind).toLowerCase()
+    if (kind === "paper") {
+      // Instead of just "paper", show if color or BW based on inkType
+      const inkType = m.inkType ? String(m.inkType).toLowerCase() : ""
+      if (inkType.includes("color") || inkType.includes("full")) parts.push("Color")
+      else if (inkType.includes("bw") || inkType.includes("black")) parts.push("Black & White")
+      else parts.push("Paper")
+    } else {
+      parts.push(String(m.envelopeKind))
+    }
+  }
   // Postage: only show class and shape, NOT tier/entry (internal)
   if (m.mailingClass) parts.push(String(m.mailingClass))
   if (m.mailShape) parts.push(String(m.mailShape).charAt(0).toUpperCase() + String(m.mailShape).slice(1))
@@ -66,6 +77,7 @@ export interface QuoteTextOptions {
   projectName?: string
   customerName?: string
   referenceNumber?: string
+  quoteNumber?: number | string
   quantity?: number
   notes?: string
 }
@@ -80,11 +92,12 @@ export interface QuoteTextOptions {
  *  - Minimal separators, no repeated headers
  */
 export function buildQuoteText(opts: QuoteTextOptions): string {
-  const { items, projectName, customerName, referenceNumber, quantity, notes } = opts
+  const { items, projectName, customerName, referenceNumber, quoteNumber, quantity, notes } = opts
   const lines: string[] = []
   const divider = "------------------------------"
 
-  // ── 1. Company header ──
+  // ── 1. Quote number + Company header ──
+  if (quoteNumber) lines.push(`Quote# Q-${quoteNumber}`)
   lines.push(COMPANY.name)
   lines.push(COMPANY.fullAddress)
   lines.push(`${COMPANY.phone} | ${COMPANY.email}`)
@@ -110,18 +123,22 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   const STANDALONE_CATS: QuoteCategory[] = ["envelope", "postage", "ohp"]
 
   // --- PRINTING ---
-  // One "PRINTING" header, then each item under it (no repeated header)
+  // One "PRINTING" header, then each item with specs on one ">" line
+  // Description (e.g. "80lb Text Gloss, 4/4") is NOT shown separately
+  // because the ">" spec line already contains paper, sides, etc.
   const printItems = items.filter((i) => PRINT_CATS.includes(i.category))
   if (printItems.length > 0) {
     lines.push("PRINTING")
     printItems.forEach((item) => {
       const catSub = getCategoryLabel(item.category)
-      // Only show sub-category if not "Flat Printing" (most common, skip noise)
+      // Show sub-category label for non-flat types (booklet, spiral, etc.)
       if (item.category !== "flat") lines.push(catSub)
-      if (item.description) lines.push(item.description)
+      // Only show description if there are NO metadata specs (fallback)
       if (item.metadata) {
         const specs = buildCustomerSpecs(item.metadata)
         if (specs) lines.push(`>  ${specs}`)
+      } else if (item.description) {
+        lines.push(item.description)
       }
       lines.push(formatCurrency(item.amount))
     })
@@ -144,14 +161,20 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   }
 
   // --- POSTAGE ---
+  // Description already contains class, qty, rate. Strip internal tier (3-Digit, 5-Digit, etc.)
+  // and entry point. Don't add a duplicate ">" spec line since description covers it.
   const postageItems = items.filter((i) => i.category === "postage")
   if (postageItems.length > 0) {
     lines.push("POSTAGE / USPS")
     postageItems.forEach((item) => {
-      if (item.description) lines.push(item.description)
-      if (item.metadata) {
-        const specs = buildCustomerSpecs(item.metadata)
-        if (specs) lines.push(`>  ${specs}`)
+      if (item.description) {
+        // Strip internal tier names and entry points from description
+        let desc = item.description
+          .replace(/\s*(AADC|Mixed AADC|3-Digit|5-Digit|Basic|SCF|NDC|DDU)\s*/gi, " ")
+          .replace(/\s*(ORIGIN|DNDC|DSCF|DADC)\s*/gi, "")
+          .replace(/\s{2,}/g, " ")
+          .trim()
+        lines.push(desc)
       }
       lines.push(formatCurrency(item.amount))
     })

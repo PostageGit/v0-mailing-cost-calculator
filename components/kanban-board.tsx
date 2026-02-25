@@ -1671,6 +1671,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   projectName: name || undefined,
   customerName: quote.contact_name || undefined,
   referenceNumber: quote.reference_number || undefined,
+  quoteNumber: quote.quote_number || undefined,
   quantity: quote.quantity || undefined,
   notes: notes || undefined,
 })

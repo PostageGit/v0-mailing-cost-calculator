@@ -260,6 +260,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
     projectName: projectName || undefined,
     customerName: contactName || undefined,
     referenceNumber: referenceNumber || undefined,
+    quoteNumber: quoteNumber || undefined,
     quantity: quantity || undefined,
   })
   try {
@@ -267,7 +268,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   } catch { /* fallback */ }
   setCopied(true)
   setTimeout(() => setCopied(false), 2000)
-  }, [items, projectName, contactName, referenceNumber, quantity])
+  }, [items, projectName, contactName, referenceNumber, quoteNumber, quantity])
 
   const saveText = isSaving
     ? "Saving..."
