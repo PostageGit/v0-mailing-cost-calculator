@@ -239,10 +239,14 @@ export function PrintingCalculator() {
 
   // Reactively rebuild result when inputs change while a sheet is selected
   // (e.g. user toggles lamination or score/fold after picking a sheet)
+  // If levelOverride is set, we must re-run calculatePrintingCost to honor it.
   useEffect(() => {
     if (selectedOption && showResults) {
-  const fcCosts = getFinCalcCosts(inputs.qty, selectedOption.result.sheets, inputs.isBroker || false)
-  const result = buildFullResult(inputs, selectedOption.result, fcCosts, foldSettings, precomputedFoldCost)
+  const calcResult = inputs.levelOverride
+    ? calculatePrintingCost(inputs, selectedOption.size) || selectedOption.result
+    : selectedOption.result
+  const fcCosts = getFinCalcCosts(inputs.qty, calcResult.sheets, inputs.isBroker || false)
+  const result = buildFullResult(inputs, calcResult, fcCosts, foldSettings, precomputedFoldCost)
   setFullResult(result)
   }
   }, [
@@ -287,7 +291,7 @@ export function PrintingCalculator() {
     const result = buildFullResult(updatedInputs, newCalcResult, fcCosts, foldSettings, precomputedFoldCost)
     setInputs(updatedInputs)
     setFullResult(result)
-  }, [fullResult, selectedOption, inputs, getFinCalcCosts])
+  }, [fullResult, selectedOption, inputs, getFinCalcCosts, foldSettings, precomputedFoldCost])
 
   // Change sheet size (go back to table)
   const handleChangeSheet = useCallback(() => {
