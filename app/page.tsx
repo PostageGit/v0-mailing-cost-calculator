@@ -27,6 +27,7 @@ import { ExportToQB } from "@/components/export-to-qb"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
+import { StepCelebration, useCelebration } from "@/components/step-celebration"
 import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
@@ -103,6 +104,7 @@ function AppContent() {
   const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
+  const celebration = useCelebration()
 
   // Guard: suppress snapshot pushes right after a load to avoid overwriting
   // the DB snapshot with empty/stale mailing state before restoreState propagates
@@ -159,9 +161,13 @@ function AppContent() {
   }, [newQuote, mailing])
 
   const handleContinueToPricing = useCallback(() => {
-    setJobPhase("pricing")
-    setCurrentStep(visibleSteps[0]?.id || "usps")
-  }, [visibleSteps])
+    const firstStep = visibleSteps[0]
+    const nextLabel = firstStep?.label || "Postage"
+    celebration.trigger("Job Setup Complete", nextLabel, true, () => {
+      setJobPhase("pricing")
+      setCurrentStep(firstStep?.id || "usps")
+    })
+  }, [visibleSteps, celebration])
 
   // ── Step workflow state ──
   const skippedSteps = useMemo(() => new Set(savedSkipped as StepId[]), [savedSkipped])
@@ -206,10 +212,15 @@ function AppContent() {
 
   const handleSkipStep = useCallback(() => {
     saveSkipped([...savedSkipped, currentStep])
-    // advance to next step
     const idx = visibleSteps.findIndex((s) => s.id === currentStep)
-    if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
-  }, [currentStep, visibleSteps, savedSkipped, saveSkipped])
+    if (idx < visibleSteps.length - 1) {
+      const nextStep = visibleSteps[idx + 1]
+      const currentLabel = visibleSteps[idx]?.label || currentStep
+      celebration.trigger(`${currentLabel} Skipped`, nextStep.label, false, () => {
+        setCurrentStep(nextStep.id)
+      })
+    }
+  }, [currentStep, visibleSteps, savedSkipped, saveSkipped, celebration])
 
   const handleNextStep = useCallback(() => {
     const idx = visibleSteps.findIndex((s) => s.id === currentStep)
@@ -221,8 +232,14 @@ function AppContent() {
       setTimeout(() => setStepGateFlash(false), 1500)
       return
     }
-    if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
-  }, [currentStep, visibleSteps, getStepStatus, isEditingExisting])
+    if (idx < visibleSteps.length - 1) {
+      const nextStep = visibleSteps[idx + 1]
+      const currentLabel = visibleSteps[idx]?.label || currentStep
+      celebration.trigger(currentLabel, nextStep.label, false, () => {
+        setCurrentStep(nextStep.id)
+      })
+    }
+  }, [currentStep, visibleSteps, getStepStatus, isEditingExisting, celebration])
 
   const pendingSteps = useMemo(() =>
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
@@ -247,6 +264,9 @@ function AppContent() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
+      {/* Step transition celebration overlay */}
+      {celebration.showing && <StepCelebration {...celebration.props} />}
+
       {/* ---- Mobile Top Bar ---- */}
       <header className="flex lg:hidden items-center justify-between h-12 px-3 border-b border-border bg-background shrink-0 z-40">
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-secondary min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Toggle menu">
