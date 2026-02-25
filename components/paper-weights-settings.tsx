@@ -163,6 +163,12 @@ export function PaperWeightsSettingsTab() {
               {testResult !== null ? formatWeight(testResult) : "--"}
             </div>
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Thickness</label>
+            <div className="h-9 flex items-center px-3 rounded-md bg-secondary text-foreground text-sm font-mono font-semibold tabular-nums min-w-[80px]">
+              {config?.[testPaper]?.thicknessIn ? `${config[testPaper].thicknessIn}\u2033` : "--"}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -182,6 +188,9 @@ export function PaperWeightsSettingsTab() {
               </th>
               <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5">
                 <div>Lbs / 1,000 Sheets</div>
+              </th>
+              <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5">
+                <div>Thickness (in)</div>
               </th>
               <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-2.5">
                 Per Sheet (oz)
@@ -240,6 +249,21 @@ export function PaperWeightsSettingsTab() {
                         })
                       }
                       className="h-7 text-xs tabular-nums text-center w-24 mx-auto"
+                    />
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={entry.thicknessIn || ""}
+                      placeholder="0.000"
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          [paper.name]: { ...entry, thicknessIn: parseFloat(e.target.value) || 0 },
+                        })
+                      }
+                      className="h-7 text-xs tabular-nums text-center w-20 mx-auto"
                     />
                   </td>
                   <td className="px-2 py-2 text-center">

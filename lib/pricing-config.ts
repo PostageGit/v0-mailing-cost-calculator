@@ -407,24 +407,26 @@ export interface PaperWeightEntry {
   size: WeightSheetSize
   /** Lbs per 1,000 sheets at that size */
   lbs: number
+  /** Thickness per sheet in inches (caliper), e.g. 0.004 */
+  thicknessIn?: number
 }
 
 export type PaperWeightConfig = Record<string, PaperWeightEntry>
 
 export const DEFAULT_PAPER_WEIGHT_CONFIG: PaperWeightConfig = {
-  "20lb Offset":            { size: "11x17", lbs: 24 },
-  "60lb Offset":            { size: "11x17", lbs: 38 },
-  "80lb Text Gloss":        { size: "11x17", lbs: 46 },
-  "100lb Text Gloss":       { size: "11x17", lbs: 56 },
-  "65 Cover (White)":       { size: "11x17", lbs: 68 },
-  "67 Cover (White)":       { size: "11x17", lbs: 70 },
-  "67 Cover (Off-White)":   { size: "11x17", lbs: 70 },
-  "80 Cover Gloss":         { size: "11x17", lbs: 82 },
-  "10pt Offset":            { size: "11x17", lbs: 95 },
-  "10pt Gloss":             { size: "11x17", lbs: 100 },
-  "12pt Gloss":             { size: "11x17", lbs: 118 },
-  "14pt Gloss":             { size: "11x17", lbs: 135 },
-  "Sticker (Crack & Peel)": { size: "11x17", lbs: 70 },
+  "20lb Offset":            { size: "11x17", lbs: 24,  thicknessIn: 0.004  },
+  "60lb Offset":            { size: "11x17", lbs: 38,  thicknessIn: 0.005  },
+  "80lb Text Gloss":        { size: "11x17", lbs: 46,  thicknessIn: 0.005  },
+  "100lb Text Gloss":       { size: "11x17", lbs: 56,  thicknessIn: 0.006  },
+  "65 Cover (White)":       { size: "11x17", lbs: 68,  thicknessIn: 0.009  },
+  "67 Cover (White)":       { size: "11x17", lbs: 70,  thicknessIn: 0.009  },
+  "67 Cover (Off-White)":   { size: "11x17", lbs: 70,  thicknessIn: 0.009  },
+  "80 Cover Gloss":         { size: "11x17", lbs: 82,  thicknessIn: 0.010  },
+  "10pt Offset":            { size: "11x17", lbs: 95,  thicknessIn: 0.010  },
+  "10pt Gloss":             { size: "11x17", lbs: 100, thicknessIn: 0.010  },
+  "12pt Gloss":             { size: "11x17", lbs: 118, thicknessIn: 0.012  },
+  "14pt Gloss":             { size: "11x17", lbs: 135, thicknessIn: 0.014  },
+  "Sticker (Crack & Peel)": { size: "11x17", lbs: 70,  thicknessIn: 0.008  },
 }
 
 // ==================== RUNTIME CONFIG ====================
