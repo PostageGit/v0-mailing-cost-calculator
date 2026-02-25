@@ -273,7 +273,18 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setItems(data.items || [])
       setSkippedStepsRaw(data.job_meta?.skipped_steps || [])
       // Capture mailing state for the caller to restore
-      const mailingState: MailingSnapshot | null = data.job_meta?.mailing_state || null
+      let mailingState: MailingSnapshot | null = data.job_meta?.mailing_state || null
+      // Fallback for quotes saved before mailing_state was persisted:
+      // Synthesize a minimal snapshot from the saved quantity so at least qty is restored
+      if (!mailingState && (data.quantity || 0) > 0) {
+        mailingState = {
+          quantity: data.quantity || 0,
+          shape: "LETTER",
+          className: "Letter",
+          mailService: "",
+          pieces: [],
+        }
+      }
       setLastLoadedMailingState(mailingState)
       if (mailingState) {
         mailingSnapshotRef.current = mailingState

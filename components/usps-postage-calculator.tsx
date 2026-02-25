@@ -194,20 +194,20 @@ function ResultsBar({
 // ═══════════════════════════════════════════════════════════════
 
 function Tab2Parcels() {
-  const [inputs, setInputs] = useState<Tab2Inputs>({
+  const mailing = useMailing()
+  const [inputs, setInputs] = useState<Tab2Inputs>(() => ({
     service: "PS",
-    quantity: 500,
+    quantity: mailing.quantity > 0 ? mailing.quantity : 500,
     weight: 1,
     psEntry: "DDU",
     psOversized: false,
     bpmShape: "FL",
     bpmSort: "NP",
     bpmEntry: "NONE",
-  })
+  }))
 
   const result = useMemo(() => calculateTab2Postage(inputs), [inputs])
   const quote = useQuote()
-  const mailing = useMailing()
 
   // Sync Tab2 service + quantity to mailing context
   useEffect(() => {
@@ -400,23 +400,24 @@ function Tab2Parcels() {
 // ═══════════════════════════════════════════════════════════════
 
 function Tab1LettersFlats() {
-  const [inputs, setInputs] = useState<USPSInputs>({
-    service: "FCM_COMM",
-    shape: "LETTER",
+  const mailing = useMailing()
+  // Seed initial state from mailing context when editing an existing quote
+  const [inputs, setInputs] = useState<USPSInputs>(() => ({
+    service: (mailing.mailService as USPSInputs["service"]) || "FCM_COMM",
+    shape: (mailing.shape as USPSInputs["shape"]) || "LETTER",
     pack: "ENV",
-    quantity: 5000,
+    quantity: mailing.quantity > 0 ? mailing.quantity : 5000,
     saturationQty: 0,
     weight: 1,
     tierIndex: 0,
     entry: "ORIGIN",
     mailType: "AUTO",
     isNonMachinable: false,
-  })
+  }))
 
   const tiers = useMemo(() => getActiveTiers(inputs.service, inputs.shape, inputs.mailType), [inputs.service, inputs.shape, inputs.mailType])
   const result = useMemo(() => calculateUSPSPostage(inputs), [inputs])
   const quote = useQuote()
-  const mailing = useMailing()
 
   // Sync USPS inputs back to mailing context
   useEffect(() => {
@@ -434,7 +435,8 @@ function Tab1LettersFlats() {
   }, [inputs.quantity, inputs.saturationQty, inputs.shape, inputs.service])
 
   // Auto-detect shape + format from planner's outer piece
-  const seededQtyRef = useRef(false)
+  // If we already seeded qty from mailing context in the initializer, mark as seeded
+  const seededQtyRef = useRef(mailing.quantity > 0)
   useEffect(() => {
     const outer = mailing.outerPiece
     if (!outer) return

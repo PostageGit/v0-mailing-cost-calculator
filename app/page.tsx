@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect, Component, type ReactNode } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
@@ -104,8 +104,16 @@ function AppContent() {
   const mailing = useMailing()
   usePricingConfig()
 
+  // Guard: suppress snapshot pushes right after a load to avoid overwriting
+  // the DB snapshot with empty/stale mailing state before restoreState propagates
+  const loadGuardRef = useRef(false)
+
   // Push mailing state into QuoteContext for auto-save whenever it changes
   useEffect(() => {
+    if (loadGuardRef.current) {
+      loadGuardRef.current = false
+      return
+    }
     setMailingSnapshot(mailing.getSnapshot())
   }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
@@ -133,6 +141,7 @@ function AppContent() {
       const mailingSnap = await loadQuote(quoteId)
       // Restore mailing state (pieces, shape, service, qty) so planner + calculators are populated
       if (mailingSnap) {
+        loadGuardRef.current = true // prevent the snapshot effect from overwriting the restored state
         mailing.restoreState(mailingSnap)
       }
       setJobPhase("pricing")
