@@ -384,6 +384,34 @@ export const DEFAULT_TABBING_CONFIG: TabbingConfig = {
   ],
 }
 
+// ==================== PAPER WEIGHT CONFIG ====================
+
+/**
+ * Paper weight config: weight in POUNDS per 1,000 sheets of 11x17.
+ * User-editable in Settings. Used for mail piece weight estimation.
+ * Key = paper name (must match PAPER_OPTIONS), value = lbs per 1000 sheets 11x17.
+ *
+ * To convert: weightPerSheet(oz) = (lbsPer1000 / 1000) * 16
+ *             weightPerSqIn(oz) = weightPerSheet(oz) / (11 * 17)
+ */
+export type PaperWeightConfig = Record<string, number>
+
+export const DEFAULT_PAPER_WEIGHT_CONFIG: PaperWeightConfig = {
+  "20lb Offset":           24,
+  "60lb Offset":           38,
+  "80lb Text Gloss":       46,
+  "100lb Text Gloss":      56,
+  "65 Cover (White)":      68,
+  "67 Cover (White)":      70,
+  "67 Cover (Off-White)":  70,
+  "80 Cover Gloss":        82,
+  "10pt Offset":           95,
+  "10pt Gloss":            100,
+  "12pt Gloss":            118,
+  "14pt Gloss":            135,
+  "Sticker (Crack & Peel)": 70,
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -396,6 +424,7 @@ export interface PricingConfig {
   envelopeSettings: EnvelopeSettings
   addressingConfig: AddressingConfig
   tabbingConfig: TabbingConfig
+  paperWeightConfig: PaperWeightConfig
 }
 
 export type { EnvelopeSettings }
@@ -411,6 +440,7 @@ let _activeConfig: PricingConfig = {
   envelopeSettings: structuredClone(DEFAULT_ENVELOPE_SETTINGS),
   addressingConfig: structuredClone(DEFAULT_ADDRESSING_CONFIG),
   tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
+  paperWeightConfig: structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -431,6 +461,7 @@ export function applyOverrides(overrides: Partial<{
   envelope_settings: EnvelopeSettings
   addressing_config: AddressingConfig
   tabbing_config: TabbingConfig
+  paper_weight_config: PaperWeightConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -460,6 +491,9 @@ export function applyOverrides(overrides: Partial<{
     tabbingConfig: overrides.tabbing_config
       ? structuredClone(overrides.tabbing_config)
       : structuredClone(DEFAULT_TABBING_CONFIG),
+    paperWeightConfig: overrides.paper_weight_config
+      ? { ...structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG), ...overrides.paper_weight_config }
+      : structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
   }
 }
 
