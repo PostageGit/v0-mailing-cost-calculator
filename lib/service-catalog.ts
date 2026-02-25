@@ -72,6 +72,8 @@ export interface ServiceItem {
   autoInclude?: boolean
   /** Links to supplier item ID in suppliers config (for list rentals, etc.) */
   linkedSupplierId?: string
+  /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
+  pricingRule?: "per1000_after_1000"
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -109,8 +111,8 @@ export const SERVICE_CATALOG: ServiceItem[] = [
   { id: "addr-flats",    name: "Addressing Flats",           category: "ADDRESSING", description: "Printing mailing addresses on FLAT mail pieces",                              defaultPrice: 200,  priceUnit: "1000", postcard: false, letter: false, flat: true, autoInclude: true },
 
   // ── COMPUTER WORK ──
-  { id: "computer-work",  name: "Computer Work",         category: "COMPUTER_WORK", description: "Computer work for the first 1,000 pieces",        defaultPrice: 125, priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true },
-  { id: "cass-2nd",       name: "CASS 2nd (1,000+)",     category: "COMPUTER_WORK", description: "Computer work for mailpieces from 1,000 and above", defaultPrice: 10,  priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true },
+  { id: "computer-work",  name: "Computer Work",         category: "COMPUTER_WORK", description: "Computer work for the job",                        defaultPrice: 125, priceUnit: "job", postcard: null, letter: null, flat: null, autoInclude: true },
+  { id: "cass-2nd",       name: "CASS 2nd (1,000+)",     category: "COMPUTER_WORK", description: "Additional computer work beyond 1,000 pieces",     defaultPrice: 10,  priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true, pricingRule: "per1000_after_1000" },
 
   // ── INSERTING ──
   { id: "insert-machine-3",      name: "Machine Insert (up to 3)",   category: "INSERTING", description: "Inserting up to 3 prints into envelope by machine and sealing",    defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
@@ -200,9 +202,17 @@ export function calculateItemAmount(
   mailingQty: number,
   itemQty: number,
 ): number {
+  // Special pricing rules
+  if (item.pricingRule === "per1000_after_1000") {
+    // First 1,000 are free; charge fractional blocks beyond that
+    const billable = Math.max(0, mailingQty - 1000)
+    if (billable <= 0) return 0
+    return unitPrice * (billable / 1000) * itemQty
+  }
+
   switch (item.priceUnit) {
-    case "1000":
-      return unitPrice * Math.ceil(mailingQty / 1000) * itemQty
+  case "1000":
+  return unitPrice * Math.ceil(mailingQty / 1000) * itemQty
     case "piece":
     case "stamp":
     case "bag":

@@ -564,7 +564,11 @@ function ServiceRow({
           />
         ) : (
           <span className="block text-center text-xs text-muted-foreground">
-            {item.priceUnit === "1000"
+            {item.pricingRule === "per1000_after_1000"
+              ? mailingQty > 1000
+                ? `x${((mailingQty - 1000) / 1000).toFixed(1).replace(/\.0$/, "")}`
+                : "--"
+              : item.priceUnit === "1000"
               ? `x${Math.ceil(mailingQty / 1000)}`
               : `x${mailingQty > 0 ? mailingQty.toLocaleString() : "--"}`}
           </span>
