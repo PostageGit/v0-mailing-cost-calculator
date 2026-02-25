@@ -75,7 +75,7 @@ export interface ServiceItem {
   /** Links to supplier item ID in suppliers config (for list rentals, etc.) */
   linkedSupplierId?: string
   /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
-  pricingRule?: "per1000_after_1000" | "min_then_per_pc" | "addressing_bracket"
+  pricingRule?: "per1000_after_1000" | "min_then_per_pc" | "addressing_bracket" | "tabbing_bracket"
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -120,7 +120,7 @@ export const SERVICE_CATALOG: ServiceItem[] = [
   { id: "insert-clear-bags",     name: "Inserting in Clear Bags",    category: "INSERTING", description: "Inserting items into a clear bag by hand and sealing",              defaultPrice: 350,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "insert-hand",           name: "Inserting by Hand",          category: "INSERTING", description: "Inserting items into a paper envelope by hand and sealing",         defaultPrice: 285,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "clear-bags-item",       name: "Clear Bags (item)",          category: "INSERTING", description: "A clear bag to insert the mail piece into",                         defaultPrice: 0.18, priceUnit: "bag", postcard: false, letter: true, flat: true },
-  { id: "tabbing",               name: "Tabbing",                    category: "INSERTING", description: "Apply up to 2 tabs on a mailpiece",                                 defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
+  { id: "tabbing",               name: "Tabbing",                    category: "INSERTING", description: "Apply up to 2 tabs on a mailpiece",                                 defaultPrice: 125,  priceUnit: "piece", postcard: false, letter: true, flat: true, pricingRule: "tabbing_bracket" },
   { id: "folding",               name: "Folding",                    category: "INSERTING", description: "Folding a scored print by machine",                                 defaultPrice: 75,   priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "folding-hand",          name: "Folding by Hand",            category: "INSERTING", description: "Folding a scored print manually by hand",                            defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "gluing",                name: "Gluing",                     category: "INSERTING", description: "Glueing an item or print into the mailing",                          defaultPrice: 150,  priceUnit: "1000", postcard: false, letter: true, flat: true },
@@ -219,6 +219,10 @@ export function calculateItemAmount(
     const cfg = getActiveConfig().addressingConfig
     const isFlat = item.id === "addr-flats"
     const brackets: AddressingBracket[] = isFlat ? cfg.flat : cfg.letterPostcard
+    return calculateAddressingBracket(brackets, mailingQty) * itemQty
+  }
+  if (item.pricingRule === "tabbing_bracket") {
+    const brackets = getActiveConfig().tabbingConfig.brackets
     return calculateAddressingBracket(brackets, mailingQty) * itemQty
   }
 

@@ -368,6 +368,20 @@ export const DEFAULT_ADDRESSING_CONFIG: AddressingConfig = {
   ],
 }
 
+// ==================== TABBING BRACKET CONFIG ====================
+
+export interface TabbingConfig {
+  /** Brackets for tabbing, ordered by maxQty ascending */
+  brackets: AddressingBracket[]
+}
+
+export const DEFAULT_TABBING_CONFIG: TabbingConfig = {
+  brackets: [
+    { maxQty: 1000, flatMin: 125 },
+    { maxQty: null, perPiece: 0.125 },
+  ],
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -379,6 +393,7 @@ export interface PricingConfig {
   scoreFold: ScoreFoldConfig
   envelopeSettings: EnvelopeSettings
   addressingConfig: AddressingConfig
+  tabbingConfig: TabbingConfig
 }
 
 export type { EnvelopeSettings }
@@ -393,6 +408,7 @@ let _activeConfig: PricingConfig = {
   scoreFold: structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
   envelopeSettings: structuredClone(DEFAULT_ENVELOPE_SETTINGS),
   addressingConfig: structuredClone(DEFAULT_ADDRESSING_CONFIG),
+  tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -412,6 +428,7 @@ export function applyOverrides(overrides: Partial<{
   pricing_score_fold: ScoreFoldConfig
   envelope_settings: EnvelopeSettings
   addressing_config: AddressingConfig
+  tabbing_config: TabbingConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -438,6 +455,9 @@ export function applyOverrides(overrides: Partial<{
     addressingConfig: overrides.addressing_config
       ? structuredClone(overrides.addressing_config)
       : structuredClone(DEFAULT_ADDRESSING_CONFIG),
+    tabbingConfig: overrides.tabbing_config
+      ? structuredClone(overrides.tabbing_config)
+      : structuredClone(DEFAULT_TABBING_CONFIG),
   }
 }
 

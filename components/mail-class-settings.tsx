@@ -37,6 +37,8 @@ import {
   type AddressingConfig,
   type AddressingBracket,
   DEFAULT_ADDRESSING_CONFIG,
+  type TabbingConfig,
+  DEFAULT_TABBING_CONFIG,
 } from "@/lib/pricing-config"
 import {
   DEFAULT_ENVELOPE_SETTINGS,
@@ -242,6 +244,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
             </TabsContent>
             <TabsContent value="addressing">
           <AddressingBracketsSettings />
+          <div className="mt-6 border-t border-border pt-6">
+            <TabbingBracketsSettings />
+          </div>
         </TabsContent>
         <TabsContent value="steps">
               <JobStepsTab />
@@ -3547,5 +3552,158 @@ function BracketEditor({
         </Button>
       </CardContent>
     </Card>
+  )
+}
+
+// =========== TABBING BRACKETS SETTINGS ===========
+
+function TabbingBracketsSettings() {
+  const { data: appSettings, isLoading } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [config, setConfig] = useState<TabbingConfig | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  if (appSettings && !loaded) {
+    const saved = appSettings.tabbing_config as TabbingConfig | undefined
+    setConfig(saved ?? structuredClone(DEFAULT_TABBING_CONFIG))
+    setLoaded(true)
+  }
+
+  const save = async () => {
+    if (!config) return
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tabbing_config: config }),
+      })
+      applyOverrides({ tabbing_config: config })
+      globalMutate("/api/app-settings")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateBracket = (idx: number, updates: Partial<AddressingBracket>) => {
+    if (!config) return
+    setConfig({
+      ...config,
+      brackets: config.brackets.map((b, i) => (i === idx ? { ...b, ...updates } : b)),
+    })
+  }
+
+  const addBracket = () => {
+    if (!config) return
+    const newBracket: AddressingBracket = { maxQty: 5000, perPiece: 0.10 }
+    const updated = [...config.brackets]
+    updated.splice(Math.max(0, config.brackets.length - 1), 0, newBracket)
+    setConfig({ ...config, brackets: updated })
+  }
+
+  const removeBracket = (idx: number) => {
+    if (!config) return
+    if (config.brackets.length <= 1) return
+    setConfig({ ...config, brackets: config.brackets.filter((_, i) => i !== idx) })
+  }
+
+  if (isLoading || !config) return <div className="p-8 text-center text-sm text-muted-foreground">Loading...</div>
+
+  return (
+    <div className="space-y-4 p-1">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-foreground">Tabbing Rate Brackets</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Tiered pricing for applying tabs to self-mailers and booklets.
+          </p>
+        </div>
+        <Button size="sm" onClick={save} disabled={saving} className="gap-1.5">
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Save
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Tabbing Brackets</CardTitle>
+          <p className="text-xs text-muted-foreground">Default: $125 min up to 1,000 pc, then $0.125/pc</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+            <span>Up to (qty)</span>
+            <span />
+            <span>Price</span>
+            <span />
+          </div>
+          {config.brackets.map((b, i) => {
+            const isLast = b.maxQty === null
+            const hasFlat = b.flatMin != null
+            return (
+              <div key={i} className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-center">
+                <div>
+                  {isLast ? (
+                    <span className="text-xs font-medium text-muted-foreground px-2">Unlimited</span>
+                  ) : (
+                    <Input
+                      type="number"
+                      className="h-8 text-sm"
+                      value={b.maxQty ?? ""}
+                      onChange={(e) => updateBracket(i, { maxQty: parseInt(e.target.value) || 0 })}
+                    />
+                  )}
+                </div>
+                <Select
+                  value={hasFlat ? "flat" : "piece"}
+                  onValueChange={(v) => {
+                    if (v === "flat") {
+                      updateBracket(i, { flatMin: 125, perPiece: undefined })
+                    } else {
+                      updateBracket(i, { perPiece: 0.125, flatMin: undefined })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[110px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="flat">Flat Min $</SelectItem>
+                    <SelectItem value="piece">Per Piece $</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
+                  <Input
+                    type="number"
+                    step={hasFlat ? "1" : "0.001"}
+                    className="h-8 text-sm pl-5"
+                    value={hasFlat ? (b.flatMin ?? "") : (b.perPiece ?? "")}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0
+                      if (hasFlat) {
+                        updateBracket(i, { flatMin: val })
+                      } else {
+                        updateBracket(i, { perPiece: val })
+                      }
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => removeBracket(i)}
+                  disabled={config.brackets.length <= 1}
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )
+          })}
+          <Button variant="outline" size="sm" className="w-full gap-1.5 mt-2" onClick={addBracket}>
+            <Plus className="h-3.5 w-3.5" />
+            Add Bracket
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
