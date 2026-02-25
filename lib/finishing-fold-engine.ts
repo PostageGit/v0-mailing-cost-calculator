@@ -91,7 +91,7 @@ export interface FoldFinishInput {
 //   - 60lb Offset: FOLD under "80text", no S&F
 //   - 80lb Text Gloss: FOLD under "80text", no S&F
 //   - 100lb Text Gloss: FOLD under "100text", S&F under "100text_80cover"
-//   - 65/67 Cover: no fold (cover stock), S&F under "cardstock" (same as 10pt/12pt)
+//   - 65/67 Cover: no fold (cover stock), S&F under "100text_80cover" (same as 80 Cover / 100 Text)
 //   - 80 Cover Gloss: no fold (cover stock), S&F under "100text_80cover"
 //   - 10pt/12pt/14pt (any cardstock): no fold, S&F under "cardstock"
 //   - Sticker: no fold, no S&F
@@ -111,8 +111,8 @@ export function mapPaperToFoldKey(paperName: string): { foldKey: string | null; 
   if (lower.includes("100lb text") || lower.includes("100 text")) return { foldKey: "100text", sfKey: "100text_80cover" }
   // 80 Cover Gloss -- no fold, S&F under "100text_80cover"
   if (lower.includes("80 cover") || lower.includes("80cover")) return { foldKey: null, sfKey: "100text_80cover" }
-  // 65/67 Cover -- cardstock, no fold, S&F under "cardstock" (same as 10pt/12pt/14pt)
-  if (lower.includes("65 cover") || lower.includes("67 cover")) return { foldKey: null, sfKey: "cardstock" }
+  // 65/67 Cover -- same category as 100 Text / 80 Cover for S&F (not heavy cardstock like 10pt/12pt)
+  if (lower.includes("65 cover") || lower.includes("67 cover")) return { foldKey: null, sfKey: "100text_80cover" }
   // Cardstock: 10pt, 12pt, 14pt -- no fold, S&F under "cardstock"
   if (lower.includes("10pt") || lower.includes("12pt") || lower.includes("14pt") || lower.includes("card")) return { foldKey: null, sfKey: "cardstock" }
   // Fallback: unknown paper
