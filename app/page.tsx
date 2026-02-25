@@ -100,7 +100,7 @@ function AppContent() {
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
-  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot } = useQuote()
+  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
 
@@ -179,14 +179,17 @@ function AppContent() {
   }, [completedSteps, skippedSteps])
 
   // The "progress frontier" -- the furthest step you can reach.
-  // You can click any step up to (and including) the first pending step.
+  // When editing an existing saved quote, ALL steps are freely navigable.
+  // For new quotes, you can click any step up to (and including) the first pending step.
+  const isEditingExisting = !!savedId
   const progressFrontier = useMemo(() => {
+    if (isEditingExisting) return visibleSteps.length - 1
     for (let i = 0; i < visibleSteps.length; i++) {
       const s = visibleSteps[i].id
       if (!completedSteps.has(s) && !skippedSteps.has(s)) return i
     }
     return visibleSteps.length - 1 // all done/skipped
-  }, [visibleSteps, completedSteps, skippedSteps])
+  }, [visibleSteps, completedSteps, skippedSteps, isEditingExisting])
 
   const canNavigateTo = useCallback((stepIdx: number) => {
     return stepIdx <= progressFrontier
@@ -202,14 +205,15 @@ function AppContent() {
   const handleNextStep = useCallback(() => {
     const idx = visibleSteps.findIndex((s) => s.id === currentStep)
     const status = getStepStatus(currentStep)
-    if (status === "pending") {
+    // When editing an existing quote, allow free navigation even if step is pending
+    if (status === "pending" && !isEditingExisting) {
       // Can't advance -- flash the gate
       setStepGateFlash(true)
       setTimeout(() => setStepGateFlash(false), 1500)
       return
     }
     if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
-  }, [currentStep, visibleSteps, getStepStatus])
+  }, [currentStep, visibleSteps, getStepStatus, isEditingExisting])
 
   const pendingSteps = useMemo(() =>
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
@@ -525,7 +529,7 @@ function AppContent() {
                       {(() => {
                         const idx = visibleSteps.findIndex((s) => s.id === currentStep)
                         if (idx < visibleSteps.length - 1) {
-                          const canGo = getStepStatus(currentStep) !== "pending"
+                          const canGo = isEditingExisting || getStepStatus(currentStep) !== "pending"
                           return (
                             <button onClick={handleNextStep}
                               className={cn(
