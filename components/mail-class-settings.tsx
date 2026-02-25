@@ -2743,6 +2743,10 @@ function FinishingsSettingsTab() {
             <label className="text-xs font-medium text-muted-foreground">Hand Fold Hourly ($)</label>
             <Input type="number" step="1" value={foldSettings.handFoldHourlyRate} onChange={(e) => updateFoldSetting("handFoldHourlyRate", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
           </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Hand Fold $/pc</label>
+            <Input type="number" step="0.01" value={foldSettings.handFoldRatePerPiece ?? 0.25} onChange={(e) => updateFoldSetting("handFoldRatePerPiece", parseFloat(e.target.value) || 0)} className="h-8 text-sm" />
+          </div>
         </div>
       </div>
     </div>

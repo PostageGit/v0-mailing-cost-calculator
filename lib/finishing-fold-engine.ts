@@ -19,6 +19,7 @@ export interface FoldFinishingSettings {
   brokerDiscountPercent: number
   longSheetSetupFee: number
   handFoldHourlyRate: number
+  handFoldRatePerPiece: number
   minimumJobPrice: number
   setupLevels: { label: string; minutes: number }[]
   runRate?: number
@@ -30,6 +31,7 @@ export const DEFAULT_FOLD_SETTINGS: FoldFinishingSettings = {
   brokerDiscountPercent: 30,
   longSheetSetupFee: 35,
   handFoldHourlyRate: 25,
+  handFoldRatePerPiece: 0.25,
   minimumJobPrice: 45,
   runRate: 30,
   setupLevels: [
