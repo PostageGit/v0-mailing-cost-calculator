@@ -568,6 +568,10 @@ function ServiceRow({
               ? mailingQty > 1000
                 ? `x${((mailingQty - 1000) / 1000).toFixed(1).replace(/\.0$/, "")}`
                 : "--"
+              : item.pricingRule === "min_then_per_pc"
+              ? mailingQty <= 1000
+                ? "min"
+                : `${mailingQty.toLocaleString()} pc`
               : item.priceUnit === "1000"
               ? `x${Math.ceil(mailingQty / 1000)}`
               : `x${mailingQty > 0 ? mailingQty.toLocaleString() : "--"}`}

@@ -73,7 +73,7 @@ export interface ServiceItem {
   /** Links to supplier item ID in suppliers config (for list rentals, etc.) */
   linkedSupplierId?: string
   /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
-  pricingRule?: "per1000_after_1000"
+  pricingRule?: "per1000_after_1000" | "min_then_per_pc"
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -115,7 +115,7 @@ export const SERVICE_CATALOG: ServiceItem[] = [
   { id: "cass-2nd",       name: "CASS 2nd (1,000+)",     category: "COMPUTER_WORK", description: "Additional computer work beyond 1,000 pieces",     defaultPrice: 10,  priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true, pricingRule: "per1000_after_1000" },
 
   // ── INSERTING ──
-  { id: "insert-machine-3",      name: "Machine Insert (up to 3)",   category: "INSERTING", description: "Inserting up to 3 prints into envelope by machine and sealing",    defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
+  { id: "insert-machine-3",      name: "Machine Insert (up to 3)",   category: "INSERTING", description: "Inserting up to 3 prints into envelope by machine and sealing",    defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true, pricingRule: "min_then_per_pc" },
   { id: "insert-machine-addl",   name: "Machine Insert (each addl)", category: "INSERTING", description: "Each additional insert above 3 by machine",                        defaultPrice: 25,   priceUnit: "insert", postcard: false, letter: true, flat: true },
   { id: "insert-clear-bags",     name: "Inserting in Clear Bags",    category: "INSERTING", description: "Inserting items into a clear bag by hand and sealing",              defaultPrice: 350,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "insert-hand",           name: "Inserting by Hand",          category: "INSERTING", description: "Inserting items into a paper envelope by hand and sealing",         defaultPrice: 285,  priceUnit: "1000", postcard: false, letter: true, flat: true },
@@ -208,6 +208,14 @@ export function calculateItemAmount(
     const billable = Math.max(0, mailingQty - 1000)
     if (billable <= 0) return 0
     return unitPrice * (billable / 1000) * itemQty
+  }
+  if (item.pricingRule === "min_then_per_pc") {
+    // Minimum charge (unitPrice) covers first 1,000 pieces.
+    // Beyond 1,000: per-piece rate = unitPrice / 1000, no rounding.
+    if (mailingQty <= 1000) return unitPrice * itemQty
+    const extra = mailingQty - 1000
+    const perPiece = unitPrice / 1000
+    return (unitPrice + extra * perPiece) * itemQty
   }
 
   switch (item.priceUnit) {
