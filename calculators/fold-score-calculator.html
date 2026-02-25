@@ -2,580 +2,692 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Finishing Calculator</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>FinishCalc</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0c0d12;--s1:#14161e;--s2:#1c1f2b;--s3:#252938;--bdr:#2e3348;--tx:#e4e6f0;--dim:#6b7194;--green:#34d399;--green2:#10b981;--gbg:rgba(52,211,153,.08);--amber:#fbbf24;--abg:rgba(251,191,36,.08);--red:#f87171;--rbg:rgba(248,113,113,.08);--blue:#60a5fa;--bbg:rgba(96,165,250,.08);--purple:#a78bfa;--pbg:rgba(167,139,250,.08)}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--s1);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:50}
-.topbar h1{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--green);letter-spacing:1.5px;text-transform:uppercase}
-.tabs{display:flex;gap:4px}
-.tab{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--dim);transition:all .15s;border:1px solid transparent}
-.tab:hover{color:var(--tx);background:var(--s2)}
-.tab.on{color:var(--green);background:var(--gbg);border-color:rgba(52,211,153,.2)}
-.wrap{max-width:700px;margin:0 auto;padding:20px 16px 120px}
-.page{display:none}.page.on{display:block}
+:root{--bg:#f0f0f3;--card:#fff;--tx:#1a1a2e;--tx2:#7c7c8a;--tx3:#b0b0ba;--bdr:#e4e4eb;--blue:#2563eb;--blue-soft:#eff4ff;--green:#059669;--green-soft:#ecfdf5;--green-dark:#065f46;--orange:#d97706;--orange-soft:#fffbeb;--red:#dc2626;--red-soft:#fef2f2;--purple:#7c3aed;--purple-soft:#f5f3ff;--radius:14px}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
 
-/* Inputs */
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.row.r3{grid-template-columns:1fr 1fr 1fr}
-.row.r1{grid-template-columns:1fr}
-.fg{display:flex;flex-direction:column;gap:4px}
-.fg label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dim)}
-.fg select,.fg input{background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none;width:100%;transition:border .15s}
-.fg select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%236b7194' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:28px}
-.fg select:focus,.fg input:focus{border-color:var(--green)}
-.fg select option{background:var(--s2)}
-.size-input-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:10px}
-.size-input-row .x{color:var(--dim);font-size:18px;font-weight:700;padding-bottom:10px}
-.x-swap{display:flex;align-items:end;padding-bottom:4px}
-.swap-btn{
-  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
-  background:var(--s2);border:1px solid var(--bdr);border-radius:8px;
-  color:var(--dim);font-size:18px;cursor:pointer;transition:all .15s;user-select:none;
-}
-.swap-btn:hover{border-color:var(--green);color:var(--green);background:var(--gbg)}
-.swap-btn:active{transform:scale(.92)}
-.orient-row{display:flex;align-items:center;gap:10px;margin-top:8px}
-.orient-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);white-space:nowrap}
-.orient-toggle{display:flex;gap:4px;flex:1}
-.ot-opt{
-  flex:1;text-align:center;padding:7px 8px;border-radius:7px;font-size:12px;font-weight:600;
-  cursor:pointer;color:var(--dim);background:var(--s2);border:1px solid var(--bdr);
-  transition:all .15s;user-select:none;
-}
-.ot-opt:hover{color:var(--tx);border-color:var(--green)}
-.ot-opt.on{color:var(--green);background:var(--gbg);border-color:rgba(52,211,153,.3)}
+/* BAR */
+.bar{height:52px;min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#fff;border-bottom:1px solid var(--bdr);z-index:10}
+.bar-title{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.bar-title em{font-style:normal;color:var(--blue)}
+.bar-right{display:flex;gap:6px}
+.bar-btn{padding:7px 14px;border-radius:100px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--bg);color:var(--tx2);transition:all .15s}
+.bar-btn:hover{background:var(--blue-soft);color:var(--blue)}
+.bar-btn.on{background:var(--blue);color:#fff}
 
-/* Size viz */
-.size-viz{background:var(--s1);border:1px solid var(--bdr);border-radius:14px;padding:20px;margin-bottom:16px;display:none}
-.size-viz.show{display:block}
-.viz-row{display:grid;grid-template-columns:1fr 40px 1fr;gap:12px;align-items:center}
-.viz-box{text-align:center}
-.viz-box .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);margin-bottom:10px}
-.viz-box .lbl-green{color:var(--green)}
-.viz-box .lbl-purple{color:var(--purple)}
-.viz-arrow{text-align:center;font-size:22px;color:var(--dim)}
-.sheet-wrap{display:flex;justify-content:center;align-items:center;min-height:140px}
-.sheet{border:2px solid var(--green);border-radius:4px;position:relative;display:flex;align-items:center;justify-content:center;transition:all .3s}
-.sheet.folded{border-color:var(--purple)}
-.sheet .dim-w{position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--green)}
-.sheet.folded .dim-w{color:var(--purple)}
-.sheet .dim-h{position:absolute;right:-42px;top:0;bottom:0;display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--green);writing-mode:vertical-rl}
-.sheet.folded .dim-h{color:var(--purple)}
-.fold-lines{position:absolute;top:0;bottom:0;left:0;right:0;pointer-events:none}
-.fold-line{position:absolute;top:0;bottom:0;border-left:2px dashed rgba(251,191,36,.5)}
-.size-text{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;margin-top:8px}
-.size-text.green{color:var(--green)}
-.size-text.purple{color:var(--purple)}
+/* MODE TOGGLE */
+.mode-tog{display:flex;background:var(--bg);border-radius:100px;padding:3px;gap:2px}
+.mode-opt{padding:6px 12px;border-radius:100px;font-size:11px;font-weight:700;cursor:pointer;color:var(--tx2);transition:all .15s;border:none;background:none}
+.mode-opt.on{background:#fff;color:var(--blue);box-shadow:0 1px 4px rgba(0,0,0,.1)}
 
-/* Matched size badge */
-.match-badge{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--dim);margin-bottom:16px}
-.match-badge .dot{width:6px;height:6px;border-radius:50%}
+/* CRUMBS */
+.crumbs{height:40px;min-height:40px;display:flex;align-items:center;gap:4px;padding:0 16px;background:#fff;border-bottom:1px solid var(--bdr);overflow-x:auto}
+.crumb{padding:5px 12px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap;color:var(--tx3);cursor:pointer;transition:all .15s}
+.crumb.done{color:var(--green);background:var(--green-soft)}
+.crumb.now{color:var(--blue);background:var(--blue-soft)}
+.crumb-arrow{color:var(--tx3);font-size:10px}
+.crumbs.hide{display:none}
 
-/* Alerts */
-.al{border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5}
-.al.red{background:var(--rbg);border:1px solid rgba(248,113,113,.2);color:var(--red)}
-.al.amber{background:var(--abg);border:1px solid rgba(251,191,36,.2);color:var(--amber)}
-.al.blue{background:var(--bbg);border:1px solid rgba(96,165,250,.2);color:var(--blue)}
-.al.green{background:var(--gbg);border:1px solid rgba(52,211,153,.2);color:var(--green)}
-.al .ic{font-size:15px;flex-shrink:0}
+/* WIZARD STEPS */
+.main{flex:1;overflow:hidden;position:relative}
+.step{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s}
+.step.active{opacity:1;pointer-events:auto}
+.step-inner{width:100%;max-width:500px}
+.step-q{font-size:24px;font-weight:800;text-align:center;letter-spacing:-.4px;margin-bottom:20px;line-height:1.2}
+.step-q small{display:block;font-size:13px;font-weight:500;color:var(--tx2);margin-top:4px;letter-spacing:0}
 
-/* Big price */
-.hero{text-align:center;padding:28px 20px;margin:16px 0;background:linear-gradient(135deg,var(--s1),var(--s2));border:1px solid var(--bdr);border-radius:16px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;inset:-50%;background:radial-gradient(circle,rgba(52,211,153,.04),transparent 60%);pointer-events:none}
-.hero .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--dim);margin-bottom:6px}
-.hero .amt{font-family:'JetBrains Mono',monospace;font-size:50px;font-weight:700;color:var(--green);line-height:1}
-.hero .pp{font-size:12px;color:var(--dim);margin-top:6px;font-family:'JetBrains Mono',monospace}
-.hero .brk{font-size:15px;color:var(--purple);margin-top:10px;font-family:'JetBrains Mono',monospace;font-weight:600}
+/* OPTS */
+.opts{display:grid;gap:8px;width:100%}
+.opts-2{grid-template-columns:1fr 1fr}
+.opts-3{grid-template-columns:1fr 1fr 1fr}
+.opt{background:var(--card);border:2.5px solid var(--bdr);border-radius:var(--radius);padding:16px 10px;text-align:center;cursor:pointer;transition:all .12s;user-select:none}
+.opt:hover{border-color:#c0c0cc}
+.opt.fold-on{border-color:var(--green);background:var(--green-soft)}
+.opt.sf-on{border-color:var(--purple);background:var(--purple-soft)}
+.opt-icon{font-size:28px;margin-bottom:4px}
+.opt-name{font-size:15px;font-weight:700}
+.opt-desc{font-size:11px;color:var(--tx2);margin-top:3px}
 
-/* Upgrade banner */
-.upg{background:var(--gbg);border:1px solid rgba(52,211,153,.2);border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--green);line-height:1.5}
-.upg b{display:block;font-size:14px;margin-bottom:2px}
+/* QTY */
+.qty-wrap{display:flex;align-items:center;gap:10px;background:var(--card);border:2.5px solid var(--bdr);border-radius:var(--radius);padding:6px}
+.qty-wrap:focus-within{border-color:var(--blue)}
+.qty-field{flex:1;border:none;outline:none;background:transparent;font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;text-align:center;color:var(--tx);padding:8px;-moz-appearance:textfield}
+.qty-field::-webkit-inner-spin-button{-webkit-appearance:none}
+.qty-bump{width:46px;height:46px;border-radius:10px;border:none;background:var(--bg);color:var(--tx);font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qty-bump:active{transform:scale(.92)}
 
-/* Collapsible */
-.coll-h{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s1);border:1px solid var(--bdr);border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;color:var(--dim);transition:all .15s;user-select:none;margin-top:6px}
-.coll-h:hover{color:var(--tx);border-color:var(--green)}
-.coll-h .arr{transition:transform .2s;font-size:10px}
-.coll-h.open .arr{transform:rotate(180deg)}
-.coll-b{max-height:0;overflow:hidden;transition:max-height .3s ease}
-.coll-b.open{max-height:600px}
-.coll-inner{padding:10px 14px;background:var(--s1);border:1px solid var(--bdr);border-top:none;border-radius:0 0 9px 9px}
-.dr{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid rgba(46,51,72,.4)}
-.dr:last-child{border-bottom:none}
-.dr .k{color:var(--dim)}.dr .v{font-family:'JetBrains Mono',monospace;font-weight:500}
-.dr.sep{border-top:2px solid var(--bdr);margin-top:3px;padding-top:6px}
+/* SIZE */
+.size-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end}
+.size-field{background:var(--card);border:2.5px solid var(--bdr);border-radius:var(--radius);padding:12px;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;text-align:center;color:var(--tx);outline:none;width:100%;-moz-appearance:textfield}
+.size-field::-webkit-inner-spin-button{-webkit-appearance:none}
+.size-field:focus{border-color:var(--blue)}
+.size-x{font-size:20px;font-weight:800;color:var(--tx3);padding-bottom:12px}
+.size-lbl{font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:4px}
+.orient-row{display:flex;gap:6px;margin-top:10px}
+.orient-btn{flex:1;padding:10px;border-radius:var(--radius);border:2.5px solid var(--bdr);background:var(--card);text-align:center;font-size:13px;font-weight:700;color:var(--tx2);cursor:pointer}
+.orient-btn.on{border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
 
-/* Settings */
-.sc{background:var(--s1);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:12px}
-.sc h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:12px}
-.sg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.si{background:var(--s2);border-radius:8px;padding:10px}
-.si label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);display:block;margin-bottom:5px}
-.si input{background:var(--s1);border:1px solid var(--bdr);border-radius:6px;padding:7px 10px;color:var(--green);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;width:100%;outline:none}
-.si input:focus{border-color:var(--green)}
-.si .h{font-size:9px;color:var(--dim);margin-top:3px}
-.tr{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bdr)}
-.tr:last-child{border-bottom:none}
-.tl{font-size:13px;font-weight:500}
-.tl span{display:block;font-size:10px;color:var(--dim);margin-top:1px}
-.tog{width:38px;height:20px;background:var(--s3);border-radius:10px;cursor:pointer;position:relative;transition:background .15s;flex-shrink:0}
-.tog.on{background:var(--green)}
-.tog::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .15s}
-.tog.on::after{transform:translateX(18px)}
+/* NAV */
+.nav-row{display:flex;gap:8px;margin-top:16px;width:100%}
+.nav-btn{flex:1;padding:14px;border-radius:var(--radius);border:none;font-family:'Outfit',sans-serif;font-size:15px;font-weight:700;cursor:pointer}
+.nav-back{background:var(--card);color:var(--tx2);border:2px solid var(--bdr)}
+.nav-next{background:var(--blue);color:#fff}
+.nav-next:disabled{opacity:.4;cursor:not-allowed}
+.nav-next.green{background:var(--green)}
 
-/* Rules */
-.rule{padding:10px 12px;border-left:3px solid var(--s3);margin-bottom:6px;font-size:12px;color:var(--dim);line-height:1.6}
-.rule:hover{border-left-color:var(--green);color:var(--tx)}
-.rule b{color:var(--tx)}
+/* DIAGRAM */
+.diagram{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radius);padding:16px;margin-bottom:12px;display:grid;grid-template-columns:1fr 30px 1fr;gap:8px;align-items:center}
+.dia-box{text-align:center}
+.dia-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.dia-lbl.g{color:var(--green-dark)}.dia-lbl.p{color:var(--purple)}
+.dia-size{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;margin-top:6px}
+.dia-size.g{color:var(--green-dark)}.dia-size.p{color:var(--purple)}
+.dia-arrow{text-align:center;font-size:20px;color:var(--tx3)}
+.dia-info{font-size:11px;color:var(--tx2);margin-top:4px}
+.dia-svg{display:flex;justify-content:center;min-height:80px;align-items:center}
 
-.empty{text-align:center;padding:50px 20px;color:var(--dim)}
-.empty .em{font-size:36px;margin-bottom:10px}
-.empty p{font-size:13px}
+/* RESULT */
+.result-card{background:var(--card);border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.07);overflow:hidden;width:100%}
+.result-price{text-align:center;padding:24px 16px 16px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5)}
+.result-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--tx2)}
+.result-amt{font-family:'JetBrains Mono',monospace;font-size:48px;font-weight:700;color:var(--green);line-height:1;margin:4px 0;letter-spacing:-2px}
+.result-pp{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--tx2)}
+.result-broker{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--purple);margin-top:6px}
+.result-meta{padding:12px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.meta-item{background:var(--bg);border-radius:8px;padding:8px 10px}
+.meta-k{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3)}
+.meta-v{font-size:13px;font-weight:700;margin-top:1px}
 
-/* Open size box */
-.open-size-box{background:var(--s1);border:2px solid rgba(52,211,153,.25);border-radius:12px;padding:16px 14px 12px;margin-bottom:14px;position:relative}
-.open-size-label{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--green);letter-spacing:1px;text-align:center;margin-bottom:12px}
-.open-size-label span{font-weight:400;color:var(--dim);font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:0}
+.r-alert{margin:0 0 8px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.4}
+.r-alert.red{background:var(--red-soft);color:var(--red)}
+.r-alert.orange{background:var(--orange-soft);color:var(--orange)}
+.r-alert.blue{background:var(--blue-soft);color:var(--blue)}
+.r-alert.green{background:var(--green-soft);color:var(--green)}
+.sug-box{background:#fff;border:2px solid var(--bdr);border-radius:12px;padding:16px;margin-top:12px}
+.sug-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--blue);margin-bottom:10px}
+.sug-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--bdr)}
+.sug-item:last-child{border-bottom:none}
+.sug-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.sug-text{font-size:13px;color:var(--tx);line-height:1.45;font-weight:500}
+.sug-text strong{font-weight:700}
+.price-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.pc-option{border-radius:12px;padding:14px;text-align:center;cursor:default;border:2px solid var(--bdr)}
+.pc-option.original{background:#fff}
+.pc-option.upgrade{background:var(--green-soft);border-color:var(--green)}
+.pc-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--tx2);margin-bottom:4px}
+.pc-paper{font-size:12px;font-weight:700;margin-bottom:6px}
+.pc-price{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;letter-spacing:-1px}
+.pc-option.original .pc-price{color:var(--tx)}
+.pc-option.upgrade .pc-price{color:var(--green)}
+.pc-pp{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx2);margin-top:2px}
+.pc-save{background:var(--green);color:#fff;border-radius:100px;padding:3px 10px;font-size:11px;font-weight:700;display:inline-block;margin-top:6px}
+.breakdown{background:#fff;border:1px solid var(--bdr);border-radius:12px;margin-top:10px;overflow:hidden}
+.bd-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--tx3);padding:12px 14px 0;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.bd-title::after{content:'▾';font-size:12px}
+.bd-body{padding:6px 14px 12px}
+.bd-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f3;font-size:12px}
+.bd-row:last-child{border-bottom:none}
+.bd-row.total{border-top:2px solid var(--bdr);border-bottom:none;padding-top:8px;margin-top:2px;font-weight:700;font-size:13px}
+.bd-k{color:var(--tx2);font-weight:500}
+.bd-k small{display:block;font-size:10px;color:var(--tx3);font-weight:400}
+.bd-v{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--tx)}
+.broker-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 0 4px}
+.broker-tog{width:40px;height:22px;border-radius:11px;background:var(--bdr);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.broker-tog.on{background:var(--purple)}
+.broker-tog::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.broker-tog.on::after{transform:translateX(18px)}
+.broker-lbl{font-size:12px;font-weight:700;color:var(--tx2)}
+.broker-lbl.on{color:var(--purple)}
 
-@media(max-width:600px){
-  .row,.row.r3,.sg{grid-template-columns:1fr}
-  .size-input-row{grid-template-columns:1fr auto 1fr}
-  .hero .amt{font-size:38px}
-  .viz-row{grid-template-columns:1fr;gap:16px}
-  .viz-arrow{transform:rotate(90deg)}
-}
+/* ===== POS MODE ===== */
+body.pos-dark{background:#0a0a14}
+body.pos-dark .bar{background:#12121f;border-color:#1e1e35}
+body.pos-dark .bar-title{color:#fff}
+body.pos-dark .bar-title em{color:#00ff88}
+body.pos-dark .mode-tog{background:#1a1a2e}
+body.pos-dark .mode-opt{color:#666}
+body.pos-dark .mode-opt.on{background:#00ff88;color:#0a0a14}
+body.pos-dark .bar-btn{background:#1a1a2e;color:#888}
+body.pos-dark .settings-page{background:#0a0a14}
+body.pos-dark .s-card{background:#12121f;border-color:#1e1e35;color:#ccc}
+body.pos-dark .s-title{color:#00ff88}
+body.pos-dark .s-item{background:#1a1a2e}
+body.pos-dark .s-item label{color:#888}
+body.pos-dark .s-item input{background:#12121f;border-color:#2a2a45;color:#00ff88}
+body.pos-dark .s-tog-lbl{color:#ccc}
+body.pos-dark .s-tog-lbl small{color:#666}
+body.pos-dark .s-close{background:#00ff88;color:#0a0a14}
+.pos{display:none;flex:1;overflow:hidden}
+.pos.show{display:flex}
+.pos-left{width:380px;min-width:380px;background:#0f0f1c;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.pos-right{flex:1;background:#0a0a14;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto;position:relative}
+.pos-right-inner{width:100%;max-width:500px}
+.p-section{display:flex;flex-direction:column;gap:4px}
+.p-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#555;padding-left:4px}
+.p-row{display:flex;gap:4px}
+.p-btn{flex:1;padding:14px 6px;border-radius:8px;border:2px solid #1e1e35;background:#12121f;color:#999;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:center;transition:all .1s;user-select:none;min-height:48px;display:flex;align-items:center;justify-content:center}
+.p-btn:active{transform:scale(.96)}
+.p-btn.on{border-color:#a855f7;background:#1a1030;color:#d8b4fe;box-shadow:0 0 12px rgba(168,85,247,.25)}
+.p-btn.cat-on{border-color:#00ff88;background:#0a1f15;color:#00ff88;box-shadow:0 0 12px rgba(0,255,136,.2)}
+.p-btn-sm{padding:10px 6px;font-size:11px;min-height:40px}
+.p-size-row{display:flex;gap:6px;align-items:center}
+.p-size-inp{flex:1;min-width:0;background:#12121f;border:2px solid #1e1e35;border-radius:8px;padding:10px 6px;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;text-align:center;color:#00ff88;outline:none;-moz-appearance:textfield;width:100%}
+.p-size-inp::-webkit-inner-spin-button{-webkit-appearance:none}
+.p-size-inp:focus{border-color:#a855f7}
+.p-size-x{color:#333;font-weight:800;font-size:14px;flex-shrink:0}
+.p-qty-inp{width:100%;background:#12121f;border:2px solid #1e1e35;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;text-align:center;color:#00ff88;outline:none;margin-top:4px;-moz-appearance:textfield}
+.p-qty-inp::-webkit-inner-spin-button{-webkit-appearance:none}
+.p-qty-inp:focus{border-color:#a855f7}
+.pos-price-box{text-align:center;padding:20px 0}
+.pos-price-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#555}
+.pos-price-amt{font-family:'JetBrains Mono',monospace;font-size:64px;font-weight:700;color:#00ff88;line-height:1;letter-spacing:-3px;text-shadow:0 0 30px rgba(0,255,136,.3)}
+.pos-price-pp{font-family:'JetBrains Mono',monospace;font-size:14px;color:#555;margin-top:4px}
+.pos-broker-amt{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:#a855f7;margin-top:8px;text-shadow:0 0 20px rgba(168,85,247,.3)}
+.pos-broker-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
+.pos-broker-lbl{font-size:11px;font-weight:700;color:#555}
+.pos-broker-lbl.on{color:#a855f7}
+.pos-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:16px}
+.pos-meta-item{background:#12121f;border-radius:8px;padding:8px 10px;text-align:center}
+.pos-meta-k{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#444}
+.pos-meta-v{font-size:13px;font-weight:700;color:#ccc;margin-top:2px;font-family:'JetBrains Mono',monospace}
+.pos-err{text-align:center;padding:20px}
+.pos-err-icon{font-size:32px;margin-bottom:8px}
+.pos-err-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.pos-err-title.red{color:#ff4444}
+.pos-err-title.orange{color:#ffaa00}
+.pos-err-text{font-size:12px;color:#666;line-height:1.5}
+.pos-err-text strong{color:#999}
+.pos-compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.pos-cmp-card{border-radius:10px;padding:12px;text-align:center;border:2px solid #1e1e35;background:#12121f}
+.pos-cmp-card.upg{border-color:#00ff88;background:#0a1f15}
+.pos-cmp-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#555;margin-bottom:4px}
+.pos-cmp-paper{font-size:11px;font-weight:700;color:#999;margin-bottom:4px}
+.pos-cmp-card.upg .pos-cmp-paper{color:#ccc}
+.pos-cmp-price{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:#ccc;letter-spacing:-1px}
+.pos-cmp-card.upg .pos-cmp-price{color:#00ff88}
+.pos-cmp-pp{font-family:'JetBrains Mono',monospace;font-size:10px;color:#555;margin-top:2px}
+.pos-cmp-pp.broker{color:#a855f7}
+body.pos-light .pos-cmp-pp.broker{color:#7c3aed}
+.pos-cmp-save{background:#00ff88;color:#0a0a14;border-radius:100px;padding:2px 8px;font-size:10px;font-weight:800;display:inline-block;margin-top:6px}
+.pos-alert{padding:8px 10px;border-radius:6px;font-size:11px;font-weight:600;margin-bottom:6px}
+.pos-alert.red{background:#2a0a0a;color:#ff4444}
+.pos-alert.orange{background:#2a1a0a;color:#ffaa00}
+.pos-alert.blue{background:#0a1a2a;color:#4488ff}
+.pos-alert.green{background:#0a2a1a;color:#00ff88}
+@media(max-width:700px){.pos-left{width:100%;min-width:0;max-height:50vh;border-bottom:1px solid #1e1e35}.pos.show{flex-direction:column}.pos-right{padding:12px}.pos-price-amt{font-size:44px}}
+
+/* POS LIGHT THEME */
+body.pos-light .bar{background:#fff;border-color:#e0e0e8}
+body.pos-light{background:#f0f0f3}
+body.pos-light .bar-title{color:#1a1a2e}
+body.pos-light .bar-title em{color:#059669}
+body.pos-light .mode-tog{background:#f0f0f3}
+body.pos-light .mode-opt{color:#888}
+body.pos-light .mode-opt.on{background:#059669;color:#fff}
+body.pos-light .bar-btn{background:#f0f0f3;color:#888}
+body.pos-light .settings-page{background:#f0f0f3}
+body.pos-light .s-card{background:#fff;border-color:#e0e0e8;color:#333}
+body.pos-light .s-title{color:#059669}
+body.pos-light .s-item{background:#f7f7fa}
+body.pos-light .s-item label{color:#888}
+body.pos-light .s-item input{background:#fff;border-color:#e0e0e8;color:#059669}
+body.pos-light .s-tog-lbl{color:#333}
+body.pos-light .s-tog-lbl small{color:#999}
+body.pos-light .s-close{background:#059669;color:#fff}
+body.pos-light .pos-left{background:#f7f7fa}
+body.pos-light .pos-right{background:#fff}
+body.pos-light .p-label{color:#999}
+body.pos-light .p-btn{border-color:#e0e0e8;background:#fff;color:#666}
+body.pos-light .p-btn.on{border-color:#7c3aed;background:#f5f3ff;color:#7c3aed;box-shadow:0 0 8px rgba(124,58,237,.15)}
+body.pos-light .p-btn.cat-on{border-color:#059669;background:#ecfdf5;color:#059669;box-shadow:0 0 8px rgba(5,150,105,.15)}
+body.pos-light .p-size-inp{background:#fff;border-color:#e0e0e8;color:#059669}
+body.pos-light .p-size-inp:focus{border-color:#7c3aed}
+body.pos-light .p-size-x{color:#ccc}
+body.pos-light .p-qty-inp{background:#fff;border-color:#e0e0e8;color:#059669}
+body.pos-light .p-qty-inp:focus{border-color:#7c3aed}
+body.pos-light .pos-price-label{color:#999}
+body.pos-light .pos-price-amt{color:#059669;text-shadow:none}
+body.pos-light .pos-price-pp{color:#999}
+body.pos-light .pos-broker-amt{color:#7c3aed;text-shadow:none}
+body.pos-light .pos-broker-lbl{color:#999}
+body.pos-light .pos-broker-lbl.on{color:#7c3aed}
+body.pos-light .pos-meta-item{background:#f7f7fa}
+body.pos-light .pos-meta-k{color:#999}
+body.pos-light .pos-meta-v{color:#333}
+body.pos-light .pos-alert.red{background:#fef2f2;color:#dc2626}
+body.pos-light .pos-alert.orange{background:#fffbeb;color:#d97706}
+body.pos-light .pos-alert.blue{background:#eff4ff;color:#2563eb}
+body.pos-light .pos-alert.green{background:#ecfdf5;color:#059669}
+body.pos-light .pos-cmp-card{border-color:#e0e0e8;background:#f7f7fa}
+body.pos-light .pos-cmp-card.upg{border-color:#059669;background:#ecfdf5}
+body.pos-light .pos-cmp-label{color:#999}
+body.pos-light .pos-cmp-paper{color:#666}
+body.pos-light .pos-cmp-card.upg .pos-cmp-paper{color:#333}
+body.pos-light .pos-cmp-price{color:#333}
+body.pos-light .pos-cmp-card.upg .pos-cmp-price{color:#059669}
+body.pos-light .pos-cmp-pp{color:#999}
+body.pos-light .pos-cmp-save{background:#059669}
+body.pos-light .pos-err-title.red{color:#dc2626}
+body.pos-light .pos-err-title.orange{color:#d97706}
+body.pos-light .pos-err-text{color:#888}
+body.pos-light .pos-err-text strong{color:#333}
+.pos-theme-btn{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:8px;border:2px solid #1e1e35;background:#12121f;color:#888;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5}
+body.pos-light .pos-theme-btn{border-color:#e0e0e8;background:#fff;color:#666}
+.pos-bd{background:#12121f;border-radius:8px;margin-top:8px;padding:10px 12px}
+.pos-bd-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#444;margin-bottom:6px}
+.pos-bd-row{display:flex;justify-content:space-between;padding:3px 0}
+.pos-bd-row.total{border-top:1px solid #1e1e35;margin-top:4px;padding-top:6px}
+.pos-bd-k{font-size:11px;color:#555}
+.pos-bd-k span{color:#333}
+.pos-bd-v{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#888}
+.pos-bd-v.hi{color:#00ff88}
+body.pos-light .pos-bd{background:#f7f7fa}
+body.pos-light .pos-bd-title{color:#999}
+body.pos-light .pos-bd-row.total{border-color:#e0e0e8}
+body.pos-light .pos-bd-k{color:#888}
+body.pos-light .pos-bd-k span{color:#666}
+body.pos-light .pos-bd-v{color:#555}
+body.pos-light .pos-bd-v.hi{color:#059669}
+body.pos-light .pos-left{border-right:1px solid #e0e0e8}
+.pos-btog{width:40px;height:22px;border-radius:11px;background:#1e1e35;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.pos-btog.on{background:#a855f7}
+.pos-btog::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.pos-btog.on::after{transform:translateX(18px)}
+body.pos-light .pos-btog{background:#ddd}
+body.pos-light .pos-btog.on{background:#7c3aed}
+
+/* SETTINGS */
+.settings-page{position:fixed;inset:0;background:var(--bg);z-index:30;overflow-y:auto;padding:16px;display:none}
+.settings-page.show{display:block}
+.s-card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;border:1px solid var(--bdr)}
+.s-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--tx2);margin-bottom:12px}
+.s-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.s-item{background:var(--bg);border-radius:8px;padding:10px}
+.s-item label{font-size:10px;font-weight:700;color:var(--tx2);display:block;margin-bottom:3px}
+.s-item input{width:100%;border:2px solid var(--bdr);border-radius:6px;padding:7px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--blue);background:var(--card);outline:none}
+.s-tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bdr)}
+.s-tog-row:last-child{border-bottom:none}
+.s-tog-lbl{font-size:13px;font-weight:600}.s-tog-lbl small{display:block;font-size:10px;color:var(--tx2);font-weight:400}
+.s-tog{width:44px;height:26px;border-radius:13px;background:var(--bdr);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.s-tog.on{background:var(--green)}
+.s-tog::after{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.s-tog.on::after{transform:translateX(18px)}
+.s-close{width:100%;padding:12px;border-radius:var(--radius);border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;margin-top:8px}
+
+@media(max-width:500px){.opts-2{grid-template-columns:1fr 1fr}.step-q{font-size:20px}.result-amt{font-size:40px}.result-meta{grid-template-columns:1fr 1fr}.diagram{grid-template-columns:1fr;gap:12px}.dia-arrow{transform:rotate(90deg)}}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <h1>⚡ FinishCalc</h1>
-  <div class="tabs">
-    <div class="tab on" onclick="go('calc')">Calc</div>
-    <div class="tab" onclick="go('settings')">Settings</div>
-    <div class="tab" onclick="go('rules')">Rules</div>
+<div class="bar">
+  <div class="bar-title"><em>Finish</em>Calc</div>
+  <div class="bar-right">
+    <div class="mode-tog">
+      <div class="mode-opt on" id="mode-wiz" onclick="setMode('wiz')">Wizard</div>
+      <div class="mode-opt" id="mode-pos" onclick="setMode('pos')">POS</div>
+    </div>
+    <button class="bar-btn" onclick="toggleSettings()">⚙</button>
   </div>
 </div>
-<div class="wrap">
 
-<!-- ====== CALC ====== -->
-<div id="p-calc" class="page on">
-  <div class="row">
-    <div class="fg"><label>Category</label>
-      <select id="cat" onchange="catCh()"><option value="">Pick one…</option><option value="folding">Folding</option><option value="sf">Score & Fold</option></select>
-    </div>
-    <div class="fg"><label>Paper</label>
-      <select id="paper" onchange="papCh()"><option value="">—</option></select>
-    </div>
-  </div>
+<div class="crumbs" id="crumbs"></div>
 
-  <div class="open-size-box">
-    <div class="open-size-label">📄 OPEN / FLAT SHEET SIZE <span>(before folding)</span></div>
-    <div class="size-input-row">
-      <div class="fg"><label>Width (inches)</label><input type="number" id="sw" placeholder="e.g. 11" step="0.25" min="0" oninput="calc()"></div>
-      <div class="x-swap">
-        <div class="swap-btn" onclick="swapWH()" title="Swap width ↔ height">⇄</div>
+<!-- ===== WIZARD MODE ===== -->
+<div class="main" id="main">
+  <div class="step active" id="step-0"><div class="step-inner">
+    <div class="step-q">What type of finishing?</div>
+    <div class="opts opts-2">
+      <div class="opt" onclick="pickCat('folding')" id="opt-folding"><div class="opt-icon">📂</div><div class="opt-name">Folding</div><div class="opt-desc">Soft paper, no scoring</div></div>
+      <div class="opt" onclick="pickCat('sf')" id="opt-sf"><div class="opt-icon">✂️</div><div class="opt-name">Score & Fold</div><div class="opt-desc">Heavier paper, score first</div></div>
+    </div>
+  </div></div>
+  <div class="step" id="step-1"><div class="step-inner"><div class="step-q" id="q-paper">Paper?</div><div id="paper-opts"></div><div class="nav-row"><button class="nav-btn nav-back" onclick="goStep(0)">Back</button></div></div></div>
+  <div class="step" id="step-2"><div class="step-inner">
+    <div class="step-q">Sheet size?<small>Cut card size before folding</small></div>
+    <div class="size-row"><div><div class="size-lbl">Width</div><input type="number" class="size-field" id="inp-w" placeholder="11" step="0.25" oninput="sizeChanged()"></div><div class="size-x">×</div><div><div class="size-lbl">Height</div><input type="number" class="size-field" id="inp-h" placeholder="17" step="0.25" oninput="sizeChanged()"></div></div>
+    <div class="orient-row"><div class="orient-btn on" id="ori-w" onclick="setOri('w')">← Width →</div><div class="orient-btn" id="ori-h" onclick="setOri('h')">↕ Height</div></div>
+    <div class="nav-row"><button class="nav-btn nav-back" onclick="goStep(1)">Back</button><button class="nav-btn nav-next" id="size-next" onclick="doSizeNext()" disabled>Next</button></div>
+  </div></div>
+  <div class="step" id="step-3"><div class="step-inner"><div class="step-q" id="q-finish">Fold type?</div><div id="finish-opts"></div><div class="nav-row"><button class="nav-btn nav-back" onclick="goStep(2)">Back</button></div></div></div>
+  <div class="step" id="step-4"><div class="step-inner">
+    <div class="step-q">How many?</div>
+    <div class="qty-wrap"><button class="qty-bump" onclick="bumpQty(-100)">−</button><input type="number" class="qty-field" id="inp-qty" value="500"><button class="qty-bump" onclick="bumpQty(100)">+</button></div>
+    <div class="nav-row"><button class="nav-btn nav-back" onclick="goStep(3)">Back</button><button class="nav-btn nav-next green" onclick="goResult()">Get Price</button></div>
+  </div></div>
+  <div class="step" id="step-5"><div class="step-inner" id="wiz-result" style="overflow-y:auto;max-height:calc(100vh - 160px)"></div></div>
+</div>
+
+<!-- ===== POS MODE ===== -->
+<div class="pos" id="pos">
+  <div class="pos-left">
+    <div class="p-section"><div class="p-label">Category</div>
+      <div class="p-row"><div class="p-btn" id="pb-fold" onclick="pCat('folding')">FOLD</div><div class="p-btn" id="pb-sf" onclick="pCat('sf')">SCORE &amp; FOLD</div></div>
+    </div>
+    <div class="p-section"><div class="p-label">Paper</div>
+      <div class="p-row" id="p-papers"></div>
+    </div>
+    <div class="p-section"><div class="p-label">Size</div>
+      <div class="p-row" id="p-sizes"></div>
+    </div>
+    <div class="p-section">
+      <div class="p-size-row">
+        <input type="number" class="p-size-inp" id="p-w" placeholder="W" step="0.25" oninput="pCalc()">
+        <div class="p-size-x">×</div>
+        <input type="number" class="p-size-inp" id="p-h" placeholder="H" step="0.25" oninput="pCalc()">
       </div>
-      <div class="fg"><label>Height (inches)</label><input type="number" id="sh" placeholder="e.g. 17" step="0.25" min="0" oninput="calc()"></div>
+      <div class="p-row" style="margin-top:4px"><div class="p-btn p-btn-sm cat-on" id="p-ori-w" onclick="pOri('w')">← WIDTH</div><div class="p-btn p-btn-sm" id="p-ori-h" onclick="pOri('h')">↕ HEIGHT</div></div>
     </div>
-    <div class="orient-row">
-      <div class="orient-label">Fold along:</div>
-      <div class="orient-toggle">
-        <div class="ot-opt" id="ot-w" onclick="setOrient('w')">← Width →</div>
-        <div class="ot-opt" id="ot-h" onclick="setOrient('h')">↕ Height</div>
-      </div>
+    <div class="p-section"><div class="p-label">Fold Type</div>
+      <div class="p-row" id="p-folds"></div>
     </div>
-  </div>
-
-  <div class="row">
-    <div class="fg"><label>Finish</label>
-      <select id="finish" onchange="calc()"><option value="">—</option></select>
-    </div>
-    <div class="fg"><label>Quantity</label>
-      <input type="number" id="qty" placeholder="How many?" min="1" oninput="calc()">
+    <div class="p-section"><div class="p-label">Quantity</div>
+      <div class="p-row"><div class="p-btn p-btn-sm" onclick="pQty(100)">100</div><div class="p-btn p-btn-sm" onclick="pQty(250)">250</div><div class="p-btn p-btn-sm" onclick="pQty(500)">500</div><div class="p-btn p-btn-sm" onclick="pQty(1000)">1K</div><div class="p-btn p-btn-sm" onclick="pQty(2500)">2.5K</div><div class="p-btn p-btn-sm" onclick="pQty(5000)">5K</div></div>
+      <input type="number" class="p-qty-inp" id="p-qty" placeholder="QTY" oninput="pCalc()">
     </div>
   </div>
-
-  <div id="out"><div class="empty"><div class="em">☝️</div><p>Enter your <b>open flat sheet size</b> and pick options</p></div></div>
+  <div class="pos-right"><button class="pos-theme-btn" onclick="pTheme()" title="Toggle light/dark">☀</button><div class="pos-right-inner" id="p-out"><div style="color:#333;font-size:14px;text-align:center;padding:40px">TAP TO BEGIN</div></div></div>
 </div>
 
-<!-- ====== SETTINGS ====== -->
-<div id="p-settings" class="page">
-  <div class="sc"><h3>💰 Pricing</h3>
-    <div class="sg">
-      <div class="si"><label>Labor $/hr</label><input type="number" id="s-labor" value="60" oninput="ss()"><div class="h">Setup time</div></div>
-      <div class="si"><label>Running $/hr</label><input type="number" id="s-run" value="30" oninput="ss()"><div class="h">Production</div></div>
-      <div class="si"><label>Markup %</label><input type="number" id="s-markup" value="300" oninput="ss()"><div class="h">On base cost</div></div>
-      <div class="si"><label>Broker Disc %</label><input type="number" id="s-bdisc" value="30" oninput="ss()"><div class="h">Off retail</div></div>
-      <div class="si"><label>Long Sheet Setup $</label><input type="number" id="s-long" value="35" oninput="ss()"><div class="h">Flat fee for 13×26+ sheets</div></div>
-    </div>
+<!-- SETTINGS -->
+<div class="settings-page" id="settings-page">
+  <div class="s-card"><div class="s-title">Pricing</div><div class="s-grid">
+    <div class="s-item"><label>Labor $/hr</label><input type="number" id="s-labor" value="60" oninput="saveS()"></div>
+    <div class="s-item"><label>Running $/hr</label><input type="number" id="s-run" value="30" oninput="saveS()"></div>
+    <div class="s-item"><label>Markup %</label><input type="number" id="s-markup" value="300" oninput="saveS()"></div>
+    <div class="s-item"><label>Broker Disc %</label><input type="number" id="s-bdisc" value="30" oninput="saveS()"></div>
+    <div class="s-item"><label>Long Sheet $</label><input type="number" id="s-long" value="35" oninput="saveS()"></div>
+  </div></div>
+  <div class="s-card"><div class="s-title">Setup Min/Level</div><div class="s-grid">
+    <div class="s-item"><label>Lv 1</label><input type="number" id="s-l1" value="5" oninput="saveS()"></div>
+    <div class="s-item"><label>Lv 2</label><input type="number" id="s-l2" value="7" oninput="saveS()"></div>
+    <div class="s-item"><label>Lv 3</label><input type="number" id="s-l3" value="10" oninput="saveS()"></div>
+    <div class="s-item"><label>Lv 4</label><input type="number" id="s-l4" value="12" oninput="saveS()"></div>
+    <div class="s-item"><label>Lv 5</label><input type="number" id="s-l5" value="15" oninput="saveS()"></div>
+  </div></div>
+  <div class="s-card"><div class="s-title">Options</div>
+    <div class="s-tog-row"><div class="s-tog-lbl">Broker Mode<small>Show broker price</small></div><div class="s-tog" id="t-broker" onclick="togB()"></div></div>
+    <div class="s-tog-row"><div class="s-tog-lbl">Auto-Upgrade<small>Thicker if cheaper</small></div><div class="s-tog on" id="t-upg" onclick="togU()"></div></div>
   </div>
-  <div class="sc"><h3>⏱️ Setup Min per Level</h3>
-    <div class="sg">
-      <div class="si"><label>Level 1</label><input type="number" id="s-l1" value="5" oninput="ss()"></div>
-      <div class="si"><label>Level 2</label><input type="number" id="s-l2" value="7" oninput="ss()"></div>
-      <div class="si"><label>Level 3</label><input type="number" id="s-l3" value="10" oninput="ss()"></div>
-      <div class="si"><label>Level 4</label><input type="number" id="s-l4" value="12" oninput="ss()"></div>
-      <div class="si"><label>Level 5</label><input type="number" id="s-l5" value="15" oninput="ss()"></div>
-    </div>
-  </div>
-  <div class="sc"><h3>🔧 Toggles</h3>
-    <div class="tr"><div class="tl">Broker Mode<span>Show broker price</span></div><div class="tog" id="t-broker" onclick="tb()"></div></div>
-    <div class="tr"><div class="tl">Auto-Upgrade Paper<span>Rule 5: switch to thicker if cheaper</span></div><div class="tog on" id="t-upg" onclick="tu()"></div></div>
-  </div>
+  <button class="s-close" onclick="toggleSettings()">Done</button>
 </div>
 
-<!-- ====== RULES ====== -->
-<div id="p-rules" class="page">
-  <div class="rule"><b>Rule 1</b> — N/A options show the closest alternative.</div>
-  <div class="rule"><b>Rule 2</b> — Score & Fold N/A → "Score Only." Otherwise change size/paper.</div>
-  <div class="rule"><b>Rule 3</b> — Max trifold height = <b>11″</b></div>
-  <div class="rule"><b>Rule 4</b> — Max fold width = <b>13″</b> (length = any)</div>
-  <div class="rule"><b>Rule 5</b> — Level > 1 → auto-checks thicker paper. Cheaper = <b>auto-upgrade</b>.</div>
-  <div class="rule"><b>Rule 6</b> — Long sheets (13×26+) get a <b>$35 flat setup fee</b> added on top of normal setup. Applies to Score & Fold only. Changeable in Settings.</div>
-  <div class="sc" style="margin-top:14px"><h3>📐 Size Limits</h3>
-    <div class="rule">Trifold max height: <b>11″</b></div>
-    <div class="rule">Max fold width: <b>13″</b></div>
-    <div class="rule">Length: <b>no limit</b></div>
-  </div>
-</div>
-
-</div>
 <script>
-// ========== DATA ==========
-const FOLD={
-  "80text_60_70":{label:"80 Text / 60lb / 70lb",thick:0,sizes:{
-    "11x17+":{lbl:"11×17+","Fold in Half":{l:3,b:100,s:40},"Fold in 3":{l:3,b:100,s:45},"Fold in 4":{l:5,b:100,s:120},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock"}},
-    "8.5x11":{lbl:"8.5×11","Fold in Half":{l:3,b:100,s:30},"Fold in 3":{l:3,b:10,s:35},"Fold in 4":{l:"na",alt:"Thicker paper (100 text+) or bigger size"},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock"}},
-    "8.5x5.5":{lbl:"8.5×5.5","Fold in Half":{l:3,b:100,s:25},"Fold in 3":{l:"na",alt:"Change to 100 text or 80 cover"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
-    "7x4":{lbl:"7×4","Fold in Half":{l:4,b:100,s:40},"Fold in 3":{l:"na",alt:"Change to 100 text or 80 cover"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}}
-  }},
-  "100text":{label:"100 Text",thick:1,sizes:{
-    "11x17+":{lbl:"11×17+","Fold in Half":{l:2,b:100,s:40},"Fold in 3":{l:3,b:100,s:45},"Fold in 4":{l:5,b:100,s:120},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
-    "8.5x11":{lbl:"8.5×11","Fold in Half":{l:2,b:100,s:30},"Fold in 3":{l:3,b:10,s:35},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
-    "8.5x5.5":{lbl:"8.5×5.5","Fold in Half":{l:2,b:100,s:25},"Fold in 3":{l:"na",alt:"Change to 100 text/80 cover or size to 8.5×11+"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},
-    "7.5x5":{lbl:"7.5×5","Fold in Half":{l:4,b:100,s:40},"Fold in 3":{l:"na",alt:"Change to 100 text/80 cover or size to 8.5×11+"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}}
-  }}
-};
-const SF={
-  "100text_80cover":{label:"100 Text / 80 Cover",thick:0,sizes:{
-    "long":{lbl:"Long (13×26+)",isLong:true,"Score & Fold in Half":{l:2,b:100,s:215,long:true},"Score & Fold in 3":{l:3,b:100,s:225,long:true},"Score & Fold in 4":{l:"hand",long:true},"Score & Gate Fold":{l:"na",alt:"Use Card Stock",long:true}},
-    "11x17+":{lbl:"11×17+","Score & Fold in Half":{l:2,b:100,s:215},"Score & Fold in 3":{l:3,b:100,s:225},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},
-    "8.5x11":{lbl:"8.5×11","Score & Fold in Half":{l:2,b:100,s:260},"Score & Fold in 3":{l:3,b:100,s:260},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},
-    "8.5x5.5":{lbl:"8.5×5.5","Score & Fold in Half":{l:3,b:100,s:120},"Score & Fold in 3":{l:4,b:100,s:140,so:1},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},
-    "7.5x5":{lbl:"7.5×5","Score & Fold in Half":{l:5,b:100,s:180},"Score & Fold in 3":{l:5,b:100,s:180,so:1},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}}
-  }},
-  "cardstock":{label:"Card Stock (Any)",thick:1,sizes:{
-    "long":{lbl:"Long (13×26+)",isLong:true,"Score & Fold in Half":{l:1,b:100,s:155,long:true},"Score & Fold in 3":{l:2,b:100,s:225,long:true},"Score & Fold in 4":{l:3,b:100,s:240,long:true},"Score & Gate Fold":{l:3,b:100,s:240,long:true}},
-    "11x17+":{lbl:"11×17+","Score & Fold in Half":{l:1,b:100,s:155},"Score & Fold in 3":{l:2,b:100,s:225},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",b:100,s:240}},
-    "8.5x11":{lbl:"8.5×11","Score & Fold in Half":{l:1,b:100,s:140},"Score & Fold in 3":{l:4,b:100,s:200},"Score & Fold in 4":{l:4,b:100,s:200,so:1},"Score & Gate Fold":{l:4,b:100,s:200,so:1}},
-    "8.5x5.5":{lbl:"8.5×5.5","Score & Fold in Half":{l:2,b:100,s:120},"Score & Fold in 3":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}},
-    "7.5x5":{lbl:"7.5×5","Score & Fold in Half":{l:4,b:100,s:180},"Score & Fold in 3":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}}
-  }}
-};
+// DATA
+const FOLD={"80text":{label:"80 Text / 60lb / 70lb",thick:0,min:"7×4",sizes:{"11x17+":{lbl:"11×17+","Fold in Half":{l:3,b:100,s:40},"Fold in 3":{l:3,b:100,s:45},"Fold in 4":{l:5,b:100,s:120},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock"}},"8.5x11":{lbl:"8.5×11","Fold in Half":{l:3,b:100,s:30},"Fold in 3":{l:3,b:10,s:35},"Fold in 4":{l:"na",alt:"Thicker paper (100 text+) or bigger size"},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock"}},"8.5x5.5":{lbl:"8.5×5.5","Fold in Half":{l:3,b:100,s:25},"Fold in 3":{l:"na",alt:"Change to 100 text or 80 cover"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},"7x4":{lbl:"7×4","Fold in Half":{l:4,b:100,s:40},"Fold in 3":{l:"na",alt:"Change to 100 text or 80 cover"},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}}}},"100text":{label:"100 Text",thick:1,min:"7.5×5",sizes:{"11x17+":{lbl:"11×17+","Fold in Half":{l:2,b:100,s:40},"Fold in 3":{l:3,b:100,s:45},"Fold in 4":{l:5,b:100,s:120},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},"8.5x11":{lbl:"8.5×11","Fold in Half":{l:2,b:100,s:30},"Fold in 3":{l:3,b:10,s:35},"Fold in 4":{l:"na",alt:"Bigger size & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size & cardstock"}},"8.5x5.5":{lbl:"8.5×5.5","Fold in Half":{l:2,b:100,s:25},"Fold in 3":{l:"na",alt:"Change to 100 text/80 cover OR size to 8.5×11+"},"Fold in 4":{l:"na",alt:"Bigger size (8.5×11+) & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock, both required"}},"7.5x5":{lbl:"7.5×5","Fold in Half":{l:4,b:100,s:40},"Fold in 3":{l:"na",alt:"Change to 100 text/80 cover OR size to 8.5×11+"},"Fold in 4":{l:"na",alt:"Bigger size (8.5×11+) & thicker, both required"},"Gate Fold":{l:"na",alt:"Bigger size (8.5×11+) & cardstock, both required"}}}}};
+const SF={"100text_80cover":{label:"100 Text / 80 Cover",thick:0,min:"7.5×5",sizes:{"long":{lbl:"Long (13×26+)",isLong:true,"Score & Fold in Half":{l:2,b:100,s:215,long:true},"Score & Fold in 3":{l:3,b:100,s:225,long:true},"Score & Fold in 4":{l:"hand",long:true},"Score & Gate Fold":{l:"na",alt:"Use Card Stock",long:true}},"11x17+":{lbl:"11×17+","Score & Fold in Half":{l:2,b:100,s:215},"Score & Fold in 3":{l:3,b:100,s:225},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},"8.5x11":{lbl:"8.5×11","Score & Fold in Half":{l:2,b:100,s:260},"Score & Fold in 3":{l:3,b:100,s:260},"Score & Fold in 4":{l:"na",b:100,s:200,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock"}},"8.5x5.5":{lbl:"8.5×5.5","Score & Fold in Half":{l:3,b:100,s:120},"Score & Fold in 3":{l:4,b:100,s:140,so:1},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",alt:"Use Card Stock AND larger size (8.5×11+)"}},"7.5x5":{lbl:"7.5×5","Score & Fold in Half":{l:5,b:100,s:180},"Score & Fold in 3":{l:5,b:100,s:140,so:1},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only available"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only available"}}}},"cardstock":{label:"Card Stock (Any)",thick:1,min:"7.5×5",sizes:{"long":{lbl:"Long (13×26+)",isLong:true,"Score & Fold in Half":{l:1,b:100,s:155,long:true},"Score & Fold in 3":{l:2,b:100,s:225,long:true},"Score & Fold in 4":{l:"hand",long:true},"Score & Gate Fold":{l:4,b:100,s:240,long:true}},"11x17+":{lbl:"11×17+","Score & Fold in Half":{l:1,b:100,s:155},"Score & Fold in 3":{l:2,b:100,s:225},"Score & Fold in 4":{l:"hand"},"Score & Gate Fold":{l:4,b:100,s:240}},"8.5x11":{lbl:"8.5×11","Score & Fold in Half":{l:1,b:100,s:140},"Score & Fold in 3":{l:4,b:100,s:200},"Score & Fold in 4":{l:4,b:100,s:200,so:1},"Score & Gate Fold":{l:4,b:100,s:140,so:1}},"8.5x5.5":{lbl:"8.5×5.5","Score & Fold in Half":{l:2,b:100,s:120},"Score & Fold in 3":{l:"na",b:100,s:140,so:1,alt:"Score Only"},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only"}},"7.5x5":{lbl:"7.5×5","Score & Fold in Half":{l:4,b:100,s:180},"Score & Fold in 3":{l:"na",b:100,s:140,so:1,alt:"Score Only"},"Score & Fold in 4":{l:"na",b:100,s:140,so:1,alt:"Score Only"},"Score & Gate Fold":{l:"na",b:100,s:140,so:1,alt:"Score Only"}}}}};
+const SIZE_MAP=[{key:"11x17+",label:"11×17+",minW:11,minH:17},{key:"8.5x11",label:"8.5×11",minW:8.5,maxW:10.99,minH:11,maxH:16.99},{key:"8.5x5.5",label:"8.5×5.5",minW:5.5,maxW:8.49,minH:5.5,maxH:10.99},{key:"7.5x5",label:"7.5×5",minW:5,maxW:5.49,minH:7.5,maxH:10.99},{key:"7x4",label:"7×4",minW:4,maxW:5.49,minH:7,maxH:10.99}];
+const FIN={folding:["Fold in Half","Fold in 3","Fold in 4","Gate Fold"],sf:["Score & Fold in Half","Score & Fold in 3","Score & Fold in 4","Score & Gate Fold"]};
+const FS={"Fold in Half":"Half","Fold in 3":"Tri-Fold","Fold in 4":"Quad","Gate Fold":"Gate","Score & Fold in Half":"Half","Score & Fold in 3":"Tri-Fold","Score & Fold in 4":"Quad","Score & Gate Fold":"Gate"};
 
-// Predefined sizes for matching: [key, minW, maxW, minH, maxH]
-const SIZE_MAP=[
-  {key:"11x17+",w:11,h:17,label:"11×17+",minW:11,minH:17},
-  {key:"8.5x11",w:8.5,h:11,label:"8.5×11",minW:8.5,maxW:10.99,minH:11,maxH:16.99},
-  {key:"8.5x5.5",w:8.5,h:5.5,label:"8.5×5.5",minW:5.5,maxW:8.5,minH:5.5,maxH:10.99},
-  {key:"7.5x5",w:7.5,h:5,label:"7.5×5",minW:0,maxW:8,minH:0,maxH:5.49},
-  {key:"7x4",w:7,h:4,label:"7×4",minW:0,maxW:7.49,minH:0,maxH:5.49},
-];
-
-// Finish types by category
-const FINISHES={
-  folding:["Fold in Half","Fold in 3","Fold in 4","Gate Fold"],
-  sf:["Score & Fold in Half","Score & Fold in 3","Score & Fold in 4","Score & Gate Fold"]
-};
-
-// Orientation: 'w' = fold along width, 'h' = fold along height
-let foldAxis='w';
-function setOrient(axis){
-  foldAxis=axis;
-  document.getElementById('ot-w').className='ot-opt'+(axis==='w'?' on':'');
-  document.getElementById('ot-h').className='ot-opt'+(axis==='h'?' on':'');
-  calc();
-}
-function swapWH(){
-  const wEl=document.getElementById('sw'),hEl=document.getElementById('sh');
-  const tmp=wEl.value;wEl.value=hEl.value;hEl.value=tmp;
-  calc();
-}
-
-// Fold math: given W,H, axis, and finish → {fw, fh, panels, lines[]}
-function foldMath(w,h,finish){
-  let fw,fh,panels,lines=[];
-  const f=finish.replace('Score & ','');
-  // Which dimension to divide
-  const divW = foldAxis==='w'; // true = fold along width, false = fold along height
-  const foldDim = divW ? w : h;
-  const keepDim = divW ? h : w;
-
-  if(f==='Fold in Half'){panels=2;}
-  else if(f==='Fold in 3'){panels=3;}
-  else if(f==='Fold in 4'||f==='Gate Fold'){panels=4;}
-  else{panels=1;}
-
-  const divided = panels>1 ? foldDim/panels : foldDim;
-  for(let i=1;i<panels;i++) lines.push(i/panels);
-
-  if(divW){fw=Math.round(divided*100)/100;fh=h;}
-  else{fw=w;fh=Math.round(divided*100)/100;}
-
-  return {fw,fh,panels,lines,divW};
-}
-
-// Match sheet size to pricing tier
-function matchSize(w,h,cat){
-  // Normalize: ensure nw<=nh
-  let nw=Math.min(w,h), nh=Math.max(w,h);
-  // Long sheet: any dimension > 17 (only for Score & Fold)
-  if(cat==='sf' && (nh>17 || nw>13)) return "long";
-  // 11x17+ catch
-  if(nw>=11||nh>=17) return "11x17+";
-  if(nw>=8&&nw<=11&&nh>=11&&nh<17) return "8.5x11";
-  if(nw>=5&&nw<=8.5&&nh>=5.5&&nh<11) return "8.5x5.5";
-  if(nw>=4&&nw<=7.5&&nh>=4&&nh<=5.5) return "7.5x5";
-  if(nw<7.5&&nh<5.5) return "7x4";
-  // Fallback: go up
-  if(nh>=11) return "11x17+";
-  if(nh>=5.5) return "8.5x11";
-  return "8.5x5.5";
-}
-
-// ========== SETTINGS ==========
+let cur=0,sel={cat:'',paper:'',w:0,h:0,finish:'',qty:500,ori:'w'},mode='wiz';
 let S={labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};
-function ls(){try{const x=localStorage.getItem('fc3');if(x)S={...S,...JSON.parse(x)};}catch(e){}applyS();}
-function applyS(){
-  document.getElementById('s-labor').value=S.labor;document.getElementById('s-run').value=S.run;
-  document.getElementById('s-markup').value=S.markup;document.getElementById('s-bdisc').value=S.bdisc;
-  document.getElementById('s-long').value=S.longSetup;
-  for(let i=1;i<=5;i++)document.getElementById('s-l'+i).value=S.lv[i];
-  document.getElementById('t-broker').className='tog'+(S.broker?' on':'');
-  document.getElementById('t-upg').className='tog'+(S.upgrade?' on':'');
-}
-function ss(){
-  S.labor=+document.getElementById('s-labor').value||60;S.run=+document.getElementById('s-run').value||30;
-  S.markup=+document.getElementById('s-markup').value||300;S.bdisc=+document.getElementById('s-bdisc').value||30;
-  S.longSetup=+document.getElementById('s-long').value||35;
-  for(let i=1;i<=5;i++)S.lv[i]=+document.getElementById('s-l'+i).value||5;
-  try{localStorage.setItem('fc3',JSON.stringify(S));}catch(e){}calc();
-}
-function tb(){S.broker=!S.broker;document.getElementById('t-broker').className='tog'+(S.broker?' on':'');ss();}
-function tu(){S.upgrade=!S.upgrade;document.getElementById('t-upg').className='tog'+(S.upgrade?' on':'');ss();}
 
-// ========== NAV ==========
-function go(p){
-  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
-  document.getElementById('p-'+p).classList.add('on');
-  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['calc','settings','rules'][i]===p));
+// SETTINGS
+function loadS(){try{const x=localStorage.getItem('fc4');if(x)S={...S,...JSON.parse(x)};}catch(e){}applyS();}
+function applyS(){document.getElementById('s-labor').value=S.labor;document.getElementById('s-run').value=S.run;document.getElementById('s-markup').value=S.markup;document.getElementById('s-bdisc').value=S.bdisc;document.getElementById('s-long').value=S.longSetup;for(let i=1;i<=5;i++)document.getElementById('s-l'+i).value=S.lv[i];document.getElementById('t-broker').className='s-tog'+(S.broker?' on':'');document.getElementById('t-upg').className='s-tog'+(S.upgrade?' on':'');}
+function saveS(){S.labor=+document.getElementById('s-labor').value||60;S.run=+document.getElementById('s-run').value||30;S.markup=+document.getElementById('s-markup').value||300;S.bdisc=+document.getElementById('s-bdisc').value||30;S.longSetup=+document.getElementById('s-long').value||35;for(let i=1;i<=5;i++)S.lv[i]=+document.getElementById('s-l'+i).value||5;try{localStorage.setItem('fc4',JSON.stringify(S));}catch(e){}}
+function togB(){S.broker=!S.broker;document.getElementById('t-broker').className='s-tog'+(S.broker?' on':'');saveS();if(mode==='pos')pCalc();}
+function togU(){S.upgrade=!S.upgrade;document.getElementById('t-upg').className='s-tog'+(S.upgrade?' on':'');saveS();if(mode==='pos')pCalc();}
+function toggleSettings(){document.getElementById('settings-page').classList.toggle('show');}
+
+// MODE
+function setMode(m){
+  mode=m;
+  document.getElementById('mode-wiz').className='mode-opt'+(m==='wiz'?' on':'');
+    document.getElementById('mode-pos').className='mode-opt'+(m==='pos'?' on':'');
+  document.getElementById('main').style.display=m==='wiz'?'':'none';
+  document.getElementById('crumbs').style.display=m==='wiz'?'':'none';
+    document.getElementById('pos').className='pos'+(m==='pos'?' show':'');
+  document.body.classList.remove('pos-dark','pos-light');
+  if(m==='pos')document.body.classList.add('pos-'+posTheme);
 }
 
-// ========== DROPDOWNS ==========
-function catCh(){
-  const c=document.getElementById('cat').value;
-  const ps=document.getElementById('paper');
-  ps.innerHTML='<option value="">—</option>';
-  const fs=document.getElementById('finish');
-  fs.innerHTML='<option value="">—</option>';
-  document.getElementById('out').innerHTML='';
-  if(!c)return;
-  const d=c==='folding'?FOLD:SF;
-  for(const[k,v]of Object.entries(d)){const o=document.createElement('option');o.value=k;o.textContent=v.label;ps.appendChild(o);}
-  // Populate finishes for this category
-  for(const f of FINISHES[c]){const o=document.createElement('option');o.value=f;o.textContent=f;fs.appendChild(o);}
+// SHARED
+function matchSz(w,h,cat,db,paper){
+  let nw=Math.min(w,h),nh=Math.max(w,h);
+  if(cat==='sf'&&(nh>17||nw>13))return"long";
+  if(nw>=11||nh>16.99)return"11x17+";
+  const ps=db?.[paper]?.sizes;
+  for(const t of SIZE_MAP){if(nw>=t.minW&&(!t.maxW||nw<=t.maxW)&&nh>=t.minH&&(!t.maxH||nh<=t.maxH)){if(ps&&!ps[t.key])continue;return t.key;}}
+  return null;
 }
-function papCh(){calc();}
-
-// ========== PRICE ENGINE ==========
+function foldM(w,h,finish,ori){
+  const f=finish.replace('Score & ',''),divW=ori==='w';
+  let p=1;if(f==='Fold in Half')p=2;else if(f==='Fold in 3')p=3;else if(f==='Fold in 4'||f==='Gate Fold')p=4;
+  const d=p>1?(divW?w:h)/p:(divW?w:h);
+  return{fw:divW?Math.round(d*100)/100:w,fh:divW?h:Math.round(d*100)/100,panels:p,divW};
+}
 function priceIt(opt,qty,isLong){
   const lv=opt.l;if(typeof lv!=='number'||!opt.b)return null;
-  const sm=S.lv[lv]||5,sc=(sm/60)*S.labor;
-  const longFee=isLong?S.longSetup:0;
+  const sm=S.lv[lv]||5,sc=(sm/60)*S.labor,lf=isLong?S.longSetup:0;
   const rs=qty/opt.b*opt.s,rm=rs/60,rc=(rm/60)*S.run;
-  const base=sc+longFee+rc,retail=base*(1+S.markup/100),broker=retail*(1-S.bdisc/100);
-  return{lv,sm,sc,longFee,rm,rc,base,retail,broker,pp:retail/qty,bp:broker/qty,b:opt.b,s:opt.s,isLong};
+  const base=sc+lf+rc,retail=base*(1+S.markup/100),broker=retail*(1-S.bdisc/100);
+  return{lv,sm,sc,longFee:lf,rm,rc,base,retail,broker,pp:retail/qty,bp:broker/qty,b:opt.b,s:opt.s};
 }
-
-// ========== SHEET VIZ SVG ==========
-function sheetSVG(w,h,lines,color,dimColor,foldDir){
-  // foldDir: 'w'=vertical lines, 'h'=horizontal lines, undefined=no lines
-  const maxDim=120;
-  const ratio=Math.min(maxDim/w,maxDim/h);
-  const sw=Math.max(w*ratio,30), sh=Math.max(h*ratio,30);
-  const pad=35;
-  let svg=`<svg width="${sw+pad*2}" height="${sh+pad+10}" viewBox="0 0 ${sw+pad*2} ${sh+pad+10}">`;
-  svg+=`<rect x="${pad}" y="5" width="${sw}" height="${sh}" rx="2" fill="none" stroke="${color}" stroke-width="2"/>`;
-  if(lines&&lines.length){
-    for(const pct of lines){
-      if(foldDir==='h'){
-        const y=5+pct*sh;
-        svg+=`<line x1="${pad}" y1="${y}" x2="${pad+sw}" y2="${y}" stroke="rgba(251,191,36,.6)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
-      } else {
-        const x=pad+pct*sw;
-        svg+=`<line x1="${x}" y1="5" x2="${x}" y2="${5+sh}" stroke="rgba(251,191,36,.6)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
-      }
-    }
-  }
-  svg+=`<text x="${pad+sw/2}" y="${sh+28}" text-anchor="middle" fill="${dimColor}" font-family="JetBrains Mono,monospace" font-size="12" font-weight="600">${w}″</text>`;
-  svg+=`<text x="${pad+sw+18}" y="${5+sh/2+4}" text-anchor="middle" fill="${dimColor}" font-family="JetBrains Mono,monospace" font-size="12" font-weight="600" transform="rotate(90 ${pad+sw+18} ${5+sh/2+4})">${h}″</text>`;
-  svg+=`</svg>`;
-  return svg;
+function svgSheet(w,h,lines,color,fDir){
+  const mx=80,r=Math.min(mx/w,mx/h),sw=Math.max(w*r,20),sh=Math.max(h*r,20),pd=25;
+  let s=`<svg width="${sw+pd*2}" height="${sh+pd}" viewBox="0 0 ${sw+pd*2} ${sh+pd}">`;
+  s+=`<rect x="${pd}" y="2" width="${sw}" height="${sh}" rx="3" fill="${color}15" stroke="${color}" stroke-width="2"/>`;
+  if(lines)for(const pct of lines){if(fDir==='h'){const y=2+pct*sh;s+=`<line x1="${pd}" y1="${y}" x2="${pd+sw}" y2="${y}" stroke="#d97706" stroke-width="1.5" stroke-dasharray="4 3"/>`;}else{const x=pd+pct*sw;s+=`<line x1="${x}" y1="2" x2="${x}" y2="${2+sh}" stroke="#d97706" stroke-width="1.5" stroke-dasharray="4 3"/>`;}}
+  s+=`<text x="${pd+sw/2}" y="${sh+18}" text-anchor="middle" fill="${color}" font-family="JetBrains Mono" font-size="11" font-weight="700">${w}″</text>`;
+  s+=`<text x="${pd+sw+14}" y="${2+sh/2+3}" text-anchor="middle" fill="${color}" font-family="JetBrains Mono" font-size="11" font-weight="700" transform="rotate(90 ${pd+sw+14} ${2+sh/2+3})">${h}″</text></svg>`;
+  return s;
 }
-
-// ========== MAIN CALC ==========
-function calc(){
-  const c=document.getElementById('cat').value;
-  const p=document.getElementById('paper').value;
-  const w=parseFloat(document.getElementById('sw').value)||0;
-  const h=parseFloat(document.getElementById('sh').value)||0;
-  const f=document.getElementById('finish').value;
-  const qty=parseInt(document.getElementById('qty').value)||0;
-  const out=document.getElementById('out');
-
-  if(!c||!p||!w||!h||!f){
-    out.innerHTML='<div class="empty"><div class="em">☝️</div><p>Enter your <b>open flat sheet size</b> & pick all options</p></div>';
-    return;
-  }
-
-  let html='';
-  const db=c==='folding'?FOLD:SF;
-
-  // Fold math
-  const fm=foldMath(w,h,f);
-
-  // Size validation
-  let warnings=[];
-  const fType=f.replace('Score & ','');
-  if(fType==='Fold in 3'){
-    const maxH = fm.divW ? h : fm.fh;
-    if(maxH>11) warnings.push({t:'amber',msg:`⚠️ <b>Rule 3:</b> Trifold max height is 11″ — your finished height is ${maxH}″.`});
-  }
-  const foldedWidth = fm.divW ? fm.fw : w;
-  if(foldedWidth>13) warnings.push({t:'amber',msg:`⚠️ <b>Rule 4:</b> Max fold width is 13″ — your folded width would be ${foldedWidth}″.`});
-
-  // Show size visualization
-  const foldDirLabel = fm.divW ? 'folding along width' : 'folding along height';
-  html+=`<div class="size-viz show">
-    <div class="viz-row">
-      <div class="viz-box">
-        <div class="lbl lbl-green">📄 OPEN SIZE (what you input)</div>
-        <div class="sheet-wrap">${sheetSVG(w,h,fm.lines,'#34d399','#34d399',fm.divW?'w':'h')}</div>
-        <div class="size-text green">${w}″ × ${h}″</div>
-      </div>
-      <div class="viz-arrow">→</div>
-      <div class="viz-box">
-        <div class="lbl lbl-purple">${f.includes('Score')?'✂️ AFTER SCORING':'📁 AFTER FOLDING'}</div>
-        <div class="sheet-wrap">${sheetSVG(fm.fw,fm.fh,[],'#a78bfa','#a78bfa')}</div>
-        <div class="size-text purple">${fm.fw}″ × ${fm.fh}″</div>
-        <div style="font-size:11px;color:var(--dim);margin-top:4px;">${fm.panels} panel${fm.panels>1?'s':''} · ${foldDirLabel}</div>
-      </div>
-    </div>
-  </div>`;
-
-  // Show warnings
-  for(const wr of warnings) html+=al(wr.t,wr.msg);
-
-  // Match to pricing tier
-  const sizeKey=matchSize(w,h,c);
-  const sizeData=db[p]?.sizes[sizeKey];
-
-  if(!sizeData){
-    html+=al('red',`⛔ No pricing data for <b>${db[p]?.label||'this paper'}</b> at <b>${sizeKey}</b>.`);
-    out.innerHTML=html;return;
-  }
-
-  const tierLabel=sizeData.lbl||sizeKey;
-  const isLong=sizeKey==='long';
-  html+=`<div class="match-badge"><div class="dot" style="background:${isLong?'var(--amber)':'var(--blue)'}"></div>Pricing tier: <b style="margin-left:4px;color:var(--tx);">${tierLabel}</b><span style="margin-left:6px;">(matched from ${w}″×${h}″)</span>${isLong?'<span style="margin-left:6px;color:var(--amber);font-weight:600;"> · +$'+S.longSetup+' long setup</span>':''}</div>`;
-
-  const opt=sizeData[f];
-  if(!opt){
-    html+=al('red',`⛔ <b>${f}</b> not found for this size/paper combo.`);
-    out.innerHTML=html;return;
-  }
-
-  if(!qty){
-    html+=`<div style="text-align:center;padding:20px;color:var(--dim);font-size:13px;">Enter quantity to see price</div>`;
-    out.innerHTML=html;return;
-  }
-
-  // N/A no fallback
+function buildDiagram(w,h,fm,f){
+  const lines=[];for(let i=1;i<fm.panels;i++)lines.push(i/fm.panels);
+  const fDirLabel=fm.divW?'folding width':'folding height';
+  return `<div class="diagram"><div class="dia-box"><div class="dia-lbl g">Open Size</div><div class="dia-svg">${svgSheet(w,h,lines,'#059669',fm.divW?'w':'h')}</div><div class="dia-size g">${w}″ × ${h}″</div></div><div class="dia-arrow">→</div><div class="dia-box"><div class="dia-lbl p">${f.includes('Score')?'After Scoring':'After Folding'}</div><div class="dia-svg">${svgSheet(fm.fw,fm.fh,[],'#7c3aed')}</div><div class="dia-size p">${fm.fw}″ × ${fm.fh}″</div><div class="dia-info">${fm.panels} panels · ${fDirLabel}</div></div></div>`;
+}
+function doCalc(cat,paper,w,h,finish,qty,ori){
+  const db=cat==='folding'?FOLD:SF;
+  const sk=matchSz(w,h,cat,db,paper);
+  if(!sk){const mn=db[paper]?.min||'?';return '<div style="text-align:center;padding:40px 20px"><div style="font-size:40px;margin-bottom:12px">📏</div><div style="font-size:18px;font-weight:700;color:var(--red);margin-bottom:6px">Sheet Too Small</div><div style="font-size:14px;color:var(--tx2);line-height:1.5">Minimum size for this paper is <strong>'+mn+'</strong><br>Your sheet is '+w+'″ × '+h+'″</div><div class="sug-box"><div class="sug-title">💡 What you can do</div><div class="sug-item"><div class="sug-icon">📐</div><div class="sug-text"><strong>Use a bigger sheet</strong> — at least '+mn+' inches</div></div><div class="sug-item"><div class="sug-icon">📄</div><div class="sug-text"><strong>Try a different paper</strong> — some papers have smaller minimums</div></div></div></div>';}
+  const fm=foldM(w,h,finish,ori);let alerts=[],html='';
+  const fType=finish.replace('Score & ','');
+  if(fType==='Fold in 3'){const mH=fm.divW?h:fm.fh;if(mH>11)alerts.push({c:'orange',m:'Trifold max height 11″ — yours '+mH+'″'});}
+  if((fm.divW?fm.fw:w)>13)alerts.push({c:'orange',m:'Max fold width 13″ — yours '+(fm.divW?fm.fw:w)+'″'});
+  html+=buildDiagram(w,h,fm,finish);
+  const sd=db[paper]?.sizes[sk];if(!sd)return ra(alerts)+html;
+  const isLong=sk==='long';const opt=sd[finish];if(!opt)return ra(alerts)+html;
   if(opt.l==='na'&&!opt.so){
-    html+=al('red',`⛔ <b>Not Available</b> — ${opt.alt||'No alternative.'}`);
-    out.innerHTML=html;return;
+    let sugH='<div class="sug-box"><div class="sug-title">💡 Try instead</div>';
+    const altParts=(opt.alt||'').split(/[,&]/).map(s=>s.trim()).filter(Boolean);
+    if(altParts.length){altParts.forEach(a=>{sugH+='<div class="sug-item"><div class="sug-icon">→</div><div class="sug-text"><strong>'+a+'</strong></div></div>';});}
+    else{sugH+='<div class="sug-item"><div class="sug-icon">→</div><div class="sug-text"><strong>Try a different size, paper, or fold type</strong></div></div>';}
+    if(opt.alt&&opt.alt.toLowerCase().includes('cardstock')){sugH+='<div class="sug-item"><div class="sug-icon">💳</div><div class="sug-text">Switch to <strong>Card Stock</strong> in the Paper dropdown</div></div>';}
+    if(opt.alt&&opt.alt.toLowerCase().includes('bigger size')){sugH+='<div class="sug-item"><div class="sug-icon">📐</div><div class="sug-text">Use a sheet at least <strong>8.5×11</strong> or <strong>11×17</strong></div></div>';}
+    if(opt.alt&&opt.alt.toLowerCase().includes('thicker')){sugH+='<div class="sug-item"><div class="sug-icon">📄</div><div class="sug-text">Switch to a <strong>thicker paper</strong> (100 Text or Card Stock)</div></div>';}
+    sugH+='</div>';
+    return ra([{c:'red',m:'Not Available for this combination'}])+html+sugH;
   }
-  // Hand fold
   if(opt.l==='hand'){
-    html+=al('amber','🤚 <b>Hand Fold</b> — Manual calc needed. Contact production.');
-    out.innerHTML=html;return;
+    return ra([{c:'orange',m:'Hand Fold Required'}])+html+'<div class="sug-box"><div class="sug-title">✋ Hand Fold</div><div class="sug-item"><div class="sug-icon">🔧</div><div class="sug-text"><strong>Contact production</strong> for manual pricing — machine fold not available for this setup</div></div><div class="sug-item"><div class="sug-icon">💡</div><div class="sug-text">Try <strong>Fold in Half</strong> or <strong>Fold in 3</strong> for machine pricing</div></div></div>';
   }
-  // Score only fallback
-  let isScoreOnly=false;
-  let useOpt=opt;
-  if(opt.l==='na'&&opt.so){isScoreOnly=true;html+=al('blue','ℹ️ <b>Score Only</b> — Full fold N/A. Pricing as Score Only.');}
-  else if(opt.so){isScoreOnly=true;}
-
-  // Long sheet alert
-  if(isLong) html+=al('amber',`📏 <b>Long Sheet Detected</b> — $${S.longSetup} flat setup fee added (configurable in Settings).`);
-
-  // Rule 5 auto-upgrade
-  let upgraded=false,origPrice=null,upgPaper='';
-  if(S.upgrade&&typeof useOpt.l==='number'&&useOpt.l>1){
+  if(!qty)return ra(alerts)+html+'<div style="text-align:center;padding:24px;color:var(--tx3);font-size:14px">Enter quantity to get pricing</div>';
+  let isScoreOnly=false,useOpt=opt;
+  if(opt.l==='na'&&opt.so){isScoreOnly=true;useOpt={...opt,l:4};alerts.push({c:'blue',m:'Score Only — Full fold not available for this combo'});}
+  else if(opt.so)isScoreOnly=true;
+  if(isLong)alerts.push({c:'orange',m:'Long Sheet — $'+S.longSetup+' flat fee added'});
+  let upgraded=false,origPrice=null,upgPaper='',upgOpt=null;
+  if(typeof useOpt.l==='number'&&useOpt.l>1){
     origPrice=priceIt(useOpt,qty,isLong);
-    for(const[pk,pv]of Object.entries(db)){
-      if(pk===p||pv.thick<=db[p].thick)continue;
-      const sd=pv.sizes[sizeKey];if(!sd)continue;
-      const fd=sd[f];
-      if(!fd||fd.l==='na'||fd.l==='hand'||typeof fd.l!=='number')continue;
-      if(fd.l<useOpt.l){
-        const trial=priceIt(fd,qty,isLong);
-        if(trial&&origPrice&&trial.retail<origPrice.retail){useOpt=fd;upgraded=true;upgPaper=pv.label;}
-      }
-    }
+    for(const[pk,pv]of Object.entries(db)){if(pk===paper||pv.thick<=db[paper].thick)continue;const s2=pv.sizes[sk];if(!s2)continue;const fd=s2[finish];if(!fd||fd.l==='na'||fd.l==='hand'||typeof fd.l!=='number')continue;if(fd.l<useOpt.l){const trial=priceIt(fd,qty,isLong);if(trial&&origPrice&&trial.retail<origPrice.retail){upgOpt=fd;upgraded=true;upgPaper=pv.label;}}}
   }
-
-  const price=priceIt(useOpt,qty,isLong);
-  if(!price){html+=al('red','⚠️ Missing rate data.');out.innerHTML=html;return;}
-
-  if(upgraded&&origPrice){
-    const saved=origPrice.retail-price.retail;
-    html+=`<div class="upg">⬆️ <div><b>Auto-Upgraded → ${upgPaper}</b>Level ${origPrice.lv} → ${price.lv} · Save <b>$${saved.toFixed(2)}</b> · Was $${origPrice.retail.toFixed(2)} → <b>$${price.retail.toFixed(2)}</b></div></div>`;
+  if(upgraded&&origPrice&&upgOpt){
+    const upgPrice=priceIt(upgOpt,qty,isLong);
+    const saving=(origPrice.retail-upgPrice.retail).toFixed(2);
+    html=ra(alerts)+html;
+    html+='<div class="price-compare"><div class="pc-option original"><div class="pc-label">Your Paper</div><div class="pc-paper">'+db[paper].label+'</div><div class="pc-price">$'+origPrice.retail.toFixed(2)+'</div><div class="pc-pp">$'+origPrice.pp.toFixed(4)+'/pc</div>'+(S.broker?'<div class="pc-pp" style="color:var(--purple)">Broker: $'+origPrice.broker.toFixed(2)+'</div>':'')+'</div><div class="pc-option upgrade"><div class="pc-label">💡 Recommended</div><div class="pc-paper">'+upgPaper+'</div><div class="pc-price">$'+upgPrice.retail.toFixed(2)+'</div><div class="pc-pp">$'+upgPrice.pp.toFixed(4)+'/pc</div>'+(S.broker?'<div class="pc-pp" style="color:var(--purple)">Broker: $'+upgPrice.broker.toFixed(2)+'</div>':'')+'<div class="pc-save">Save $'+saving+'</div></div></div>';
+    html+='<div class="broker-row"><span class="broker-lbl'+(S.broker?' on':'')+'">Broker</span><div class="broker-tog'+(S.broker?' on':'')+'" onclick="toggleBroker()"></div></div>';
+    html+=buildBreakdown(origPrice,'📋 '+db[paper].label+' breakdown');
+    html+=buildBreakdown(upgPrice,'📋 '+upgPaper+' breakdown (recommended)');
+    return html;
   }
-
-  // Big price
-  html+=`<div class="hero">
-    <div class="lbl">${S.broker?'Retail':'Total'} · ${qty.toLocaleString()} pcs${isScoreOnly?' · Score Only':''}${isLong?' · Long Sheet':''}</div>
-    <div class="amt">$${price.retail.toFixed(2)}</div>
-    <div class="pp">$${price.pp.toFixed(4)} / piece</div>
-    ${S.broker?`<div class="brk">Broker: $${price.broker.toFixed(2)} ($${price.bp.toFixed(4)}/pc)</div>`:''}
-  </div>`;
-
-  // Collapsible details
-  html+=`<div class="coll-h" onclick="tC(this)"><span>📊 How it's calculated</span><span class="arr">▼</span></div>
-  <div class="coll-b"><div class="coll-inner">
-    ${dr('Level',price.lv+(isScoreOnly?' (Score Only)':''))}
-    ${dr('Setup',price.sm+' min → $'+price.sc.toFixed(2))}
-    ${isLong?dr('Long Sheet Setup','+ $'+price.longFee.toFixed(2)+' <span style="color:var(--amber);font-size:11px;">(flat fee)</span>'):''}
-    ${dr('Rate',price.b+' pcs / '+price.s+' sec')}
-    ${dr('Run time',price.rm.toFixed(1)+' min → $'+price.rc.toFixed(2))}
-    <div class="dr sep"><span class="k">Base</span><span class="v">$${price.base.toFixed(2)}</span></div>
-    ${dr('Markup ('+S.markup+'%)','+ $'+(price.retail-price.base).toFixed(2))}
-    <div class="dr"><span class="k" style="color:var(--green);font-weight:600">Retail</span><span class="v" style="color:var(--green);font-weight:700">$${price.retail.toFixed(2)}</span></div>
-    ${S.broker?'<div class="dr"><span class="k" style="color:var(--purple)">Broker (−'+S.bdisc+'%)</span><span class="v" style="color:var(--purple)">$'+price.broker.toFixed(2)+'</span></div>':''}
-  </div></div>`;
-
-  out.innerHTML=html;
+  const price=priceIt(useOpt,qty,isLong);if(!price)return ra(alerts)+html;
+  html=ra(alerts)+html;
+  html+='<div class="result-card"><div class="result-price"><div class="result-label">'+(S.broker?'Retail':'Total')+' · '+qty.toLocaleString()+' pcs'+(isScoreOnly?' · Score Only':'')+(isLong?' · Long':'')+'</div><div class="result-amt">$'+price.retail.toFixed(2)+'</div><div class="result-pp">$'+price.pp.toFixed(4)+' / pc</div>'+(S.broker?'<div class="result-broker">Broker: $'+price.broker.toFixed(2)+'</div>':'')+'<div class="broker-row"><span class="broker-lbl'+(S.broker?' on':'')+'">Broker</span><div class="broker-tog'+(S.broker?' on':'')+'" onclick="toggleBroker()"></div></div></div><div class="result-meta"><div class="meta-item"><div class="meta-k">Tier</div><div class="meta-v">'+(sd.lbl||sk)+'</div></div><div class="meta-item"><div class="meta-k">Level</div><div class="meta-v">'+price.lv+(isScoreOnly?' SO':'')+'</div></div><div class="meta-item"><div class="meta-k">Setup</div><div class="meta-v">'+price.sm+'m</div></div><div class="meta-item"><div class="meta-k">Run</div><div class="meta-v">'+price.rm.toFixed(1)+'m</div></div><div class="meta-item"><div class="meta-k">Folded</div><div class="meta-v">'+fm.fw+'×'+fm.fh+'</div></div><div class="meta-item"><div class="meta-k">Base</div><div class="meta-v">$'+price.base.toFixed(2)+'</div></div></div></div>';
+  html+=buildBreakdown(price);
+  return html;
+}
+function ra(a){return a.map(x=>'<div class="r-alert '+x.c+'">'+x.m+'</div>').join('');}
+function buildBreakdown(p,label){
+  let h='<div class="breakdown"><div class="bd-title">'+(label||'How this was priced')+'</div><div class="bd-body">';
+  h+='<div class="bd-row"><div class="bd-k">Setup Time<small>Level '+p.lv+' → '+p.sm+' min</small></div><div class="bd-v">'+p.sm+' min</div></div>';
+  h+='<div class="bd-row"><div class="bd-k">Setup Cost<small>'+p.sm+'m ÷ 60 × $'+S.labor+'/hr</small></div><div class="bd-v">$'+p.sc.toFixed(2)+'</div></div>';
+  h+='<div class="bd-row"><div class="bd-k">Running Time<small>'+p.b+' pcs every '+p.s+'s</small></div><div class="bd-v">'+p.rm.toFixed(1)+' min</div></div>';
+  h+='<div class="bd-row"><div class="bd-k">Running Cost<small>'+p.rm.toFixed(1)+'m ÷ 60 × $'+S.run+'/hr</small></div><div class="bd-v">$'+p.rc.toFixed(2)+'</div></div>';
+  if(p.longFee>0)h+='<div class="bd-row"><div class="bd-k">Long Sheet Fee</div><div class="bd-v">$'+p.longFee.toFixed(2)+'</div></div>';
+  h+='<div class="bd-row total"><div class="bd-k">Total Labor</div><div class="bd-v">$'+p.base.toFixed(2)+'</div></div>';
+  h+='<div class="bd-row"><div class="bd-k">Markup<small>'+S.markup+'%</small></div><div class="bd-v">× '+(1+S.markup/100).toFixed(1)+'</div></div>';
+  h+='<div class="bd-row total"><div class="bd-k">'+(S.broker?'Retail':'Final Price')+'</div><div class="bd-v" style="color:var(--green)">$'+p.retail.toFixed(2)+'</div></div>';
+  if(S.broker)h+='<div class="bd-row"><div class="bd-k">Broker Discount<small>'+S.bdisc+'% off retail</small></div><div class="bd-v" style="color:var(--purple)">$'+p.broker.toFixed(2)+'</div></div>';
+  h+='</div></div>';
+  return h;
+}function toggleBroker(){S.broker=!S.broker;saveS();const sTog=document.getElementById('t-broker');if(sTog)sTog.className='s-tog'+(S.broker?' on':'');if(mode==='pos')pCalc();else if(cur===5)goResult();}
+// WIZARD NAV
+const STEPS=['Type','Paper','Size','Finish','Qty','Price'];
+function renderCrumbs(){let h='';for(let i=0;i<STEPS.length;i++){if(i)h+='<span class="crumb-arrow">›</span>';h+='<span class="crumb '+(i<cur?'done':i===cur?'now':'')+'" '+(i<=cur?'onclick="goStep('+i+')"':'')+'>'+STEPS[i]+'</span>';}document.getElementById('crumbs').innerHTML=h;}
+function goStep(n){document.getElementById('step-'+cur).classList.remove('active');cur=n;document.getElementById('step-'+cur).classList.add('active');renderCrumbs();}
+function pickCat(v){sel.cat=v;sel.paper='';sel.finish='';document.querySelectorAll('#step-0 .opt').forEach(o=>o.className='opt');document.getElementById('opt-'+v).classList.add(v==='folding'?'fold-on':'sf-on');buildPaper();setTimeout(()=>goStep(1),150);}
+function buildPaper(){const db=sel.cat==='folding'?FOLD:SF;const keys=Object.keys(db);const ico=sel.cat==='sf'?['📄','💳']:['📃','📝'];let h='<div class="opts opts-'+keys.length+'">';keys.forEach((k,i)=>{const p=db[k];h+='<div class="opt" onclick="pickPaper(\''+k+'\')" id="popt-'+k+'"><div class="opt-icon">'+ico[i]+'</div><div class="opt-name">'+p.label+'</div><div class="opt-desc">Min: '+p.min+'</div></div>';});h+='</div>';document.getElementById('paper-opts').innerHTML=h;document.getElementById('q-paper').innerHTML=(sel.cat==='sf'?'Paper?<small>Score & Fold</small>':'Paper?<small>Folding</small>');}
+function pickPaper(k){sel.paper=k;document.querySelectorAll('#paper-opts .opt').forEach(o=>o.className='opt');document.getElementById('popt-'+k).classList.add(sel.cat==='sf'?'sf-on':'fold-on');setTimeout(()=>goStep(2),150);}
+function setOri(o){sel.ori=o;document.getElementById('ori-w').className='orient-btn'+(o==='w'?' on':'');document.getElementById('ori-h').className='orient-btn'+(o==='h'?' on':'');}
+function sizeChanged(){sel.w=parseFloat(document.getElementById('inp-w').value)||0;sel.h=parseFloat(document.getElementById('inp-h').value)||0;document.getElementById('size-next').disabled=!(sel.w>0&&sel.h>0);}
+function doSizeNext(){buildFinish();goStep(3);}
+function buildFinish(){const list=FIN[sel.cat];const ico=['📄','📐','📑','🚪'];let h='<div class="opts opts-2">';list.forEach((f,i)=>{h+='<div class="opt" onclick="pickFinish(\''+f+'\')" id="fopt-'+i+'"><div class="opt-icon">'+ico[i]+'</div><div class="opt-name">'+(FS[f]||f)+'</div></div>';});h+='</div>';document.getElementById('finish-opts').innerHTML=h;document.getElementById('q-finish').innerHTML=(sel.cat==='sf'?'Fold type?<small>Score & Fold</small>':'Fold type?<small>Folding</small>');}
+function pickFinish(f){sel.finish=f;document.querySelectorAll('#finish-opts .opt').forEach(o=>o.className='opt');document.getElementById('fopt-'+FIN[sel.cat].indexOf(f)).classList.add(sel.cat==='sf'?'sf-on':'fold-on');setTimeout(()=>goStep(4),150);}
+function bumpQty(d){const el=document.getElementById('inp-qty');let v=(parseInt(el.value)||0)+d;if(v<1)v=1;el.value=v;sel.qty=v;}
+function goResult(){
+  sel.qty=parseInt(document.getElementById('inp-qty').value)||0;
+  let html=doCalc(sel.cat,sel.paper,sel.w,sel.h,sel.finish,sel.qty,sel.ori);
+  html+='<div class="nav-row" style="margin-top:12px"><button class="nav-btn nav-back" onclick="goStep(0)">Start Over</button><button class="nav-btn nav-next" onclick="goStep(4)">Edit Qty</button></div>';
+  document.getElementById('wiz-result').innerHTML=html;
+  goStep(5);
 }
 
-function al(t,m){return '<div class="al '+t+'">'+m+'</div>';}
-function dr(k,v){return '<div class="dr"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>';}
-function tC(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open');}
-ls();
-document.getElementById('ot-w').classList.add('on');
+// POS MODE
+let pSel={cat:'',paper:'',w:0,h:0,finish:'',qty:0,ori:'w'};
+let posTheme='dark';
+function pTheme(){
+  posTheme=posTheme==='dark'?'light':'dark';
+  document.body.classList.remove('pos-dark','pos-light');
+  document.body.classList.add('pos-'+posTheme);
+  document.querySelector('.pos-theme-btn').textContent=posTheme==='dark'?'☀':'🌙';
+  try{localStorage.setItem('fc4-pos-theme',posTheme);}catch(e){}
+  pCalc();
+}
+function loadPosTheme(){try{const t=localStorage.getItem('fc4-pos-theme');if(t==='light')posTheme='light';}catch(e){}
+  setTimeout(()=>{const b=document.querySelector('.pos-theme-btn');if(b)b.textContent=posTheme==='dark'?'☀':'🌙';},0);
+}
+function pCat(c){
+  pSel.cat=c;pSel.paper='';pSel.finish='';
+  document.getElementById('pb-fold').className='p-btn'+(c==='folding'?' cat-on':'');
+  document.getElementById('pb-sf').className='p-btn'+(c==='sf'?' cat-on':'');
+  const db=c==='folding'?FOLD:SF;
+  let h='';for(const[k,v]of Object.entries(db)){h+='<div class="p-btn" id="pp-'+k+'" onclick="pPaper(\''+k+'\')">'+v.label.replace(/ \//g,'<br>/')+'</div>';}
+  document.getElementById('p-papers').innerHTML=h;
+  const folds=FIN[c];let fh='';folds.forEach((f,i)=>{fh+='<div class="p-btn" id="pf-'+i+'" onclick="pFold(\''+f+'\','+i+')">'+(FS[f]||f).toUpperCase()+'</div>';});
+  document.getElementById('p-folds').innerHTML=fh;
+  pBuildSizes();pCalc();
+}
+function pPaper(k){
+  pSel.paper=k;
+  document.querySelectorAll('#p-papers .p-btn').forEach(b=>b.className='p-btn');
+  document.getElementById('pp-'+k).className='p-btn on';
+  pBuildSizes();pCalc();
+}
+function pBuildSizes(){
+  const presets=[{l:'11×17',w:11,h:17},{l:'8.5×11',w:8.5,h:11},{l:'8.5×5.5',w:8.5,h:5.5},{l:'7.5×5',w:7.5,h:5}];
+  let h='';presets.forEach(p=>{h+='<div class="p-btn p-btn-sm" onclick="pSize('+p.w+','+p.h+')">'+p.l+'</div>';});
+  document.getElementById('p-sizes').innerHTML=h;
+}
+function pSize(w,h){
+  pSel.w=w;pSel.h=h;
+  document.getElementById('p-w').value=w;document.getElementById('p-h').value=h;
+  document.querySelectorAll('#p-sizes .p-btn').forEach(b=>b.className='p-btn p-btn-sm');
+  event.target.className='p-btn p-btn-sm on';
+  pCalc();
+}
+function pOri(o){pSel.ori=o;document.getElementById('p-ori-w').className='p-btn p-btn-sm'+(o==='w'?' cat-on':'');document.getElementById('p-ori-h').className='p-btn p-btn-sm'+(o==='h'?' cat-on':'');pCalc();}
+function pFold(f,i){
+  pSel.finish=f;
+  document.querySelectorAll('#p-folds .p-btn').forEach(b=>b.className='p-btn');
+  document.getElementById('pf-'+i).className='p-btn on';
+  pCalc();
+}
+function pQty(n){pSel.qty=n;document.getElementById('p-qty').value=n;pCalc();}
+function pTogBroker(){S.broker=!S.broker;saveS();const sTog=document.getElementById('t-broker');if(sTog)sTog.className='s-tog'+(S.broker?' on':'');pCalc();}
+
+function pCalc(){
+  pSel.w=parseFloat(document.getElementById('p-w').value)||pSel.w;
+  pSel.h=parseFloat(document.getElementById('p-h').value)||pSel.h;
+  pSel.qty=parseInt(document.getElementById('p-qty').value)||pSel.qty;
+  const{cat,paper,w,h,finish,qty,ori}=pSel;
+  if(!cat||!paper||!w||!h||!finish){document.getElementById('p-out').innerHTML='<div style="color:#333;font-size:14px;text-align:center;padding:40px">SELECT ALL OPTIONS</div>';return;}
+  const db=cat==='folding'?FOLD:SF;
+  const sk=matchSz(w,h,cat,db,paper);
+  if(!sk){const mn=db[paper]?.min||'?';document.getElementById('p-out').innerHTML='<div class="pos-err"><div class="pos-err-icon">📏</div><div class="pos-err-title red">SHEET TOO SMALL</div><div class="pos-err-text">Min <strong>'+mn+'</strong> — yours '+w+'×'+h+'</div></div>';return;}
+  const fm=foldM(w,h,finish,ori);
+  const sd=db[paper]?.sizes[sk];if(!sd)return;
+  const isLong=sk==='long';const opt=sd[finish];if(!opt)return;
+  let alerts=[];
+  const fType=finish.replace('Score & ','');
+  if(fType==='Fold in 3'){const mH=fm.divW?h:fm.fh;if(mH>11)alerts.push({c:'orange',m:'Tri max height 11″ — yours '+mH+'″'});}
+  if((fm.divW?fm.fw:w)>13)alerts.push({c:'orange',m:'Max fold width 13″ — yours '+(fm.divW?fm.fw:w)+'″'});
+  if(opt.l==='na'&&!opt.so){
+    let sug='';const alt=opt.alt||'Try different combo';
+    sug=alt.split(/[,&]/).map(s=>s.trim()).filter(Boolean).map(a=>'→ <strong>'+a+'</strong>').join('<br>');
+    document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div class="pos-err"><div class="pos-err-icon">🚫</div><div class="pos-err-title red">NOT AVAILABLE</div><div class="pos-err-text">'+sug+'</div></div>';return;
+  }
+  if(opt.l==='hand'){document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div class="pos-err"><div class="pos-err-icon">✋</div><div class="pos-err-title orange">HAND FOLD</div><div class="pos-err-text">Contact production · Try <strong>Half</strong> or <strong>Tri</strong> for machine</div></div>';return;}
+  if(!qty){document.getElementById('p-out').innerHTML=pAlerts(alerts)+'<div style="color:#333;font-size:16px;text-align:center;padding:30px">ENTER QTY</div>';return;}
+  let isScoreOnly=false,useOpt=opt;
+  if(opt.l==='na'&&opt.so){isScoreOnly=true;useOpt={...opt,l:4};alerts.push({c:'blue',m:'Score Only — full fold N/A'});}
+  else if(opt.so)isScoreOnly=true;
+  if(isLong)alerts.push({c:'orange',m:'Long Sheet — $'+S.longSetup+' fee'});
+  let upgraded=false,origPrice=null,upgPaper='',upgOpt=null;
+  if(typeof useOpt.l==='number'&&useOpt.l>1){
+    origPrice=priceIt(useOpt,qty,isLong);
+    for(const[pk,pv]of Object.entries(db)){if(pk===paper||pv.thick<=db[paper].thick)continue;const s2=pv.sizes[sk];if(!s2)continue;const fd=s2[finish];if(!fd||fd.l==='na'||fd.l==='hand'||typeof fd.l!=='number')continue;if(fd.l<useOpt.l){const trial=priceIt(fd,qty,isLong);if(trial&&origPrice&&trial.retail<origPrice.retail){upgOpt=fd;upgraded=true;upgPaper=pv.label;}}}
+  }
+  let out=pAlerts(alerts);
+  if(upgraded&&origPrice&&upgOpt){
+    const upgPrice=priceIt(upgOpt,qty,isLong);
+    const saving=(origPrice.retail-upgPrice.retail).toFixed(2);
+    out+='<div class="pos-compare"><div class="pos-cmp-card"><div class="pos-cmp-label">YOUR PAPER</div><div class="pos-cmp-paper">'+db[paper].label+'</div><div class="pos-cmp-price">$'+origPrice.retail.toFixed(2)+'</div><div class="pos-cmp-pp">$'+origPrice.pp.toFixed(4)+'/pc</div>'+(S.broker?'<div class="pos-cmp-pp broker">Broker $'+origPrice.broker.toFixed(2)+'</div>':'')+'</div><div class="pos-cmp-card upg"><div class="pos-cmp-label">💡 CHEAPER</div><div class="pos-cmp-paper">'+upgPaper+'</div><div class="pos-cmp-price">$'+upgPrice.retail.toFixed(2)+'</div><div class="pos-cmp-pp">$'+upgPrice.pp.toFixed(4)+'/pc</div>'+(S.broker?'<div class="pos-cmp-pp broker">Broker $'+upgPrice.broker.toFixed(2)+'</div>':'')+'<div class="pos-cmp-save">SAVE $'+saving+'</div></div></div>';
+    out+='<div class="pos-broker-row"><span class="pos-broker-lbl'+(S.broker?' on':'')+'">Broker</span><div class="pos-btog'+(S.broker?' on':'')+'" onclick="pTogBroker()"></div></div>';
+    out+=pBreakdown(origPrice,db[paper].label)+pBreakdown(upgPrice,upgPaper+' (recommended)');
+  }else{
+    const price=priceIt(useOpt,qty,isLong);if(!price)return;
+    out+='<div class="pos-price-box"><div class="pos-price-label">'+(S.broker?'RETAIL':'TOTAL')+' · '+qty.toLocaleString()+' PCS'+(isScoreOnly?' · SCORE ONLY':'')+'</div><div class="pos-price-amt">$'+price.retail.toFixed(2)+'</div><div class="pos-price-pp">$'+price.pp.toFixed(4)+' / pc</div>'+(S.broker?'<div class="pos-broker-amt">Broker $'+price.broker.toFixed(2)+'</div>':'')+'</div>';
+    out+='<div class="pos-broker-row"><span class="pos-broker-lbl'+(S.broker?' on':'')+'">Broker</span><div class="pos-btog'+(S.broker?' on':'')+'" onclick="pTogBroker()"></div></div>';
+    out+='<div class="pos-meta"><div class="pos-meta-item"><div class="pos-meta-k">TIER</div><div class="pos-meta-v">'+(sd.lbl||sk)+'</div></div><div class="pos-meta-item"><div class="pos-meta-k">LEVEL</div><div class="pos-meta-v">'+price.lv+(isScoreOnly?' SO':'')+'</div></div><div class="pos-meta-item"><div class="pos-meta-k">SETUP</div><div class="pos-meta-v">'+price.sm+'m</div></div><div class="pos-meta-item"><div class="pos-meta-k">RUN</div><div class="pos-meta-v">'+price.rm.toFixed(1)+'m</div></div><div class="pos-meta-item"><div class="pos-meta-k">FOLDED</div><div class="pos-meta-v">'+fm.fw+'×'+fm.fh+'</div></div><div class="pos-meta-item"><div class="pos-meta-k">BASE</div><div class="pos-meta-v">$'+price.base.toFixed(2)+'</div></div></div>';
+    out+=pBreakdown(price);
+  }
+  document.getElementById('p-out').innerHTML=out;
+}
+function pAlerts(a){return a.map(x=>'<div class="pos-alert '+x.c+'">'+x.m+'</div>').join('');}
+function pBreakdown(p,label){
+  let h='<div class="pos-bd"><div class="pos-bd-title">'+(label||'HOW PRICED')+'</div>';
+  const rows=[
+    ['Setup','Lv'+p.lv+' → '+p.sm+'m','$'+p.sc.toFixed(2),false],
+    ['Run',p.b+'pcs/'+p.s+'s → '+p.rm.toFixed(1)+'m','$'+p.rc.toFixed(2),false],
+  ];
+  if(p.longFee>0)rows.push(['Long Fee','flat','$'+p.longFee.toFixed(2),false]);
+  rows.push(['Labor Total','','$'+p.base.toFixed(2),true]);
+  rows.push(['×'+S.markup+'% markup','','$'+p.retail.toFixed(2),true]);
+  if(S.broker)rows.push(['Broker -'+S.bdisc+'%','','$'+p.broker.toFixed(2),true]);
+  rows.forEach(r=>{
+    h+='<div class="pos-bd-row'+(r[3]?' total':'')+'"><span class="pos-bd-k">'+r[0]+(r[1]?' <span>'+r[1]+'</span>':'')+'</span><span class="pos-bd-v'+(r[3]?' hi':'')+'">'+r[2]+'</span></div>';
+  });
+  h+='</div>';return h;
+}
+
+loadS();loadPosTheme();renderCrumbs();
 </script>
 </body>
 </html>

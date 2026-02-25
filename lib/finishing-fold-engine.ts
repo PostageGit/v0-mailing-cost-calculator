@@ -80,14 +80,14 @@ export interface FoldFinishInput {
 }
 
 // ── Paper name → fold data key mapping ──
-// Exact mapping from the original HTML calculator data:
-//   FOLD has: "80text_60_70" (80 Text / 60lb / 70lb), "100text" (100 Text)
+// Mapping from the FINAL HTML calculator data:
+//   FOLD has: "80text" (80 Text / 60lb / 70lb), "100text" (100 Text)
 //   SF has:   "100text_80cover" (100 Text / 80 Cover), "cardstock" (Card Stock Any)
 //
-// Rules pulled from original HTML:
-//   - 20lb Offset: too thin → no fold, no S&F
-//   - 60lb Offset: FOLD under "80text_60_70", no S&F
-//   - 80lb Text Gloss: FOLD under "80text_60_70", no S&F
+// Rules:
+//   - 20lb Offset: too thin -> no fold, no S&F
+//   - 60lb Offset: FOLD under "80text", no S&F
+//   - 80lb Text Gloss: FOLD under "80text", no S&F
 //   - 100lb Text Gloss: FOLD under "100text", S&F under "100text_80cover"
 //   - 67 Cover (White): no fold (cover stock), no S&F (not in SF data)
 //   - 80 Cover Gloss: no fold (cover stock), S&F under "100text_80cover"
@@ -95,25 +95,25 @@ export interface FoldFinishInput {
 //   - Sticker: no fold, no S&F
 export function mapPaperToFoldKey(paperName: string): { foldKey: string | null; sfKey: string | null } {
   const lower = paperName.toLowerCase()
-  // 20lb Offset — too thin for fold or S&F
+  // 20lb Offset -- too thin for fold or S&F
   if (lower.includes("20lb")) return { foldKey: null, sfKey: null }
-  // Sticker — not foldable or scoreable
+  // Sticker -- not foldable or scoreable
   if (lower.includes("sticker")) return { foldKey: null, sfKey: null }
-  // 60lb Offset — FOLD only under "80text_60_70"
-  if (lower.includes("60lb")) return { foldKey: "80text_60_70", sfKey: null }
-  // 70lb Offset — FOLD only under "80text_60_70"
-  if (lower.includes("70lb")) return { foldKey: "80text_60_70", sfKey: null }
-  // 80lb Text Gloss — FOLD only under "80text_60_70"
-  if (lower.includes("80lb text") || lower.includes("80 text")) return { foldKey: "80text_60_70", sfKey: null }
-  // 100lb Text Gloss — FOLD under "100text", S&F under "100text_80cover"
+  // 60lb Offset -- FOLD only under "80text"
+  if (lower.includes("60lb")) return { foldKey: "80text", sfKey: null }
+  // 70lb Offset -- FOLD only under "80text"
+  if (lower.includes("70lb")) return { foldKey: "80text", sfKey: null }
+  // 80lb Text Gloss -- FOLD only under "80text"
+  if (lower.includes("80lb text") || lower.includes("80 text")) return { foldKey: "80text", sfKey: null }
+  // 100lb Text Gloss -- FOLD under "100text", S&F under "100text_80cover"
   if (lower.includes("100lb text") || lower.includes("100 text")) return { foldKey: "100text", sfKey: "100text_80cover" }
-  // 80 Cover Gloss — no fold, S&F under "100text_80cover"
+  // 80 Cover Gloss -- no fold, S&F under "100text_80cover"
   if (lower.includes("80 cover") || lower.includes("80cover")) return { foldKey: null, sfKey: "100text_80cover" }
-  // 67 Cover (White) — not in any original data
+  // 67 Cover (White) -- not in any data
   if (lower.includes("67 cover")) return { foldKey: null, sfKey: null }
-  // Cardstock: 10pt, 12pt, 14pt — no fold, S&F under "cardstock"
+  // Cardstock: 10pt, 12pt, 14pt -- no fold, S&F under "cardstock"
   if (lower.includes("10pt") || lower.includes("12pt") || lower.includes("14pt") || lower.includes("card")) return { foldKey: null, sfKey: "cardstock" }
-  // Fallback: unknown paper → no fold, no S&F (safe)
+  // Fallback: unknown paper
   return { foldKey: null, sfKey: null }
 }
 

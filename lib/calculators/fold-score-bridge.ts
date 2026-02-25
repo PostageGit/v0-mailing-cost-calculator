@@ -1,11 +1,9 @@
 // ============================================================
 // Fold / Score & Fold Calculator Bridge
 // ============================================================
-// Reads the ORIGINAL HTML calculator from calculators/fold-score-calculator.html
+// Reads the FINAL HTML calculator from calculators/fold-score-calculator.html
 // Extracts the <script> block and executes it to get the real
-// FOLD, SF, matchSize, foldMath, priceIt functions.
-// This file is imported by finishing-fold-engine.ts instead of
-// the old rewritten data/logic.
+// FOLD, SF, SIZE_MAP, FIN, FS, matchSz, foldM, priceIt functions.
 // ============================================================
 
 import fs from "fs"
@@ -20,7 +18,7 @@ export interface OriginalFoldEntry {
   long?: boolean
   alt?: string
   so?: number // score-only flag (1 = score only available, fold N/A)
-  }
+}
 
 export interface OriginalSizeEntry {
   lbl: string
@@ -31,6 +29,7 @@ export interface OriginalSizeEntry {
 export interface OriginalPaperEntry {
   label: string
   thick: number
+  min: string // e.g. "7×4", "7.5×5"
   sizes: Record<string, OriginalSizeEntry>
 }
 
@@ -48,45 +47,49 @@ export interface OriginalPriceResult {
   bp: number
   b: number
   s: number
-  isLong: boolean
 }
 
 export interface OriginalFoldMathResult {
   fw: number
   fh: number
   panels: number
-  lines: number[]
   divW: boolean
+}
+
+export interface SizeMapEntry {
+  key: string
+  label: string
+  minW: number
+  maxW?: number
+  minH: number
+  maxH?: number
 }
 
 // ── Sandbox context to hold the extracted functions ──
 interface CalcContext {
   FOLD: Record<string, OriginalPaperEntry>
   SF: Record<string, OriginalPaperEntry>
-  FINISHES: { folding: string[]; sf: string[] }
-  SIZE_MAP: Array<{ key: string; w: number; h: number; label: string; minW?: number; maxW?: number; minH?: number; maxH?: number }>
-  matchSize: (w: number, h: number, cat: string) => string
-  foldMath: (w: number, h: number, finish: string) => OriginalFoldMathResult
+  FIN: { folding: string[]; sf: string[] }
+  FS: Record<string, string>
+  SIZE_MAP: SizeMapEntry[]
+  matchSz: (w: number, h: number, cat: string, db: Record<string, OriginalPaperEntry>, paper: string) => string | null
+  foldM: (w: number, h: number, finish: string, ori: string) => OriginalFoldMathResult
   priceIt: (opt: OriginalFoldEntry, qty: number, isLong: boolean) => OriginalPriceResult | null
-  S: { labor: number; run: number; markup: number; bdisc: number; longSetup: number; lv: Record<number, number> }
-  foldAxis: string
+  S: { labor: number; run: number; markup: number; bdisc: number; broker: boolean; upgrade: boolean; longSetup: number; lv: Record<number, number> }
 }
 
 let _ctx: CalcContext | null = null
 let _loadError: string | null = null
 let _lastLoadTime = 0
-const CACHE_TTL_MS = 5000 // Re-read HTML file every 5 seconds at most
+const CACHE_TTL_MS = 5000
 
 function loadCalculator(): CalcContext | null {
-  // Re-read the HTML file periodically so GitHub changes are picked up
   const now = Date.now()
   if (_ctx && (now - _lastLoadTime) < CACHE_TTL_MS) return _ctx
-  // Reset for fresh load
   _ctx = null
   _loadError = null
 
   try {
-    // Try multiple possible paths (dev vs build)
     const possiblePaths = [
       path.join(process.cwd(), "calculators", "fold-score-calculator.html"),
       path.join(__dirname, "..", "..", "calculators", "fold-score-calculator.html"),
@@ -108,7 +111,6 @@ function loadCalculator(): CalcContext | null {
       return null
     }
 
-    // Extract <script> block content
     const scriptMatch = htmlContent.match(/<script[^>]*>([\s\S]*?)<\/script>/i)
     if (!scriptMatch || !scriptMatch[1]) {
       _loadError = "No <script> block found in fold-score-calculator.html"
@@ -118,30 +120,20 @@ function loadCalculator(): CalcContext | null {
 
     const scriptCode = scriptMatch[1]
 
-    // Instead of stripping DOM functions (fragile with nested braces),
-    // extract ONLY the data and pure functions we need via targeted regex.
-    // We need: FOLD, SF, SIZE_MAP, FINISHES, S, foldMath, matchSize, priceIt
-
-    // 1. Extract FOLD data block: "const FOLD={...};"
-    const foldMatch = scriptCode.match(/const\s+FOLD\s*=\s*(\{[\s\S]*?\n\};)/m)
-    // 2. Extract SF data block: "const SF={...};"
-    const sfMatch = scriptCode.match(/const\s+SF\s*=\s*(\{[\s\S]*?\n\};)/m)
-    // 3. Extract SIZE_MAP
-    const sizeMapMatch = scriptCode.match(/const\s+SIZE_MAP\s*=\s*(\[[\s\S]*?\];)/m)
-    // 4. Extract FINISHES
-    const finishesMatch = scriptCode.match(/const\s+FINISHES\s*=\s*(\{[\s\S]*?\};)/m)
-    // 5. Extract S (settings defaults)
+    // Extract data blocks
+    const foldMatch = scriptCode.match(/const\s+FOLD\s*=\s*(\{[\s\S]*?\});/)
+    const sfMatch = scriptCode.match(/const\s+SF\s*=\s*(\{[\s\S]*?\});/)
+    const sizeMapMatch = scriptCode.match(/const\s+SIZE_MAP\s*=\s*(\[[\s\S]*?\]);/)
+    const finMatch = scriptCode.match(/const\s+FIN\s*=\s*(\{[\s\S]*?\});/)
+    const fsMatch = scriptCode.match(/const\s+FS\s*=\s*(\{[\s\S]*?\});/)
     const sMatch = scriptCode.match(/let\s+S\s*=\s*(\{[^}]+\})\s*;/)
-    // 6. Extract foldAxis
-    const foldAxisMatch = scriptCode.match(/let\s+foldAxis\s*=\s*'(\w)'\s*;/)
 
-    // 7. Extract pure functions by finding "function name(" to the matching closing "}"
+    // Extract pure functions
     function extractFunction(code: string, name: string): string | null {
       const startRegex = new RegExp(`function\\s+${name}\\s*\\(`)
       const match = startRegex.exec(code)
       if (!match) return null
       const start = match.index
-      // Find matching closing brace
       let depth = 0
       let inStr: string | null = null
       for (let i = start; i < code.length; i++) {
@@ -154,30 +146,29 @@ function loadCalculator(): CalcContext | null {
       return null
     }
 
-    const foldMathFn = extractFunction(scriptCode, "foldMath")
-    const matchSizeFn = extractFunction(scriptCode, "matchSize")
+    const matchSzFn = extractFunction(scriptCode, "matchSz")
+    const foldMFn = extractFunction(scriptCode, "foldM")
     const priceItFn = extractFunction(scriptCode, "priceIt")
 
-    if (!foldMatch || !sfMatch || !foldMathFn || !matchSizeFn || !priceItFn) {
-      _loadError = `Could not extract required code. FOLD:${!!foldMatch} SF:${!!sfMatch} foldMath:${!!foldMathFn} matchSize:${!!matchSizeFn} priceIt:${!!priceItFn}`
+    if (!foldMatch || !sfMatch || !matchSzFn || !foldMFn || !priceItFn) {
+      _loadError = `Could not extract required code. FOLD:${!!foldMatch} SF:${!!sfMatch} matchSz:${!!matchSzFn} foldM:${!!foldMFn} priceIt:${!!priceItFn}`
       console.warn("[fold-score-bridge]", _loadError)
       return null
     }
 
-    // Build a clean script with only what we need
+    // Build clean script
     const cleanScript = [
-      `var FOLD = ${foldMatch[1]}`,
-      `var SF = ${sfMatch[1]}`,
-      sizeMapMatch ? `var SIZE_MAP = ${sizeMapMatch[1]}` : `var SIZE_MAP = [];`,
-      finishesMatch ? `var FINISHES = ${finishesMatch[1]}` : `var FINISHES = {folding:[],sf:[]};`,
-      sMatch ? `var S = ${sMatch[1]};` : `var S = {labor:60,run:30,markup:300,bdisc:30,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};`,
-      `var foldAxis = '${foldAxisMatch ? foldAxisMatch[1] : "w"}';`,
-      foldMathFn,
-      matchSizeFn,
+      `var FOLD = ${foldMatch[1]};`,
+      `var SF = ${sfMatch[1]};`,
+      sizeMapMatch ? `var SIZE_MAP = ${sizeMapMatch[1]};` : `var SIZE_MAP = [];`,
+      finMatch ? `var FIN = ${finMatch[1]};` : `var FIN = {folding:[],sf:[]};`,
+      fsMatch ? `var FS = ${fsMatch[1]};` : `var FS = {};`,
+      sMatch ? `var S = ${sMatch[1]};` : `var S = {labor:60,run:30,markup:300,bdisc:30,broker:false,upgrade:true,longSetup:35,lv:{1:5,2:7,3:10,4:12,5:15}};`,
+      matchSzFn,
+      foldMFn,
       priceItFn,
     ].join("\n\n")
 
-    // Create sandbox context with only what the pure functions need
     const sandbox: Record<string, unknown> = {
       console: { log: () => {}, warn: () => {}, error: () => {} },
       parseInt,
@@ -192,17 +183,17 @@ function loadCalculator(): CalcContext | null {
     _ctx = {
       FOLD: sandbox.FOLD as CalcContext["FOLD"],
       SF: sandbox.SF as CalcContext["SF"],
-      FINISHES: sandbox.FINISHES as CalcContext["FINISHES"],
+      FIN: sandbox.FIN as CalcContext["FIN"],
+      FS: sandbox.FS as CalcContext["FS"],
       SIZE_MAP: sandbox.SIZE_MAP as CalcContext["SIZE_MAP"],
-      matchSize: sandbox.matchSize as CalcContext["matchSize"],
-      foldMath: sandbox.foldMath as CalcContext["foldMath"],
+      matchSz: sandbox.matchSz as CalcContext["matchSz"],
+      foldM: sandbox.foldM as CalcContext["foldM"],
       priceIt: sandbox.priceIt as CalcContext["priceIt"],
       S: sandbox.S as CalcContext["S"],
-      foldAxis: (sandbox.foldAxis as string) || "w",
     }
 
     _lastLoadTime = Date.now()
-    console.log("[fold-score-bridge] Successfully loaded fold-score-calculator.html")
+    console.log("[fold-score-bridge] Successfully loaded FINAL fold-score-calculator.html")
     console.log("[fold-score-bridge] FOLD keys:", Object.keys(_ctx.FOLD))
     console.log("[fold-score-bridge] SF keys:", Object.keys(_ctx.SF))
     return _ctx
@@ -220,7 +211,7 @@ export function isCalculatorLoaded(): boolean {
 }
 
 export function getLoadError(): string | null {
-  loadCalculator() // attempt load
+  loadCalculator()
   return _loadError
 }
 
@@ -234,17 +225,26 @@ export function getSF(): Record<string, OriginalPaperEntry> {
   return ctx?.SF || {}
 }
 
-export function getFINISHES(): { folding: string[]; sf: string[] } {
+export function getFIN(): { folding: string[]; sf: string[] } {
   const ctx = loadCalculator()
-  return ctx?.FINISHES || { folding: [], sf: [] }
+  return ctx?.FIN || { folding: [], sf: [] }
+}
+
+export function getFS(): Record<string, string> {
+  const ctx = loadCalculator()
+  return ctx?.FS || {}
+}
+
+export function getSIZE_MAP(): SizeMapEntry[] {
+  const ctx = loadCalculator()
+  return ctx?.SIZE_MAP || []
 }
 
 export function getSettings(): CalcContext["S"] {
   const ctx = loadCalculator()
-  return ctx?.S || { labor: 60, run: 30, markup: 300, bdisc: 30, longSetup: 35, lv: { 1: 5, 2: 7, 3: 10, 4: 12, 5: 15 } }
+  return ctx?.S || { labor: 60, run: 30, markup: 300, bdisc: 30, broker: false, upgrade: true, longSetup: 35, lv: { 1: 5, 2: 7, 3: 10, 4: 12, 5: 15 } }
 }
 
-/** Update the settings object inside the sandbox (mirrors the S object) */
 export function updateSettings(newSettings: Partial<CalcContext["S"]>): void {
   const ctx = loadCalculator()
   if (ctx) {
@@ -252,40 +252,29 @@ export function updateSettings(newSettings: Partial<CalcContext["S"]>): void {
   }
 }
 
-/** Call the original matchSize(w, h, cat) function */
-export function bridgeMatchSize(w: number, h: number, cat: string): string {
+/**
+ * Call the original matchSz(w, h, cat, db, paper) function.
+ * Returns the size tier key or null if sheet is too small.
+ */
+export function bridgeMatchSize(w: number, h: number, cat: string, paperKey: string): string | null {
   const ctx = loadCalculator()
   if (!ctx) return "8.5x5.5" // safe fallback
-  return ctx.matchSize(w, h, cat)
+  const db = cat === "folding" ? ctx.FOLD : ctx.SF
+  return ctx.matchSz(w, h, cat, db, paperKey)
 }
 
-/** Call the original foldMath(w, h, finish) with axis control */
-export function bridgeFoldMath(w: number, h: number, finish: string, axis: "w" | "h" = "w"): OriginalFoldMathResult {
+/**
+ * Call the original foldM(w, h, finish, ori) function.
+ */
+export function bridgeFoldMath(w: number, h: number, finish: string, ori: "w" | "h" = "w"): OriginalFoldMathResult {
   const ctx = loadCalculator()
-  if (!ctx) return { fw: w, fh: h, panels: 1, lines: [], divW: true }
-  // The original uses a global foldAxis variable
-  ctx.foldAxis = axis
-  // We need to call it in the sandbox context
-  const sandbox = vm.createContext({
-    ...ctx,
-    foldAxis: axis,
-    Math,
-  })
-  // Re-run foldMath in context with the updated axis
-  const code = `
-    var foldAxis = "${axis}";
-    var result = (${ctx.foldMath.toString()})(${w}, ${h}, ${JSON.stringify(finish)});
-    result;
-  `
-  try {
-    return vm.runInContext(code, sandbox, { timeout: 500 }) as OriginalFoldMathResult
-  } catch {
-    // Fallback: call directly (foldAxis may not be correct)
-    return ctx.foldMath(w, h, finish)
-  }
+  if (!ctx) return { fw: w, fh: h, panels: 1, divW: true }
+  return ctx.foldM(w, h, finish, ori)
 }
 
-/** Call the original priceIt(opt, qty, isLong) with custom settings */
+/**
+ * Call the original priceIt(opt, qty, isLong) with custom settings.
+ */
 export function bridgePriceIt(
   opt: OriginalFoldEntry,
   qty: number,
@@ -294,13 +283,16 @@ export function bridgePriceIt(
 ): OriginalPriceResult | null {
   const ctx = loadCalculator()
   if (!ctx) return null
-  // Apply settings override temporarily
   const origS = { ...ctx.S }
   if (settingsOverride) Object.assign(ctx.S, settingsOverride)
   try {
     return ctx.priceIt(opt, qty, isLong)
   } finally {
-    // Restore original settings
     Object.assign(ctx.S, origS)
   }
+}
+
+// Keep old name export for backward compat
+export function getFINISHES(): { folding: string[]; sf: string[] } {
+  return getFIN()
 }
