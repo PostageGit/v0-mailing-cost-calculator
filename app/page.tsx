@@ -100,9 +100,14 @@ function AppContent() {
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
-  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped } = useQuote()
+  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
+
+  // Push mailing state into QuoteContext for auto-save whenever it changes
+  useEffect(() => {
+    setMailingSnapshot(mailing.getSnapshot())
+  }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
   const visibleSteps = useMemo(() => {
     return ALL_STEPS.filter((step) => {
@@ -124,12 +129,25 @@ function AppContent() {
   }, [visibleSteps, currentStep, jobPhase])
 
   const handleLoadQuote = useCallback(
-    async (quoteId: string, step?: string) => { await loadQuote(quoteId); setJobPhase("pricing"); if (step) setCurrentStep(step as StepId); setSection("job") },
-    [loadQuote],
+    async (quoteId: string, step?: string) => {
+      const mailingSnap = await loadQuote(quoteId)
+      // Restore mailing state (pieces, shape, service, qty) so planner + calculators are populated
+      if (mailingSnap) {
+        mailing.restoreState(mailingSnap)
+      }
+      setJobPhase("pricing")
+      if (step) setCurrentStep(step as StepId)
+      setSection("job")
+    },
+    [loadQuote, mailing],
   )
   const handleNewJob = useCallback(() => {
-    newQuote(); setJobPhase("planner"); setSection("job")
-  }, [newQuote])
+    newQuote()
+    // Reset mailing state for a fresh quote
+    mailing.restoreState({ quantity: 0, shape: "LETTER", className: "Letter", mailService: "", pieces: [] })
+    setJobPhase("planner")
+    setSection("job")
+  }, [newQuote, mailing])
 
   const handleContinueToPricing = useCallback(() => {
     setJobPhase("pricing")
