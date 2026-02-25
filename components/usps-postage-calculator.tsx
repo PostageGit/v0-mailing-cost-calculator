@@ -156,13 +156,21 @@ function ResultsBar({
   total: number
   quantity: number
   disabled: boolean
-  onAdd: () => void
+  onAdd: (bufferCents: number) => void
   onAddManual: (ratePerPiece: number) => void
 }) {
   const [manualRate, setManualRate] = useState<string>("")
   const parsedRate = parseFloat(manualRate)
   const hasManual = manualRate.length > 0 && !isNaN(parsedRate) && parsedRate > 0
   const manualTotal = hasManual ? parsedRate * quantity : 0
+
+  // Editable buffer in cents -- defaults to 3
+  const [bufferOn, setBufferOn] = useState(false)
+  const [bufferCents, setBufferCents] = useState<string>("3")
+  const parsedBuffer = parseFloat(bufferCents) || 0
+  const bufferAmt = bufferOn ? parsedBuffer / 100 : 0
+  const bufferedPerPiece = perPiece + bufferAmt
+  const bufferedTotal = bufferedPerPiece * quantity
 
   return (
     <div className="sticky bottom-4 z-20 flex flex-col gap-2">
@@ -214,33 +222,66 @@ function ResultsBar({
       </div>
 
       {/* Calculated results bar */}
-      <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-baseline gap-6 sm:gap-8">
-          <div>
-            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-              Per Piece
-            </span>
-            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
-              {isValid ? formatPostageRate(perPiece) : "---"}
-            </span>
+      <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex items-baseline gap-6 sm:gap-8">
+            <div>
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+                Per Piece
+              </span>
+              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
+                {isValid ? formatPostageRate(bufferOn ? bufferedPerPiece : perPiece) : "---"}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+                {bufferOn ? "Buffered Total" : "Calculated Total"}
+              </span>
+              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
+                {isValid ? formatCurrency(bufferOn ? bufferedTotal : total) : "$0.00"}
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-              Calculated Total
-            </span>
-            <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
-              {isValid ? formatCurrency(total) : "$0.00"}
-            </span>
-          </div>
+          <button
+            onClick={() => onAdd(bufferOn ? parsedBuffer : 0)}
+            disabled={disabled}
+            className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" />
+            Add Calculated
+          </button>
         </div>
-        <button
-          onClick={onAdd}
-          disabled={disabled}
-          className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" />
-          Add Calculated
-        </button>
+
+        {/* Buffer toggle row */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-background/10">
+          <button
+            onClick={() => setBufferOn(!bufferOn)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${bufferOn ? "bg-emerald-500" : "bg-background/20"}`}
+          >
+            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 mt-0.5 ${bufferOn ? "translate-x-4 ml-0.5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-[11px] font-semibold text-background/70 uppercase tracking-wide">Buffer</span>
+          <div className="flex items-center gap-1">
+            <span className="text-background/50 text-xs">+</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={bufferCents}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v)
+              }}
+              onClick={(e) => { e.stopPropagation(); if (!bufferOn) setBufferOn(true) }}
+              className="w-12 text-center font-mono text-sm font-bold bg-background/10 border border-background/20 text-background rounded-md px-1 py-0.5 outline-none focus:ring-2 focus:ring-background/30 transition-all"
+            />
+            <span className="text-background/50 text-xs font-medium">cents/pc</span>
+          </div>
+          {bufferOn && isValid && (
+            <span className="text-[10px] text-background/40 font-mono ml-auto">
+              {formatPostageRate(perPiece)} + {parsedBuffer}c = {formatPostageRate(bufferedPerPiece)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -284,17 +325,21 @@ function Tab2Parcels() {
     })
   }, [])
 
-  const handleAddToQuote = useCallback(() => {
+  const handleAddToQuote = useCallback((bufferCents: number) => {
     if (!result.isValid) return
+    const bufferPerPiece = bufferCents / 100
+    const bufferedTotal = (result.perPiece + bufferPerPiece) * inputs.quantity
     const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
+    const desc = bufferCents > 0 ? `${result.rateInfo} | +${bufferCents}c buffer` : result.rateInfo
     quote.addItem({
       category: "postage",
       label: `USPS ${result.description} - ${inputs.quantity.toLocaleString()} pc`,
-      description: result.rateInfo,
-      amount: result.total,
+      description: desc,
+      amount: bufferCents > 0 ? bufferedTotal : result.total,
       metadata: {
         mailingClass: svcLabels[inputs.service],
         dropOff: inputs.service === "PS" ? inputs.psEntry : inputs.service === "BPM" ? inputs.bpmEntry : undefined,
+        bufferCents: bufferCents > 0 ? bufferCents : undefined,
       },
     })
   }, [result, inputs, quote])
@@ -577,11 +622,14 @@ function Tab1LettersFlats() {
     })
   }, [])
 
-  const handleAddToQuote = useCallback(() => {
+  const handleAddToQuote = useCallback((bufferCents: number) => {
     if (!result.isValid) return
+    const bufferPerPiece = bufferCents / 100
+    const bufferedTotal = (result.avgPerPiece + bufferPerPiece) * inputs.quantity
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
+    if (bufferCents > 0) parts.push(`+${bufferCents}c buffer`)
     const activeTier = tiers[inputs.tierIndex]
     // Map to kanban canonical mailing class names
     const classMap: Record<string, string> = {
@@ -592,13 +640,14 @@ function Tab1LettersFlats() {
       category: "postage",
       label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
       description: parts.join(" | "),
-      amount: result.total,
+      amount: bufferCents > 0 ? bufferedTotal : result.total,
       metadata: {
         mailingClass: classMap[inputs.service] || SERVICE_LABELS[inputs.service],
         mailShape: inputs.shape.toLowerCase(),
         tierName: activeTier?.l || undefined,
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
+        bufferCents: bufferCents > 0 ? bufferCents : undefined,
       },
     })
   }, [result, inputs, quote, tiers])
