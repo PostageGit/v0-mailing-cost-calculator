@@ -242,7 +242,10 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   if (ohpItems.length > 0) {
     lines.push("PRINTING")
     ohpItems.forEach((item) => {
-      if (item.description) lines.push(item.description)
+      const m = (item.metadata ?? {}) as Record<string, unknown>
+      const specs = buildCustomerSpecs(m, "printing")
+      const desc = specs || item.description
+      if (desc) lines.push(desc)
       lines.push(formatCurrency(item.amount))
     })
     lines.push(divider)

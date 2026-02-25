@@ -10,6 +10,7 @@ import {
   X, Plus, Loader2, Send, ShoppingCart, Check, ArrowRight, Star,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
+import { buildCustomerSpecs } from "@/lib/build-quote-text"
 import { useQuote } from "@/lib/quote-context"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
@@ -270,15 +271,49 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
   const bestPickup = bestVendor?.pickup_cost ?? 0
   const bestCustomerTotal = bestPrice != null ? bestPrice * (1 + markupPct / 100) + bestPickup : null
 
-  // Push best price to quote
+  // Push best price to quote -- customer-facing description uses print specs, not vendor/markup
   const handlePushToQuote = useCallback(() => {
     if (bestPrice == null || !bestVendor) return
     const total = bestPrice * (1 + markupPct / 100) + (bestVendor.pickup_cost ?? 0)
+
+    // Try to find the matching in-house quote item to copy print spec metadata
+    // In-house items have metadata with paperName, pieceDimensions, sides, etc.
+    const existingItems = quote.items ?? []
+    const matchingItem = existingItems.find((it) => {
+      if (it.category !== "printing" && it.category !== "booklet") return false
+      const md = it.metadata as Record<string, unknown> | undefined
+      if (!md?.pieceDimensions) return false
+      // Match by piece dimensions from the bid label
+      return bid.item_label.includes(String(md.pieceDimensions).replace("x", "x"))
+    })
+    const inhouseMeta = (matchingItem?.metadata ?? {}) as Record<string, unknown>
+
+    // Build customer-facing description from print specs
+    let description = ""
+    if (Object.keys(inhouseMeta).length > 0) {
+      // Use the same buildCustomerSpecs that in-house printing uses
+      description = buildCustomerSpecs(inhouseMeta, matchingItem?.category as any) || bid.item_description || ""
+    } else {
+      // Fallback: use the bid label itself (e.g. "2,850 - 8.11x11 Booklet")
+      description = bid.item_description || bid.item_label
+    }
+
     quote.addItem({
       category: "ohp",
-      label: `OHP: ${bid.item_label}`,
-      description: `${bestVendor.company_name} | +${markupPct}% markup`,
+      label: bid.item_label,
+      description,
       amount: total,
+      metadata: {
+        // Internal-only fields -- not shown to customer
+        vendorName: bestVendor.company_name,
+        vendorId: bestVendor.id,
+        markupPct,
+        vendorCost: bestPrice,
+        pickupCost: bestVendor.pickup_cost ?? 0,
+        // Copy print specs for buildCustomerSpecs to work on PDF/email
+        ...inhouseMeta,
+        production: "ohp",
+      },
     })
     setPushed(true); setTimeout(() => setPushed(false), 2500)
   }, [bid, bestPrice, bestVendor, markupPct, quote])

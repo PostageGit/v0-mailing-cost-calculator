@@ -277,7 +277,11 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
   if (ohpItems.length > 0) {
     sectionHeader("PRINTING")
     ohpItems.forEach((item) => {
-      lineItem(item.description || item.label || "OHP", null, item.amount)
+      // Use customer specs from metadata, fallback to description, then label
+      const m = (item.metadata ?? {}) as Record<string, unknown>
+      const specs = buildCustomerSpecs(m, "printing")
+      const desc = specs || item.description || item.label || "Printing"
+      lineItem(desc, null, item.amount)
     })
   }
 

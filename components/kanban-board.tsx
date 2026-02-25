@@ -190,9 +190,9 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
   // --- OHP items ---
   const ohpItems = items.filter((it) => it.category === "ohp")
   if (ohpItems.length > 0) {
-    const ohpDesc = ohpItems[0].description || ""
-    const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-    if (vendorFromDesc) derived.vendor_name = vendorFromDesc
+    const ohpMd = ohpItems[0].metadata as Record<string, unknown> | undefined
+    const vendorName = (ohpMd?.vendorName as string) || ohpItems[0].description?.split("|")[0]?.trim()
+    if (vendorName) derived.vendor_name = vendorName
     derived.printed_by = "Out of House"
 
     if (!derived.piece_desc) {
@@ -1300,7 +1300,7 @@ function QuoteCard({
                 const md = pc.metadata as Record<string, unknown> | undefined
                 const isOHP = pc.category === "ohp"
                 if (isOHP) {
-                  const vn = pc.description?.split("|")[0]?.trim()
+                  const vn = (md?.vendorName as string) || pc.description?.split("|")[0]?.trim()
                   if (vn) vendorInfos.push({ name: vn })
                 } else if (md?.customerProvided && md?.providerVendor) {
                   vendorInfos.push({ name: md.providerVendor as string, date: md.providerExpectedDate as string | undefined })
@@ -2018,10 +2018,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     // --- Printed by + Vendor: from OHP items ---
     const ohpItems = items.filter((it) => it.category === "ohp")
     if (ohpItems.length > 0 && !meta.printed_by) {
-      // Vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
-      const ohpDesc = ohpItems[0].description || ""
-      const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-      if (vendorFromDesc && !meta.vendor_name) meta.vendor_name = vendorFromDesc
+      // Vendor name from metadata (new) or fallback to description parsing (old quotes)
+      const ohpMd = ohpItems[0].metadata as Record<string, unknown> | undefined
+      const vendorFromMeta = (ohpMd?.vendorName as string) || ohpItems[0].description?.split("|")[0]?.trim()
+      if (vendorFromMeta && !meta.vendor_name) meta.vendor_name = vendorFromMeta
 
       // Check if there are ALSO in-house printing items
       if (printingItems.length > 0) {
@@ -2062,9 +2062,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             // Default to PrintOut -- user can pick exact location on the job board
             pm.vendor = ""
           } else if (it.category === "ohp") {
-            // Extract vendor from OHP description: "VendorName | +15% markup"
-            const vendorFromDesc = (it.description || "").split("|")[0]?.trim()
-            if (vendorFromDesc) pm.vendor = vendorFromDesc
+            // Extract vendor from metadata (new) or description (old quotes)
+            const itMd = it.metadata as Record<string, unknown> | undefined
+            const vendorFromMeta = (itMd?.vendorName as string) || (it.description || "").split("|")[0]?.trim()
+            if (vendorFromMeta) pm.vendor = vendorFromMeta
           }
           return pm
         })
