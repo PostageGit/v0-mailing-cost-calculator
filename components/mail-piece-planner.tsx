@@ -161,24 +161,29 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   stepSummary.push("Items")
 
   return (
-    <div className="max-w-4xl mx-auto w-full">
+    <div className="max-w-4xl mx-auto w-full pb-8">
       {/* ─── Header ─── */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Mail Piece Planner</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Define what you are mailing. Each piece drives the quoting process.
+        <div className="flex items-center gap-3 mb-1">
+          <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
+            <span className="text-xs font-bold text-background">1</span>
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">New Mailing Job</h1>
+        </div>
+        <p className="text-sm text-muted-foreground ml-11">
+          Set up customer, job info, and define each mail piece.
         </p>
       </div>
 
       {/* ─── Top row: Customer + Job basics ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr] gap-4 mb-6">
         {/* Customer Card */}
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
-              <User className="h-4 w-4 text-muted-foreground" />
+            <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Customer</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Customer</span>
           </div>
           <div className="flex flex-col gap-3">
             <div>
@@ -262,20 +267,21 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
         {/* Job Card */}
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-8 w-8 rounded-xl bg-secondary flex items-center justify-center">
-              <Package className="h-4 w-4 text-muted-foreground" />
+            <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center">
+              <Package className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Job Details</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Job Details</span>
           </div>
           <div className="flex flex-col gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Job Name</label>
-              <Input placeholder="Spring Mailer 2026" value={q.projectName} onChange={(e) => q.setProjectName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
+              <Input placeholder="Enter job name" value={q.projectName} onChange={(e) => q.setProjectName(e.target.value)} className="h-9 text-sm border-border bg-background rounded-xl" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Quantity</label>
                 <Input type="number" min="0" placeholder="0" value={m.quantity || ""} onChange={(e) => { const v = parseInt(e.target.value) || 0; m.setQuantity(v); q.setQuantity(v) }} className={cn("h-9 text-sm border-border bg-background rounded-xl font-mono", continueAttempted && !m.quantity && "ring-2 ring-destructive/50 border-destructive/40")} />
+                {m.quantity > 0 && <p className="text-[10px] text-muted-foreground mt-0.5">{'Print/Env: ' + m.printQty.toLocaleString() + ' (+50 overage)'}</p>}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">PO / Ref #</label>
@@ -289,16 +295,16 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
       {/* ═══════════════════════════════════════════════════════
           MAIL PIECES -- the heart of the planner
          ═══════════════════════════════════════════════════════ */}
-      <div className="rounded-2xl border-2 border-foreground/10 bg-card p-6 mb-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-foreground flex items-center justify-center">
-              <Layers className="h-4.5 w-4.5 text-background" />
+      <div className="rounded-2xl border border-border bg-card p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center">
+              <Layers className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">Mail Pieces</h2>
-              <p className="text-xs text-muted-foreground">
-                {m.pieces.length === 0 ? "Add each physical piece in the mailing" : `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""} defined`}
+              <h2 className="text-sm font-bold text-foreground leading-tight">Mail Pieces</h2>
+              <p className="text-[11px] text-muted-foreground">
+                {m.pieces.length === 0 ? "What's being mailed?" : `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""} defined`}
               </p>
             </div>
           </div>
@@ -389,12 +395,37 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
 
         {/* Empty state */}
   {m.pieces.length === 0 && (
-  <div className={cn("text-center py-12 border-2 border-dashed rounded-2xl transition-colors", continueAttempted ? "border-destructive/50 bg-destructive/5" : "border-border/60")}>
-            <Mail className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-sm font-semibold text-foreground">No pieces yet</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
-              Click "Add Piece" to define what is being mailed -- start with the outermost piece (envelope, postcard, booklet), then add any inserts inside it.
-            </p>
+  <div className="py-8 border border-dashed border-border rounded-2xl bg-secondary/30">
+            <div className="text-center mb-5">
+              <p className="text-sm font-semibold text-foreground">What are you mailing?</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Pick the outermost piece first, then add inserts.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 px-6">
+              {[
+                { type: "envelope" as PieceType, label: "Envelope", icon: "ENV" },
+                { type: "postcard" as PieceType, label: "Postcard", icon: "PC" },
+                { type: "booklet" as PieceType, label: "Booklet", icon: "BKL" },
+                { type: "self_mailer" as PieceType, label: "Self-Mailer", icon: "SM" },
+              ].map((item) => (
+                <button
+                  key={item.type}
+                  onClick={() => m.addPiece(item.type)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-semibold text-foreground transition-all hover:shadow-md hover:border-foreground/20 hover:-translate-y-0.5"
+                >
+                  <span className="text-[10px] font-bold text-muted-foreground">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowAddMenu(true)}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                More
+              </button>
+            </div>
           </div>
         )}
 
@@ -542,6 +573,9 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                               {"0.25\" total clearance from piece above. "}
                               {maxInnerW && maxInnerH && <span className="font-mono">Max allowed: {maxInnerW}" x {maxInnerH}"</span>}
                             </p>
+                            <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1">
+                              {"Or type custom dimensions below to override"}
+                            </p>
                           </div>
                           <button
                             onClick={() => m.updatePiece(piece.id, { _suggested: undefined })}
@@ -585,6 +619,16 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                                 </div>
                                 {piece.width && piece.height && !piece._suggested && !isFolded && (
                                   <span className="text-xs font-mono text-muted-foreground ml-1">{piece.width}" x {piece.height}"</span>
+                                )}
+                                {/* Show "Overridden" tag + reset when user changed from suggested values */}
+                                {!piece._suggested && piece._suggestedW && piece._suggestedH && piece.width && piece.height && (piece.width !== piece._suggestedW || piece.height !== piece._suggestedH) && (
+                                  <button
+                                    onClick={() => m.updatePiece(piece.id, { width: piece._suggestedW, height: piece._suggestedH })}
+                                    className="ml-2 text-[10px] text-amber-600 dark:text-amber-400 hover:underline"
+                                    title={`Reset to suggested ${piece._suggestedW}" x ${piece._suggestedH}"`}
+                                  >
+                                    {'Overridden \u2022 Reset to ' + piece._suggestedW + '" x ' + piece._suggestedH + '"'}
+                                  </button>
                                 )}
                               </>
                             ) : (
@@ -789,7 +833,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
       {/* ─── USPS Shape Qualification ─── */}
       {hasDims && m.pieces.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-foreground mb-3">USPS Shape Qualification</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">USPS Shape Qualification</h3>
           <div className="flex flex-wrap gap-2">
             {shapes.includes("POSTCARD") && (
               <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/40 px-4 py-2.5">
@@ -878,59 +922,82 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
 
       {/* ─── Workflow Preview ─── */}
       {m.pieces.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-5 mb-6">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Quoting Steps</h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Based on your pieces, these calculator steps will be available:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {stepSummary.map((s) => (
-              <div key={s} className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-foreground">
-                <Check className="h-3 w-3 text-emerald-600" />
-                {s}
+        <div className="rounded-2xl border border-border bg-card px-5 py-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Next: Pricing Steps</h3>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {stepSummary.map((s, i) => (
+              <div key={s} className="flex items-center gap-1">
+                <span className="flex items-center gap-1.5 rounded-full bg-secondary/80 px-3 py-1.5 text-[11px] font-semibold text-foreground">
+                  <span className="h-4 w-4 rounded-full bg-foreground/10 flex items-center justify-center text-[9px] font-bold text-muted-foreground">{i + 1}</span>
+                  {s}
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ─── Continue Button ─── */}
-      <div className="flex flex-col items-end gap-2">
+      {/* ─── Continue Bar ─── */}
+      <div className="mt-4">
+        {/* Error panel */}
         {continueAttempted && !canContinue && continueBlockers.length > 0 && (
-          <div className="w-full max-w-md rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <p className="text-[11px] font-semibold text-destructive mb-1.5">
-              Before continuing, please fix:
-            </p>
+          <div className="rounded-t-2xl border border-b-0 border-destructive/20 bg-destructive/5 px-5 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <ul className="flex flex-col gap-1">
               {continueBlockers.map((msg, i) => (
-                <li key={i} className="flex items-start gap-2 text-[11px] text-destructive/80">
-                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive/50 shrink-0" />
+                <li key={i} className="flex items-start gap-2 text-[11px] text-destructive/80 font-medium">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive/40 shrink-0" />
                   {msg}
                 </li>
               ))}
             </ul>
           </div>
         )}
-        <button
-          onClick={() => {
-            if (canContinue) {
-              setContinueAttempted(false)
-              onContinue()
-            } else {
-              setContinueAttempted(true)
-            }
-          }}
-          className={cn(
-            "flex items-center gap-2 h-12 px-8 text-sm font-semibold rounded-full transition-all shadow-lg",
-            canContinue
-              ? "bg-foreground text-background hover:bg-foreground/90"
-              : continueAttempted
-                ? "bg-destructive/10 text-destructive border border-destructive/30 cursor-default"
-                : "bg-foreground text-background hover:bg-foreground/90"
-          )}
-        >
-          Continue to Pricing <ArrowRight className="h-4 w-4" />
-        </button>
+        {/* Main bar */}
+        <div className={cn(
+          "flex items-center justify-between gap-4 bg-foreground text-background px-5 py-3.5 shadow-lg transition-all",
+          continueAttempted && !canContinue ? "rounded-b-2xl" : "rounded-2xl",
+        )}>
+          <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className={cn("h-2 w-2 rounded-full", m.pieces.length > 0 ? "bg-emerald-400" : "bg-background/30")} />
+              <span className="text-background/60 font-medium">
+                {m.pieces.length > 0 ? `${m.pieces.length} piece${m.pieces.length > 1 ? "s" : ""}` : "No pieces"}
+              </span>
+            </div>
+            {m.quantity > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="text-background/60 font-medium font-mono">{m.quantity.toLocaleString()} pcs</span>
+              </div>
+            )}
+            {q.projectName && (
+              <span className="text-background/40 font-medium truncate max-w-[140px]">{q.projectName}</span>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              if (canContinue) {
+                setContinueAttempted(false)
+                onContinue()
+              } else {
+                setContinueAttempted(true)
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2 h-10 px-6 text-sm font-semibold rounded-full transition-all shrink-0",
+              canContinue
+                ? "bg-background text-foreground hover:bg-background/90"
+                : continueAttempted
+                  ? "bg-destructive/80 text-white"
+                  : "bg-background text-foreground hover:bg-background/90"
+            )}
+          >
+            Continue <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -80,6 +80,8 @@ export interface MailPiece {
   customerProvidedVendor?: string     // vendor name or custom text (when production === "customer")
   customerProvidedDate?: string       // ISO date string (when production === "customer")
   _suggested?: boolean       // true if size was auto-suggested and needs user verification
+  _suggestedW?: number | null // original suggested width (for reset after override)
+  _suggestedH?: number | null // original suggested height (for reset after override)
 }
 
 // ─── Standard envelope sizes ─────────────────────────────
@@ -123,6 +125,8 @@ export const STANDARD_ENVELOPES: EnvelopeSize[] = [
 // ─── Context ─────────────────────────────────────────────
 interface MailingState {
   quantity: number; setQuantity: (n: number) => void
+  /** Print/envelope overage: quantity + 50 (accounts for spoilage/waste) */
+  printQty: number
   shape: string; className: string; suggestedShapes: USPSShape[]
   setShape: (s: string) => void; setClassName: (n: string) => void
   /** USPS service code from Tab 1/2 e.g. "FCM_COMM","MKT_COMM","MKT_NP","FCM_RETAIL","PS","MM","LM","BPM" */
@@ -151,6 +155,19 @@ interface MailingState {
   /** For backward compat */
   outerWidth: number | null; outerHeight: number | null
   setOuterWidth: (w: number | null) => void; setOuterHeight: (h: number | null) => void
+
+  /** Snapshot for persisting/restoring full mailing state */
+  getSnapshot: () => MailingSnapshot
+  restoreState: (snapshot: MailingSnapshot) => void
+}
+
+/** Serializable snapshot of mailing state for DB persistence */
+export interface MailingSnapshot {
+  quantity: number
+  shape: string
+  className: string
+  mailService: string
+  pieces: MailPiece[]
 }
 
 const Ctx = createContext<MailingState | null>(null)
@@ -174,6 +191,7 @@ let _counter = 0
 
 export function MailingProvider({ children }: { children: ReactNode }) {
   const [quantity, setQuantity] = useState(0)
+  const printQty = quantity > 0 ? quantity + 50 : 0
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
   const [mailService, setMailService] = useState("")
@@ -202,6 +220,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
         foldType: defaultFold,
         production: "inhouse",
         _suggested: sugW && sugH ? true : undefined,
+        _suggestedW: sugW, _suggestedH: sugH,
       } as MailPiece]
     })
   }, [])
@@ -245,6 +264,24 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const needsPad = inhouseOrBoth.some((p) => p.type === "pad")
   const needsOHP = ohpOrBoth.length > 0
 
+  // ── Snapshot: capture & restore full mailing state ──
+  const getSnapshot = useCallback((): MailingSnapshot => ({
+    quantity, shape, className, mailService,
+    pieces: pieces.map((p) => ({ ...p })), // shallow clone each piece
+  }), [quantity, shape, className, mailService, pieces])
+
+  const restoreState = useCallback((snap: MailingSnapshot) => {
+    if (!snap) return
+    setQuantity(snap.quantity ?? 0)
+    setShape(snap.shape ?? "LETTER")
+    setClassName(snap.className ?? "Letter")
+    setMailService(snap.mailService ?? "")
+    // Restore pieces and bump counter so new pieces don't collide with existing IDs
+    const restored = (snap.pieces ?? []).map((p, i) => ({ ...p, position: i + 1 }))
+    setPieces(restored)
+    _counter = restored.length + 100
+  }, [])
+
   // Backward compat setters for outer dims
   const setOuterWidth = useCallback((w: number | null) => {
     if (outerPiece) { setPieces((prev) => prev.map((p) => p.id === outerPiece.id ? { ...p, width: w } : p)) }
@@ -255,11 +292,12 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      quantity, setQuantity, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
+      quantity, setQuantity, printQty, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
       needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsPad, needsOHP,
       outerWidth: mailerWidth, outerHeight: mailerHeight, setOuterWidth, setOuterHeight,
+      getSnapshot, restoreState,
     }}>
       {children}
     </Ctx.Provider>

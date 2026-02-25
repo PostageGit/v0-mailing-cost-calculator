@@ -146,44 +146,142 @@ function ResultsBar({
   isValid,
   perPiece,
   total,
+  quantity,
   disabled,
   onAdd,
+  onAddManual,
 }: {
   isValid: boolean
   perPiece: number
   total: number
+  quantity: number
   disabled: boolean
-  onAdd: () => void
+  onAdd: (bufferCents: number) => void
+  onAddManual: (ratePerPiece: number) => void
 }) {
+  const [manualRate, setManualRate] = useState<string>("")
+  const parsedRate = parseFloat(manualRate)
+  const hasManual = manualRate.length > 0 && !isNaN(parsedRate) && parsedRate > 0
+  const manualTotal = hasManual ? parsedRate * quantity : 0
+
+  // Editable buffer in cents -- defaults to 3
+  const [bufferOn, setBufferOn] = useState(false)
+  const [bufferCents, setBufferCents] = useState<string>("3")
+  const parsedBuffer = parseFloat(bufferCents) || 0
+  const bufferAmt = bufferOn ? parsedBuffer / 100 : 0
+  const bufferedPerPiece = perPiece + bufferAmt
+  const bufferedTotal = bufferedPerPiece * quantity
+
   return (
-    <div className="sticky bottom-4 z-20">
-      <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-baseline gap-6 sm:gap-8">
-          <div>
-            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-              Per Piece
-            </span>
-            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
-              {isValid ? formatPostageRate(perPiece) : "---"}
-            </span>
+    <div className="sticky bottom-4 z-20 flex flex-col gap-2">
+      {/* Manual override input */}
+      <div className="bg-card border border-border rounded-2xl shadow-lg px-5 py-3.5 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex-1">
+            <label htmlFor="manual-rate" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Custom Rate per Piece
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">$</span>
+              <input
+                id="manual-rate"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="e.g. 0.285"
+                className="h-10 w-full max-w-[180px] rounded-lg border border-border bg-background pl-7 pr-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                value={manualRate}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === "" || /^\d*\.?\d{0,4}$/.test(v)) setManualRate(v)
+                }}
+              />
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-              Total
-            </span>
-            <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
-              {isValid ? formatCurrency(total) : "$0.00"}
-            </span>
-          </div>
+          {hasManual && (
+            <div className="text-right shrink-0">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-1">Estimated Total</span>
+              <span className="text-lg font-bold font-mono tabular-nums text-foreground">{formatCurrency(manualTotal)}</span>
+            </div>
+          )}
+          {hasManual && (
+            <button
+              onClick={() => { onAddManual(parsedRate); setManualRate("") }}
+              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-full transition-colors shrink-0 min-h-[40px]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Estimated
+            </button>
+          )}
         </div>
-        <button
-          onClick={onAdd}
-          disabled={disabled}
-          className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" />
-          Add to Quote
-        </button>
+        {!hasManual && (
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Enter your own rate to add postage as an estimate. Leave blank to use the calculated rate below.
+          </p>
+        )}
+      </div>
+
+      {/* Calculated results bar */}
+      <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div className="flex items-baseline gap-6 sm:gap-8">
+            <div>
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+                Per Piece
+              </span>
+              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
+                {isValid ? formatPostageRate(bufferOn ? bufferedPerPiece : perPiece) : "---"}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
+                {bufferOn ? "Buffered Total" : "Calculated Total"}
+              </span>
+              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
+                {isValid ? formatCurrency(bufferOn ? bufferedTotal : total) : "$0.00"}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => onAdd(bufferOn ? parsedBuffer : 0)}
+            disabled={disabled}
+            className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
+          >
+            <Plus className="h-4 w-4" />
+            Add Calculated
+          </button>
+        </div>
+
+        {/* Buffer toggle row */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-background/10">
+          <button
+            onClick={() => setBufferOn(!bufferOn)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${bufferOn ? "bg-emerald-500" : "bg-background/20"}`}
+          >
+            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 mt-0.5 ${bufferOn ? "translate-x-4 ml-0.5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-[11px] font-semibold text-background/70 uppercase tracking-wide">Buffer</span>
+          <div className="flex items-center gap-1">
+            <span className="text-background/50 text-xs">+</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={bufferCents}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v)
+              }}
+              onClick={(e) => { e.stopPropagation(); if (!bufferOn) setBufferOn(true) }}
+              className="w-12 text-center font-mono text-sm font-bold bg-background/10 border border-background/20 text-background rounded-md px-1 py-0.5 outline-none focus:ring-2 focus:ring-background/30 transition-all"
+            />
+            <span className="text-background/50 text-xs font-medium">cents/pc</span>
+          </div>
+          {bufferOn && isValid && (
+            <span className="text-[10px] text-background/40 font-mono ml-auto">
+              {formatPostageRate(perPiece)} + {parsedBuffer}c = {formatPostageRate(bufferedPerPiece)}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -194,20 +292,20 @@ function ResultsBar({
 // ═══════════════════════════════════════════════════════════════
 
 function Tab2Parcels() {
-  const [inputs, setInputs] = useState<Tab2Inputs>({
+  const mailing = useMailing()
+  const [inputs, setInputs] = useState<Tab2Inputs>(() => ({
     service: "PS",
-    quantity: 500,
+    quantity: mailing.quantity > 0 ? mailing.quantity : 500,
     weight: 1,
     psEntry: "DDU",
     psOversized: false,
     bpmShape: "FL",
     bpmSort: "NP",
     bpmEntry: "NONE",
-  })
+  }))
 
   const result = useMemo(() => calculateTab2Postage(inputs), [inputs])
   const quote = useQuote()
-  const mailing = useMailing()
 
   // Sync Tab2 service + quantity to mailing context
   useEffect(() => {
@@ -227,20 +325,41 @@ function Tab2Parcels() {
     })
   }, [])
 
-  const handleAddToQuote = useCallback(() => {
+  const handleAddToQuote = useCallback((bufferCents: number) => {
     if (!result.isValid) return
+    const bufferPerPiece = bufferCents / 100
+    const bufferedTotal = (result.perPiece + bufferPerPiece) * inputs.quantity
     const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
+    const desc = bufferCents > 0 ? `${result.rateInfo} | +${bufferCents}c buffer` : result.rateInfo
     quote.addItem({
       category: "postage",
       label: `USPS ${result.description} - ${inputs.quantity.toLocaleString()} pc`,
-      description: result.rateInfo,
-      amount: result.total,
+      description: desc,
+      amount: bufferCents > 0 ? bufferedTotal : result.total,
       metadata: {
         mailingClass: svcLabels[inputs.service],
         dropOff: inputs.service === "PS" ? inputs.psEntry : inputs.service === "BPM" ? inputs.bpmEntry : undefined,
+        bufferCents: bufferCents > 0 ? bufferCents : undefined,
       },
     })
   }, [result, inputs, quote])
+
+  const handleAddManual = useCallback((ratePerPiece: number) => {
+    const manualTotal = ratePerPiece * inputs.quantity
+    const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
+    const svcLabel = svcLabels[inputs.service]
+    quote.addItem({
+      category: "postage",
+      label: `USPS ${svcLabel} - ${inputs.quantity.toLocaleString()} pc`,
+      description: `${svcLabel} | ${inputs.quantity.toLocaleString()} x $${ratePerPiece.toFixed(3)}`,
+      amount: manualTotal,
+      metadata: {
+        mailingClass: svcLabel,
+        isEstimated: true,
+        manualRate: ratePerPiece,
+      },
+    })
+  }, [inputs, quote])
 
   const svcOptions: { key: Tab2Service; label: string; sub: string }[] = [
     { key: "PS", label: "Parcel Select", sub: "Destination Entry" },
@@ -388,8 +507,10 @@ function Tab2Parcels() {
         isValid={result.isValid}
         perPiece={result.perPiece}
         total={result.total}
+        quantity={inputs.quantity}
         disabled={!result.isValid}
         onAdd={handleAddToQuote}
+        onAddManual={handleAddManual}
       />
     </div>
   )
@@ -400,23 +521,24 @@ function Tab2Parcels() {
 // ═══════════════════════════════════════════════════════════════
 
 function Tab1LettersFlats() {
-  const [inputs, setInputs] = useState<USPSInputs>({
-    service: "FCM_COMM",
-    shape: "LETTER",
+  const mailing = useMailing()
+  // Seed initial state from mailing context when editing an existing quote
+  const [inputs, setInputs] = useState<USPSInputs>(() => ({
+    service: (mailing.mailService as USPSInputs["service"]) || "FCM_COMM",
+    shape: (mailing.shape as USPSInputs["shape"]) || "LETTER",
     pack: "ENV",
-    quantity: 5000,
+    quantity: mailing.quantity > 0 ? mailing.quantity : 5000,
     saturationQty: 0,
     weight: 1,
     tierIndex: 0,
     entry: "ORIGIN",
     mailType: "AUTO",
     isNonMachinable: false,
-  })
+  }))
 
   const tiers = useMemo(() => getActiveTiers(inputs.service, inputs.shape, inputs.mailType), [inputs.service, inputs.shape, inputs.mailType])
   const result = useMemo(() => calculateUSPSPostage(inputs), [inputs])
   const quote = useQuote()
-  const mailing = useMailing()
 
   // Sync USPS inputs back to mailing context
   useEffect(() => {
@@ -434,7 +556,8 @@ function Tab1LettersFlats() {
   }, [inputs.quantity, inputs.saturationQty, inputs.shape, inputs.service])
 
   // Auto-detect shape + format from planner's outer piece
-  const seededQtyRef = useRef(false)
+  // If we already seeded qty from mailing context in the initializer, mark as seeded
+  const seededQtyRef = useRef(mailing.quantity > 0)
   useEffect(() => {
     const outer = mailing.outerPiece
     if (!outer) return
@@ -499,11 +622,14 @@ function Tab1LettersFlats() {
     })
   }, [])
 
-  const handleAddToQuote = useCallback(() => {
+  const handleAddToQuote = useCallback((bufferCents: number) => {
     if (!result.isValid) return
+    const bufferPerPiece = bufferCents / 100
+    const bufferedTotal = (result.avgPerPiece + bufferPerPiece) * inputs.quantity
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
+    if (bufferCents > 0) parts.push(`+${bufferCents}c buffer`)
     const activeTier = tiers[inputs.tierIndex]
     // Map to kanban canonical mailing class names
     const classMap: Record<string, string> = {
@@ -514,16 +640,38 @@ function Tab1LettersFlats() {
       category: "postage",
       label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
       description: parts.join(" | "),
-      amount: result.total,
+      amount: bufferCents > 0 ? bufferedTotal : result.total,
       metadata: {
         mailingClass: classMap[inputs.service] || SERVICE_LABELS[inputs.service],
         mailShape: inputs.shape.toLowerCase(),
         tierName: activeTier?.l || undefined,
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
+        bufferCents: bufferCents > 0 ? bufferCents : undefined,
       },
     })
   }, [result, inputs, quote, tiers])
+
+  const handleAddManual = useCallback((ratePerPiece: number) => {
+    const manualTotal = ratePerPiece * inputs.quantity
+    const classMap: Record<string, string> = {
+      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
+      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
+    }
+    const mailingClass = classMap[inputs.service] || SERVICE_LABELS[inputs.service]
+    quote.addItem({
+      category: "postage",
+      label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
+      description: `${mailingClass} ${inputs.shape.charAt(0) + inputs.shape.slice(1).toLowerCase()} | ${inputs.quantity.toLocaleString()} x $${ratePerPiece.toFixed(3)}`,
+      amount: manualTotal,
+      metadata: {
+        mailingClass,
+        mailShape: inputs.shape.toLowerCase(),
+        isEstimated: true,
+        manualRate: ratePerPiece,
+      },
+    })
+  }, [inputs, quote])
 
   const hasDimensions = !!(mailing.mailerWidth && mailing.mailerHeight)
   const suggestedShapes = mailing.suggestedShapes
@@ -809,8 +957,10 @@ function Tab1LettersFlats() {
         isValid={result.isValid}
         perPiece={result.avgPerPiece}
         total={result.total}
+        quantity={inputs.quantity}
         disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
         onAdd={handleAddToQuote}
+        onAddManual={handleAddManual}
       />
     </div>
   )

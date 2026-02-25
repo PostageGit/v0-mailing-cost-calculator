@@ -32,13 +32,13 @@ export function PerfectCalculator() {
   const loadPiece = useCallback((piece: MailPiece) => {
     setInputs((prev) => ({
       ...prev,
-      bookQty: mailing.quantity || prev.bookQty,
+      bookQty: mailing.printQty || prev.bookQty,
       pageWidth: piece.width || prev.pageWidth,
       pageHeight: piece.height || prev.pageHeight,
     }))
     setCalcResult(null)
     setValidationError(null)
-  }, [mailing.quantity])
+  }, [mailing.printQty])
 
   const isFormValid =
     inputs.bookQty > 0 &&

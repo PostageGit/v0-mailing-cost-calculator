@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react"
 import { mutate as globalMutate } from "swr"
 import type { QuoteLineItem, QuoteCategory } from "./quote-types"
+import type { MailingSnapshot } from "./mailing-context"
 
 export interface ActivityLogEntry {
   id: number
@@ -38,13 +39,17 @@ interface QuoteContextValue {
   getCategoryTotal: (cat: QuoteCategory) => number
   /** Force an immediate save (creates if needed). Returns the saved ID. */
   ensureSaved: () => Promise<string>
-  loadQuote: (quoteId: string) => Promise<void>
+  loadQuote: (quoteId: string) => Promise<MailingSnapshot | null>
   newQuote: () => void
   logActivity: (event: string, detail?: string) => Promise<void>
   refreshLog: () => Promise<void>
   /** Steps the user explicitly skipped -- persisted via job_meta */
   skippedSteps: string[]
   setSkippedSteps: (steps: string[]) => void
+  /** Push latest mailing snapshot for auto-save */
+  setMailingSnapshot: (snap: MailingSnapshot) => void
+  /** The mailing snapshot from the last loadQuote (null until a load happens) */
+  lastLoadedMailingState: MailingSnapshot | null
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
@@ -64,6 +69,12 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([])
   const [skippedSteps, setSkippedStepsRaw] = useState<string[]>([])
+  const [lastLoadedMailingState, setLastLoadedMailingState] = useState<MailingSnapshot | null>(null)
+  const mailingSnapshotRef = useRef<MailingSnapshot | null>(null)
+
+  const setMailingSnapshot = useCallback((snap: MailingSnapshot) => {
+    mailingSnapshotRef.current = snap
+  }, [])
 
   // Track whether there are unsaved changes
   const dirtyRef = useRef(false)
@@ -84,9 +95,12 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       // Use refs to get latest state at call time
       const currentItems = itemsRef.current
       const total = currentItems.reduce((s, i) => s + i.amount, 0)
-      // Build job_meta with skipped steps
+      // Build job_meta with skipped steps + mailing state snapshot
       const currentSkipped = skippedStepsRef.current
-      const jobMetaPatch = currentSkipped.length > 0 ? { skipped_steps: currentSkipped } : { skipped_steps: [] }
+      const jobMetaPatch: Record<string, unknown> = { skipped_steps: currentSkipped.length > 0 ? currentSkipped : [] }
+      if (mailingSnapshotRef.current) {
+        jobMetaPatch.mailing_state = mailingSnapshotRef.current
+      }
 
       const payload = {
         project_name: projectNameRef.current || "Untitled Quote",
@@ -245,7 +259,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     return id || ""
   }, [persistNow])
 
-  const loadQuote = useCallback(async (quoteId: string) => {
+  const loadQuote = useCallback(async (quoteId: string): Promise<MailingSnapshot | null> => {
     const res = await fetch(`/api/quotes/${quoteId}`)
     const data = await res.json()
     if (data.id) {
@@ -258,6 +272,23 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setQuantityRaw(data.quantity || 0)
       setItems(data.items || [])
       setSkippedStepsRaw(data.job_meta?.skipped_steps || [])
+      // Capture mailing state for the caller to restore
+      let mailingState: MailingSnapshot | null = data.job_meta?.mailing_state || null
+      // Fallback for quotes saved before mailing_state was persisted:
+      // Synthesize a minimal snapshot from the saved quantity so at least qty is restored
+      if (!mailingState && (data.quantity || 0) > 0) {
+        mailingState = {
+          quantity: data.quantity || 0,
+          shape: "LETTER",
+          className: "Letter",
+          mailService: "",
+          pieces: [],
+        }
+      }
+      setLastLoadedMailingState(mailingState)
+      if (mailingState) {
+        mailingSnapshotRef.current = mailingState
+      }
       dirtyRef.current = false
       setLastSavedAt(Date.now())
       // Load activity log
@@ -266,7 +297,9 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         const logData = await logRes.json()
         if (Array.isArray(logData)) setActivityLog(logData)
       } catch { /* ignore */ }
+      return mailingState
     }
+    return null
   }, [])
 
   const refreshLog = useCallback(async () => {
@@ -303,6 +336,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     setQuantityRaw(0)
     setItems([])
     setSkippedStepsRaw([])
+    setLastLoadedMailingState(null)
+    mailingSnapshotRef.current = null
     dirtyRef.current = false
     setLastSavedAt(null)
   }, [])
@@ -340,6 +375,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         refreshLog,
         skippedSteps,
         setSkippedSteps,
+        setMailingSnapshot,
+        lastLoadedMailingState,
       }}
     >
       {children}

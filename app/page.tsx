@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect, Component, type ReactNode } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
@@ -27,6 +27,7 @@ import { ExportToQB } from "@/components/export-to-qb"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
+import { StepCelebration, useCelebration } from "@/components/step-celebration"
 import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
@@ -100,9 +101,23 @@ function AppContent() {
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
-  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped } = useQuote()
+  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
+  const celebration = useCelebration()
+
+  // Guard: suppress snapshot pushes right after a load to avoid overwriting
+  // the DB snapshot with empty/stale mailing state before restoreState propagates
+  const loadGuardRef = useRef(false)
+
+  // Push mailing state into QuoteContext for auto-save whenever it changes
+  useEffect(() => {
+    if (loadGuardRef.current) {
+      loadGuardRef.current = false
+      return
+    }
+    setMailingSnapshot(mailing.getSnapshot())
+  }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
   const visibleSteps = useMemo(() => {
     return ALL_STEPS.filter((step) => {
@@ -124,17 +139,35 @@ function AppContent() {
   }, [visibleSteps, currentStep, jobPhase])
 
   const handleLoadQuote = useCallback(
-    async (quoteId: string, step?: string) => { await loadQuote(quoteId); setJobPhase("pricing"); if (step) setCurrentStep(step as StepId); setSection("job") },
-    [loadQuote],
+    async (quoteId: string, step?: string) => {
+      const mailingSnap = await loadQuote(quoteId)
+      // Restore mailing state (pieces, shape, service, qty) so planner + calculators are populated
+      if (mailingSnap) {
+        loadGuardRef.current = true // prevent the snapshot effect from overwriting the restored state
+        mailing.restoreState(mailingSnap)
+      }
+      setJobPhase("pricing")
+      if (step) setCurrentStep(step as StepId)
+      setSection("job")
+    },
+    [loadQuote, mailing],
   )
   const handleNewJob = useCallback(() => {
-    newQuote(); setJobPhase("planner"); setSection("job")
-  }, [newQuote])
+    newQuote()
+    // Reset mailing state for a fresh quote
+    mailing.restoreState({ quantity: 0, shape: "LETTER", className: "Letter", mailService: "", pieces: [] })
+    setJobPhase("planner")
+    setSection("job")
+  }, [newQuote, mailing])
 
   const handleContinueToPricing = useCallback(() => {
-    setJobPhase("pricing")
-    setCurrentStep(visibleSteps[0]?.id || "usps")
-  }, [visibleSteps])
+    const firstStep = visibleSteps[0]
+    const nextLabel = firstStep?.label || "Postage"
+    celebration.trigger("Job Setup Complete", nextLabel, true, () => {
+      setJobPhase("pricing")
+      setCurrentStep(firstStep?.id || "usps")
+    })
+  }, [visibleSteps, celebration])
 
   // ── Step workflow state ──
   const skippedSteps = useMemo(() => new Set(savedSkipped as StepId[]), [savedSkipped])
@@ -161,14 +194,17 @@ function AppContent() {
   }, [completedSteps, skippedSteps])
 
   // The "progress frontier" -- the furthest step you can reach.
-  // You can click any step up to (and including) the first pending step.
+  // When editing an existing saved quote, ALL steps are freely navigable.
+  // For new quotes, you can click any step up to (and including) the first pending step.
+  const isEditingExisting = !!savedId
   const progressFrontier = useMemo(() => {
+    if (isEditingExisting) return visibleSteps.length - 1
     for (let i = 0; i < visibleSteps.length; i++) {
       const s = visibleSteps[i].id
       if (!completedSteps.has(s) && !skippedSteps.has(s)) return i
     }
     return visibleSteps.length - 1 // all done/skipped
-  }, [visibleSteps, completedSteps, skippedSteps])
+  }, [visibleSteps, completedSteps, skippedSteps, isEditingExisting])
 
   const canNavigateTo = useCallback((stepIdx: number) => {
     return stepIdx <= progressFrontier
@@ -176,22 +212,34 @@ function AppContent() {
 
   const handleSkipStep = useCallback(() => {
     saveSkipped([...savedSkipped, currentStep])
-    // advance to next step
     const idx = visibleSteps.findIndex((s) => s.id === currentStep)
-    if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
-  }, [currentStep, visibleSteps, savedSkipped, saveSkipped])
+    if (idx < visibleSteps.length - 1) {
+      const nextStep = visibleSteps[idx + 1]
+      const currentLabel = visibleSteps[idx]?.label || currentStep
+      celebration.trigger(`${currentLabel} Skipped`, nextStep.label, false, () => {
+        setCurrentStep(nextStep.id)
+      })
+    }
+  }, [currentStep, visibleSteps, savedSkipped, saveSkipped, celebration])
 
   const handleNextStep = useCallback(() => {
     const idx = visibleSteps.findIndex((s) => s.id === currentStep)
     const status = getStepStatus(currentStep)
-    if (status === "pending") {
+    // When editing an existing quote, allow free navigation even if step is pending
+    if (status === "pending" && !isEditingExisting) {
       // Can't advance -- flash the gate
       setStepGateFlash(true)
       setTimeout(() => setStepGateFlash(false), 1500)
       return
     }
-    if (idx < visibleSteps.length - 1) setCurrentStep(visibleSteps[idx + 1].id)
-  }, [currentStep, visibleSteps, getStepStatus])
+    if (idx < visibleSteps.length - 1) {
+      const nextStep = visibleSteps[idx + 1]
+      const currentLabel = visibleSteps[idx]?.label || currentStep
+      celebration.trigger(currentLabel, nextStep.label, false, () => {
+        setCurrentStep(nextStep.id)
+      })
+    }
+  }, [currentStep, visibleSteps, getStepStatus, isEditingExisting, celebration])
 
   const pendingSteps = useMemo(() =>
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
@@ -216,6 +264,9 @@ function AppContent() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
+      {/* Step transition celebration overlay */}
+      {celebration.showing && <StepCelebration {...celebration.props} />}
+
       {/* ---- Mobile Top Bar ---- */}
       <header className="flex lg:hidden items-center justify-between h-12 px-3 border-b border-border bg-background shrink-0 z-40">
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-secondary min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Toggle menu">
@@ -507,7 +558,7 @@ function AppContent() {
                       {(() => {
                         const idx = visibleSteps.findIndex((s) => s.id === currentStep)
                         if (idx < visibleSteps.length - 1) {
-                          const canGo = getStepStatus(currentStep) !== "pending"
+                          const canGo = isEditingExisting || getStepStatus(currentStep) !== "pending"
                           return (
                             <button onClick={handleNextStep}
                               className={cn(

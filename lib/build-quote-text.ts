@@ -10,40 +10,103 @@ interface TextItem {
   metadata?: Record<string, unknown>
 }
 
-/** Build a compact finishing spec line from metadata */
-function buildFinishingLine(m: Record<string, unknown>): string {
+/**
+ * Build a customer-facing spec line from metadata.
+ *
+ * Industry-standard print description order:
+ *   Size, Pages (books), Paper stock, Color (sides), Bleed, Fold, Lamination
+ *
+ * For envelopes: "Paper Envelope" / "Plastic Envelope", size, printing method
+ *
+ * Intentionally excluded: production method, tier names, entry points, broker flags.
+ */
+export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory): string {
   const parts: string[] = []
+
+  // ── ENVELOPE specs ──
+  if (category === "envelope") {
+    // "Paper Envelope" or "Plastic Envelope"
+    const kind = m.envelopeKind ? String(m.envelopeKind).toLowerCase() : "paper"
+    parts.push(kind === "plastic" ? "Plastic Envelope" : "Paper Envelope")
+    // Size (use envelopeSize or pieceDimensions, not both -- they're usually the same)
+    if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
+    else if (m.envelopeSize) parts.push(String(m.envelopeSize))
+    // Printing method: derive Color/BW from printType
+    if (m.printType) {
+      const pt = String(m.printType).toLowerCase()
+      const ink = m.inkType ? String(m.inkType) : ""
+      if (pt.includes("color") || pt.includes("full")) {
+        parts.push(ink ? `${ink} Color` : "Color")
+      } else if (pt.includes("bw") || pt.includes("black")) {
+        parts.push(ink ? `${ink} B&W` : "B&W")
+      } else if (pt.includes("text") || pt.includes("logo")) {
+        parts.push(ink ? `${ink} ${String(m.printType)}` : String(m.printType))
+      } else {
+        parts.push(ink ? `${ink} ${String(m.printType)}` : String(m.printType))
+      }
+    }
+    return parts.join(", ")
+  }
+
+  // ── PRINTING specs (flat, booklet, spiral, perfect, pad) ──
+  // 1. Size
   if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
-  if (m.foldType && m.foldType !== "none") parts.push("Fold: " + String(m.foldType).replace("x3long","Tri(Long)").replace("x2h","Half(H)").replace("x2w","Half(W)").replace("x3h","Tri(H)").replace("x3w","Tri(W)"))
+
+  // 2. Pages (for books -- spelled out, listed early)
+  if (m.pageCount) parts.push(m.pageCount + " Pages")
+
+  // 3. Paper stock
   if (m.paperName) parts.push(String(m.paperName))
+
+  // 4. Color / sides (4/0, 4/4 etc.)
   if (m.sides) parts.push(String(m.sides))
+
+  // 5. Bleed
   if (m.hasBleed) parts.push("Bleed")
-  if (m.pageCount) parts.push(m.pageCount + "pg")
-  // Score / Fold finishing
+
+  // 6. Fold (from planner fold type)
+  if (m.foldType && m.foldType !== "none") {
+    const fLabel = String(m.foldType)
+      .replace("x3long", "Tri-Fold")
+      .replace("x2h", "Half Fold")
+      .replace("x2w", "Half Fold")
+      .replace("x3h", "Tri-Fold")
+      .replace("x3w", "Tri-Fold")
+    parts.push(fLabel)
+  }
+
+  // 7. Score / Fold finishing
   if (m.scoreFoldEnabled) {
     const opLabels: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
-    const foldLabels: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion", double_gate: "Dbl Gate" }
+    const foldLabels: Record<string, string> = { half: "Half Fold", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate Fold", roll: "Roll Fold", accordion: "Accordion Fold", double_gate: "Double Gate Fold", double_parallel: "Double Parallel Fold" }
     const op = opLabels[String(m.scoreFoldFinishType)] || String(m.scoreFoldFinishType)
     const ft = foldLabels[String(m.scoreFoldFoldType)] || String(m.scoreFoldFoldType)
-    const orient = m.scoreFoldOrientation ? ` (${String(m.scoreFoldOrientation).charAt(0).toUpperCase() + String(m.scoreFoldOrientation).slice(1)})` : ""
-    parts.push(`${op}: ${ft}${orient}`)
+    parts.push(`${op}: ${ft}`)
   }
-  // Lamination
+
+  // 8. Lamination
   if (m.laminationEnabled) {
-    const lamSides = m.laminationSides === "both" ? "2-sided" : "1-sided"
-    parts.push(`Lam: ${String(m.laminationType || "Gloss")} ${lamSides}`)
+    const lamSides = m.laminationSides === "both" ? "both sides" : "one side"
+    parts.push(`${String(m.laminationType || "Gloss")} Lamination (${lamSides})`)
   }
-  if (m.envelopeSize) parts.push("Env: " + String(m.envelopeSize))
-  if (m.envelopeKind) parts.push(String(m.envelopeKind))
-  if (m.production && m.production !== "inhouse") {
-    const prodLabels: Record<string, string> = { ohp: "OHP", both: "In+OHP", customer: "Customer Provided" }
-    parts.push(prodLabels[String(m.production)] || String(m.production))
-  }
-  if (m.mailingClass) parts.push(String(m.mailingClass))
-  if (m.mailShape) parts.push(String(m.mailShape).charAt(0).toUpperCase() + String(m.mailShape).slice(1))
-  if (m.tierName) parts.push(String(m.tierName))
-  if (m.entryPoint) parts.push(String(m.entryPoint))
+
+  // Intentionally excluded: production, tierName, entryPoint, envelopeKind (handled above)
   return parts.join(", ")
+}
+
+/** Strip internal tier names and entry points from postage description */
+export function cleanPostageDescription(desc: string): string {
+  return desc
+    .replace(/\s*(AADC|Mixed AADC|Mixed|3-Digit|5-Digit|Basic|SCF|NDC|DDU)\s*/gi, " ")
+    .replace(/\s*(ORIGIN|DNDC|DSCF|DADC)\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+}
+
+/** Customer-facing category label for email. "item" and "listwork" become "Mail Work". */
+function emailCategoryLabel(cat: QuoteCategory): string {
+  if (cat === "item" || cat === "listwork") return "Mail Work"
+  return getCategoryLabel(cat)
 }
 
 export interface QuoteTextOptions {
@@ -51,27 +114,27 @@ export interface QuoteTextOptions {
   projectName?: string
   customerName?: string
   referenceNumber?: string
+  quoteNumber?: number | string
   quantity?: number
   notes?: string
 }
 
 /**
- * Builds clean plain-text quote output for email / clipboard.
+ * Builds clean plain-text quote for email / clipboard.
  *
- * Order:
- *  1. Company header (name, address, phone, email)
- *  2. Date/time copied
- *  3. Job info (name, customer, ref #, quantity)
- *  4. Line items by category with finishing specs
- *  5. Total
+ * Customer-friendly:
+ *  - Internal details stripped (production method, tier, entry point)
+ *  - "Items & Supplies" + "List Work" grouped under single "MAIL WORK" header
+ *  - Spec lines prefixed with ">"
+ *  - Minimal separators, no repeated headers
  */
 export function buildQuoteText(opts: QuoteTextOptions): string {
-  const { items, projectName, customerName, referenceNumber, quantity, notes } = opts
+  const { items, projectName, customerName, referenceNumber, quoteNumber, quantity, notes } = opts
   const lines: string[] = []
   const divider = "------------------------------"
-  const miniDivider = "----"
 
-  // ── 1. Company header ──
+  // ── 1. Quote number + Company header ──
+  if (quoteNumber) lines.push(`Quote# Q-${quoteNumber}`)
   lines.push(COMPANY.name)
   lines.push(COMPANY.fullAddress)
   lines.push(`${COMPANY.phone} | ${COMPANY.email}`)
@@ -93,58 +156,104 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
 
   // ── 4. Line items ──
   const PRINT_CATS: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad"]
-  const OTHER_CATS: QuoteCategory[] = ["envelope", "postage", "listwork", "item", "ohp"]
+  const MAIL_WORK_CATS: QuoteCategory[] = ["item", "listwork"]
+  const STANDALONE_CATS: QuoteCategory[] = ["envelope", "postage", "ohp"]
 
-  // --- PRINTING super-group ---
+  // --- PRINTING ---
+  // One "PRINTING" header, then each item with specs on one ">" line
+  // Description (e.g. "80lb Text Gloss, 4/4") is NOT shown separately
+  // because the ">" spec line already contains paper, sides, etc.
   const printItems = items.filter((i) => PRINT_CATS.includes(i.category))
   if (printItems.length > 0) {
-    const grouped: Record<string, TextItem[]> = {}
-    for (const item of printItems) {
-      if (!grouped[item.category]) grouped[item.category] = []
-      grouped[item.category].push(item)
-    }
-
-    const catKeys = Object.keys(grouped) as QuoteCategory[]
-    catKeys.forEach((cat, catIdx) => {
-      const catItems = grouped[cat]
-      catItems.forEach((item, itemIdx) => {
-        if (catIdx > 0 || itemIdx > 0) lines.push(miniDivider)
-        lines.push("PRINTING")
-        lines.push(getCategoryLabel(cat))
-        if (item.description) lines.push(item.description)
-        if (item.metadata) {
-          const finishing = buildFinishingLine(item.metadata)
-          if (finishing) lines.push(`  Specs: ${finishing}`)
-        }
-        lines.push(formatCurrency(item.amount))
-      })
-    })
-    lines.push("")
-    lines.push(divider)
-  }
-
-  // --- Other categories ---
-  for (const cat of OTHER_CATS) {
-    const catItems = items.filter((i) => i.category === cat)
-    if (catItems.length === 0) continue
-
-    const label = getCategoryLabel(cat)
-    catItems.forEach((item, idx) => {
-      if (idx > 0) lines.push(miniDivider)
-      lines.push(label)
-      if (item.description) lines.push(item.description)
+    lines.push("PRINTING")
+    printItems.forEach((item) => {
+      const catSub = getCategoryLabel(item.category)
+      // Show sub-category label for non-flat types (booklet, spiral, etc.)
+      if (item.category !== "flat") lines.push(catSub)
+      // Only show description if there are NO metadata specs (fallback)
       if (item.metadata) {
-        const finishing = buildFinishingLine(item.metadata)
-        if (finishing) lines.push(`  Specs: ${finishing}`)
+        const specs = buildCustomerSpecs(item.metadata, item.category)
+        if (specs) lines.push(`>  ${specs}`)
+      } else if (item.description) {
+        lines.push(item.description)
       }
       lines.push(formatCurrency(item.amount))
     })
-    lines.push("")
+    lines.push(divider)
+  }
+
+  // --- ENVELOPES ---
+  // Description (e.g. "Laser BW, Broker") may contain internal info.
+  // We only show the clean ">" spec line (Paper/Plastic Envelope, size, sides).
+  const envItems = items.filter((i) => i.category === "envelope")
+  if (envItems.length > 0) {
+    lines.push("ENVELOPES")
+    envItems.forEach((item) => {
+      if (item.metadata) {
+        const specs = buildCustomerSpecs(item.metadata, "envelope")
+        if (specs) lines.push(`>  ${specs}`)
+      } else if (item.description) {
+        // Fallback: strip internal words from description
+        const desc = item.description
+          .replace(/,?\s*Broker/gi, "")
+          .replace(/,?\s*Regular/gi, "")
+          .trim()
+        if (desc) lines.push(desc)
+      }
+      lines.push(formatCurrency(item.amount))
+    })
+    lines.push(divider)
+  }
+
+  // --- POSTAGE ---
+  // Description already contains class, qty, rate. Strip internal tier (3-Digit, 5-Digit, etc.)
+  // and entry point. Don't add a duplicate ">" spec line since description covers it.
+  const postageItems = items.filter((i) => i.category === "postage")
+  const hasEstimatedPostage = postageItems.some((i) => i.metadata?.isEstimated)
+  if (postageItems.length > 0) {
+    lines.push(hasEstimatedPostage ? "POSTAGE / USPS (ESTIMATED)" : "POSTAGE / USPS")
+    postageItems.forEach((item) => {
+      const isEst = item.metadata?.isEstimated
+      if (item.description) {
+        lines.push(cleanPostageDescription(item.description))
+      }
+      lines.push(isEst ? `${formatCurrency(item.amount)}  *Estimated` : formatCurrency(item.amount))
+    })
+    if (hasEstimatedPostage) {
+      lines.push("")
+      lines.push("* Postage rates shown are estimates. Final rates are determined when the mailing list is processed and the mail piece is verified by USPS standards.")
+    }
+    lines.push(divider)
+  }
+
+  // --- MAIL WORK (consolidated: "item" + "listwork" under one header) ---
+  const mailWorkItems = items.filter((i) => MAIL_WORK_CATS.includes(i.category))
+  if (mailWorkItems.length > 0) {
+    lines.push("MAIL WORK")
+    mailWorkItems.forEach((item) => {
+      if (item.description) lines.push(item.description)
+      lines.push(formatCurrency(item.amount))
+    })
+    lines.push(divider)
+  }
+
+  // --- OHP ---
+  const ohpItems = items.filter((i) => i.category === "ohp")
+  if (ohpItems.length > 0) {
+    lines.push("PRINTING")
+    ohpItems.forEach((item) => {
+      const m = (item.metadata ?? {}) as Record<string, unknown>
+      const specs = buildCustomerSpecs(m, "printing")
+      const desc = specs || item.description
+      if (desc) lines.push(desc)
+      lines.push(formatCurrency(item.amount))
+    })
     lines.push(divider)
   }
 
   // ── 5. Total ──
   const total = items.reduce((s, i) => s + i.amount, 0)
+  lines.push("")
   lines.push(`TOTAL: ${formatCurrency(total)}`)
 
   if (notes) {

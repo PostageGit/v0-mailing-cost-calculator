@@ -91,7 +91,7 @@ export interface FoldFinishInput {
 //   - 60lb Offset: FOLD under "80text", no S&F
 //   - 80lb Text Gloss: FOLD under "80text", no S&F
 //   - 100lb Text Gloss: FOLD under "100text", S&F under "100text_80cover"
-//   - 67 Cover (White): no fold (cover stock), no S&F (not in SF data)
+//   - 65/67 Cover: no fold (cover stock), S&F under "100text_80cover" (same as 80 Cover / 100 Text)
 //   - 80 Cover Gloss: no fold (cover stock), S&F under "100text_80cover"
 //   - 10pt/12pt/14pt (any cardstock): no fold, S&F under "cardstock"
 //   - Sticker: no fold, no S&F
@@ -111,8 +111,8 @@ export function mapPaperToFoldKey(paperName: string): { foldKey: string | null; 
   if (lower.includes("100lb text") || lower.includes("100 text")) return { foldKey: "100text", sfKey: "100text_80cover" }
   // 80 Cover Gloss -- no fold, S&F under "100text_80cover"
   if (lower.includes("80 cover") || lower.includes("80cover")) return { foldKey: null, sfKey: "100text_80cover" }
-  // 67 Cover (White) -- not in any data
-  if (lower.includes("67 cover")) return { foldKey: null, sfKey: null }
+  // 65/67 Cover -- same category as 100 Text / 80 Cover for S&F (not heavy cardstock like 10pt/12pt)
+  if (lower.includes("65 cover") || lower.includes("67 cover")) return { foldKey: null, sfKey: "100text_80cover" }
   // Cardstock: 10pt, 12pt, 14pt -- no fold, S&F under "cardstock"
   if (lower.includes("10pt") || lower.includes("12pt") || lower.includes("14pt") || lower.includes("card")) return { foldKey: null, sfKey: "cardstock" }
   // Fallback: unknown paper
@@ -138,12 +138,12 @@ export function mapFoldTypeToDataKey(foldType: string): string {
 // Exact port of all rules from original HTML calculator (Rules page lines 232-242):
 //   Rule 1: N/A options show the closest alternative
 //   Rule 2: Score & Fold N/A → "Score Only." Otherwise change size/paper
-//   Rule 3: Max trifold height = 11"
+//   Rule 3: (Removed -- trifold height has no real limit; the non-folded dimension is unconstrained)
 //   Rule 4: Max fold width = 13" (length = any)
 //   Rule 5: Level > 1 → auto-checks thicker paper; cheaper = auto-upgrade
 //   Rule 6: Long sheets (13x26+) get a flat setup fee (Score & Fold only)
 // Also from original HTML size limits:
-//   - Trifold max height: 11"
+//   - Trifold height: no limit (non-folded dimension is unconstrained)
 //   - Max fold width: 13"
 //   - Length: no limit
 //   - No universal minimum fold size -- matchSize maps all small sheets to "7x4" or "7.5x5" tier
@@ -166,11 +166,9 @@ export function validateFoldCombo(w: number, h: number, finish: string, axis: "w
   const foldedW = divW ? foldedDim : w
   const fh = divW ? h : foldedDim
 
-  // Rule 3: Trifold max height = 11"
-  if (f === "Fold in 3") {
-    const maxH = divW ? h : fh
-    if (maxH > 11) warnings.push({ type: "amber", message: `Rule 3: Trifold max height is 11" -- your finished height is ${maxH.toFixed(2)}".` })
-  }
+  // Rule 3: Removed -- the old "trifold max height 11"" rule was incorrect.
+  // The height (non-folded dimension) has no real limit for tri-fold.
+  // Rule 4 (max fold width = 13") already covers the folded dimension constraint.
 
   // Rule 4: Max fold width = 13"
   if (foldedW > 13) warnings.push({ type: "amber", message: `Rule 4: Max fold width is 13" -- your folded width would be ${foldedW.toFixed(2)}".` })

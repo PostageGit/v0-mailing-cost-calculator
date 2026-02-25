@@ -30,7 +30,9 @@ export const DEFAULT_PAPER_PRICES: Record<string, Record<string, number>> = {
   "60lb Offset": { "8.5x11": 0.015, "11x17": 0.0295, "12x18": 0.0346, "12.5x19": 0.032 },
   "80lb Text Gloss": { "8.5x11": 0.025, "11x17": 0.049, "12x18": 0.046, "13x19": 0.0615 },
   "100lb Text Gloss": { "8.5x11": 0.03, "11x17": 0.0565, "12x18": 0.0565, "13x19": 0.0653 },
+  "65 Cover (White)": { "8.5x11": 0.032, "11x17": 0.063 },
   "67 Cover (White)": { "8.5x11": 0.032, "11x17": 0.063 },
+  "67 Cover (Off-White)": { "8.5x11": 0.032, "11x17": 0.063 },
   "80 Cover Gloss": { "8.5x11": 0.05795, "11x17": 0.1159, "12x18": 0.1159, "13x19": 0.1159 },
   "10pt Offset": { "8.5x11": 0.0578, "11x17": 0.113, "12x18": 0.113, "13x19": 0.113 },
   "10pt Gloss": { "8.5x11": 0.06605, "11x17": 0.1321, "12x18": 0.1321, "13x19": 0.1321 },
@@ -338,6 +340,50 @@ export function calculateScoreFoldCost(
   return { cost: finalCost, isMinApplied, suggestion }
 }
 
+// ==================== ADDRESSING BRACKET CONFIG ====================
+
+export interface AddressingBracket {
+  /** Max qty for this bracket (null = unlimited) */
+  maxQty: number | null
+  /** If set, this is a flat minimum charge (ignores qty) */
+  flatMin?: number
+  /** Per-piece rate (used when flatMin is not set) */
+  perPiece?: number
+}
+
+export interface AddressingConfig {
+  /** Brackets for letters/postcards (non-flat), ordered by maxQty ascending */
+  letterPostcard: AddressingBracket[]
+  /** Brackets for flats */
+  flat: AddressingBracket[]
+}
+
+export const DEFAULT_ADDRESSING_CONFIG: AddressingConfig = {
+  letterPostcard: [
+    { maxQty: 2500, flatMin: 125 },
+    { maxQty: 5000, perPiece: 0.05 },
+    { maxQty: null, perPiece: 0.04 },
+  ],
+  flat: [
+    { maxQty: 1000, flatMin: 200 },
+    { maxQty: null, perPiece: 0.20 },
+  ],
+}
+
+// ==================== TABBING BRACKET CONFIG ====================
+
+export interface TabbingConfig {
+  /** Brackets for tabbing, ordered by maxQty ascending */
+  brackets: AddressingBracket[]
+}
+
+export const DEFAULT_TABBING_CONFIG: TabbingConfig = {
+  brackets: [
+    { maxQty: 1000, flatMin: 125 },
+    { maxQty: null, perPiece: 0.125 },
+  ],
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -348,6 +394,8 @@ export interface PricingConfig {
   finishings: FinishingOption[]
   scoreFold: ScoreFoldConfig
   envelopeSettings: EnvelopeSettings
+  addressingConfig: AddressingConfig
+  tabbingConfig: TabbingConfig
 }
 
 export type { EnvelopeSettings }
@@ -361,6 +409,8 @@ let _activeConfig: PricingConfig = {
   finishings: structuredClone(DEFAULT_FINISHING_OPTIONS),
   scoreFold: structuredClone(DEFAULT_SCORE_FOLD_CONFIG),
   envelopeSettings: structuredClone(DEFAULT_ENVELOPE_SETTINGS),
+  addressingConfig: structuredClone(DEFAULT_ADDRESSING_CONFIG),
+  tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -379,6 +429,8 @@ export function applyOverrides(overrides: Partial<{
   pricing_finishings: FinishingOption[]
   pricing_score_fold: ScoreFoldConfig
   envelope_settings: EnvelopeSettings
+  addressing_config: AddressingConfig
+  tabbing_config: TabbingConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -402,6 +454,12 @@ export function applyOverrides(overrides: Partial<{
     envelopeSettings: overrides.envelope_settings
       ? structuredClone(overrides.envelope_settings)
       : structuredClone(DEFAULT_ENVELOPE_SETTINGS),
+    addressingConfig: overrides.addressing_config
+      ? structuredClone(overrides.addressing_config)
+      : structuredClone(DEFAULT_ADDRESSING_CONFIG),
+    tabbingConfig: overrides.tabbing_config
+      ? structuredClone(overrides.tabbing_config)
+      : structuredClone(DEFAULT_TABBING_CONFIG),
   }
 }
 

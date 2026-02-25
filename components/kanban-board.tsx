@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { buildQuoteText } from "@/lib/build-quote-text"
+import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
 import {
@@ -32,7 +33,7 @@ interface QuoteItem {
 interface BoardColumn {
   id: string; title: string; color: string; sort_order: number; board_type?: string
 }
-interface PieceMeta { vendor?: string; expected_date?: string; expected_time?: string; prints_arrived?: boolean }
+interface PieceMeta { vendor?: string; expected_date?: string; expected_time?: string; prints_arrived?: boolean; vendor_po?: string }
 interface JobMeta {
   piece_desc?: string; insert_count?: number; inserts_desc?: string
   mailing_class?: string; drop_off?: string; international?: boolean
@@ -189,9 +190,9 @@ function deriveMetaFromItems(quote: Quote): JobMeta {
   // --- OHP items ---
   const ohpItems = items.filter((it) => it.category === "ohp")
   if (ohpItems.length > 0) {
-    const ohpDesc = ohpItems[0].description || ""
-    const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-    if (vendorFromDesc) derived.vendor_name = vendorFromDesc
+    const ohpMd = ohpItems[0].metadata as Record<string, unknown> | undefined
+    const vendorName = (ohpMd?.vendorName as string) || ohpItems[0].description?.split("|")[0]?.trim()
+    if (vendorName) derived.vendor_name = vendorName
     derived.printed_by = "Out of House"
 
     if (!derived.piece_desc) {
@@ -1299,7 +1300,7 @@ function QuoteCard({
                 const md = pc.metadata as Record<string, unknown> | undefined
                 const isOHP = pc.category === "ohp"
                 if (isOHP) {
-                  const vn = pc.description?.split("|")[0]?.trim()
+                  const vn = (md?.vendorName as string) || pc.description?.split("|")[0]?.trim()
                   if (vn) vendorInfos.push({ name: vn })
                 } else if (md?.customerProvided && md?.providerVendor) {
                   vendorInfos.push({ name: md.providerVendor as string, date: md.providerExpectedDate as string | undefined })
@@ -1307,6 +1308,14 @@ function QuoteCard({
               }
               // Helper to update per-piece meta
               const pieceMetas: PieceMeta[] = meta.piece_meta || []
+              // Migrate legacy job-level vendor_job to first OHP piece
+              if (meta.vendor_job && !pieceMetas.some((pm) => pm.vendor_po)) {
+                const ohpIdx = pieces.findIndex((p) => p.category === "ohp")
+                if (ohpIdx >= 0) {
+                  while (pieceMetas.length <= ohpIdx) pieceMetas.push({})
+                  pieceMetas[ohpIdx] = { ...pieceMetas[ohpIdx], vendor_po: meta.vendor_job }
+                }
+              }
               const getPm = (idx: number): PieceMeta => pieceMetas[idx] || {}
               const setPm = (idx: number, patch: Partial<PieceMeta>) => {
                 const arr = [...pieceMetas]
@@ -1477,6 +1486,18 @@ function QuoteCard({
                               </div>
                               {pm.vendor && vendors && <VendorInfoPopover vendorName={pm.vendor} vendors={vendors} />}
                             </div>
+                            {/* Row 3: Vendor PO # */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-muted-foreground/50 font-medium shrink-0 w-[28px]">PO #</span>
+                              <input
+                                type="text"
+                                value={pm.vendor_po || ""}
+                                placeholder="PO-2024-..."
+                                onChange={(e) => { e.stopPropagation(); setPm(i, { vendor_po: e.target.value }) }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 text-[10px] font-medium font-mono text-foreground bg-background border border-border rounded-md px-1.5 py-0.5 outline-none focus:ring-2 focus:ring-ring/30 transition-all placeholder:text-muted-foreground/30"
+                              />
+                            </div>
                           </div>
                           )}
                         </div>
@@ -1501,11 +1522,6 @@ function QuoteCard({
                   </label>
                 </div>
               </div>
-            </div>
-
-            {/* ── ROW: Vendor Job # ── */}
-            <div className="rounded-lg border border-border bg-card p-3">
-              <FieldInput label="Vendor Job / PO #" value={meta.vendor_job || ""} placeholder="PO-2024-..." onChange={(v) => updateMeta({ vendor_job: v })} />
             </div>
 
             {/* ── ROW: List/Mail + Billing (2 col) ── */}
@@ -1671,6 +1687,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   projectName: name || undefined,
   customerName: quote.contact_name || undefined,
   referenceNumber: quote.reference_number || undefined,
+  quoteNumber: quote.quote_number || undefined,
   quantity: quote.quantity || undefined,
   notes: notes || undefined,
 })
@@ -1745,6 +1762,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
           <div className="flex flex-wrap gap-2">
             <Button size="sm" className="gap-1.5 text-xs h-9" onClick={handleSave} disabled={saving}><Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Changes"}</Button>
             <Button variant={copied ? "default" : "outline"} size="sm" className="gap-1.5 text-xs h-9" onClick={handleCopy}>{copied ? <><Check className="h-3.5 w-3.5" />Copied</> : <><ClipboardCopy className="h-3.5 w-3.5" />Copy for Email</>}</Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => { const pdfOpts = { items: editItems, projectName: name || undefined, customerName: quote.contact_name || undefined, referenceNumber: quote.reference_number || undefined, quoteNumber: quote.quote_number || undefined, quantity: quote.quantity || undefined, notes: notes || undefined }; buildQuotePDF(pdfOpts).save(quotePdfFilename(pdfOpts)) }}><Download className="h-3.5 w-3.5" /> PDF</Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => setShowPlainText(!showPlainText)}><FileText className="h-3.5 w-3.5" /> {showPlainText ? "Hide Text" : "View as Text"}</Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => onLoadIntoCalculator(quote.id)}><Pencil className="h-3.5 w-3.5" /> Edit in Calculator</Button>
           </div>
@@ -2015,10 +2033,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     // --- Printed by + Vendor: from OHP items ---
     const ohpItems = items.filter((it) => it.category === "ohp")
     if (ohpItems.length > 0 && !meta.printed_by) {
-      // Vendor name from description: "PrintOut | +15% markup" -> "PrintOut"
-      const ohpDesc = ohpItems[0].description || ""
-      const vendorFromDesc = ohpDesc.split("|")[0]?.trim()
-      if (vendorFromDesc && !meta.vendor_name) meta.vendor_name = vendorFromDesc
+      // Vendor name from metadata (new) or fallback to description parsing (old quotes)
+      const ohpMd = ohpItems[0].metadata as Record<string, unknown> | undefined
+      const vendorFromMeta = (ohpMd?.vendorName as string) || ohpItems[0].description?.split("|")[0]?.trim()
+      if (vendorFromMeta && !meta.vendor_name) meta.vendor_name = vendorFromMeta
 
       // Check if there are ALSO in-house printing items
       if (printingItems.length > 0) {
@@ -2059,9 +2077,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             // Default to PrintOut -- user can pick exact location on the job board
             pm.vendor = ""
           } else if (it.category === "ohp") {
-            // Extract vendor from OHP description: "VendorName | +15% markup"
-            const vendorFromDesc = (it.description || "").split("|")[0]?.trim()
-            if (vendorFromDesc) pm.vendor = vendorFromDesc
+            // Extract vendor from metadata (new) or description (old quotes)
+            const itMd = it.metadata as Record<string, unknown> | undefined
+            const vendorFromMeta = (itMd?.vendorName as string) || (it.description || "").split("|")[0]?.trim()
+            if (vendorFromMeta) pm.vendor = vendorFromMeta
           }
           return pm
         })

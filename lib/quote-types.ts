@@ -69,7 +69,7 @@ export function getCategoryLabel(cat: QuoteCategory): string {
     case "item":
       return "Items & Supplies"
     case "ohp":
-      return "Out of House"
+      return "Printing"
     case "envelope":
       return "Envelopes"
   }

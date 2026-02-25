@@ -2,6 +2,8 @@
 // Master list of all services/items available for quoting,
 // derived from the QuickBooks Items CSV.
 
+import { getActiveConfig, type AddressingBracket } from "./pricing-config"
+
 export type ServiceCategory =
   | "PRINTING"
   | "LIST_WORK"
@@ -72,6 +74,8 @@ export interface ServiceItem {
   autoInclude?: boolean
   /** Links to supplier item ID in suppliers config (for list rentals, etc.) */
   linkedSupplierId?: string
+  /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
+  pricingRule?: "per1000_after_1000" | "min_then_per_pc" | "addressing_bracket" | "tabbing_bracket"
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -102,23 +106,21 @@ export const SERVICE_CATALOG: ServiceItem[] = [
   { id: "list-rent-linden",       name: "Linden",             category: "LIST_RENTAL", description: "Renting the Linden mailing list",              defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-linden" },
   { id: "list-rent-lakewood",     name: "Lakewood",           category: "LIST_RENTAL", description: "Renting the Lakewood mailing list",            defaultPrice: null, priceUnit: "name/mailing", postcard: null, letter: null, flat: null, linkedSupplierId: "lr-lakewood" },
 
-  // ── ADDRESSING ──
-  { id: "addr-2500",     name: "Addressing (up to 2,500)",   category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (up to 2,500 qty)",        defaultPrice: 125,  priceUnit: "1000", postcard: true, letter: true,  flat: false, qtyMin: 1, qtyMax: 2500, autoInclude: true },
-  { id: "addr-5000",     name: "Addressing (2,500 - 5,000)", category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (2,500 to 5,000 qty)",      defaultPrice: 0.05, priceUnit: "piece", postcard: true, letter: true,  flat: false, qtyMin: 2501, qtyMax: 5000, autoInclude: true },
-  { id: "addr-5000plus", name: "Addressing (5,000+)",        category: "ADDRESSING", description: "Printing mailing addresses on non-Flat mail piece (above 5,000 qty)",         defaultPrice: 0.04, priceUnit: "piece", postcard: true, letter: true,  flat: false, qtyMin: 5001, qtyMax: null, autoInclude: true },
-  { id: "addr-flats",    name: "Addressing Flats",           category: "ADDRESSING", description: "Printing mailing addresses on FLAT mail pieces",                              defaultPrice: 200,  priceUnit: "1000", postcard: false, letter: false, flat: true, autoInclude: true },
+  // ── ADDRESSING ── (pricing comes from addressing brackets in config)
+  { id: "addr-letter",   name: "Addressing",                 category: "ADDRESSING", description: "Printing mailing addresses on letter/postcard mail pieces",                   defaultPrice: 125,  priceUnit: "piece", postcard: true, letter: true,  flat: false, autoInclude: true, pricingRule: "addressing_bracket" },
+  { id: "addr-flats",    name: "Addressing Flats",           category: "ADDRESSING", description: "Printing mailing addresses on FLAT mail pieces",                              defaultPrice: 200,  priceUnit: "piece", postcard: false, letter: false, flat: true, autoInclude: true, pricingRule: "addressing_bracket" },
 
   // ── COMPUTER WORK ──
-  { id: "computer-work",  name: "Computer Work",         category: "COMPUTER_WORK", description: "Computer work for the first 1,000 pieces",        defaultPrice: 125, priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true },
-  { id: "cass-2nd",       name: "CASS 2nd (1,000+)",     category: "COMPUTER_WORK", description: "Computer work for mailpieces from 1,000 and above", defaultPrice: 10,  priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true },
+  { id: "computer-work",  name: "Computer Work",         category: "COMPUTER_WORK", description: "Computer work for the job",                        defaultPrice: 125, priceUnit: "job", postcard: null, letter: null, flat: null, autoInclude: true },
+  { id: "cass-2nd",       name: "CASS 2nd (1,000+)",     category: "COMPUTER_WORK", description: "Additional computer work beyond 1,000 pieces",     defaultPrice: 10,  priceUnit: "1000", postcard: null, letter: null, flat: null, autoInclude: true, pricingRule: "per1000_after_1000" },
 
   // ── INSERTING ──
-  { id: "insert-machine-3",      name: "Machine Insert (up to 3)",   category: "INSERTING", description: "Inserting up to 3 prints into envelope by machine and sealing",    defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
-  { id: "insert-machine-addl",   name: "Machine Insert (each addl)", category: "INSERTING", description: "Each additional insert above 3 by machine",                        defaultPrice: 25,   priceUnit: "insert", postcard: false, letter: true, flat: true },
+  { id: "insert-machine-3",      name: "Machine Insert (up to 3 pc)",   category: "INSERTING", description: "Inserting up to 3 pieces into envelope by machine and sealing",    defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true, pricingRule: "min_then_per_pc" },
+  { id: "insert-machine-addl",   name: "Machine Insert (each addl pc)", category: "INSERTING", description: "Each additional piece above 3 inserted by machine",                  defaultPrice: 25,   priceUnit: "insert", postcard: false, letter: true, flat: true },
   { id: "insert-clear-bags",     name: "Inserting in Clear Bags",    category: "INSERTING", description: "Inserting items into a clear bag by hand and sealing",              defaultPrice: 350,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "insert-hand",           name: "Inserting by Hand",          category: "INSERTING", description: "Inserting items into a paper envelope by hand and sealing",         defaultPrice: 285,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "clear-bags-item",       name: "Clear Bags (item)",          category: "INSERTING", description: "A clear bag to insert the mail piece into",                         defaultPrice: 0.18, priceUnit: "bag", postcard: false, letter: true, flat: true },
-  { id: "tabbing",               name: "Tabbing",                    category: "INSERTING", description: "Apply up to 2 tabs on a mailpiece",                                 defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
+  { id: "tabbing",               name: "Tabbing",                    category: "INSERTING", description: "Apply up to 2 tabs on a mailpiece",                                 defaultPrice: 125,  priceUnit: "piece", postcard: false, letter: true, flat: true, pricingRule: "tabbing_bracket" },
   { id: "folding",               name: "Folding",                    category: "INSERTING", description: "Folding a scored print by machine",                                 defaultPrice: 75,   priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "folding-hand",          name: "Folding by Hand",            category: "INSERTING", description: "Folding a scored print manually by hand",                            defaultPrice: 125,  priceUnit: "1000", postcard: false, letter: true, flat: true },
   { id: "gluing",                name: "Gluing",                     category: "INSERTING", description: "Glueing an item or print into the mailing",                          defaultPrice: 150,  priceUnit: "1000", postcard: false, letter: true, flat: true },
@@ -162,12 +164,9 @@ export const SERVICE_CATALOG: ServiceItem[] = [
 
 // ─── Helpers ─────────────────────────────────────────────
 
-/** Get the correct addressing tier for a given quantity */
-export function getAddressingTierId(qty: number, isFlat: boolean): string | null {
-  if (isFlat) return "addr-flats"
-  if (qty <= 2500) return "addr-2500"
-  if (qty <= 5000) return "addr-5000"
-  return "addr-5000plus"
+/** Get the correct addressing item for the shape */
+export function getAddressingTierId(_qty: number, isFlat: boolean): string | null {
+  return isFlat ? "addr-flats" : "addr-letter"
 }
 
 /** Filter catalog by USPS shape */
@@ -200,9 +199,36 @@ export function calculateItemAmount(
   mailingQty: number,
   itemQty: number,
 ): number {
+  // Special pricing rules
+  if (item.pricingRule === "per1000_after_1000") {
+    // First 1,000 are free; charge fractional blocks beyond that
+    const billable = Math.max(0, mailingQty - 1000)
+    if (billable <= 0) return 0
+    return unitPrice * (billable / 1000) * itemQty
+  }
+  if (item.pricingRule === "min_then_per_pc") {
+    // Minimum charge (unitPrice) covers first 1,000 pieces.
+    // Beyond 1,000: per-piece rate = unitPrice / 1000, no rounding.
+    if (mailingQty <= 1000) return unitPrice * itemQty
+    const extra = mailingQty - 1000
+    const perPiece = unitPrice / 1000
+    return (unitPrice + extra * perPiece) * itemQty
+  }
+  if (item.pricingRule === "addressing_bracket") {
+    // Tiered addressing: look up brackets from config
+    const cfg = getActiveConfig().addressingConfig
+    const isFlat = item.id === "addr-flats"
+    const brackets: AddressingBracket[] = isFlat ? cfg.flat : cfg.letterPostcard
+    return calculateAddressingBracket(brackets, mailingQty) * itemQty
+  }
+  if (item.pricingRule === "tabbing_bracket") {
+    const brackets = getActiveConfig().tabbingConfig.brackets
+    return calculateAddressingBracket(brackets, mailingQty) * itemQty
+  }
+
   switch (item.priceUnit) {
-    case "1000":
-      return unitPrice * Math.ceil(mailingQty / 1000) * itemQty
+  case "1000":
+  return unitPrice * Math.ceil(mailingQty / 1000) * itemQty
     case "piece":
     case "stamp":
     case "bag":
@@ -220,6 +246,26 @@ export function calculateItemAmount(
     default:
       return unitPrice * itemQty
   }
+}
+
+/**
+ * Calculate addressing cost from bracket tiers.
+ * Each bracket either has a flatMin (minimum charge for that range) or perPiece rate.
+ * The qty falls into exactly ONE bracket.
+ */
+function calculateAddressingBracket(brackets: AddressingBracket[], qty: number): number {
+  for (const b of brackets) {
+    const inBracket = b.maxQty === null ? true : qty <= b.maxQty
+    if (inBracket) {
+      if (b.flatMin != null) return b.flatMin
+      if (b.perPiece != null) return b.perPiece * qty
+      return 0
+    }
+  }
+  // Fallback: use last bracket
+  const last = brackets[brackets.length - 1]
+  if (last?.perPiece != null) return last.perPiece * qty
+  return last?.flatMin ?? 0
 }
 
 /** Get the auto-quantity for an item based on its price unit and mailing qty */
@@ -321,8 +367,9 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
     items.push({ id: "tabbing", reason: "Self-mailers require tabs to stay closed" })
   }
 
-  // 7. FOLDING -- needed if any piece is folded
-  if (ctx.hasFoldedPiece) {
+  // 7. FOLDING -- needed if any piece is folded, BUT NOT for self-mailers
+  //    (self-mailer folding is typically done during printing)
+  if (ctx.hasFoldedPiece && ctx.outerPieceType !== "self_mailer") {
     items.push({ id: "folding", reason: "Folded piece(s) need mechanical or hand folding" })
   }
 
@@ -331,10 +378,10 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
     items.push({ id: "printing", reason: "In-house printing selected for this job" })
   }
 
-  // 9. PERMIT -- always needed for presorted mail (we use our permit)
-  if (isPresorted) {
-    items.push({ id: "permit", reason: "Presorted mail uses Postage Plus permit" })
-  }
+  // 9. PERMIT -- only when using our permit WITHOUT computer work
+  // When computer work is included (presorted mail), the permit is already bundled
+  // This is only for jobs that use the permit standalone (e.g. stamp mailings needing the permit)
+  // So we do NOT auto-detect it for presorted mail since computer work covers it
 
   return items
 }
