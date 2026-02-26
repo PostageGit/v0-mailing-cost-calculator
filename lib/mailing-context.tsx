@@ -125,7 +125,9 @@ export const STANDARD_ENVELOPES: EnvelopeSize[] = [
 // ─── Context ─────────────────────────────────────────────
 interface MailingState {
   quantity: number; setQuantity: (n: number) => void
-  /** Print/envelope overage: quantity + 50 (accounts for spoilage/waste) */
+  /** Extra pieces to print above mailing qty (default 50, editable) */
+  extraPrintQty: number; setExtraPrintQty: (n: number) => void
+  /** Print/envelope total: quantity + extraPrintQty */
   printQty: number
   shape: string; className: string; suggestedShapes: USPSShape[]
   setShape: (s: string) => void; setClassName: (n: string) => void
@@ -164,6 +166,7 @@ interface MailingState {
 /** Serializable snapshot of mailing state for DB persistence */
 export interface MailingSnapshot {
   quantity: number
+  extraPrintQty?: number
   shape: string
   className: string
   mailService: string
@@ -191,7 +194,8 @@ let _counter = 0
 
 export function MailingProvider({ children }: { children: ReactNode }) {
   const [quantity, setQuantity] = useState(0)
-  const printQty = quantity > 0 ? quantity + 50 : 0
+  const [extraPrintQty, setExtraPrintQty] = useState(50)
+  const printQty = quantity > 0 ? quantity + extraPrintQty : 0
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
   const [mailService, setMailService] = useState("")
@@ -266,13 +270,14 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   // ── Snapshot: capture & restore full mailing state ──
   const getSnapshot = useCallback((): MailingSnapshot => ({
-    quantity, shape, className, mailService,
+    quantity, extraPrintQty, shape, className, mailService,
     pieces: pieces.map((p) => ({ ...p })), // shallow clone each piece
-  }), [quantity, shape, className, mailService, pieces])
+  }), [quantity, extraPrintQty, shape, className, mailService, pieces])
 
   const restoreState = useCallback((snap: MailingSnapshot) => {
     if (!snap) return
     setQuantity(snap.quantity ?? 0)
+    setExtraPrintQty(snap.extraPrintQty ?? 50)
     setShape(snap.shape ?? "LETTER")
     setClassName(snap.className ?? "Letter")
     setMailService(snap.mailService ?? "")
@@ -292,7 +297,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      quantity, setQuantity, printQty, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
+      quantity, setQuantity, extraPrintQty, setExtraPrintQty, printQty, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
       needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsPad, needsOHP,
