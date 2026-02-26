@@ -31,7 +31,9 @@ import {
   type Tab2BPMSort,
   type Tab2BPMEntry,
   type USPSShape,
+  type TierKey,
 } from "@/lib/usps-rates"
+import { getActiveConfig, sortMixKey } from "@/lib/pricing-config"
 import { Plus, ChevronDown, ChevronRight, Info, AlertCircle, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -81,144 +83,6 @@ function Pill({
   )
 }
 
-/* ── Unified Results Bar ── */
-function ResultsBar({
-  isValid,
-  perPiece,
-  total,
-  quantity,
-  disabled,
-  onAdd,
-  onAddManual,
-}: {
-  isValid: boolean
-  perPiece: number
-  total: number
-  quantity: number
-  disabled: boolean
-  onAdd: (bufferCents: number) => void
-  onAddManual: (ratePerPiece: number) => void
-}) {
-  const [bufferCents, setBufferCents] = useState<string>("0")
-  const parsedBuffer = parseFloat(bufferCents) || 0
-  const bufferAmt = parsedBuffer / 100
-  const finalPerPiece = perPiece + bufferAmt
-  const finalTotal = finalPerPiece * quantity
-
-  const [showManual, setShowManual] = useState(false)
-  const [manualRate, setManualRate] = useState<string>("")
-  const parsedRate = parseFloat(manualRate)
-  const hasManual = manualRate.length > 0 && !isNaN(parsedRate) && parsedRate > 0
-  const manualTotal = hasManual ? parsedRate * quantity : 0
-
-  return (
-    <div className="sticky bottom-4 z-20 bg-foreground text-background rounded-2xl shadow-2xl overflow-hidden">
-      {/* Main bar */}
-      <div className="px-5 py-4 sm:px-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          {/* Prices */}
-          <div className="flex items-baseline gap-6">
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-background/50 block mb-0.5">
-                Per Piece
-              </span>
-              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
-                {isValid ? formatPostageRate(parsedBuffer > 0 ? finalPerPiece : perPiece) : "---"}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-background/50 block mb-0.5">
-                Total
-              </span>
-              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
-                {isValid ? formatCurrency(parsedBuffer > 0 ? finalTotal : total) : "$0.00"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Inline buffer */}
-            <div className="flex items-center gap-1.5 bg-background/10 rounded-lg px-2.5 py-1.5">
-              <span className="text-[10px] font-semibold text-background/50 uppercase tracking-wide">Buffer</span>
-              <span className="text-background/40 text-xs">+</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={bufferCents}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v)
-                }}
-                className="w-10 text-center font-mono text-sm font-bold bg-transparent border-b border-background/20 text-background px-0 py-0 outline-none focus:border-background/50 transition-all"
-              />
-              <span className="text-background/40 text-[10px]">c</span>
-            </div>
-            {parsedBuffer > 0 && isValid && (
-              <span className="text-[10px] text-background/40 font-mono hidden sm:inline">
-                {formatPostageRate(perPiece)} + {parsedBuffer}c
-              </span>
-            )}
-            {/* Add button */}
-            <button
-              onClick={() => onAdd(parsedBuffer)}
-              disabled={disabled}
-              className="flex items-center justify-center gap-1.5 bg-background text-foreground text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              Add to Quote
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Manual override -- collapsible */}
-      <div className="border-t border-background/10">
-        <button
-          onClick={() => setShowManual(!showManual)}
-          className="w-full px-5 py-2 flex items-center gap-2 hover:bg-background/5 transition-colors"
-        >
-          {showManual ? <ChevronDown className="h-3 w-3 text-background/40" /> : <ChevronRight className="h-3 w-3 text-background/40" />}
-          <span className="text-[11px] font-semibold text-background/50 uppercase tracking-wider">Custom Rate Override</span>
-        </button>
-        {showManual && (
-          <div className="px-5 pb-3 flex items-center gap-3">
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-background/40 font-mono text-sm">$</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="0.285"
-                className="h-9 w-36 rounded-lg bg-background/10 border border-background/20 pl-6 pr-3 font-mono text-sm text-background placeholder:text-background/30 focus:outline-none focus:ring-2 focus:ring-background/30"
-                value={manualRate}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (v === "" || /^\d*\.?\d{0,4}$/.test(v)) setManualRate(v)
-                }}
-              />
-            </div>
-            {hasManual && (
-              <>
-                <span className="text-sm font-mono font-bold text-background tabular-nums">{formatCurrency(manualTotal)}</span>
-                <button
-                  onClick={() => { onAddManual(parsedRate); setManualRate("") }}
-                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3.5 py-2 rounded-full transition-colors shrink-0"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Estimate
-                </button>
-              </>
-            )}
-            {!hasManual && (
-              <span className="text-[11px] text-background/40">Enter a custom rate to add as estimate</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 
 // ═══════════════════════════════════════════════════════════════
 //  TAB 2 COMPONENT (Parcels & Special) -- kept as-is
@@ -256,41 +120,27 @@ function Tab2Parcels() {
     })
   }, [])
 
-  const handleAddToQuote = useCallback((bufferCents: number) => {
+  const [bufferCents, setBufferCents] = useState("0")
+  const parsedBuffer = parseFloat(bufferCents) || 0
+
+  const handleAddToQuote = useCallback(() => {
     if (!result.isValid) return
-    const bufferPerPiece = bufferCents / 100
+    const bufferPerPiece = parsedBuffer / 100
     const bufferedTotal = (result.perPiece + bufferPerPiece) * inputs.quantity
     const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
-    const desc = bufferCents > 0 ? `${result.rateInfo} | +${bufferCents}c buffer` : result.rateInfo
+    const desc = parsedBuffer > 0 ? `${result.rateInfo} | +${parsedBuffer}c buffer` : result.rateInfo
     quote.addItem({
       category: "postage",
       label: `USPS ${result.description} - ${inputs.quantity.toLocaleString()} pc`,
       description: desc,
-      amount: bufferCents > 0 ? bufferedTotal : result.total,
+      amount: parsedBuffer > 0 ? bufferedTotal : result.total,
       metadata: {
         mailingClass: svcLabels[inputs.service],
         dropOff: inputs.service === "PS" ? inputs.psEntry : inputs.service === "BPM" ? inputs.bpmEntry : undefined,
-        bufferCents: bufferCents > 0 ? bufferCents : undefined,
+        bufferCents: parsedBuffer > 0 ? parsedBuffer : undefined,
       },
     })
-  }, [result, inputs, quote])
-
-  const handleAddManual = useCallback((ratePerPiece: number) => {
-    const manualTotal = ratePerPiece * inputs.quantity
-    const svcLabels: Record<Tab2Service, string> = { PS: "Parcel Select", MM: "Media Mail", LM: "Library Mail", BPM: "Bound Printed Matter" }
-    const svcLabel = svcLabels[inputs.service]
-    quote.addItem({
-      category: "postage",
-      label: `USPS ${svcLabel} - ${inputs.quantity.toLocaleString()} pc`,
-      description: `${svcLabel} | ${inputs.quantity.toLocaleString()} x $${ratePerPiece.toFixed(3)}`,
-      amount: manualTotal,
-      metadata: {
-        mailingClass: svcLabel,
-        isEstimated: true,
-        manualRate: ratePerPiece,
-      },
-    })
-  }, [inputs, quote])
+  }, [result, inputs, quote, parsedBuffer])
 
   const svcOptions: { key: Tab2Service; label: string; sub: string }[] = [
     { key: "PS", label: "Parcel Select", sub: "Destination Entry" },
@@ -439,15 +289,41 @@ function Tab2Parcels() {
         </div>
       )}
 
-      <ResultsBar
-        isValid={result.isValid}
-        perPiece={result.perPiece}
-        total={result.total}
-        quantity={inputs.quantity}
-        disabled={!result.isValid}
-        onAdd={handleAddToQuote}
-        onAddManual={handleAddManual}
-      />
+      {/* Add to quote */}
+      <div className="flex items-center gap-3 p-4 rounded-2xl border border-border bg-card">
+        <div className="flex-1">
+          <div className="flex items-baseline gap-4">
+            <div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Per Piece</span>
+              <span className="text-xl font-bold font-mono tabular-nums">{result.isValid ? formatPostageRate(result.perPiece + parsedBuffer / 100) : "---"}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Total</span>
+              <span className="text-lg font-bold font-mono tabular-nums">{result.isValid ? formatCurrency((result.perPiece + parsedBuffer / 100) * inputs.quantity) : "$0.00"}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-secondary/50 rounded-lg px-2 py-1.5">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Buf</span>
+          <span className="text-muted-foreground text-xs">+</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={bufferCents}
+            onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v) }}
+            className="w-8 text-center font-mono text-xs font-bold bg-transparent border-b border-border text-foreground px-0 py-0 outline-none focus:border-foreground transition-all"
+          />
+          <span className="text-muted-foreground text-[10px]">c</span>
+        </div>
+        <button
+          onClick={handleAddToQuote}
+          disabled={!result.isValid}
+          className="flex items-center gap-1.5 bg-foreground text-background text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-foreground/90 disabled:opacity-30 transition-all shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+          Add
+        </button>
+      </div>
     </div>
   )
 }
@@ -476,6 +352,60 @@ function Tab1LettersFlats() {
   const result = useMemo(() => calculateUSPSPostage(inputs), [inputs])
   const quote = useQuote()
 
+  // ── Sort level qty distribution (editable) ──
+  const mixConfigKey = sortMixKey(inputs.service, inputs.shape, inputs.mailType)
+  const savedMix = getActiveConfig().sortLevelMix[mixConfigKey]
+
+  // Build initial qty distribution from default %
+  const [tierQtys, setTierQtys] = useState<Record<string, number>>({})
+  const lastQtyRef = useRef(0)
+  const lastMixKeyRef = useRef("")
+
+  // Recalculate when quantity, tiers, or mix key changes
+  useEffect(() => {
+    if (inputs.quantity === lastQtyRef.current && mixConfigKey === lastMixKeyRef.current) return
+    lastQtyRef.current = inputs.quantity
+    lastMixKeyRef.current = mixConfigKey
+    const mix = savedMix || {}
+    const totalPct = Object.values(mix).reduce((s, v) => s + v, 0)
+    const newQtys: Record<string, number> = {}
+    let assigned = 0
+    const tierKeys = tiers.map(t => t.k)
+    tierKeys.forEach((k, i) => {
+      const pct = mix[k] ?? (100 / tierKeys.length)
+      const normPct = totalPct > 0 ? pct / totalPct : 1 / tierKeys.length
+      if (i === tierKeys.length - 1) {
+        newQtys[k] = inputs.quantity - assigned
+      } else {
+        newQtys[k] = Math.round(inputs.quantity * normPct)
+        assigned += newQtys[k]
+      }
+    })
+    setTierQtys(newQtys)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs.quantity, tiers.length, mixConfigKey])
+
+  // Weighted average rate across all tier quantities
+  const weightedResult = useMemo(() => {
+    if (tiers.length === 0) return null
+    const totalQty = Object.values(tierQtys).reduce((s, v) => s + v, 0)
+    if (totalQty <= 0) return null
+    let weightedTotal = 0
+    for (let i = 0; i < tiers.length; i++) {
+      const tp = result.tierPrices[i]
+      const qty = tierQtys[tiers[i].k] || 0
+      if (tp && tp.price > 0) {
+        weightedTotal += tp.price * qty
+      }
+    }
+    // Add saturation if applicable
+    const satQty = Math.min(inputs.saturationQty || 0, inputs.quantity)
+    const satTotal = result.satRate > 0 && satQty > 0 ? result.satRate * satQty : 0
+    const grandTotal = weightedTotal + satTotal
+    const allQty = totalQty + satQty
+    return { weightedTotal, satTotal, grandTotal, avgPerPiece: allQty > 0 ? grandTotal / allQty : 0, totalQty: allQty }
+  }, [tiers, tierQtys, result, inputs.saturationQty, inputs.quantity])
+
   // Sync USPS inputs back to mailing context
   useEffect(() => {
     const totalQty = inputs.quantity + (inputs.saturationQty || 0)
@@ -492,14 +422,11 @@ function Tab1LettersFlats() {
   useEffect(() => {
     const outer = mailing.outerPiece
     if (!outer) return
-
     const patch: Partial<USPSInputs> = {}
-
     if (!seededQtyRef.current && mailing.quantity) {
       patch.quantity = mailing.quantity
       seededQtyRef.current = true
     }
-
     if (outer.type === "envelope") {
       patch.pack = outer.envelopeKind === "plastic" ? "PLAS" : "ENV"
     } else if (outer.type === "booklet") {
@@ -511,7 +438,6 @@ function Tab1LettersFlats() {
     } else {
       patch.pack = "SM_CARD"
     }
-
     if (outer.width && outer.height) {
       const s = Math.min(outer.width, outer.height)
       const l = Math.max(outer.width, outer.height)
@@ -523,7 +449,6 @@ function Tab1LettersFlats() {
         patch.shape = "FLAT"
       }
     }
-
     if (Object.keys(patch).length > 0) {
       setInputs((prev) => ({ ...prev, ...patch }))
     }
@@ -550,37 +475,51 @@ function Tab1LettersFlats() {
     })
   }, [])
 
-  const handleAddToQuote = useCallback((bufferCents: number) => {
-    if (!result.isValid) return
-    const bufferPerPiece = bufferCents / 100
-    const bufferedTotal = (result.avgPerPiece + bufferPerPiece) * inputs.quantity
+  const [bufferCents, setBufferCents] = useState("0")
+  const parsedBuffer = parseFloat(bufferCents) || 0
+
+  const handleAddToQuote = useCallback(() => {
+    if (!result.isValid || !weightedResult) return
+    const bufferPerPiece = parsedBuffer / 100
+    const totalWithBuffer = weightedResult.grandTotal + (bufferPerPiece * weightedResult.totalQty)
+    const avgWithBuffer = weightedResult.avgPerPiece + bufferPerPiece
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
-    if (bufferCents > 0) parts.push(`+${bufferCents}c buffer`)
-    const activeTier = tiers[inputs.tierIndex]
+    // Build tier breakdown text
+    const tierDesc = tiers.map(t => `${t.l}: ${(tierQtys[t.k] || 0).toLocaleString()}`).join(", ")
+    parts.push(tierDesc)
+    if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
     const classMap: Record<string, string> = {
       FCM_COMM: "First Class", FCM_RETAIL: "Retail",
       MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
     }
     quote.addItem({
       category: "postage",
-      label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
+      label: `USPS Postage - ${weightedResult.totalQty.toLocaleString()} pc`,
       description: parts.join(" | "),
-      amount: bufferCents > 0 ? bufferedTotal : result.total,
+      amount: totalWithBuffer,
       metadata: {
         mailingClass: classMap[inputs.service] || SERVICE_LABELS[inputs.service],
         mailShape: inputs.shape.toLowerCase(),
-        tierName: activeTier?.l || undefined,
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
-        bufferCents: bufferCents > 0 ? bufferCents : undefined,
+        bufferCents: parsedBuffer > 0 ? parsedBuffer : undefined,
+        avgPerPiece: avgWithBuffer,
+        tierBreakdown: tierQtys,
       },
     })
-  }, [result, inputs, quote, tiers])
+  }, [result, inputs, quote, tiers, tierQtys, weightedResult, parsedBuffer])
 
-  const handleAddManual = useCallback((ratePerPiece: number) => {
-    const manualTotal = ratePerPiece * inputs.quantity
+  const [showManual, setShowManual] = useState(false)
+  const [manualRate, setManualRate] = useState("")
+  const parsedRate = parseFloat(manualRate)
+  const hasManual = manualRate.length > 0 && !isNaN(parsedRate) && parsedRate > 0
+
+  const handleAddManual = useCallback(() => {
+    if (!hasManual) return
+    const totalQty = inputs.quantity + (inputs.saturationQty || 0)
+    const manualTotal = parsedRate * totalQty
     const classMap: Record<string, string> = {
       FCM_COMM: "First Class", FCM_RETAIL: "Retail",
       MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
@@ -588,17 +527,18 @@ function Tab1LettersFlats() {
     const mailingClass = classMap[inputs.service] || SERVICE_LABELS[inputs.service]
     quote.addItem({
       category: "postage",
-      label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
-      description: `${mailingClass} ${inputs.shape.charAt(0) + inputs.shape.slice(1).toLowerCase()} | ${inputs.quantity.toLocaleString()} x $${ratePerPiece.toFixed(3)}`,
+      label: `USPS Postage - ${totalQty.toLocaleString()} pc`,
+      description: `${mailingClass} ${inputs.shape.charAt(0) + inputs.shape.slice(1).toLowerCase()} | ${totalQty.toLocaleString()} x $${parsedRate.toFixed(3)}`,
       amount: manualTotal,
       metadata: {
         mailingClass,
         mailShape: inputs.shape.toLowerCase(),
         isEstimated: true,
-        manualRate: ratePerPiece,
+        manualRate: parsedRate,
       },
     })
-  }, [inputs, quote])
+    setManualRate("")
+  }, [inputs, quote, parsedRate, hasManual])
 
   const hasDimensions = !!(mailing.mailerWidth && mailing.mailerHeight)
   const suggestedShapes = mailing.suggestedShapes
@@ -629,13 +569,23 @@ function Tab1LettersFlats() {
   const showEntryPoint = isMkt
   const showSortSection = !isRetail
   const showMailType = isMkt
-  const remainingQty = inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
   const spec = SPECS[inputs.shape]
   const [showSpecs, setShowSpecs] = useState(false)
 
-  // Collect info-level alerts into chips, keep errors/warnings inline
-  const errorAlerts = result.alerts.filter((a) => a.type === "error" || a.type === "warning")
-  const infoAlerts = result.alerts.filter((a) => a.type === "info")
+  // Update a single tier's qty, adjusting the last tier to keep total correct
+  const updateTierQty = (tierKey: string, newVal: number) => {
+    setTierQtys(prev => {
+      const next = { ...prev, [tierKey]: Math.max(0, newVal) }
+      // Recalculate: adjust last tier to absorb the difference
+      const tierKeys = tiers.map(t => t.k)
+      const lastKey = tierKeys[tierKeys.length - 1]
+      if (tierKey !== lastKey) {
+        const otherSum = tierKeys.filter(k => k !== lastKey).reduce((s, k) => s + (next[k] || 0), 0)
+        next[lastKey] = Math.max(0, inputs.quantity - otherSum)
+      }
+      return next
+    })
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -717,11 +667,11 @@ function Tab1LettersFlats() {
           </div>
         </div>
 
-        {/* Dimension mismatch -- single subtle note */}
+        {/* Dimension alerts -- inline where relevant */}
         {hasDimensions && suggestedShapes.length > 0 && suggestedShapes.includes("PARCEL") && !suggestedShapes.some((s) => s === "POSTCARD" || s === "LETTER" || s === "FLAT") && (
-          <div className="flex items-center gap-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 px-3 py-2">
-            <Info className="h-3.5 w-3.5 text-purple-600 shrink-0" />
-            <span className="text-xs text-purple-800 dark:text-purple-300">
+          <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-3 py-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
               This piece qualifies as a <strong>Parcel</strong>. Use the "Parcels & Special" tab.
             </span>
           </div>
@@ -791,8 +741,24 @@ function Tab1LettersFlats() {
           )}
         </div>
 
-        {/* ── Rate Comparison Table ── */}
-        {showSortSection && (
+        {/* Weight/service errors RIGHT BELOW the weight field */}
+        {result.alerts.filter(a => a.type === "error").map((a, i) => (
+          <div key={`err-${i}`} className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {a.message}
+          </div>
+        ))}
+
+        {/* Warning alerts inline */}
+        {result.alerts.filter(a => a.type === "warning").map((a, i) => (
+          <div key={`warn-${i}`} className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {a.message}
+          </div>
+        ))}
+
+        {/* ── Rate Comparison Table with Editable Quantities ── */}
+        {showSortSection && tiers.length > 0 && (
           <>
             <hr className="border-border/50" />
 
@@ -826,89 +792,93 @@ function Tab1LettersFlats() {
                   </Select>
                 </div>
               )}
-              {showSaturation && inputs.saturationQty > 0 && (
-                <div className="ml-auto text-xs text-muted-foreground">
-                  Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong> |
-                  Saturation: <strong className="font-mono text-foreground">{Math.min(inputs.saturationQty, inputs.quantity).toLocaleString()}</strong>
-                </div>
-              )}
             </div>
 
-            {/* Rate table */}
+            {/* Rate table with editable qty per tier */}
             <div className="rounded-xl border border-border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-secondary/40 border-b border-border">
                     <th className="text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Sort Level</th>
+                    <th className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Pieces</th>
                     <th className="text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Per Piece</th>
-                    <th className="text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Total ({remainingQty.toLocaleString()})</th>
+                    <th className="text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.tierPrices.map((tp, i) => {
-                    const isActive = inputs.tierIndex === i
-                    const tierTotal = tp.price * remainingQty
+                    const tierKey = tiers[i]?.k
+                    const qty = tierQtys[tierKey] || 0
+                    const tierSubtotal = tp.price * qty
                     return (
                       <tr
                         key={tp.tier.k}
-                        onClick={() => update({ tierIndex: i })}
-                        className={cn(
-                          "cursor-pointer transition-colors border-b border-border/50 last:border-b-0",
-                          isActive
-                            ? "bg-foreground text-background"
-                            : "hover:bg-secondary/30"
-                        )}
+                        className="border-b border-border/50 last:border-b-0 hover:bg-secondary/20 transition-colors"
                       >
-                        <td className="px-3 py-2.5 font-medium">
-                          <span className="text-sm">{tp.tier.l}</span>
+                        <td className="px-3 py-2 font-medium text-sm">
+                          {tp.tier.l}
                         </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <span className={cn("font-mono font-bold tabular-nums text-base", isActive ? "text-background" : "text-foreground")}>
+                        <td className="px-2 py-1.5 text-center">
+                          <input
+                            type="number"
+                            min={0}
+                            value={qty || ""}
+                            onChange={(e) => updateTierQty(tierKey, parseInt(e.target.value) || 0)}
+                            className="w-20 h-7 text-center text-xs font-mono font-semibold rounded-md border border-border bg-background px-1 outline-none focus:ring-1 focus:ring-foreground/20 tabular-nums"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-mono font-bold tabular-nums">
                             {tp.price > 0 ? formatPostageRate(tp.price) : "---"}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <span className={cn("font-mono tabular-nums text-sm", isActive ? "text-background/70" : "text-muted-foreground")}>
-                            {tp.price > 0 ? formatCurrency(tierTotal) : "---"}
+                        <td className="px-3 py-2 text-right">
+                          <span className="font-mono tabular-nums text-muted-foreground">
+                            {tp.price > 0 && qty > 0 ? formatCurrency(tierSubtotal) : "---"}
                           </span>
                         </td>
                       </tr>
                     )
                   })}
                   {/* Saturation row */}
-                  {showSaturation && result.satRate > 0 && inputs.saturationQty > 0 && (
+                  {showSaturation && result.satRate > 0 && (inputs.saturationQty || 0) > 0 && (
                     <tr className="bg-emerald-50 dark:bg-emerald-950/20 border-t border-emerald-200 dark:border-emerald-800/40">
-                      <td className="px-3 py-2.5 font-medium text-emerald-800 dark:text-emerald-300">
-                        <span className="text-sm">Saturation</span>
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-1.5">({Math.min(inputs.saturationQty, inputs.quantity).toLocaleString()} pc)</span>
+                      <td className="px-3 py-2 font-medium text-emerald-800 dark:text-emerald-300 text-sm">
+                        Saturation
                       </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <span className="font-mono font-bold tabular-nums text-base text-emerald-800 dark:text-emerald-300">
+                      <td className="px-2 py-1.5 text-center">
+                        <span className="text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400">{Math.min(inputs.saturationQty, inputs.quantity).toLocaleString()}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className="font-mono font-bold tabular-nums text-emerald-800 dark:text-emerald-300">
                           {formatPostageRate(result.satRate)}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <span className="font-mono tabular-nums text-sm text-emerald-700 dark:text-emerald-400">
+                      <td className="px-3 py-2 text-right">
+                        <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
                           {formatCurrency(result.satRate * Math.min(inputs.saturationQty, inputs.quantity))}
                         </span>
                       </td>
                     </tr>
                   )}
-                  {/* Blended total row */}
-                  {showSaturation && result.satRate > 0 && inputs.saturationQty > 0 && (
-                    <tr className="bg-secondary/30 border-t border-border">
-                      <td className="px-3 py-2 font-semibold text-xs text-muted-foreground">
-                        Blended Total
+                  {/* Weighted avg total row */}
+                  {weightedResult && (
+                    <tr className="bg-secondary/40 border-t border-border">
+                      <td className="px-3 py-2.5 font-bold text-xs text-foreground">
+                        Weighted Average
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className="font-mono font-bold tabular-nums text-sm text-foreground">
-                          {formatPostageRate(result.avgPerPiece)}
+                      <td className="px-2 py-2.5 text-center">
+                        <span className="text-xs font-mono font-bold text-foreground">{weightedResult.totalQty.toLocaleString()}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <span className="font-mono font-bold tabular-nums text-foreground">
+                          {formatPostageRate(weightedResult.avgPerPiece)}
                         </span>
                         <span className="text-[10px] text-muted-foreground ml-1">avg</span>
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className="font-mono font-bold tabular-nums text-sm text-foreground">
-                          {formatCurrency(result.total)}
+                      <td className="px-3 py-2.5 text-right">
+                        <span className="font-mono font-bold tabular-nums text-foreground">
+                          {formatCurrency(weightedResult.grandTotal)}
                         </span>
                       </td>
                     </tr>
@@ -916,10 +886,33 @@ function Tab1LettersFlats() {
                 </tbody>
               </table>
             </div>
+
+            {/* Info notes -- compact, right after the table */}
+            {result.alerts.filter(a => a.type === "info").length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {result.alerts.filter(a => a.type === "info").map((a, i) => (
+                  <div key={i} className="flex items-center gap-1.5 rounded-full bg-muted/50 border border-border px-2.5 py-1 text-[10px] text-muted-foreground">
+                    <Info className="h-2.5 w-2.5 shrink-0" />
+                    <span className="line-clamp-1">{a.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
-        {/* USPS Specs -- collapsed by default */}
+        {/* Retail -- no tiers, just show the rate */}
+        {isRetail && result.isValid && (
+          <div className="rounded-xl border border-border bg-secondary/30 p-4 flex items-center justify-between">
+            <span className="text-sm font-semibold text-foreground">Retail Rate</span>
+            <div className="flex items-baseline gap-3">
+              <span className="text-2xl font-bold font-mono tabular-nums">{formatPostageRate(result.avgPerPiece)}</span>
+              <span className="text-sm font-mono text-muted-foreground tabular-nums">{formatCurrency(result.total)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* USPS Specs -- collapsed */}
         <div className="border-t border-border/50 pt-2">
           <button
             onClick={() => setShowSpecs(!showSpecs)}
@@ -938,39 +931,90 @@ function Tab1LettersFlats() {
         </div>
       </div>
 
-      {/* Error/warning alerts */}
-      {errorAlerts.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {errorAlerts.map((a, i) => (
-            <div key={i} className={cn("flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium", a.type === "error" ? "bg-destructive/10 text-destructive" : "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300")}>
-              {a.type === "error" ? <AlertCircle className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
-              {a.message}
+      {/* ── Add to Quote bar (static, NOT sticky) ── */}
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-baseline gap-5">
+            <div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5">Avg Per Piece</span>
+              <span className="text-2xl font-bold font-mono tabular-nums">
+                {result.isValid && weightedResult ? formatPostageRate(weightedResult.avgPerPiece + parsedBuffer / 100) : isRetail && result.isValid ? formatPostageRate(result.avgPerPiece + parsedBuffer / 100) : "---"}
+              </span>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Info notes -- compact chips */}
-      {infoAlerts.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {infoAlerts.map((a, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-full bg-muted/50 border border-border px-3 py-1.5 text-xs text-muted-foreground">
-              <Info className="h-3 w-3 shrink-0" />
-              <span className="line-clamp-1">{a.message}</span>
+            <div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5">Total</span>
+              <span className="text-lg font-bold font-mono tabular-nums text-muted-foreground">
+                {result.isValid && weightedResult
+                  ? formatCurrency(weightedResult.grandTotal + (parsedBuffer / 100) * weightedResult.totalQty)
+                  : isRetail && result.isValid
+                    ? formatCurrency((result.avgPerPiece + parsedBuffer / 100) * inputs.quantity)
+                    : "$0.00"}
+              </span>
             </div>
-          ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-secondary/60 rounded-lg px-2.5 py-1.5">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase">Buf</span>
+              <span className="text-muted-foreground text-xs">+</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={bufferCents}
+                onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v) }}
+                className="w-8 text-center font-mono text-xs font-bold bg-transparent border-b border-border text-foreground px-0 py-0 outline-none focus:border-foreground transition-all"
+              />
+              <span className="text-muted-foreground text-[10px]">c</span>
+            </div>
+            <button
+              onClick={handleAddToQuote}
+              disabled={!result.isValid}
+              className="flex items-center gap-1.5 bg-foreground text-background text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-foreground/90 disabled:opacity-30 transition-all shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Add to Quote
+            </button>
+          </div>
         </div>
-      )}
 
-      <ResultsBar
-        isValid={result.isValid}
-        perPiece={result.avgPerPiece}
-        total={result.total}
-        quantity={inputs.quantity}
-        disabled={!result.isValid || (hasDimensions && suggestedShapes.length === 0 && !shapeOverride)}
-        onAdd={handleAddToQuote}
-        onAddManual={handleAddManual}
-      />
+        {/* Custom rate override -- collapsed */}
+        <div className="border-t border-border/30 pt-2">
+          <button
+            onClick={() => setShowManual(!showManual)}
+            className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground uppercase tracking-wider transition-colors"
+          >
+            {showManual ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            Custom Rate Override
+          </button>
+          {showManual && (
+            <div className="flex items-center gap-3 mt-2">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">$</span>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0.285"
+                  className="h-9 w-32 pl-6 pr-3 font-mono text-sm"
+                  value={manualRate}
+                  onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d{0,4}$/.test(v)) setManualRate(v) }}
+                />
+              </div>
+              {hasManual && (
+                <>
+                  <span className="text-sm font-mono font-bold tabular-nums">{formatCurrency(parsedRate * (inputs.quantity + (inputs.saturationQty || 0)))}</span>
+                  <button
+                    onClick={handleAddManual}
+                    className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Estimate
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
