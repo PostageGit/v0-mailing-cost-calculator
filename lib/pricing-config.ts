@@ -384,6 +384,77 @@ export const DEFAULT_TABBING_CONFIG: TabbingConfig = {
   ],
 }
 
+// ==================== PAPER WEIGHT CONFIG ====================
+
+/**
+ * Paper weight config: ONE reference weight per paper.
+ * User enters: lbs per 1,000 sheets at a chosen sheet size (e.g. "11x17").
+ * The system derives weight for ANY piece size via area ratio.
+ *
+ * Formula: pieceWeightOz = (lbs/1000 * 16) * (pieceArea / sheetArea)
+ */
+export const WEIGHT_SHEET_SIZES = ["8.5x11", "11x17", "12x18", "13x19"] as const
+export type WeightSheetSize = typeof WEIGHT_SHEET_SIZES[number]
+
+/** Parse "WxH" -> [w, h] */
+export function parseSheetSize(s: string): [number, number] {
+  const [w, h] = s.split("x").map(Number)
+  return [w, h]
+}
+
+export interface PaperWeightEntry {
+  /** The sheet size the weight is based on, e.g. "11x17" */
+  size: WeightSheetSize
+  /** Lbs per 1,000 sheets at that size */
+  lbs: number
+  /** Thickness per sheet in inches (caliper), e.g. 0.004 */
+  thicknessIn?: number
+}
+
+export type PaperWeightConfig = Record<string, PaperWeightEntry>
+
+export const DEFAULT_PAPER_WEIGHT_CONFIG: PaperWeightConfig = {
+  "20lb Offset":            { size: "11x17", lbs: 24,  thicknessIn: 0.004  },
+  "60lb Offset":            { size: "11x17", lbs: 38,  thicknessIn: 0.005  },
+  "80lb Text Gloss":        { size: "11x17", lbs: 46,  thicknessIn: 0.005  },
+  "100lb Text Gloss":       { size: "11x17", lbs: 56,  thicknessIn: 0.006  },
+  "65 Cover (White)":       { size: "11x17", lbs: 68,  thicknessIn: 0.009  },
+  "67 Cover (White)":       { size: "11x17", lbs: 70,  thicknessIn: 0.009  },
+  "67 Cover (Off-White)":   { size: "11x17", lbs: 70,  thicknessIn: 0.009  },
+  "80 Cover Gloss":         { size: "11x17", lbs: 82,  thicknessIn: 0.010  },
+  "10pt Offset":            { size: "11x17", lbs: 95,  thicknessIn: 0.010  },
+  "10pt Gloss":             { size: "11x17", lbs: 100, thicknessIn: 0.010  },
+  "12pt Gloss":             { size: "11x17", lbs: 118, thicknessIn: 0.012  },
+  "14pt Gloss":             { size: "11x17", lbs: 135, thicknessIn: 0.014  },
+  "Sticker (Crack & Peel)": { size: "11x17", lbs: 70,  thicknessIn: 0.008  },
+}
+
+// ==================== ENVELOPE WEIGHT CONFIG ====================
+
+export interface EnvelopeWeightEntry {
+  /** Weight per envelope in ounces */
+  oz: number
+  /** Thickness per envelope in inches */
+  thicknessIn?: number
+}
+
+export type EnvelopeWeightConfig = Record<string, EnvelopeWeightEntry>
+
+export const DEFAULT_ENVELOPE_WEIGHT_CONFIG: EnvelopeWeightConfig = {
+  "#10":          { oz: 0.16, thicknessIn: 0.005 },
+  "#10 Window":   { oz: 0.17, thicknessIn: 0.005 },
+  "#10 DW":       { oz: 0.18, thicknessIn: 0.005 },
+  "6x9":          { oz: 0.25, thicknessIn: 0.006 },
+  "9x12":         { oz: 0.62, thicknessIn: 0.008 },
+  "10x13":        { oz: 0.75, thicknessIn: 0.008 },
+  "A-2":          { oz: 0.10, thicknessIn: 0.004 },
+  "A-6":          { oz: 0.13, thicknessIn: 0.004 },
+  "A-7":          { oz: 0.16, thicknessIn: 0.005 },
+  "A-9":          { oz: 0.25, thicknessIn: 0.005 },
+  "A-10":         { oz: 0.30, thicknessIn: 0.006 },
+  "6.5x9.5":      { oz: 0.30, thicknessIn: 0.006 },
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -396,6 +467,8 @@ export interface PricingConfig {
   envelopeSettings: EnvelopeSettings
   addressingConfig: AddressingConfig
   tabbingConfig: TabbingConfig
+  paperWeightConfig: PaperWeightConfig
+  envelopeWeightConfig: EnvelopeWeightConfig
 }
 
 export type { EnvelopeSettings }
@@ -411,6 +484,8 @@ let _activeConfig: PricingConfig = {
   envelopeSettings: structuredClone(DEFAULT_ENVELOPE_SETTINGS),
   addressingConfig: structuredClone(DEFAULT_ADDRESSING_CONFIG),
   tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
+  paperWeightConfig: structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
+  envelopeWeightConfig: structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -431,6 +506,8 @@ export function applyOverrides(overrides: Partial<{
   envelope_settings: EnvelopeSettings
   addressing_config: AddressingConfig
   tabbing_config: TabbingConfig
+  paper_weight_config: PaperWeightConfig
+  envelope_weight_config: EnvelopeWeightConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -460,6 +537,12 @@ export function applyOverrides(overrides: Partial<{
     tabbingConfig: overrides.tabbing_config
       ? structuredClone(overrides.tabbing_config)
       : structuredClone(DEFAULT_TABBING_CONFIG),
+    paperWeightConfig: overrides.paper_weight_config
+      ? { ...structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG), ...overrides.paper_weight_config }
+      : structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
+    envelopeWeightConfig: overrides.envelope_weight_config
+      ? { ...structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG), ...overrides.envelope_weight_config }
+      : structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
   }
 }
 

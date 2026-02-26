@@ -17,6 +17,7 @@ import {
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
+import { calcMailPieceWeightOz, formatWeight, getEnvelopeWeightOz } from "@/lib/paper-weights"
 import { buildQuoteText } from "@/lib/build-quote-text"
 import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { Download } from "lucide-react"
@@ -463,6 +464,9 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
         )}
       </div>
 
+      {/* ── Weight Estimate ── */}
+      {hasItems && <WeightEstimatePanel items={items} quantity={quantity} />}
+
       {/* ── Footer with total ── */}
       {hasItems && (
         <div className="shrink-0 border-t border-border/40 px-5 py-4">
@@ -591,4 +595,121 @@ function timeSince(ts: number): string {
   const m = Math.floor(s / 60)
   if (m < 60) return `${m}m ago`
   return `${Math.floor(m / 60)}h ago`
+}
+
+/* ── Weight Estimate Panel ─────────────────────────────── */
+import { Scale } from "lucide-react"
+
+function WeightEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; quantity: number }) {
+  const [expanded, setExpanded] = useState(false)
+
+  // Extract printed pieces from metadata
+  const pieces: Array<{
+    paperName: string
+    widthIn: number
+    heightIn: number
+    sheetsPerPiece: number
+    label: string
+  }> = []
+
+  // Find envelope
+  let envelopeType: string | undefined
+
+  for (const item of items) {
+    const m = item.metadata
+    if (!m) continue
+
+    // Envelope items
+    if (m.envelopeSize && typeof m.envelopeSize === "string") {
+      envelopeType = m.envelopeSize
+    }
+
+    // Printed pieces with paper + dimensions
+    if (m.paperName && m.pieceDimensions) {
+      const dimStr = String(m.pieceDimensions)
+      const parts = dimStr.split("x").map((s: string) => parseFloat(s.trim()))
+      if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
+        const sheets = m.pageCount ? Math.ceil(Number(m.pageCount) / 2) : 1
+        pieces.push({
+          paperName: String(m.paperName),
+          widthIn: parts[0],
+          heightIn: parts[1],
+          sheetsPerPiece: sheets,
+          label: item.label,
+        })
+      }
+    }
+  }
+
+  if (pieces.length === 0) return null
+
+  const result = calcMailPieceWeightOz({
+    pieces,
+    envelopeType,
+  })
+
+  if (!result) return null
+
+  const { totalOz, breakdown } = result
+
+  // Postage weight class (USPS ounce tiers)
+  const ozTier = totalOz <= 1 ? "1 oz" : totalOz <= 2 ? "2 oz" : totalOz <= 3 ? "3 oz" : `${Math.ceil(totalOz)} oz`
+
+  return (
+    <div className="shrink-0 border-t border-border/40 px-5 py-3">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between group"
+      >
+        <div className="flex items-center gap-2">
+          <Scale className="h-3.5 w-3.5 text-muted-foreground/60" />
+          <span className="text-[11px] font-semibold text-foreground/70">Weight Estimate</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] font-mono font-semibold text-foreground/80 tabular-nums">
+            {formatWeight(totalOz)}
+          </span>
+          <span className="text-[10px] font-medium text-muted-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">
+            {ozTier}
+          </span>
+          {expanded ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground/40" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-2.5 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+          {breakdown.map((row, i) => (
+            <div key={i} className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground/60 font-medium truncate leading-tight">
+                {row.label}
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums shrink-0">
+                {row.oz.toFixed(2)} oz
+              </span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-dashed border-border/30">
+            <span className="text-[10px] font-semibold text-foreground/70">Per piece</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/80 tabular-nums">
+              {formatWeight(totalOz)}
+            </span>
+          </div>
+          {quantity > 0 && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-medium text-muted-foreground/60">
+                Total ({quantity.toLocaleString()} pcs)
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+                {formatWeight(totalOz * quantity)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
