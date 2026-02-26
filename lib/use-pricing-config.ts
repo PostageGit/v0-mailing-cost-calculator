@@ -2,7 +2,7 @@
 
 import useSWR from "swr"
 import { useEffect, useRef } from "react"
-import { applyOverrides, getActiveConfig, type PricingConfig, type FinishingOption, type ScoreFoldConfig, type EnvelopeSettings, type AddressingConfig, type TabbingConfig, type PaperWeightConfig, type EnvelopeWeightConfig } from "./pricing-config"
+import { applyOverrides, getActiveConfig, type PricingConfig, type FinishingOption, type ScoreFoldConfig, type EnvelopeSettings, type AddressingConfig, type TabbingConfig, type PaperWeightConfig, type EnvelopeWeightConfig, type SortLevelMixConfig } from "./pricing-config"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -32,6 +32,7 @@ export function usePricingConfig(): { config: PricingConfig; isLoading: boolean 
       tabbing_config: data.tabbing_config as TabbingConfig | undefined,
       paper_weight_config: data.paper_weight_config as PaperWeightConfig | undefined,
       envelope_weight_config: data.envelope_weight_config as EnvelopeWeightConfig | undefined,
+      sort_level_mix: data.sort_level_mix as SortLevelMixConfig | undefined,
     })
     appliedRef.current = true
   }, [data])

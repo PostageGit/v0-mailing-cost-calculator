@@ -39,6 +39,9 @@ import {
   DEFAULT_ADDRESSING_CONFIG,
   type TabbingConfig,
   DEFAULT_TABBING_CONFIG,
+  DEFAULT_SORT_LEVEL_MIX,
+  sortMixKey,
+  type SortLevelMixConfig,
 } from "@/lib/pricing-config"
 import {
   DEFAULT_ENVELOPE_SETTINGS,
@@ -202,6 +205,10 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
                 <Boxes className="h-3.5 w-3.5" />
                 Supplies
               </TabsTrigger>
+              <TabsTrigger value="sort-mix" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <Mail className="h-3.5 w-3.5" />
+                Sort Mix
+              </TabsTrigger>
               <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Activity className="h-3.5 w-3.5" />
                 System
@@ -259,6 +266,9 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
   </TabsContent>
   <TabsContent value="team">
   <TeamTab />
+  </TabsContent>
+  <TabsContent value="sort-mix">
+  <SortMixTab />
   </TabsContent>
   </Tabs>
         </CardContent>
@@ -3704,6 +3714,173 @@ function TabbingBracketsSettings() {
           </Button>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// =========== SORT LEVEL MIX SETTINGS ===========
+
+const SORT_MIX_GROUPS = [
+  {
+    label: "First-Class Presort",
+    keys: [
+      { key: "FCM_COMM_LETTER_AUTO", label: "Letter" },
+      { key: "FCM_COMM_FLAT_AUTO", label: "Flat" },
+      { key: "FCM_COMM_POSTCARD_AUTO", label: "Postcard" },
+    ],
+  },
+  {
+    label: "Marketing Mail -- Automation",
+    keys: [
+      { key: "MKT_COMM_LETTER_AUTO", label: "Letter" },
+      { key: "MKT_COMM_FLAT_AUTO", label: "Flat" },
+    ],
+  },
+  {
+    label: "Marketing Mail -- Carrier Route",
+    keys: [
+      { key: "MKT_COMM_LETTER_CR", label: "Letter" },
+      { key: "MKT_COMM_FLAT_CR", label: "Flat" },
+    ],
+  },
+  {
+    label: "Nonprofit -- Automation",
+    keys: [
+      { key: "MKT_NP_LETTER_AUTO", label: "Letter" },
+      { key: "MKT_NP_FLAT_AUTO", label: "Flat" },
+    ],
+  },
+  {
+    label: "Nonprofit -- Carrier Route",
+    keys: [
+      { key: "MKT_NP_LETTER_CR", label: "Letter" },
+      { key: "MKT_NP_FLAT_CR", label: "Flat" },
+    ],
+  },
+]
+
+function SortMixTab() {
+  const { data: appSettings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [saving, setSaving] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [mix, setMix] = useState<SortLevelMixConfig>(structuredClone(DEFAULT_SORT_LEVEL_MIX))
+
+  // Load from DB
+  if (appSettings && !loaded) {
+    const dbMix = appSettings.sort_level_mix as SortLevelMixConfig | undefined
+    if (dbMix) {
+      setMix({ ...structuredClone(DEFAULT_SORT_LEVEL_MIX), ...dbMix })
+    }
+    setLoaded(true)
+  }
+
+  const updatePct = (configKey: string, tierKey: string, value: number) => {
+    setMix(prev => ({
+      ...prev,
+      [configKey]: { ...prev[configKey], [tierKey]: Math.max(0, Math.min(100, value)) },
+    }))
+    setDirty(true)
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_level_mix: mix }),
+      })
+      applyOverrides({ sort_level_mix: mix })
+      await mutate()
+      await globalMutate("/api/app-settings")
+      setDirty(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const tierLabel = (tierKey: string): string => {
+    const labels: Record<string, string> = {
+      MIX: "Mixed", ADC: "AADC/ADC", TD: "3-Digit", FD: "5-Digit",
+      CR_B: "CR Basic", CR_H: "CR HD", CR_HP: "CR HD+",
+    }
+    return labels[tierKey] || tierKey
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">Default Sort Level Mix</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Set the default % split for each sort level per mail class. These pre-fill the qty distribution on the USPS page.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={save}
+          disabled={!dirty || saving}
+          className="gap-1.5"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Save
+        </Button>
+      </div>
+
+      {SORT_MIX_GROUPS.map((group) => (
+        <Card key={group.label} className="overflow-hidden">
+          <CardHeader className="py-3 px-4 bg-muted/30">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{group.label}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left text-[10px] font-bold text-muted-foreground uppercase px-4 py-2 w-24">Shape</th>
+                  {Object.keys(mix[group.keys[0].key] || {}).map(tk => (
+                    <th key={tk} className="text-center text-[10px] font-bold text-muted-foreground uppercase px-2 py-2">{tierLabel(tk)}</th>
+                  ))}
+                  <th className="text-center text-[10px] font-bold text-muted-foreground uppercase px-2 py-2 w-16">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.keys.map(({ key, label: shapeLabel }) => {
+                  const tiers = mix[key] || {}
+                  const total = Object.values(tiers).reduce((s, v) => s + (v || 0), 0)
+                  const isValid = Math.abs(total - 100) < 0.5
+                  return (
+                    <tr key={key} className="border-b border-border/50 last:border-b-0">
+                      <td className="px-4 py-2 font-medium text-sm">{shapeLabel}</td>
+                      {Object.entries(tiers).map(([tk, pct]) => (
+                        <td key={tk} className="px-1 py-1.5 text-center">
+                          <div className="relative inline-flex items-center">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={pct}
+                              onChange={(e) => updatePct(key, tk, parseInt(e.target.value) || 0)}
+                              className="w-14 h-7 text-center text-xs font-mono font-semibold rounded border border-border bg-background px-1 outline-none focus:ring-1 focus:ring-foreground/20 tabular-nums"
+                            />
+                            <span className="text-[10px] text-muted-foreground ml-0.5">%</span>
+                          </div>
+                        </td>
+                      ))}
+                      <td className="px-2 py-2 text-center">
+                        <Badge variant={isValid ? "secondary" : "destructive"} className="font-mono text-xs tabular-nums">
+                          {total}%
+                        </Badge>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }

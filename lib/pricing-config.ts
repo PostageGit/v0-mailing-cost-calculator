@@ -455,6 +455,46 @@ export const DEFAULT_ENVELOPE_WEIGHT_CONFIG: EnvelopeWeightConfig = {
   "6.5x9.5":      { oz: 0.30, thicknessIn: 0.006 },
 }
 
+// ==================== SORT LEVEL MIX CONFIG ====================
+
+/**
+ * Default % split across sort levels per mail class.
+ * Key = service type key (FCM_COMM, MKT_COMM, MKT_NP) + "_" + mailType (AUTO, CR)
+ * Value = Record<TierKey, percent (0-100)> -- must sum to 100.
+ * SAT is always separate (not included in the mix).
+ */
+export type SortLevelMixConfig = Record<string, Record<string, number>>
+
+export const DEFAULT_SORT_LEVEL_MIX: SortLevelMixConfig = {
+  // FC Presort Letters: Mixed AADC / AADC / 5-Digit
+  "FCM_COMM_LETTER_AUTO": { MIX: 15, ADC: 35, FD: 50 },
+  // FC Presort Flats: Mixed ADC / ADC / 3-Digit / 5-Digit
+  "FCM_COMM_FLAT_AUTO":   { MIX: 10, ADC: 20, TD: 30, FD: 40 },
+  // FC Presort Postcards
+  "FCM_COMM_POSTCARD_AUTO": { MIX: 15, ADC: 35, FD: 50 },
+  // Marketing Auto Letters: Mixed / AADC / 5-Digit
+  "MKT_COMM_LETTER_AUTO": { MIX: 15, ADC: 35, FD: 50 },
+  // Marketing Auto Flats: Mixed / ADC / 3-Digit / 5-Digit
+  "MKT_COMM_FLAT_AUTO":   { MIX: 10, ADC: 20, TD: 30, FD: 40 },
+  // Marketing CR Letters: CR Basic / CR HD / CR HD+
+  "MKT_COMM_LETTER_CR":   { CR_B: 40, CR_H: 40, CR_HP: 20 },
+  // Marketing CR Flats
+  "MKT_COMM_FLAT_CR":     { CR_B: 40, CR_H: 40, CR_HP: 20 },
+  // Nonprofit Auto Letters
+  "MKT_NP_LETTER_AUTO":   { MIX: 15, ADC: 35, FD: 50 },
+  // Nonprofit Auto Flats
+  "MKT_NP_FLAT_AUTO":     { MIX: 10, ADC: 20, TD: 30, FD: 40 },
+  // Nonprofit CR Letters
+  "MKT_NP_LETTER_CR":     { CR_B: 40, CR_H: 40, CR_HP: 20 },
+  // Nonprofit CR Flats
+  "MKT_NP_FLAT_CR":       { CR_B: 40, CR_H: 40, CR_HP: 20 },
+}
+
+/** Build the config key for looking up the sort mix */
+export function sortMixKey(service: string, shape: string, mailType: string): string {
+  return `${service}_${shape}_${mailType}`
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -469,6 +509,7 @@ export interface PricingConfig {
   tabbingConfig: TabbingConfig
   paperWeightConfig: PaperWeightConfig
   envelopeWeightConfig: EnvelopeWeightConfig
+  sortLevelMix: SortLevelMixConfig
 }
 
 export type { EnvelopeSettings }
@@ -486,6 +527,7 @@ let _activeConfig: PricingConfig = {
   tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
   paperWeightConfig: structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
   envelopeWeightConfig: structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
+  sortLevelMix: structuredClone(DEFAULT_SORT_LEVEL_MIX),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -508,6 +550,7 @@ export function applyOverrides(overrides: Partial<{
   tabbing_config: TabbingConfig
   paper_weight_config: PaperWeightConfig
   envelope_weight_config: EnvelopeWeightConfig
+  sort_level_mix: SortLevelMixConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -543,6 +586,9 @@ export function applyOverrides(overrides: Partial<{
     envelopeWeightConfig: overrides.envelope_weight_config
       ? { ...structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG), ...overrides.envelope_weight_config }
       : structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
+    sortLevelMix: overrides.sort_level_mix
+      ? { ...structuredClone(DEFAULT_SORT_LEVEL_MIX), ...overrides.sort_level_mix }
+      : structuredClone(DEFAULT_SORT_LEVEL_MIX),
   }
 }
 
