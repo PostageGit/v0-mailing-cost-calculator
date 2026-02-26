@@ -479,28 +479,54 @@ function Tab1LettersFlats() {
   const parsedBuffer = parseFloat(bufferCents) || 0
 
   const handleAddToQuote = useCallback(() => {
-    if (!result.isValid || !weightedResult) return
+    if (!result.isValid) return
     const bufferPerPiece = parsedBuffer / 100
+    const classMap: Record<string, string> = {
+      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
+      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
+    }
+    const mailingClass = classMap[inputs.service] || SERVICE_LABELS[inputs.service]
+
+    // Retail / single-rate path (no tiers)
+    if (!weightedResult) {
+      const totalQty = inputs.quantity
+      const perPiece = result.avgPerPiece + bufferPerPiece
+      const total = perPiece * totalQty
+      const parts: string[] = [result.className]
+      if (result.description) parts.push(result.description)
+      parts.push(`${totalQty.toLocaleString()} x ${formatPostageRate(perPiece)}`)
+      if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
+      quote.addItem({
+        category: "postage",
+        label: `USPS Postage - ${totalQty.toLocaleString()} pc`,
+        description: parts.join(" | "),
+        amount: total,
+        metadata: {
+          mailingClass,
+          mailShape: inputs.shape.toLowerCase(),
+          avgPerPiece: perPiece,
+          bufferCents: parsedBuffer > 0 ? parsedBuffer : undefined,
+        },
+      })
+      return
+    }
+
+    // Presort path with tier breakdown
     const totalWithBuffer = weightedResult.grandTotal + (bufferPerPiece * weightedResult.totalQty)
     const avgWithBuffer = weightedResult.avgPerPiece + bufferPerPiece
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
-    // Build tier breakdown text
     const tierDesc = tiers.map(t => `${t.l}: ${(tierQtys[t.k] || 0).toLocaleString()}`).join(", ")
     parts.push(tierDesc)
     if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
-    const classMap: Record<string, string> = {
-      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
-      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
-    }
     quote.addItem({
       category: "postage",
       label: `USPS Postage - ${weightedResult.totalQty.toLocaleString()} pc`,
       description: parts.join(" | "),
       amount: totalWithBuffer,
       metadata: {
-        mailingClass: classMap[inputs.service] || SERVICE_LABELS[inputs.service],
+        mailingClass,
         mailShape: inputs.shape.toLowerCase(),
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
@@ -572,22 +598,14 @@ function Tab1LettersFlats() {
   const spec = SPECS[inputs.shape]
   const [showSpecs, setShowSpecs] = useState(false)
 
-  // Update a single tier's qty, adjusting the last tier to keep total correct
+  // Update a single tier's qty -- clamp so total never exceeds mailing qty
   const updateTierQty = (tierKey: string, newVal: number) => {
     setTierQtys(prev => {
-      const tierKeys = tiers.map(t => t.k)
-      const otherKeys = tierKeys.filter(k => k !== tierKey)
-      const otherSum = otherKeys.reduce((s, k) => s + (prev[k] || 0), 0)
-      // Clamp so total never exceeds mailing qty
+      const otherSum = Object.entries(prev)
+        .filter(([k]) => k !== tierKey)
+        .reduce((s, [, v]) => s + (v || 0), 0)
       const clamped = Math.max(0, Math.min(newVal, inputs.quantity - otherSum))
-      const next = { ...prev, [tierKey]: clamped }
-      // Auto-fill remaining into the last tier (if the edited tier isn't the last)
-      const lastKey = tierKeys[tierKeys.length - 1]
-      if (tierKey !== lastKey) {
-        const sumExceptLast = tierKeys.filter(k => k !== lastKey).reduce((s, k) => s + (next[k] || 0), 0)
-        next[lastKey] = Math.max(0, inputs.quantity - sumExceptLast)
-      }
-      return next
+      return { ...prev, [tierKey]: clamped }
     })
   }
 
@@ -866,14 +884,24 @@ function Tab1LettersFlats() {
                     </tr>
                   )}
                   {/* Weighted avg total row */}
-                  {weightedResult && (
+                  {weightedResult && (() => {
+                    const missing = inputs.quantity - weightedResult.totalQty
+                    const hasMissing = missing > 0
+                    return (
                     <tr className="bg-secondary/40 border-t border-border">
                       <td className="px-3 py-2.5 font-bold text-xs text-foreground">
                         Weighted Average
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <span className="text-xs font-mono font-bold text-foreground">{weightedResult.totalQty.toLocaleString()}</span>
+                        <span className={cn("text-xs font-mono font-bold tabular-nums", hasMissing ? "text-amber-600 dark:text-amber-400" : "text-foreground")}>
+                          {weightedResult.totalQty.toLocaleString()}
+                        </span>
                         <span className="text-[10px] text-muted-foreground ml-0.5">/ {inputs.quantity.toLocaleString()}</span>
+                        {hasMissing && (
+                          <div className="text-[10px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                            {missing.toLocaleString()} unallocated
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <span className="font-mono font-bold tabular-nums text-foreground">
@@ -887,7 +915,7 @@ function Tab1LettersFlats() {
                         </span>
                       </td>
                     </tr>
-                  )}
+                    )})()}
                 </tbody>
               </table>
             </div>
