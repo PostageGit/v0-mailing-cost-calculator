@@ -479,28 +479,54 @@ function Tab1LettersFlats() {
   const parsedBuffer = parseFloat(bufferCents) || 0
 
   const handleAddToQuote = useCallback(() => {
-    if (!result.isValid || !weightedResult) return
+    if (!result.isValid) return
     const bufferPerPiece = parsedBuffer / 100
+    const classMap: Record<string, string> = {
+      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
+      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
+    }
+    const mailingClass = classMap[inputs.service] || SERVICE_LABELS[inputs.service]
+
+    // Retail / single-rate path (no tiers)
+    if (!weightedResult) {
+      const totalQty = inputs.quantity
+      const perPiece = result.avgPerPiece + bufferPerPiece
+      const total = perPiece * totalQty
+      const parts: string[] = [result.className]
+      if (result.description) parts.push(result.description)
+      parts.push(`${totalQty.toLocaleString()} x ${formatPostageRate(perPiece)}`)
+      if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
+      quote.addItem({
+        category: "postage",
+        label: `USPS Postage - ${totalQty.toLocaleString()} pc`,
+        description: parts.join(" | "),
+        amount: total,
+        metadata: {
+          mailingClass,
+          mailShape: inputs.shape.toLowerCase(),
+          avgPerPiece: perPiece,
+          bufferCents: parsedBuffer > 0 ? parsedBuffer : undefined,
+        },
+      })
+      return
+    }
+
+    // Presort path with tier breakdown
     const totalWithBuffer = weightedResult.grandTotal + (bufferPerPiece * weightedResult.totalQty)
     const avgWithBuffer = weightedResult.avgPerPiece + bufferPerPiece
     const parts: string[] = []
     parts.push(result.className)
     if (result.description) parts.push(result.description)
-    // Build tier breakdown text
     const tierDesc = tiers.map(t => `${t.l}: ${(tierQtys[t.k] || 0).toLocaleString()}`).join(", ")
     parts.push(tierDesc)
     if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
-    const classMap: Record<string, string> = {
-      FCM_COMM: "First Class", FCM_RETAIL: "Retail",
-      MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
-    }
     quote.addItem({
       category: "postage",
       label: `USPS Postage - ${weightedResult.totalQty.toLocaleString()} pc`,
       description: parts.join(" | "),
       amount: totalWithBuffer,
       metadata: {
-        mailingClass: classMap[inputs.service] || SERVICE_LABELS[inputs.service],
+        mailingClass,
         mailShape: inputs.shape.toLowerCase(),
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
