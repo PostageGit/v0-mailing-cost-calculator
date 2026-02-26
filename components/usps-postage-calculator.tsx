@@ -32,7 +32,8 @@ import {
   type Tab2BPMEntry,
   type USPSShape,
 } from "@/lib/usps-rates"
-import { Plus, AlertTriangle, AlertCircle, Info } from "lucide-react"
+import { Plus, ChevronDown, ChevronRight, Info, AlertCircle, AlertTriangle } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 /* ── Compact pill ── */
 function Pill({
@@ -41,32 +42,37 @@ function Pill({
   onClick,
   label,
   sub,
+  compact,
 }: {
   active: boolean
   disabled?: boolean
   onClick: () => void
   label: string
   sub?: string
+  compact?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`px-3 py-2 rounded-lg text-left transition-all font-medium border ${
+      className={cn(
+        "rounded-lg text-left transition-all font-medium border",
+        compact ? "px-2.5 py-1.5" : "px-3 py-2",
         disabled
           ? "opacity-25 cursor-not-allowed border-border bg-secondary text-xs"
           : active
             ? "border-foreground bg-foreground text-background text-sm"
             : "border-border bg-card hover:border-foreground/20 cursor-pointer text-sm"
-      }`}
+      )}
     >
       <span className="block leading-tight">{label}</span>
       {sub && (
         <span
-          className={`block text-xs leading-tight mt-0.5 ${
+          className={cn(
+            "block text-xs leading-tight mt-0.5",
             active && !disabled ? "text-background/60" : "text-muted-foreground"
-          }`}
+          )}
         >
           {sub}
         </span>
@@ -75,73 +81,7 @@ function Pill({
   )
 }
 
-/* ── Sort level button with big price ── */
-function TierBtn({
-  active,
-  rate,
-  label,
-  onClick,
-}: {
-  active: boolean
-  rate: number
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex flex-col items-center rounded-xl py-3 px-2 transition-all border ${
-        active
-          ? "bg-foreground text-background border-foreground"
-          : "bg-card border-border hover:border-foreground/20"
-      }`}
-    >
-      <span className="text-lg font-bold font-mono tabular-nums leading-none">
-        {rate > 0 ? formatPostageRate(rate) : "---"}
-      </span>
-      <span
-        className={`text-xs font-medium mt-1 ${
-          active ? "text-background/60" : "text-muted-foreground"
-        }`}
-      >
-        {label}
-      </span>
-    </button>
-  )
-}
-
-/* ── Alert bar ── */
-function AlertBar({ alerts }: { alerts: { type: "error" | "warning" | "info"; message: string }[] }) {
-  if (alerts.length === 0) return null
-  return (
-    <div className="flex flex-col gap-2">
-      {alerts.map((alert, idx) => (
-        <div
-          key={idx}
-          className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${
-            alert.type === "error"
-              ? "bg-destructive/10 text-destructive"
-              : alert.type === "warning"
-                ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300"
-                : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {alert.type === "error" ? (
-            <AlertCircle className="h-4 w-4 shrink-0" />
-          ) : alert.type === "warning" ? (
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-          ) : (
-            <Info className="h-4 w-4 shrink-0" />
-          )}
-          {alert.message}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/* ── Results bar ── */
+/* ── Unified Results Bar ── */
 function ResultsBar({
   isValid,
   perPiece,
@@ -159,37 +99,97 @@ function ResultsBar({
   onAdd: (bufferCents: number) => void
   onAddManual: (ratePerPiece: number) => void
 }) {
+  const [bufferCents, setBufferCents] = useState<string>("0")
+  const parsedBuffer = parseFloat(bufferCents) || 0
+  const bufferAmt = parsedBuffer / 100
+  const finalPerPiece = perPiece + bufferAmt
+  const finalTotal = finalPerPiece * quantity
+
+  const [showManual, setShowManual] = useState(false)
   const [manualRate, setManualRate] = useState<string>("")
   const parsedRate = parseFloat(manualRate)
   const hasManual = manualRate.length > 0 && !isNaN(parsedRate) && parsedRate > 0
   const manualTotal = hasManual ? parsedRate * quantity : 0
 
-  // Editable buffer in cents -- defaults to 3
-  const [bufferOn, setBufferOn] = useState(false)
-  const [bufferCents, setBufferCents] = useState<string>("3")
-  const parsedBuffer = parseFloat(bufferCents) || 0
-  const bufferAmt = bufferOn ? parsedBuffer / 100 : 0
-  const bufferedPerPiece = perPiece + bufferAmt
-  const bufferedTotal = bufferedPerPiece * quantity
-
   return (
-    <div className="sticky bottom-4 z-20 flex flex-col gap-2">
-      {/* Manual override input */}
-      <div className="bg-card border border-border rounded-2xl shadow-lg px-5 py-3.5 sm:px-6">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="flex-1">
-            <label htmlFor="manual-rate" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-              Custom Rate per Piece
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">$</span>
+    <div className="sticky bottom-4 z-20 bg-foreground text-background rounded-2xl shadow-2xl overflow-hidden">
+      {/* Main bar */}
+      <div className="px-5 py-4 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Prices */}
+          <div className="flex items-baseline gap-6">
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-background/50 block mb-0.5">
+                Per Piece
+              </span>
+              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
+                {isValid ? formatPostageRate(parsedBuffer > 0 ? finalPerPiece : perPiece) : "---"}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-background/50 block mb-0.5">
+                Total
+              </span>
+              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
+                {isValid ? formatCurrency(parsedBuffer > 0 ? finalTotal : total) : "$0.00"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Inline buffer */}
+            <div className="flex items-center gap-1.5 bg-background/10 rounded-lg px-2.5 py-1.5">
+              <span className="text-[10px] font-semibold text-background/50 uppercase tracking-wide">Buffer</span>
+              <span className="text-background/40 text-xs">+</span>
               <input
-                id="manual-rate"
+                type="text"
+                inputMode="decimal"
+                value={bufferCents}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v)
+                }}
+                className="w-10 text-center font-mono text-sm font-bold bg-transparent border-b border-background/20 text-background px-0 py-0 outline-none focus:border-background/50 transition-all"
+              />
+              <span className="text-background/40 text-[10px]">c</span>
+            </div>
+            {parsedBuffer > 0 && isValid && (
+              <span className="text-[10px] text-background/40 font-mono hidden sm:inline">
+                {formatPostageRate(perPiece)} + {parsedBuffer}c
+              </span>
+            )}
+            {/* Add button */}
+            <button
+              onClick={() => onAdd(parsedBuffer)}
+              disabled={disabled}
+              className="flex items-center justify-center gap-1.5 bg-background text-foreground text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Add to Quote
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Manual override -- collapsible */}
+      <div className="border-t border-background/10">
+        <button
+          onClick={() => setShowManual(!showManual)}
+          className="w-full px-5 py-2 flex items-center gap-2 hover:bg-background/5 transition-colors"
+        >
+          {showManual ? <ChevronDown className="h-3 w-3 text-background/40" /> : <ChevronRight className="h-3 w-3 text-background/40" />}
+          <span className="text-[11px] font-semibold text-background/50 uppercase tracking-wider">Custom Rate Override</span>
+        </button>
+        {showManual && (
+          <div className="px-5 pb-3 flex items-center gap-3">
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-background/40 font-mono text-sm">$</span>
+              <input
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
-                placeholder="e.g. 0.285"
-                className="h-10 w-full max-w-[180px] rounded-lg border border-border bg-background pl-7 pr-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="0.285"
+                className="h-9 w-36 rounded-lg bg-background/10 border border-background/20 pl-6 pr-3 font-mono text-sm text-background placeholder:text-background/30 focus:outline-none focus:ring-2 focus:ring-background/30"
                 value={manualRate}
                 onChange={(e) => {
                   const v = e.target.value
@@ -197,98 +197,31 @@ function ResultsBar({
                 }}
               />
             </div>
+            {hasManual && (
+              <>
+                <span className="text-sm font-mono font-bold text-background tabular-nums">{formatCurrency(manualTotal)}</span>
+                <button
+                  onClick={() => { onAddManual(parsedRate); setManualRate("") }}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3.5 py-2 rounded-full transition-colors shrink-0"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Estimate
+                </button>
+              </>
+            )}
+            {!hasManual && (
+              <span className="text-[11px] text-background/40">Enter a custom rate to add as estimate</span>
+            )}
           </div>
-          {hasManual && (
-            <div className="text-right shrink-0">
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-1">Estimated Total</span>
-              <span className="text-lg font-bold font-mono tabular-nums text-foreground">{formatCurrency(manualTotal)}</span>
-            </div>
-          )}
-          {hasManual && (
-            <button
-              onClick={() => { onAddManual(parsedRate); setManualRate("") }}
-              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-full transition-colors shrink-0 min-h-[40px]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Estimated
-            </button>
-          )}
-        </div>
-        {!hasManual && (
-          <p className="text-[11px] text-muted-foreground mt-1.5">
-            Enter your own rate to add postage as an estimate. Leave blank to use the calculated rate below.
-          </p>
         )}
-      </div>
-
-      {/* Calculated results bar */}
-      <div className="bg-foreground text-background rounded-2xl shadow-2xl px-5 py-4 sm:px-6 sm:py-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-          <div className="flex items-baseline gap-6 sm:gap-8">
-            <div>
-              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-                Per Piece
-              </span>
-              <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums leading-none">
-                {isValid ? formatPostageRate(bufferOn ? bufferedPerPiece : perPiece) : "---"}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-background/50 block mb-1">
-                {bufferOn ? "Buffered Total" : "Calculated Total"}
-              </span>
-              <span className="text-lg sm:text-xl font-bold font-mono tabular-nums leading-none">
-                {isValid ? formatCurrency(bufferOn ? bufferedTotal : total) : "$0.00"}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => onAdd(bufferOn ? parsedBuffer : 0)}
-            disabled={disabled}
-            className="flex items-center justify-center gap-2 bg-background text-foreground text-sm font-semibold px-5 py-3 sm:py-2.5 rounded-full hover:bg-background/90 disabled:opacity-30 transition-all shrink-0 w-full sm:w-auto min-h-[44px]"
-          >
-            <Plus className="h-4 w-4" />
-            Add Calculated
-          </button>
-        </div>
-
-        {/* Buffer toggle row */}
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-background/10">
-          <button
-            onClick={() => setBufferOn(!bufferOn)}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${bufferOn ? "bg-emerald-500" : "bg-background/20"}`}
-          >
-            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 mt-0.5 ${bufferOn ? "translate-x-4 ml-0.5" : "translate-x-0.5"}`} />
-          </button>
-          <span className="text-[11px] font-semibold text-background/70 uppercase tracking-wide">Buffer</span>
-          <div className="flex items-center gap-1">
-            <span className="text-background/50 text-xs">+</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={bufferCents}
-              onChange={(e) => {
-                const v = e.target.value
-                if (v === "" || /^\d*\.?\d{0,1}$/.test(v)) setBufferCents(v)
-              }}
-              onClick={(e) => { e.stopPropagation(); if (!bufferOn) setBufferOn(true) }}
-              className="w-12 text-center font-mono text-sm font-bold bg-background/10 border border-background/20 text-background rounded-md px-1 py-0.5 outline-none focus:ring-2 focus:ring-background/30 transition-all"
-            />
-            <span className="text-background/50 text-xs font-medium">cents/pc</span>
-          </div>
-          {bufferOn && isValid && (
-            <span className="text-[10px] text-background/40 font-mono ml-auto">
-              {formatPostageRate(perPiece)} + {parsedBuffer}c = {formatPostageRate(bufferedPerPiece)}
-            </span>
-          )}
-        </div>
       </div>
     </div>
   )
 }
 
+
 // ═══════════════════════════════════════════════════════════════
-//  TAB 2 COMPONENT
+//  TAB 2 COMPONENT (Parcels & Special) -- kept as-is
 // ═══════════════════════════════════════════════════════════════
 
 function Tab2Parcels() {
@@ -307,7 +240,6 @@ function Tab2Parcels() {
   const result = useMemo(() => calculateTab2Postage(inputs), [inputs])
   const quote = useQuote()
 
-  // Sync Tab2 service + quantity to mailing context
   useEffect(() => {
     mailing.setMailService(inputs.service)
     mailing.setQuantity(inputs.quantity)
@@ -319,7 +251,6 @@ function Tab2Parcels() {
   const update = useCallback((partial: Partial<Tab2Inputs>) => {
     setInputs((prev) => {
       const next = { ...prev, ...partial }
-      // Reset bpmEntry when switching to NP
       if (partial.bpmSort === "NP") next.bpmEntry = "NONE"
       return next
     })
@@ -370,7 +301,6 @@ function Tab2Parcels() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Service selector */}
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col gap-5">
         <div>
           <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
@@ -385,7 +315,6 @@ function Tab2Parcels() {
 
         <hr className="border-border" />
 
-        {/* Parcel Select options */}
         {inputs.service === "PS" && (
           <div>
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
@@ -417,7 +346,6 @@ function Tab2Parcels() {
           </div>
         )}
 
-        {/* BPM options */}
         {inputs.service === "BPM" && (
           <div className="flex flex-col gap-4">
             <div>
@@ -456,7 +384,6 @@ function Tab2Parcels() {
 
         <hr className="border-border" />
 
-        {/* Quantity + Weight */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="p2-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
@@ -493,7 +420,6 @@ function Tab2Parcels() {
           </div>
         </div>
 
-        {/* Rate info */}
         {result.rateInfo && (
           <div className="bg-secondary/50 border border-border rounded-xl p-4 text-sm font-semibold text-foreground">
             {result.rateInfo}
@@ -501,7 +427,17 @@ function Tab2Parcels() {
         )}
       </div>
 
-      <AlertBar alerts={result.alerts} />
+      {/* Alerts */}
+      {result.alerts.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {result.alerts.map((a, i) => (
+            <div key={i} className={cn("flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium", a.type === "error" ? "bg-destructive/10 text-destructive" : a.type === "warning" ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300" : "bg-muted text-muted-foreground")}>
+              {a.type === "error" ? <AlertCircle className="h-4 w-4 shrink-0" /> : a.type === "warning" ? <AlertTriangle className="h-4 w-4 shrink-0" /> : <Info className="h-4 w-4 shrink-0" />}
+              {a.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       <ResultsBar
         isValid={result.isValid}
@@ -516,13 +452,13 @@ function Tab2Parcels() {
   )
 }
 
+
 // ═══════════════════════════════════════════════════════════════
-//  TAB 1 COMPONENT (Letters & Flats)
+//  TAB 1 COMPONENT (Letters & Flats) -- REDESIGNED
 // ═══════════════════════════════════════════════════════════════
 
 function Tab1LettersFlats() {
   const mailing = useMailing()
-  // Seed initial state from mailing context when editing an existing quote
   const [inputs, setInputs] = useState<USPSInputs>(() => ({
     service: (mailing.mailService as USPSInputs["service"]) || "FCM_COMM",
     shape: (mailing.shape as USPSInputs["shape"]) || "LETTER",
@@ -545,18 +481,13 @@ function Tab1LettersFlats() {
     const totalQty = inputs.quantity + (inputs.saturationQty || 0)
     mailing.setQuantity(totalQty)
     mailing.setShape(inputs.shape)
-    const classMap: Record<string, string> = {
-      POSTCARD: "Postcard",
-      LETTER: "Letter",
-      FLAT: "Flat",
-    }
+    const classMap: Record<string, string> = { POSTCARD: "Postcard", LETTER: "Letter", FLAT: "Flat" }
     mailing.setClassName(classMap[inputs.shape] || inputs.shape)
     mailing.setMailService(inputs.service)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputs.quantity, inputs.saturationQty, inputs.shape, inputs.service])
 
   // Auto-detect shape + format from planner's outer piece
-  // If we already seeded qty from mailing context in the initializer, mark as seeded
   const seededQtyRef = useRef(mailing.quantity > 0)
   useEffect(() => {
     const outer = mailing.outerPiece
@@ -602,18 +533,15 @@ function Tab1LettersFlats() {
   const update = useCallback((partial: Partial<USPSInputs>) => {
     setInputs((prev) => {
       const next = { ...prev, ...partial }
-      // Postcards are FCM only
       if ((next.service === "MKT_COMM" || next.service === "MKT_NP") && next.shape === "POSTCARD") {
         next.shape = "LETTER"
       }
       if (next.service === "FCM_RETAIL") {
         next.saturationQty = 0
       }
-      // Auto-detect NM from pack
       if (partial.pack === "PLAS" && next.shape === "LETTER") {
         next.isNonMachinable = true
       }
-      // Clamp tier index when tiers change
       const newTiers = getActiveTiers(next.service, next.shape, next.mailType)
       if (newTiers.length > 0 && next.tierIndex >= newTiers.length) {
         next.tierIndex = newTiers.length - 1
@@ -631,7 +559,6 @@ function Tab1LettersFlats() {
     if (result.description) parts.push(result.description)
     if (bufferCents > 0) parts.push(`+${bufferCents}c buffer`)
     const activeTier = tiers[inputs.tierIndex]
-    // Map to kanban canonical mailing class names
     const classMap: Record<string, string> = {
       FCM_COMM: "First Class", FCM_RETAIL: "Retail",
       MKT_COMM: "Marketing", MKT_NP: "Non-Profit",
@@ -704,15 +631,20 @@ function Tab1LettersFlats() {
   const showMailType = isMkt
   const remainingQty = inputs.quantity - Math.min(inputs.saturationQty, inputs.quantity)
   const spec = SPECS[inputs.shape]
+  const [showSpecs, setShowSpecs] = useState(false)
+
+  // Collect info-level alerts into chips, keep errors/warnings inline
+  const errorAlerts = result.alerts.filter((a) => a.type === "error" || a.type === "warning")
+  const infoAlerts = result.alerts.filter((a) => a.type === "info")
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Planner detection banner */}
       {mailing.outerPiece && (
-        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-3 flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-secondary/30 px-4 py-2.5 flex items-center gap-3">
           <Info className="h-4 w-4 text-muted-foreground shrink-0" />
           <p className="text-sm text-muted-foreground">
-            Auto-detected from planner:
+            Auto-detected:
             <strong className="text-foreground ml-1">{mailing.outerPiece.label}</strong>
             {mailing.outerPiece.width && mailing.outerPiece.height && (
               <span className="font-mono ml-1 text-foreground">{mailing.outerPiece.width}{'" x '}{mailing.outerPiece.height}{'"'}</span>
@@ -721,12 +653,12 @@ function Tab1LettersFlats() {
         </div>
       )}
 
-      {/* ── All inputs ── */}
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 flex flex-col gap-5 sm:gap-6">
+      {/* ── All inputs in ONE card ── */}
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 flex flex-col gap-4">
 
-        {/* Mail Service */}
+        {/* Row 1: Mail Service */}
         <div>
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5 block">
             Mail Service
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -737,77 +669,76 @@ function Tab1LettersFlats() {
           </div>
         </div>
 
-        <hr className="border-border" />
+        <hr className="border-border/50" />
 
-        {/* Shape + Format */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Row 2: Shape + Format + NM combined */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] gap-4">
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 mb-2.5">
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Shape</label>
               {hasDimensions && (
                 <button
                   type="button"
                   onClick={() => setShapeOverride(!shapeOverride)}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    shapeOverride
-                      ? "bg-foreground/10 text-foreground border-foreground/30 font-semibold"
-                      : "bg-muted text-muted-foreground border-border hover:border-foreground/30"
-                  }`}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
                 >
-                  {shapeOverride ? "Override ON" : "Override"}
+                  {shapeOverride ? "auto-detect" : "change"}
                 </button>
               )}
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <Pill active={inputs.shape === "POSTCARD"} disabled={postcardDisabled} onClick={() => update({ shape: "POSTCARD" })} label="Postcard" />
-              <Pill active={inputs.shape === "LETTER"} disabled={isShapeDisabled("LETTER")} onClick={() => update({ shape: "LETTER" })} label="Letter" />
-              <Pill active={inputs.shape === "FLAT"} disabled={isShapeDisabled("FLAT")} onClick={() => update({ shape: "FLAT" })} label="Flat" />
+              <Pill active={inputs.shape === "POSTCARD"} disabled={postcardDisabled} onClick={() => update({ shape: "POSTCARD" })} label="Postcard" compact />
+              <Pill active={inputs.shape === "LETTER"} disabled={isShapeDisabled("LETTER")} onClick={() => update({ shape: "LETTER" })} label="Letter" compact />
+              <Pill active={inputs.shape === "FLAT"} disabled={isShapeDisabled("FLAT")} onClick={() => update({ shape: "FLAT" })} label="Flat" compact />
             </div>
-            {hasDimensions && suggestedShapes.length > 0 && suggestedShapes.includes("PARCEL") && !suggestedShapes.some((s) => s === "POSTCARD" || s === "LETTER" || s === "FLAT") && (
-              <div className="flex items-center gap-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 px-3 py-2 mt-2">
-                <Info className="h-3.5 w-3.5 text-purple-600 shrink-0" />
-                <span className="text-xs text-purple-800 dark:text-purple-300">
-                  This piece qualifies as a <strong>Parcel</strong>. Use the "Parcels & Special" tab for pricing.
-                </span>
-              </div>
+            {/* NM checkbox inline for letters */}
+            {inputs.shape === "LETTER" && (
+              <label className="flex items-center gap-2.5 mt-2.5 p-2.5 rounded-lg bg-secondary/50 border border-border cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={inputs.isNonMachinable}
+                  onChange={(e) => update({ isNonMachinable: e.target.checked })}
+                  className="accent-foreground w-3.5 h-3.5"
+                />
+                <span className="text-xs font-semibold">Non-Machinable</span>
+                <span className="text-[10px] text-muted-foreground">(square, rigid, poly)</span>
+              </label>
             )}
           </div>
           <div>
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">Format</label>
-            <div className="flex flex-wrap gap-2">
-              <Pill active={inputs.pack === "ENV"} onClick={() => update({ pack: "ENV" })} label="Envelope" sub="Paper" />
-              <Pill active={inputs.pack === "PLAS"} onClick={() => update({ pack: "PLAS" })} label="Envelope" sub="Plastic" />
-              <Pill active={inputs.pack === "SM_CARD"} onClick={() => update({ pack: "SM_CARD" })} label="Self-Mailer" sub="Card" />
-              <Pill active={inputs.pack === "SM_FOLD"} onClick={() => update({ pack: "SM_FOLD" })} label="Self-Mailer" sub="Folded" />
-              <Pill active={inputs.pack === "SM_BOOK"} onClick={() => update({ pack: "SM_BOOK" })} label="Self-Mailer" sub="Booklet" />
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5 block">Format</label>
+            <div className="flex flex-wrap gap-1.5">
+              <Pill active={inputs.pack === "ENV"} onClick={() => update({ pack: "ENV" })} label="Envelope" sub="Paper" compact />
+              <Pill active={inputs.pack === "PLAS"} onClick={() => update({ pack: "PLAS" })} label="Envelope" sub="Plastic" compact />
+              <Pill active={inputs.pack === "SM_CARD"} onClick={() => update({ pack: "SM_CARD" })} label="SM Card" compact />
+              <Pill active={inputs.pack === "SM_FOLD"} onClick={() => update({ pack: "SM_FOLD" })} label="SM Folded" compact />
+              <Pill active={inputs.pack === "SM_BOOK"} onClick={() => update({ pack: "SM_BOOK" })} label="SM Booklet" compact />
             </div>
           </div>
         </div>
 
-        {/* NM toggle for letters */}
-        {inputs.shape === "LETTER" && (
-          <div className="flex gap-4">
-            <label className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border cursor-pointer">
-              <input
-                type="checkbox"
-                checked={inputs.isNonMachinable}
-                onChange={(e) => update({ isNonMachinable: e.target.checked })}
-                className="accent-foreground w-4 h-4"
-              />
-              <div>
-                <span className="text-sm font-semibold">Non-Machinable</span>
-                <span className="block text-xs text-muted-foreground">Square, rigid, or poly-bagged letters</span>
-              </div>
-            </label>
+        {/* Dimension mismatch -- single subtle note */}
+        {hasDimensions && suggestedShapes.length > 0 && suggestedShapes.includes("PARCEL") && !suggestedShapes.some((s) => s === "POSTCARD" || s === "LETTER" || s === "FLAT") && (
+          <div className="flex items-center gap-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/40 px-3 py-2">
+            <Info className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+            <span className="text-xs text-purple-800 dark:text-purple-300">
+              This piece qualifies as a <strong>Parcel</strong>. Use the "Parcels & Special" tab.
+            </span>
+          </div>
+        )}
+        {hasDimensions && suggestedShapes.length === 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} is too small for any USPS mail shape.
           </div>
         )}
 
-        <hr className="border-border" />
+        <hr className="border-border/50" />
 
-        {/* Quantity + Weight + Saturation */}
-        <div className={`grid gap-4 ${showSaturation ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
+        {/* Row 3: Quantity + Weight + Saturation */}
+        <div className={cn("grid gap-3", showSaturation ? "grid-cols-3" : "grid-cols-2")}>
           <div>
-            <label htmlFor="usps-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label htmlFor="usps-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
               Quantity
             </label>
             <Input
@@ -817,13 +748,13 @@ function Tab1LettersFlats() {
               min={1}
               autoComplete="off"
               placeholder="5000"
-              className="h-11 font-mono text-base"
+              className="h-10 font-mono"
               value={inputs.quantity || ""}
               onChange={(e) => update({ quantity: parseInt(e.target.value) || 0 })}
             />
           </div>
           <div>
-            <label htmlFor="usps-weight" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+            <label htmlFor="usps-weight" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
               Weight (oz)
             </label>
             <Input
@@ -834,15 +765,15 @@ function Tab1LettersFlats() {
               min={0}
               autoComplete="off"
               placeholder="1.0"
-              className="h-11 font-mono text-base"
+              className="h-10 font-mono"
               value={inputs.weight || ""}
               onChange={(e) => update({ weight: parseFloat(e.target.value) || 0 })}
             />
           </div>
           {showSaturation && (
             <div>
-              <label htmlFor="usps-sat-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
-                Saturation Qty
+              <label htmlFor="usps-sat-qty" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                Sat. Qty
               </label>
               <Input
                 id="usps-sat-qty"
@@ -852,68 +783,39 @@ function Tab1LettersFlats() {
                 max={inputs.quantity}
                 autoComplete="off"
                 placeholder="0"
-                className="h-11 font-mono text-base"
+                className="h-10 font-mono"
                 value={inputs.saturationQty || ""}
                 onChange={(e) => update({ saturationQty: parseInt(e.target.value) || 0 })}
               />
-              {result.satRate > 0 && (
-                <span className="text-xs text-muted-foreground mt-1.5 block font-mono">
-                  Sat rate: {formatPostageRate(result.satRate)}
-                </span>
-              )}
             </div>
           )}
         </div>
 
-        {/* Sort Level & Entry */}
+        {/* ── Rate Comparison Table ── */}
         {showSortSection && (
           <>
-            <hr className="border-border" />
+            <hr className="border-border/50" />
 
-            {/* Auto / CR toggle (MKT/NP only) */}
-            {showMailType && (
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 block">
-                  Mail Preparation
-                </label>
-                <div className="grid grid-cols-2 gap-2 max-w-sm">
-                  <Pill active={inputs.mailType === "AUTO"} onClick={() => update({ mailType: "AUTO", tierIndex: 0 })} label="Automation" sub="Mixed/AADC/5-Digit" />
-                  <Pill active={inputs.mailType === "CR"} onClick={() => update({ mailType: "CR", tierIndex: 0 })} label="Carrier Route" sub="CR Basic/HD/HD+" />
+            {/* Mail Prep + Entry row */}
+            <div className="flex flex-wrap items-end gap-4">
+              {showMailType && (
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                    Mail Prep
+                  </label>
+                  <div className="flex gap-1.5">
+                    <Pill active={inputs.mailType === "AUTO"} onClick={() => update({ mailType: "AUTO", tierIndex: 0 })} label="Automation" compact />
+                    <Pill active={inputs.mailType === "CR"} onClick={() => update({ mailType: "CR", tierIndex: 0 })} label="Carrier Route" compact />
+                  </div>
                 </div>
-              </div>
-            )}
-
-            <div className={`grid gap-6 ${showEntryPoint ? "grid-cols-1 sm:grid-cols-[1fr_180px]" : "grid-cols-1"}`}>
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sort Level</label>
-                  {showSaturation && (
-                    <span className="text-sm text-muted-foreground">
-                      Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong>
-                    </span>
-                  )}
-                </div>
-                <div className={`grid gap-2 ${tiers.length === 4 ? "grid-cols-2 sm:grid-cols-4" : `grid-cols-${Math.min(tiers.length, 3)} sm:grid-cols-${Math.min(tiers.length, 3)}`}`}
-                  style={{ gridTemplateColumns: `repeat(${Math.min(tiers.length || 1, 4)}, minmax(0, 1fr))` }}
-                >
-                  {result.tierPrices.map((tp, i) => (
-                    <TierBtn
-                      key={tp.tier.k}
-                      active={inputs.tierIndex === i}
-                      rate={tp.price}
-                      label={tp.tier.l}
-                      onClick={() => update({ tierIndex: i })}
-                    />
-                  ))}
-                </div>
-              </div>
+              )}
               {showEntryPoint && (
                 <div>
-                  <label htmlFor="usps-entry" className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
-                    Entry Point
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                    Entry
                   </label>
                   <Select value={inputs.entry} onValueChange={(v) => update({ entry: v as USPSEntry })}>
-                    <SelectTrigger id="usps-entry" className="h-11 text-sm">
+                    <SelectTrigger className="h-9 text-xs w-44">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -924,34 +826,141 @@ function Tab1LettersFlats() {
                   </Select>
                 </div>
               )}
+              {showSaturation && inputs.saturationQty > 0 && (
+                <div className="ml-auto text-xs text-muted-foreground">
+                  Remaining: <strong className="font-mono text-foreground">{remainingQty.toLocaleString()}</strong> |
+                  Saturation: <strong className="font-mono text-foreground">{Math.min(inputs.saturationQty, inputs.quantity).toLocaleString()}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Rate table */}
+            <div className="rounded-xl border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-secondary/40 border-b border-border">
+                    <th className="text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Sort Level</th>
+                    <th className="text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Per Piece</th>
+                    <th className="text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 py-2">Total ({remainingQty.toLocaleString()})</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.tierPrices.map((tp, i) => {
+                    const isActive = inputs.tierIndex === i
+                    const tierTotal = tp.price * remainingQty
+                    return (
+                      <tr
+                        key={tp.tier.k}
+                        onClick={() => update({ tierIndex: i })}
+                        className={cn(
+                          "cursor-pointer transition-colors border-b border-border/50 last:border-b-0",
+                          isActive
+                            ? "bg-foreground text-background"
+                            : "hover:bg-secondary/30"
+                        )}
+                      >
+                        <td className="px-3 py-2.5 font-medium">
+                          <span className="text-sm">{tp.tier.l}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <span className={cn("font-mono font-bold tabular-nums text-base", isActive ? "text-background" : "text-foreground")}>
+                            {tp.price > 0 ? formatPostageRate(tp.price) : "---"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <span className={cn("font-mono tabular-nums text-sm", isActive ? "text-background/70" : "text-muted-foreground")}>
+                            {tp.price > 0 ? formatCurrency(tierTotal) : "---"}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {/* Saturation row */}
+                  {showSaturation && result.satRate > 0 && inputs.saturationQty > 0 && (
+                    <tr className="bg-emerald-50 dark:bg-emerald-950/20 border-t border-emerald-200 dark:border-emerald-800/40">
+                      <td className="px-3 py-2.5 font-medium text-emerald-800 dark:text-emerald-300">
+                        <span className="text-sm">Saturation</span>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-1.5">({Math.min(inputs.saturationQty, inputs.quantity).toLocaleString()} pc)</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <span className="font-mono font-bold tabular-nums text-base text-emerald-800 dark:text-emerald-300">
+                          {formatPostageRate(result.satRate)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <span className="font-mono tabular-nums text-sm text-emerald-700 dark:text-emerald-400">
+                          {formatCurrency(result.satRate * Math.min(inputs.saturationQty, inputs.quantity))}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                  {/* Blended total row */}
+                  {showSaturation && result.satRate > 0 && inputs.saturationQty > 0 && (
+                    <tr className="bg-secondary/30 border-t border-border">
+                      <td className="px-3 py-2 font-semibold text-xs text-muted-foreground">
+                        Blended Total
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className="font-mono font-bold tabular-nums text-sm text-foreground">
+                          {formatPostageRate(result.avgPerPiece)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-1">avg</span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <span className="font-mono font-bold tabular-nums text-sm text-foreground">
+                          {formatCurrency(result.total)}
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </>
         )}
 
-        {/* Spec reference */}
-        <div className="border-t border-border pt-4 flex flex-col gap-2">
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">{SHAPE_LABELS[inputs.shape]}</span>
-            <span>Min: <strong className="font-mono">{spec.min}</strong></span>
-            <span>Max: <strong className="font-mono">{spec.max}</strong></span>
-            <span>Weight: <strong className="font-mono">{spec.weight}</strong></span>
-          </div>
-          {hasDimensions && suggestedShapes.length === 0 && (
-            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 text-destructive px-3 py-2.5 text-sm font-medium">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} is too small for any USPS mail shape. Check dimensions.
-            </div>
-          )}
-          {hasDimensions && suggestedShapes.length > 0 && !shapeOverride && !suggestedShapes.includes(inputs.shape as USPSShape) && (
-            <div className="flex items-center gap-2 rounded-lg bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 px-3 py-2.5 text-sm font-medium">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {mailing.mailerWidth}{'" x '}{mailing.mailerHeight}{'"'} does not fit {SHAPE_LABELS[inputs.shape]}. Switching to a valid shape.
+        {/* USPS Specs -- collapsed by default */}
+        <div className="border-t border-border/50 pt-2">
+          <button
+            onClick={() => setShowSpecs(!showSpecs)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+          >
+            {showSpecs ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <span className="font-semibold uppercase tracking-wider">USPS {SHAPE_LABELS[inputs.shape]} Specs</span>
+          </button>
+          {showSpecs && (
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2 pl-5">
+              <span>Min: <strong className="font-mono text-foreground">{spec.min}</strong></span>
+              <span>Max: <strong className="font-mono text-foreground">{spec.max}</strong></span>
+              <span>Weight: <strong className="font-mono text-foreground">{spec.weight}</strong></span>
             </div>
           )}
         </div>
       </div>
 
-      <AlertBar alerts={result.alerts} />
+      {/* Error/warning alerts */}
+      {errorAlerts.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {errorAlerts.map((a, i) => (
+            <div key={i} className={cn("flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium", a.type === "error" ? "bg-destructive/10 text-destructive" : "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300")}>
+              {a.type === "error" ? <AlertCircle className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
+              {a.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Info notes -- compact chips */}
+      {infoAlerts.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {infoAlerts.map((a, i) => (
+            <div key={i} className="flex items-center gap-1.5 rounded-full bg-muted/50 border border-border px-3 py-1.5 text-xs text-muted-foreground">
+              <Info className="h-3 w-3 shrink-0" />
+              <span className="line-clamp-1">{a.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <ResultsBar
         isValid={result.isValid}
@@ -966,6 +975,7 @@ function Tab1LettersFlats() {
   )
 }
 
+
 // ═══════════════════════════════════════════════════════════════
 //  MAIN EXPORT -- Tab switcher
 // ═══════════════════════════════════════════════════════════════
@@ -975,7 +985,6 @@ export function USPSPostageCalculator() {
   const mailing = useMailing()
   const suggestedShapes = mailing.suggestedShapes
 
-  // Auto-switch to Tab 2 when piece only fits Parcel
   useEffect(() => {
     if (suggestedShapes.length === 1 && suggestedShapes[0] === "PARCEL") {
       setActiveTab(2)
@@ -984,27 +993,28 @@ export function USPSPostageCalculator() {
 
   return (
     <div className="flex flex-col gap-4 max-w-3xl">
-      {/* Tab nav */}
       <div className="flex gap-1 p-1 rounded-xl bg-secondary/50 border border-border">
         <button
           type="button"
           onClick={() => setActiveTab(1)}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+          className={cn(
+            "flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
             activeTab === 1
               ? "bg-foreground text-background shadow-sm"
               : "text-muted-foreground hover:text-foreground"
-          }`}
+          )}
         >
           Letters & Flats
         </button>
         <button
           type="button"
           onClick={() => setActiveTab(2)}
-          className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+          className={cn(
+            "flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
             activeTab === 2
               ? "bg-foreground text-background shadow-sm"
               : "text-muted-foreground hover:text-foreground"
-          }`}
+          )}
         >
           Parcels & Special
         </button>
