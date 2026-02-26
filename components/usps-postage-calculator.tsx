@@ -575,13 +575,17 @@ function Tab1LettersFlats() {
   // Update a single tier's qty, adjusting the last tier to keep total correct
   const updateTierQty = (tierKey: string, newVal: number) => {
     setTierQtys(prev => {
-      const next = { ...prev, [tierKey]: Math.max(0, newVal) }
-      // Recalculate: adjust last tier to absorb the difference
       const tierKeys = tiers.map(t => t.k)
+      const otherKeys = tierKeys.filter(k => k !== tierKey)
+      const otherSum = otherKeys.reduce((s, k) => s + (prev[k] || 0), 0)
+      // Clamp so total never exceeds mailing qty
+      const clamped = Math.max(0, Math.min(newVal, inputs.quantity - otherSum))
+      const next = { ...prev, [tierKey]: clamped }
+      // Auto-fill remaining into the last tier (if the edited tier isn't the last)
       const lastKey = tierKeys[tierKeys.length - 1]
       if (tierKey !== lastKey) {
-        const otherSum = tierKeys.filter(k => k !== lastKey).reduce((s, k) => s + (next[k] || 0), 0)
-        next[lastKey] = Math.max(0, inputs.quantity - otherSum)
+        const sumExceptLast = tierKeys.filter(k => k !== lastKey).reduce((s, k) => s + (next[k] || 0), 0)
+        next[lastKey] = Math.max(0, inputs.quantity - sumExceptLast)
       }
       return next
     })
@@ -869,6 +873,7 @@ function Tab1LettersFlats() {
                       </td>
                       <td className="px-2 py-2.5 text-center">
                         <span className="text-xs font-mono font-bold text-foreground">{weightedResult.totalQty.toLocaleString()}</span>
+                        <span className="text-[10px] text-muted-foreground ml-0.5">/ {inputs.quantity.toLocaleString()}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         <span className="font-mono font-bold tabular-nums text-foreground">
