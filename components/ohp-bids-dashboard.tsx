@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/pricing"
 import {
   Search, Send, ExternalLink, CheckCircle2, Clock,
   Award, Inbox, ArrowUpDown, ChevronRight,
-  Star, X, Loader2, RotateCcw, Trophy,
+  Star, X, Loader2, RotateCcw, Trophy, ClipboardCopy, Check,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -416,6 +416,7 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
   const [addingVendor, setAddingVendor] = useState(false)
   const [awarding, setAwarding] = useState(false)
   const [reopening, setReopening] = useState(false)
+  const [descCopied, setDescCopied] = useState(false)
 
   const externalVendors = vendors.filter((v) => !v.is_internal)
   const addedVendorIds = new Set(prices?.map((p) => p.vendor_id) ?? [])
@@ -514,11 +515,21 @@ function BidPricePanel({ bid, vendors, mutateBids, inhousePrice }: {
                 </span>
               </>
             )}
+            <div className="flex-1" />
+            <button
+              onClick={async () => {
+                const text = [bid.item_label, bid.item_description].filter(Boolean).join("\n")
+                try { await navigator.clipboard.writeText(text) } catch { /* */ }
+                setDescCopied(true); setTimeout(() => setDescCopied(false), 2000)
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors shrink-0"
+              title="Copy description to clipboard"
+            >
+              {descCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+              {descCopied ? "Copied!" : "Copy Desc"}
+            </button>
             {bid.item_description && (
-              <>
-                <div className="flex-1" />
-                <span className="text-xs text-muted-foreground/60 truncate max-w-[220px]">{bid.item_description}</span>
-              </>
+              <span className="text-xs text-muted-foreground/60 truncate max-w-[220px]">{bid.item_description}</span>
             )}
           </div>
         )}

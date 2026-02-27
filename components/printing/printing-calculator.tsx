@@ -6,6 +6,7 @@ import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
 import { PriceBreakdown } from "./price-breakdown"
 
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   PAPER_OPTIONS,
@@ -60,10 +61,10 @@ export function PrintingCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
 
-  // Flat pieces from planner that need in-house printing
+  // Flat pieces from planner -- includes OHP so users can fill out full specs
   const flatPieces = mailing.pieces.filter(
     (p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type) &&
-           (p.production === "inhouse" || p.production === "both")
+           (p.production === "inhouse" || p.production === "both" || p.production === "ohp")
   )
 
   // Finishing calculators from DB
@@ -363,16 +364,23 @@ export function PrintingCalculator() {
                 {flatPieces.map((piece) => {
                   const meta = PIECE_TYPE_META[piece.type]
                   const flat = getFlatSize(piece)
+                  const isOhpOnly = piece.production === "ohp"
                   return (
                     <button
                       key={piece.id}
                       type="button"
                       onClick={() => loadPiece(piece)}
-                      className="flex items-center gap-2 rounded-xl border border-border bg-card hover:border-foreground/30 hover:shadow-sm px-3 py-2 text-left transition-all group"
+                      className={cn(
+                        "flex items-center gap-2 rounded-xl border bg-card hover:border-foreground/30 hover:shadow-sm px-3 py-2 text-left transition-all group",
+                        isOhpOnly ? "border-sky-300 dark:border-sky-700/50" : "border-border"
+                      )}
                     >
                       <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
                       <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-foreground">{piece.label}</span>
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          {piece.label}
+                          {isOhpOnly && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">OHP</span>}
+                        </span>
                         <span className="text-[10px] text-muted-foreground font-mono">
                           {flat.w && flat.h ? `${flat.w}" x ${flat.h}" flat` : piece.width && piece.height ? `${piece.width}" x ${piece.height}"` : "No size"}
                         </span>
