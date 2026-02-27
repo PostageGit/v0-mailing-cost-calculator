@@ -860,14 +860,14 @@ function NextStepPill({ value, onRemove, steps, onReplace }: { value: string; on
         </button>
       </div>
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-30 py-0.5 max-h-48 overflow-y-auto">
           {steps.map((step) => (
             <button key={step} onClick={() => { onReplace(step); setIsOpen(false) }}
               className={cn(
-                "w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left hover:bg-secondary transition-colors",
-                step === value ? "font-semibold text-foreground" : "text-muted-foreground"
+                "w-full flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-left hover:bg-secondary transition-colors",
+                step === value ? "font-bold text-foreground" : "text-muted-foreground"
               )}>
-              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", getStepDotColor(step))} />
+              <span className={cn("h-2 w-2 rounded-full shrink-0", getStepDotColor(step))} />
               {step}
               {step === value && <Check className="h-3 w-3 ml-auto text-foreground" />}
             </button>
@@ -900,11 +900,11 @@ function NextStepAdd({ steps, onAdd, existingSteps }: { steps: string[]; onAdd: 
         <ChevronDown className={cn("h-3.5 w-3.5 ml-auto shrink-0 transition-transform", isOpen && "rotate-180")} />
       </button>
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-30 py-0.5 max-h-48 overflow-y-auto">
           {steps.filter(s => !existingSteps.includes(s)).map((step) => (
             <button key={step} onClick={() => { onAdd(step); setIsOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
-              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", getStepDotColor(step))} />
+              className="w-full flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-left text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+              <span className={cn("h-2 w-2 rounded-full shrink-0", getStepDotColor(step))} />
               {step}
             </button>
           ))}
