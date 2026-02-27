@@ -506,14 +506,12 @@ function Tab1LettersFlats() {
       const totalQty = inputs.quantity
       const perPiece = result.avgPerPiece + bufferPerPiece
       const total = perPiece * totalQty
-      const parts: string[] = [result.className]
-      if (result.description) parts.push(result.description)
-      parts.push(`${totalQty.toLocaleString()} x ${formatPostageRate(perPiece)}`)
-      if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
+      // Customer-facing: mail class + qty + per-piece rate
+      const custDesc = `${mailingClass} | ${totalQty.toLocaleString()} x ${formatPostageRate(perPiece)}`
       quote.addItem({
         category: "postage",
         label: `USPS Postage - ${totalQty.toLocaleString()} pc`,
-        description: parts.join(" | "),
+        description: custDesc,
         amount: total,
         metadata: {
           mailingClass,
@@ -528,24 +526,22 @@ function Tab1LettersFlats() {
     // Presort path with tier breakdown
     const totalWithBuffer = weightedResult.grandTotal + (bufferPerPiece * weightedResult.totalQty)
     const avgWithBuffer = weightedResult.avgPerPiece + bufferPerPiece
-    const parts: string[] = []
-    parts.push(result.className)
-    if (result.description) parts.push(result.description)
-    const tierDesc = tiers.map(t => `${t.l}: ${(tierQtys[t.k] || 0).toLocaleString()}`).join(", ")
-    parts.push(tierDesc)
-    if (parsedBuffer > 0) parts.push(`+${parsedBuffer}c buffer`)
+    // Customer-facing description: mail class + qty + estimated per-piece only
+    const custParts: string[] = [mailingClass]
+    custParts.push(`${weightedResult.totalQty.toLocaleString()} x ~${formatPostageRate(avgWithBuffer)}`)
     quote.addItem({
       category: "postage",
       label: `USPS Postage - ${weightedResult.totalQty.toLocaleString()} pc`,
-      description: parts.join(" | "),
+      description: custParts.join(" | "),
       amount: totalWithBuffer,
       metadata: {
         mailingClass,
         mailShape: inputs.shape.toLowerCase(),
+        avgPerPiece: avgWithBuffer,
+        // Internal-only fields (not shown to customer)
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
         bufferCents: parsedBuffer > 0 ? parsedBuffer : undefined,
-        avgPerPiece: avgWithBuffer,
         tierBreakdown: tierQtys,
       },
     })

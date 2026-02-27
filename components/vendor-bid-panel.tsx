@@ -12,6 +12,8 @@ import {
 import { formatCurrency } from "@/lib/pricing"
 import { buildCustomerSpecs } from "@/lib/build-quote-text"
 import { useQuote } from "@/lib/quote-context"
+import { buildCustomerSpecs } from "@/lib/build-quote-text"
+import type { QuoteCategory } from "@/lib/quote-types"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
 
@@ -38,10 +40,12 @@ function describePiece(piece: MailPiece, qty: number) {
   return { label, desc: parts.join(", "), category }
 }
 
-/** Build a full copyable spec description for an OHP bid */
+/** Build a customer-facing copyable spec description for an OHP bid.
+ *  Only includes what the customer cares about:
+ *  Qty, Size, Paper, Color (4/0 4/4 etc.), Fold, Score, Lamination.
+ *  No internal details (sort levels, buffers, vendors, entry points). */
 function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefined, qty: number, quoteItems: { label: string; category: string; amount: number; description: string; metadata?: Record<string, unknown> }[]): string {
   const lines: string[] = []
-  lines.push(`Job: ${bid.item_label}`)
   lines.push(`Qty: ${qty.toLocaleString()}`)
 
   // Try to get full specs from matching quote item metadata
@@ -56,34 +60,23 @@ function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefine
 
   const m = matchingItem?.metadata as Record<string, unknown> | undefined
   if (m) {
-    if (m.pieceDimensions) lines.push(`Size: ${m.pieceDimensions}"`)
-    if (m.pageCount) lines.push(`Pages: ${m.pageCount}`)
-    if (m.paperName) lines.push(`Paper: ${m.paperName}`)
-    if (m.sides) lines.push(`Colors: ${m.sides}`)
-    if (m.hasBleed) lines.push(`Bleed: Yes`)
-    if (m.foldType && m.foldType !== "none") lines.push(`Fold: ${String(m.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold")}`)
-    if (m.scoreFoldEnabled) {
-      const opLabels: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
-      const foldLabels: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion" }
-      lines.push(`Finishing: ${opLabels[String(m.scoreFoldFinishType)] || m.scoreFoldFinishType} - ${foldLabels[String(m.scoreFoldFoldType)] || m.scoreFoldFoldType}`)
-    }
-    if (m.laminationEnabled) {
-      const lamSides = m.laminationSides === "both" ? "both sides" : "one side"
-      lines.push(`Lamination: ${m.laminationType || "Gloss"} (${lamSides})`)
-    }
-    if (m.bindingType) lines.push(`Binding: ${m.bindingType}`)
-    if (m.coverStock) lines.push(`Cover: ${m.coverStock}`)
+    // Use the same customer-facing spec builder as PDF / quote text
+    const specs = buildCustomerSpecs(m, matchingItem?.category as QuoteCategory)
+    if (specs) lines.push(specs)
   } else if (matchedPiece) {
-    // Fallback: build from piece data directly
-    if (matchedPiece.width && matchedPiece.height) lines.push(`Size: ${matchedPiece.width}" x ${matchedPiece.height}"`)
-    if (matchedPiece.paperName) lines.push(`Paper: ${matchedPiece.paperName}`)
-    if (matchedPiece.sides) lines.push(`Colors: ${matchedPiece.sides}`)
-    if (matchedPiece.hasBleed) lines.push(`Bleed: Yes`)
-    if (matchedPiece.pageCount && matchedPiece.pageCount > 1) lines.push(`Pages: ${matchedPiece.pageCount}`)
-    if (matchedPiece.foldType && matchedPiece.foldType !== "none") lines.push(`Fold: ${matchedPiece.foldType}`)
+    // Fallback: build from piece data directly (customer-relevant only)
+    const parts: string[] = []
+    if (matchedPiece.width && matchedPiece.height) parts.push(`${matchedPiece.width}" x ${matchedPiece.height}"`)
+    if (matchedPiece.paperName) parts.push(String(matchedPiece.paperName))
+    if (matchedPiece.sides) parts.push(String(matchedPiece.sides))
+    if (matchedPiece.hasBleed) parts.push("Bleed")
+    if (matchedPiece.pageCount && matchedPiece.pageCount > 1) parts.push(`${matchedPiece.pageCount} Pages`)
+    if (matchedPiece.foldType && matchedPiece.foldType !== "none") {
+      parts.push(String(matchedPiece.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold"))
+    }
+    if (parts.length) lines.push(parts.join(", "))
   }
 
-  if (bid.item_description) lines.push(`Notes: ${bid.item_description}`)
   return lines.join("\n")
 }
 

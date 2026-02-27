@@ -213,11 +213,14 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   if (postageItems.length > 0) {
     lines.push(hasEstimatedPostage ? "POSTAGE / USPS (ESTIMATED)" : "POSTAGE / USPS")
     postageItems.forEach((item) => {
-      const isEst = item.metadata?.isEstimated
-      if (item.description) {
-        lines.push(cleanPostageDescription(item.description))
-      }
-      lines.push(isEst ? `${formatCurrency(item.amount)}  *Estimated` : formatCurrency(item.amount))
+      const m = (item.metadata ?? {}) as Record<string, unknown>
+      // Customer sees: Mail class + qty x ~$rate
+      const mailClass = m.mailingClass ? String(m.mailingClass) : ""
+      const avgPP = m.avgPerPiece ? `~${formatCurrency(Number(m.avgPerPiece))}/pc` : ""
+      const custLine = [mailClass, avgPP].filter(Boolean).join(", ")
+      if (custLine) lines.push(custLine)
+      else if (item.description) lines.push(cleanPostageDescription(item.description))
+      lines.push(formatCurrency(item.amount))
     })
     if (hasEstimatedPostage) {
       lines.push("")
@@ -237,15 +240,16 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
     lines.push(divider)
   }
 
-  // --- OHP ---
+  // --- OHP (shown as PRINTING to customer) ---
   const ohpItems = items.filter((i) => i.category === "ohp")
   if (ohpItems.length > 0) {
-    lines.push("PRINTING")
+    // Only add header if no printing section was already printed
+    if (printItems.length === 0) lines.push("PRINTING")
     ohpItems.forEach((item) => {
       const m = (item.metadata ?? {}) as Record<string, unknown>
-      const specs = buildCustomerSpecs(m, "printing")
-      const desc = specs || item.description
-      if (desc) lines.push(desc)
+      const specs = buildCustomerSpecs(m, "flat") // treat OHP metadata as flat printing specs
+      if (item.label) lines.push(item.label)
+      if (specs) lines.push(`>  ${specs}`)
       lines.push(formatCurrency(item.amount))
     })
     lines.push(divider)
