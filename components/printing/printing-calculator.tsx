@@ -66,7 +66,6 @@ export function PrintingCalculator() {
     (p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type) &&
            (p.production === "inhouse" || p.production === "both" || p.production === "ohp")
   )
-
   // Finishing calculators from DB
   const { data: finCalcs } = useSWR<FinishingCalculator[]>("/api/finishing-calculators", swrFetcher)
   const { data: finRates } = useSWR<FinishingGlobalRates>("/api/finishing-global-rates", swrFetcher)
