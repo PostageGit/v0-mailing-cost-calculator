@@ -1,7 +1,6 @@
 import { streamText, tool, convertToModelMessages, stepCountIs } from "ai"
 import { z } from "zod"
 import {
-  calculatePrintingCost,
   calculateAllSheetOptions,
   buildFullResult,
   PAPER_OPTIONS,

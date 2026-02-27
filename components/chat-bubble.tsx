@@ -22,6 +22,7 @@ export function ChatBubble() {
   const [input, setInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
 
+
   const { messages, sendMessage, status, setMessages } = useChat({
     transport,
   })
