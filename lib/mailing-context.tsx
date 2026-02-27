@@ -261,14 +261,16 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const suggestedShapes = useMemo(() => computeSuggestedShapes(mailerWidth, mailerHeight), [mailerWidth, mailerHeight])
 
   // Derived step visibility based on piece types AND production routing
+  // Include OHP pieces so the calculator steps show in spec-builder mode
   const inhouseOrBoth = pieces.filter((p) => (p.production === "inhouse" || p.production === "both") && p.production !== "customer")
   const ohpOrBoth = pieces.filter((p) => (p.production === "ohp" || p.production === "both") && p.production !== "customer")
+  const allRouted = pieces.filter((p) => p.production !== "customer")
 
   const needsEnvelope = inhouseOrBoth.some((p) => p.type === "envelope")
-  const needsPrinting = inhouseOrBoth.some((p) => !p.customerProvidesPrinting && ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
-  const needsBooklet = inhouseOrBoth.some((p) => p.type === "booklet")
-  const needsSpiral = inhouseOrBoth.some((p) => p.type === "spiral_book")
-  const needsPerfect = inhouseOrBoth.some((p) => p.type === "perfect_bound")
+  const needsPrinting = allRouted.some((p) => !p.customerProvidesPrinting && ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type))
+  const needsBooklet = allRouted.some((p) => p.type === "booklet")
+  const needsSpiral = allRouted.some((p) => p.type === "spiral_book")
+  const needsPerfect = allRouted.some((p) => p.type === "perfect_bound")
   const needsPad = inhouseOrBoth.some((p) => p.type === "pad")
   const needsOHP = ohpOrBoth.length > 0
 

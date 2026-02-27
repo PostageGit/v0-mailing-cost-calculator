@@ -66,10 +66,6 @@ export function PrintingCalculator() {
     (p) => ["postcard", "flat_card", "folded_card", "self_mailer", "letter"].includes(p.type) &&
            (p.production === "inhouse" || p.production === "both" || p.production === "ohp")
   )
-  console.log("[v0] flatPieces:", flatPieces.map(p => ({ label: p.label, production: p.production, type: p.type })))
-  console.log("[v0] activePiece:", activePiece ? { label: activePiece.label, production: activePiece.production } : null)
-  console.log("[v0] isOhpMode:", isOhpMode, "ohpSpecsSaved:", ohpSpecsSaved)
-
   // Finishing calculators from DB
   const { data: finCalcs } = useSWR<FinishingCalculator[]>("/api/finishing-calculators", swrFetcher)
   const { data: finRates } = useSWR<FinishingGlobalRates>("/api/finishing-global-rates", swrFetcher)
