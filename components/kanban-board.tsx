@@ -41,7 +41,7 @@ interface JobMeta {
   bcc_done?: boolean; paperwork_done?: boolean; folder_archived?: boolean; job_mailed?: boolean
   invoice_updated?: boolean; invoice_emailed?: boolean; paid_postage?: boolean; paid_full?: boolean
   assignee?: string; due_date?: string; expected_date?: string
-  zendesk_ticket?: string; next_step?: string; quick_notes?: string
+  zendesk_ticket?: string; next_step?: string; active_steps?: string[]; quick_notes?: string
   /** Per-piece vendor / expected date / arrived, keyed by piece index */
   piece_meta?: PieceMeta[]
   /** Steps that were skipped during quoting -- need to be completed */
@@ -781,13 +781,13 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   if (editing) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px]" onClick={(e) => e.stopPropagation()}>
-        <FileText className="h-3 w-3 text-muted-foreground/50" />
+      <span className="inline-flex items-center gap-1 text-[12px]" onClick={(e) => e.stopPropagation()}>
+        <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
         <span className="text-muted-foreground/50">ZD#</span>
         <input ref={ref} value={draft} onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false) } }}
-          className="w-16 text-[11px] font-mono text-foreground bg-transparent border-b border-foreground/20 outline-none"
+          className="w-20 text-[12px] font-mono text-foreground bg-transparent border-b border-foreground/20 outline-none"
           placeholder="10558"
         />
       </span>
@@ -796,14 +796,14 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   if (value) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] group/zd">
-        <FileText className="h-3 w-3 text-emerald-500" />
+      <span className="inline-flex items-center gap-1 text-[12px] group/zd">
+        <FileText className="h-3.5 w-3.5 text-emerald-500" />
         <span className="text-muted-foreground/50">ZD#</span>
         <a href={`${ZENDESK_BASE}${value}`} target="_blank" rel="noopener noreferrer"
           className="font-mono text-emerald-600 dark:text-emerald-400 font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
           {value}
         </a>
-        <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/zd:text-emerald-500 transition-colors" />
+        <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover/zd:text-emerald-500 transition-colors" />
         <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
           className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground opacity-0 group-hover/zd:opacity-100 transition-opacity">
           <Pencil className="h-2.5 w-2.5" />
@@ -814,8 +814,8 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   return (
     <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
-      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-      <FileText className="h-3 w-3" />ZD# <span className="font-mono">---</span>
+      className="inline-flex items-center gap-1 text-[12px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+      <FileText className="h-3.5 w-3.5" />ZD# <span className="font-mono">---</span>
     </button>
   )
 }
@@ -823,7 +823,18 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 /* ══════════════════��═════════════��═══════════════════
    NEXT STEP SELECTOR
    ════════════════════════════════════════════════════ */
-function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (v: string) => void; steps: string[] }) {
+// Determine dot color based on step keywords
+const getStepDotColor = (step: string) => {
+  const s = step.toLowerCase()
+  if (s.includes("wait")) return "bg-amber-500"
+  if (s.includes("ready") || s.includes("done") || s.includes("arrived")) return "bg-emerald-500"
+  if (s.includes("work") || s.includes("progress")) return "bg-sky-500"
+  if (s.includes("brand new")) return "bg-violet-500"
+  if (s.includes("deliver") || s.includes("mail")) return "bg-blue-500"
+  return "bg-orange-500"
+}
+
+function NextStepPill({ value, onRemove, steps, onReplace }: { value: string; onRemove: () => void; steps: string[]; onReplace: (v: string) => void }) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -836,34 +847,27 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
     return () => document.removeEventListener("mousedown", handleClick)
   }, [isOpen])
 
-  // Determine dot color based on step keywords
-  const getDotColor = (step: string) => {
-    const s = step.toLowerCase()
-    if (s.includes("wait")) return "bg-amber-500"
-    if (s.includes("ready") || s.includes("done") || s.includes("arrived")) return "bg-emerald-500"
-    if (s.includes("work") || s.includes("progress")) return "bg-sky-500"
-    if (s.includes("brand new")) return "bg-violet-500"
-    if (s.includes("deliver") || s.includes("mail")) return "bg-blue-500"
-    return "bg-orange-500"
-  }
-
   return (
     <div ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
-      <button onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/80 hover:text-foreground transition-colors whitespace-nowrap">
-        <span className={cn("h-2 w-2 rounded-full shrink-0", getDotColor(value || ""))} />
-        <span>{value || "Set status..."}</span>
-        <ChevronDown className={cn("h-3 w-3 text-muted-foreground/40 shrink-0 transition-transform", isOpen && "rotate-180")} />
-      </button>
+      <div className="flex items-center gap-1 w-full rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 px-3 py-1.5">
+        <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", getStepDotColor(value))} />
+        <button onClick={() => setIsOpen(!isOpen)} className="flex-1 text-left text-[12px] font-semibold text-amber-900 dark:text-amber-200 truncate">
+          {value}
+        </button>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-amber-500/60 shrink-0 transition-transform cursor-pointer", isOpen && "rotate-180")} onClick={() => setIsOpen(!isOpen)} />
+        <button onClick={onRemove} className="h-4 w-4 flex items-center justify-center rounded text-amber-400/60 hover:text-amber-700 dark:hover:text-amber-300 transition-colors ml-0.5">
+          <X className="h-3 w-3" />
+        </button>
+      </div>
       {isOpen && (
-        <div className="absolute top-full right-0 mt-1 w-56 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
           {steps.map((step) => (
-            <button key={step} onClick={() => { onChange(step); setIsOpen(false) }}
+            <button key={step} onClick={() => { onReplace(step); setIsOpen(false) }}
               className={cn(
-                "w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-left hover:bg-secondary transition-colors",
+                "w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left hover:bg-secondary transition-colors",
                 step === value ? "font-semibold text-foreground" : "text-muted-foreground"
               )}>
-              <span className={cn("h-2 w-2 rounded-full shrink-0", getDotColor(step))} />
+              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", getStepDotColor(step))} />
               {step}
               {step === value && <Check className="h-3 w-3 ml-auto text-foreground" />}
             </button>
@@ -874,7 +878,43 @@ function NextStepSelect({ value, onChange, steps }: { value: string; onChange: (
   )
 }
 
-/* ������═══════════════����══════════════════════════════════
+function NextStepAdd({ steps, onAdd, existingSteps }: { steps: string[]; onAdd: (v: string) => void; existingSteps: string[] }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [isOpen])
+
+  return (
+    <div ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 w-full rounded-lg border border-dashed border-border/50 hover:border-border px-3 py-1.5 text-[12px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+        <PlusCircle className="h-3.5 w-3.5 shrink-0" />
+        <span>Nxt step</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 ml-auto shrink-0 transition-transform", isOpen && "rotate-180")} />
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 rounded-lg border border-border bg-card shadow-xl z-30 py-1 max-h-52 overflow-y-auto">
+          {steps.filter(s => !existingSteps.includes(s)).map((step) => (
+            <button key={step} onClick={() => { onAdd(step); setIsOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", getStepDotColor(step))} />
+              {step}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ������═══════════════����════��═════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
    ══════════════�����═════���════════���═══════════��═════════ */
 function getDateLabel(dateStr: string | undefined) {
@@ -1038,16 +1078,19 @@ function QuoteCard({
           {/* Row 1: Title + expand/notes actions */}
           <div className="flex items-start gap-2 mb-0.5 relative">
             <p className="text-[15px] font-bold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
-            <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+            <div className="flex items-center gap-1 shrink-0 mt-0.5">
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
-                className={cn("h-5 w-5 flex items-center justify-center rounded transition-colors",
-                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/25 hover:text-foreground"
+                className={cn("relative h-6 w-6 flex items-center justify-center rounded transition-colors",
+                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/30 hover:text-foreground"
                 )} title="Quick Notes">
-                <NotepadText className="h-3 w-3" />
+                <NotepadText className="h-3.5 w-3.5" />
+                {(meta.quick_notes || quote.notes) && !showQuickNotes && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-orange-400 ring-2 ring-white dark:ring-card" />
+                )}
               </button>
               <button onClick={() => setOpen(!open)}
-                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/25 hover:text-foreground transition-colors" title="Expand">
-                <ChevronRight className={cn("h-3 w-3 transition-transform duration-200", open && "rotate-90")} />
+                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground transition-colors" title="Expand">
+                <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
               </button>
             </div>
             {showQuickNotes && (
@@ -1060,12 +1103,12 @@ function QuoteCard({
           </div>
 
           {/* Row 2: Contact name as subtitle */}
-          <p className="text-xs text-muted-foreground/70 truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
+          <p className="text-[13px] text-muted-foreground/60 truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
 
           {/* Row 3: Tags strip -- Overdue + Assignee + Mail Class + Date */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {overdue && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
                 <Calendar className="h-3 w-3" />
                 OVERDUE ({days}d)
               </span>
@@ -1076,10 +1119,10 @@ function QuoteCard({
               return meta.assignee ? (
                 <div className="relative">
                   <span
-                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-pointer"
                     style={{ backgroundColor: assigneeColor + "12", color: assigneeColor }}
                   >
-                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: assigneeColor }} />
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: assigneeColor }} />
                     {meta.assignee.split(" ")[0]}
                   </span>
                   <select
@@ -1094,8 +1137,8 @@ function QuoteCard({
                 </div>
               ) : (
                 <div className="relative">
-                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/30 px-2 py-0.5 rounded-full border border-dashed border-border/50 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
-                    <User className="h-2.5 w-2.5" /> Assign
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/30 px-2.5 py-1 rounded-full border border-dashed border-border/50 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
+                    <User className="h-3 w-3" /> Assign
                   </span>
                   <select
                     className="absolute inset-0 opacity-0 cursor-pointer"
@@ -1111,7 +1154,7 @@ function QuoteCard({
             })()}
             {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
               <span className={cn(
-                "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                "inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full border",
                 MAIL_CLASS_COLORS[meta.mailing_class].bg,
                 MAIL_CLASS_COLORS[meta.mailing_class].text,
                 MAIL_CLASS_COLORS[meta.mailing_class].border,
@@ -1123,10 +1166,10 @@ function QuoteCard({
           </div>
 
           {/* Row 4: ZD# + INV# reference row */}
-          <div className="flex items-center gap-4 mb-2">
+          <div className="flex items-center gap-4 mb-2.5">
             <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
             {quote.reference_number && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground/50">
+              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50">
                 <Hash className="h-3 w-3" />
                 INV {quote.reference_number}
               </span>
@@ -1134,34 +1177,74 @@ function QuoteCard({
             {/* Q/J numbers */}
             <div className="flex items-center gap-1.5 ml-auto">
               {quote.job_number ? (
-                <span className="text-[10px] font-bold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded">J-{quote.job_number}</span>
+                <span className="text-[11px] font-bold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded">J-{quote.job_number}</span>
               ) : quote.quote_number ? (
-                <span className="text-[10px] font-bold font-mono tabular-nums text-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
+                <span className="text-[11px] font-bold font-mono tabular-nums text-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
               ) : null}
               {quote.job_number && quote.quote_number && (
-                <span className="text-[9px] font-mono tabular-nums text-muted-foreground/30">Q-{quote.quote_number}</span>
+                <span className="text-[10px] font-mono tabular-nums text-muted-foreground/30">Q-{quote.quote_number}</span>
               )}
             </div>
           </div>
 
           {/* Row 5: Quick note */}
-          <div className="mb-2">
+          <div className="mb-3">
             {(meta.quick_notes || quote.notes) ? (
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
-                className="text-[11px] text-muted-foreground/50 italic truncate block w-full text-left hover:text-muted-foreground transition-colors leading-relaxed">
-                {meta.quick_notes || quote.notes}
+                className="flex items-start gap-1.5 w-full text-left group/note">
+                <NotepadText className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mt-0.5" />
+                <span className="text-[12px] text-muted-foreground/60 truncate group-hover/note:text-muted-foreground transition-colors leading-relaxed">
+                  {meta.quick_notes || quote.notes}
+                </span>
               </button>
             ) : (
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
-                className="text-[11px] text-muted-foreground/20 hover:text-muted-foreground/40 transition-colors italic">
+                className="flex items-center gap-1.5 text-[12px] text-muted-foreground/20 hover:text-muted-foreground/40 transition-colors">
+                <NotepadText className="h-3.5 w-3.5" />
                 note...
               </button>
             )}
           </div>
 
-          {/* Row 6: Next Step selector -- separated */}
-          <div className="pt-2 border-t border-border/20">
-            <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
+          {/* Row 6: Next Step pills -- multiple supported */}
+          <div className="flex flex-col gap-2 pt-2.5 border-t border-border/20">
+            {/* Render active steps (from active_steps array OR legacy next_step) */}
+            {(meta.active_steps && meta.active_steps.length > 0 ? meta.active_steps : meta.next_step ? [meta.next_step] : []).map((step, idx) => (
+              <NextStepPill
+                key={step + idx}
+                value={step}
+                steps={nextSteps}
+                onRemove={() => {
+                  const currentSteps = meta.active_steps && meta.active_steps.length > 0
+                    ? [...(meta.active_steps as string[])]
+                    : meta.next_step ? [meta.next_step] : []
+                  currentSteps.splice(idx, 1)
+                  updateMeta({ active_steps: currentSteps, next_step: currentSteps[0] || "" })
+                }}
+                onReplace={(v) => {
+                  const currentSteps = meta.active_steps && meta.active_steps.length > 0
+                    ? [...(meta.active_steps as string[])]
+                    : meta.next_step ? [meta.next_step] : []
+                  currentSteps[idx] = v
+                  updateMeta({ active_steps: currentSteps, next_step: currentSteps[0] || "" })
+                }}
+              />
+            ))}
+            {/* Always show "Nxt step" add button */}
+            <NextStepAdd
+              steps={nextSteps}
+              existingSteps={meta.active_steps && (meta.active_steps as string[]).length > 0
+                ? (meta.active_steps as string[])
+                : meta.next_step ? [meta.next_step] : []
+              }
+              onAdd={(v) => {
+                const currentSteps = meta.active_steps && (meta.active_steps as string[]).length > 0
+                  ? [...(meta.active_steps as string[])]
+                  : meta.next_step ? [meta.next_step] : []
+                const updated = [...currentSteps, v]
+                updateMeta({ active_steps: updated, next_step: updated[0] || "" })
+              }}
+            />
           </div>
 
           {/* Skipped/incomplete steps indicator */}
@@ -1774,7 +1857,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
 
 /* ═══════════════════════════════════════════════════��
    DROPPABLE COLUMN
-   ══════════════════════════════════��═════════════════ */
+   ═══════════════════════════���══════��═════════════════ */
 
 function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, boardType }: {
   col: BoardColumn; isActive: boolean; count: number; colTotal: number
