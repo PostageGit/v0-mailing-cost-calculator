@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { ChevronDown, ChevronUp, Settings2, Percent } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ChevronDown, ChevronUp, Settings2 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 
 /* ─── Shared price card for all calculators ─── */
@@ -47,6 +47,9 @@ export interface CalcPriceCardProps {
   onChangeSize?: () => void
   /** Callback when the effective total changes (with upcharge). Parent reads this for "Add to Quote" */
   onEffectiveTotalChange?: (effectiveTotal: number) => void
+  /** Broker pricing toggle */
+  isBroker?: boolean
+  onBrokerChange?: (value: boolean) => void
 }
 
 export function CalcPriceCard({
@@ -60,28 +63,18 @@ export function CalcPriceCard({
   details,
   onChangeSize,
   onEffectiveTotalChange,
+  isBroker,
+  onBrokerChange,
 }: CalcPriceCardProps) {
   const [showDetails, setShowDetails] = useState(false)
-  const [upchargeOn, setUpchargeOn] = useState(false)
-  const [upchargePct, setUpchargePct] = useState(35)
-  const [editingPct, setEditingPct] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  const upchargeAmount = upchargeOn ? total * (upchargePct / 100) : 0
-  const effectiveTotal = total + upchargeAmount
-  const effectivePerUnit = perUnitCost > 0 && total > 0 ? effectiveTotal * (perUnitCost / total) : 0
+  const effectiveTotal = total
+  const effectivePerUnit = perUnitCost
 
   // Notify parent when effective total changes
   useEffect(() => {
     onEffectiveTotalChange?.(effectiveTotal)
   }, [effectiveTotal, onEffectiveTotalChange])
-
-  // Focus input when entering edit mode
-  useEffect(() => {
-    if (editingPct && inputRef.current) {
-      inputRef.current.select()
-    }
-  }, [editingPct])
 
   return (
     <div className="flex flex-col gap-3">
@@ -126,9 +119,6 @@ export function CalcPriceCard({
             <div className="flex items-baseline gap-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Level</span>
               <span className="text-lg font-extrabold text-foreground font-mono">{level.level}</span>
-              {level.markup > 0 && (
-                <span className="text-xs font-semibold text-muted-foreground">/ {level.markup.toFixed(2)}x</span>
-              )}
               {level.level !== level.defaultLevel && (
                 <span className={`text-xs font-bold ${level.level < level.defaultLevel ? "text-emerald-600" : "text-red-500"}`}>
                   {level.level < level.defaultLevel ? "cheaper" : "higher"}
@@ -186,75 +176,9 @@ export function CalcPriceCard({
 
       {/* ── Cost lines ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-        {costLines.filter((c) => c.value > 0 || c.accent).map((line, i) => (
+        {costLines.filter((c) => c.value !== 0 || c.accent).map((line, i) => (
           <CostRow key={i} label={line.label} value={line.value} sub={line.sub} accent={line.accent} />
         ))}
-
-        {/* ── Upcharge toggle ── */}
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              {/* Toggle button */}
-              <button
-                type="button"
-                onClick={() => setUpchargeOn(!upchargeOn)}
-                className={`relative h-6 w-11 rounded-full transition-colors duration-200 ${
-                  upchargeOn ? "bg-foreground" : "bg-border"
-                }`}
-                aria-label="Toggle upcharge"
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-background shadow-sm transition-transform duration-200 ${
-                    upchargeOn ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-
-              <div className="flex items-center gap-1.5">
-                <span className={`text-xs font-bold ${upchargeOn ? "text-foreground" : "text-muted-foreground"}`}>
-                  Upcharge
-                </span>
-                {/* Editable percentage pill */}
-                {editingPct ? (
-                  <div className="flex items-center gap-0.5 bg-secondary rounded-lg px-1.5 py-0.5">
-                    <input
-                      ref={inputRef}
-                      type="number"
-                      min={0}
-                      max={200}
-                      step={1}
-                      value={upchargePct}
-                      onChange={(e) => setUpchargePct(Math.max(0, Math.min(200, parseFloat(e.target.value) || 0)))}
-                      onBlur={() => setEditingPct(false)}
-                      onKeyDown={(e) => { if (e.key === "Enter") setEditingPct(false) }}
-                      className="w-10 bg-transparent text-xs font-bold text-foreground text-center outline-none font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <Percent className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setEditingPct(true)}
-                    className={`flex items-center gap-0.5 rounded-lg px-2 py-0.5 text-xs font-bold font-mono transition-colors ${
-                      upchargeOn
-                        ? "bg-foreground/10 text-foreground hover:bg-foreground/20"
-                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    {upchargePct}%
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Upcharge amount */}
-            {upchargeOn && (
-              <span className="text-xs font-bold text-foreground font-mono">
-                +{formatCurrency(upchargeAmount)}
-              </span>
-            )}
-          </div>
-        </div>
 
         {/* Grand Total */}
         <div className="px-4 py-3 bg-secondary/30 flex items-center justify-between">
@@ -262,6 +186,31 @@ export function CalcPriceCard({
           <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(effectiveTotal)}</span>
         </div>
       </div>
+
+      {/* ── Broker toggle bar ── */}
+      {onBrokerChange && (
+        <button
+          type="button"
+          onClick={() => onBrokerChange(!isBroker)}
+          className={`w-full rounded-xl border-2 px-5 py-3.5 flex items-center justify-between transition-all duration-200 ${
+            isBroker
+              ? "border-foreground bg-foreground text-background"
+              : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+              isBroker ? "border-background bg-background" : "border-muted-foreground/40"
+            }`}>
+              {isBroker && <div className="h-2.5 w-2.5 rounded-full bg-foreground" />}
+            </div>
+            <span className="text-sm font-bold tracking-wide">Broker Pricing</span>
+          </div>
+          <span className={`text-xs font-bold uppercase tracking-widest ${isBroker ? "text-background/60" : "text-muted-foreground/50"}`}>
+            {isBroker ? "ON" : "OFF"}
+          </span>
+        </button>
+      )}
 
       {/* ── Expandable details ── */}
       {details && (

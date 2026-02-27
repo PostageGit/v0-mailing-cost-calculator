@@ -10,6 +10,7 @@ interface BookletDetailsProps {
   inputs: BookletInputs
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  onBrokerChange?: (value: boolean) => void
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -29,7 +30,7 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange }: BookletDetailsProps) {
+export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange, onBrokerChange }: BookletDetailsProps) {
   const {
     insideResult, coverResult, totalSheetsPerBooklet,
     bindingPricePerBook, totalBindingPrice, laminationCostPerBook,
@@ -121,6 +122,8 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
       costLines={costLines}
       details={expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={inputs.isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

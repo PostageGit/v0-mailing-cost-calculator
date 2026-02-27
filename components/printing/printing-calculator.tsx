@@ -567,7 +567,7 @@ export function PrintingCalculator() {
                   pageHeight={inputs.height}
                 />
                 <div className="flex flex-col gap-4">
-                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} />
+                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
                   <Button
                     onClick={handleAddToQuote}
                     className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

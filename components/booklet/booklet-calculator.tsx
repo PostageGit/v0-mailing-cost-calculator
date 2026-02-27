@@ -300,6 +300,7 @@ export function BookletCalculator() {
                 bookQty={inputs.bookQty}
                 inputs={inputs}
                 onEffectiveTotalChange={setEffectiveTotal}
+                onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))}
               />
                   <Button
                     onClick={handleAddToQuote}

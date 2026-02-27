@@ -30,9 +30,11 @@ interface PadDetailsProps {
   result: PadCalcResult
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  isBroker?: boolean
+  onBrokerChange?: (value: boolean) => void
 }
 
-export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: PadDetailsProps) {
+export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: PadDetailsProps) {
   const {
     insideResult, sheetsPerPad,
     totalPrintingCost, paddingRate, totalPaddingCost,
@@ -107,6 +109,8 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
       costLines={costLines}
       details={expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

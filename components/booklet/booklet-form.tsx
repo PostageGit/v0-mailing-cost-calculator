@@ -256,14 +256,7 @@ export function BookletForm({
         </div>
 
 
-        <div className="flex items-center gap-2 h-9">
-          <Checkbox
-            id="broker"
-            checked={inputs.isBroker}
-            onCheckedChange={(checked) => updateInputs({ isBroker: checked === true })}
-          />
-          <label htmlFor="broker" className="text-sm font-medium text-foreground cursor-pointer">Broker</label>
-        </div>
+
       </div>
 
       {/* Validation Error */}

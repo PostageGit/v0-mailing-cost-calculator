@@ -265,14 +265,7 @@ export function PerfectForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-2 h-9">
-          <Checkbox
-            id="pb-broker"
-            checked={inputs.isBroker}
-            onCheckedChange={(checked) => update({ isBroker: checked === true })}
-          />
-          <label htmlFor="pb-broker" className="text-sm font-medium text-foreground cursor-pointer">Broker</label>
-        </div>
+
       </div>
 
       {/* Validation Error */}

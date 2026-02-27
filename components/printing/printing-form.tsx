@@ -247,22 +247,7 @@ export function PrintingForm({
             </div>
           </div>}
 
-          {/* Broker toggle (in-house only) */}
-          {!ohpMode && <div className="flex items-center gap-2 mb-4">
-            <Checkbox
-              id="print-broker"
-              checked={inputs.isBroker || false}
-              onCheckedChange={(checked) =>
-                onInputsChange({ ...inputs, isBroker: checked === true })
-              }
-            />
-            <label htmlFor="print-broker" className="text-sm font-medium text-foreground cursor-pointer">
-              Broker Pricing
-            </label>
-            {inputs.isBroker && (
-              <span className="text-[10px] text-muted-foreground">(Level 10 default)</span>
-            )}
-          </div>}
+
 
           {/* Validation summary */}
           {v.attempted && (!inputs.qty || !inputs.width || !inputs.height || !inputs.paperName || !inputs.sidesValue) && (

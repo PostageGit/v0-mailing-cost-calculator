@@ -30,9 +30,11 @@ interface SpiralDetailsProps {
   result: SpiralCalcResult
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  isBroker?: boolean
+  onBrokerChange?: (value: boolean) => void
 }
 
-export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange }: SpiralDetailsProps) {
+export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: SpiralDetailsProps) {
   const {
     insideResult, frontResult, backResult, sheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
@@ -126,6 +128,8 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange }:
       costLines={costLines}
       details={expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

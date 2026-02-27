@@ -137,6 +137,8 @@ export function PadCalculator() {
                   result={calcResult}
                   onLevelChange={handleLevelChange}
                   onEffectiveTotalChange={setEffectiveTotal}
+                  isBroker={inputs.isBroker}
+                  onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))}
                 />
                 <Button
                   onClick={handleAddToQuote}

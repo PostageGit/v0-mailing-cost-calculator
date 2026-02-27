@@ -9,6 +9,8 @@ interface PriceBreakdownProps {
   onChangeSheet: () => void
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  isBroker?: boolean
+  onBrokerChange?: (value: boolean) => void
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -20,7 +22,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffectiveTotalChange }: PriceBreakdownProps) {
+export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: PriceBreakdownProps) {
   const {
     result, inputs, printingCostPlus10, cuttingCost,
     addOnCharge, addOnDescription,
@@ -151,6 +153,8 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
       details={expandedDetails}
       onChangeSize={onChangeSheet}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

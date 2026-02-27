@@ -25,9 +25,10 @@ interface PerfectDetailsProps {
   result: PerfectCalcResult
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  onBrokerChange?: (value: boolean) => void
 }
 
-export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange }: PerfectDetailsProps) {
+export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, onBrokerChange }: PerfectDetailsProps) {
   const {
     coverResult, insideResult, finishedSheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
@@ -107,6 +108,8 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange }
       costLines={costLines}
       details={expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

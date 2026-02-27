@@ -212,19 +212,7 @@ export function PadForm({
             Back Chip Board (${settings.chipBoardPerPad.toFixed(2)}/pad)
           </label>
         </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="pad-broker"
-            checked={inputs.isBroker}
-            onCheckedChange={(checked) => update({ isBroker: checked === true })}
-          />
-          <label htmlFor="pad-broker" className="text-sm font-medium text-foreground cursor-pointer">
-            Broker Pricing
-          </label>
-          {inputs.isBroker && (
-            <span className="text-[10px] text-muted-foreground">(Level 10 default)</span>
-          )}
-        </div>
+
       </div>
 
       {/* Validation */}

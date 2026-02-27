@@ -244,20 +244,7 @@ export function SpiralForm({
         </div>
       </div>
 
-      {/* Broker toggle */}
-      <div className="flex items-center gap-2 mb-4">
-        <Checkbox
-          id="spiral-broker"
-          checked={inputs.isBroker || false}
-          onCheckedChange={(checked) => update({ isBroker: checked === true })}
-        />
-        <label htmlFor="spiral-broker" className="text-sm font-medium text-foreground cursor-pointer">
-          Broker Pricing
-        </label>
-        {inputs.isBroker && (
-          <span className="text-[10px] text-muted-foreground">(Level 10 default)</span>
-        )}
-      </div>
+
 
       {/* Validation Error -- only show if there's a specific error message beyond field validation */}
       {validationError && v.attempted && (
