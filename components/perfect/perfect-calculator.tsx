@@ -70,6 +70,19 @@ export function PerfectCalculator() {
     setActiveTab("cover")
   }, [inputs, isFormValid])
 
+  // Change pricing level via the level bars
+  const handleLevelChange = useCallback((delta: number) => {
+    if (!calcResult) return
+    const currentLevel = calcResult.insideResult.level
+    const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
+    if (newLevel === currentLevel) return
+    const updatedInputs = { ...inputs, customLevel: String(newLevel) }
+    const newResult = calculatePerfect(updatedInputs)
+    if ("error" in newResult) return
+    setInputs(updatedInputs)
+    setCalcResult(newResult)
+  }, [calcResult, inputs])
+
   function resetForm() {
     setInputs(defaultPerfectInputs())
     setCalcResult(null)
@@ -268,7 +281,7 @@ export function PerfectCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <PerfectDetails result={calcResult} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
+                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

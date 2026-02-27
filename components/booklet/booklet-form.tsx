@@ -18,7 +18,9 @@ import {
   getAvailableSizes,
   canPaperLaminate,
   ALL_SIDES,
+  getLaminationPrice,
 } from "@/lib/booklet-pricing"
+import { formatCurrency } from "@/lib/pricing"
 import type { BookletInputs } from "@/lib/booklet-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
 
@@ -235,29 +237,48 @@ export function BookletForm({
 
       <Separator className="my-4" />
 
-      {/* Lamination, Level, Markup, Broker */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 items-end">
-        <div className="flex flex-col gap-1.5 md:col-span-1">
-          <label className="text-sm font-medium text-foreground">Lamination</label>
-          <Select
-            value={inputs.laminationType}
-            onValueChange={(val) => updateInputs({ laminationType: val as BookletInputs["laminationType"] })}
-            disabled={!inputs.separateCover || !canLam}
-          >
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Lamination</SelectItem>
-              <SelectItem value="gloss">Gloss</SelectItem>
-              <SelectItem value="matte">Matte</SelectItem>
-              <SelectItem value="silk">Silk</SelectItem>
-              <SelectItem value="leather">Leather</SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Lamination (on cover) */}
+      {inputs.separateCover && canLam && (
+        <div className="mb-6">
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+            Lamination <span className="font-normal normal-case text-muted-foreground/70">on cover</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(["none", "gloss", "matte", "silk", "leather"] as const).map((t) => {
+              const selected = inputs.laminationType === t
+              const isNone = t === "none"
+              // Compute live price for this lamination type (needs cover sheets from a quick calc)
+              let price: number | null = null
+              if (!isNone && inputs.bookQty > 0 && inputs.coverPaper) {
+                // Estimate cover sheets: rough approximation (qty / 2 for saddle-stitch with UPS)
+                const estSheets = Math.max(inputs.bookQty, 1)
+                price = getLaminationPrice(t, inputs.coverPaper, estSheets, inputs.isBroker)
+              }
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => updateInputs({ laminationType: t })}
+                  className={`flex flex-col items-center rounded-xl border-2 px-4 py-2.5 transition-all min-w-[80px] ${
+                    selected
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card text-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="text-[12px] font-bold">{isNone ? "None" : t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                  {price !== null && price > 0 && (
+                    <span className={`text-[10px] font-mono font-semibold mt-0.5 ${selected ? "text-background/70" : "text-muted-foreground"}`}>
+                      +{formatCurrency(price)}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
+      )}
 
 
-
-      </div>
 
       {/* Validation Error */}
       {validationError && v.attempted && (
