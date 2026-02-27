@@ -66,8 +66,17 @@ function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefine
     const specCats = ["flat", "booklet", "spiral", "perfect", "envelope", "ohp"]
     if (!specCats.includes(cat)) return false
     if (!matchedPiece) return bid.item_label.includes(it.label.replace(/^\d[\d,]*\s*-\s*/, ""))
+    // Match by dimensions in label OR in metadata.pieceDimensions
     const dims = [`${matchedPiece.width}x${matchedPiece.height}`, `${matchedPiece.height}x${matchedPiece.width}`]
-    return dims.some((d) => it.label.includes(d))
+    const labelMatch = dims.some((d) => it.label.includes(d))
+    if (labelMatch) return true
+    // Also match by metadata pieceDimensions (OHP items store dims in metadata, not label)
+    const md = it.metadata as Record<string, unknown> | undefined
+    if (md?.pieceDimensions) {
+      const mdDim = String(md.pieceDimensions)
+      return dims.some((d) => mdDim === d)
+    }
+    return false
   })
 
   const m = matchingItem?.metadata as Record<string, unknown> | undefined
@@ -83,12 +92,8 @@ function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefine
     const specs = buildCustomerSpecs(m, matchingItem?.category as QuoteCategory)
     if (specs) lines.push(specs)
   } else if (matchedPiece) {
-    // Fallback: build from piece data directly (one spec per line)
+    // Fallback: build from piece data (MailPiece only has dimensions + fold)
     if (matchedPiece.width && matchedPiece.height) lines.push(`${matchedPiece.width}" x ${matchedPiece.height}"`)
-    if (matchedPiece.paperName) lines.push(String(matchedPiece.paperName))
-    if (matchedPiece.sides) lines.push(String(matchedPiece.sides))
-    if (matchedPiece.hasBleed) lines.push("Bleed")
-    if (matchedPiece.pageCount && matchedPiece.pageCount > 1) lines.push(`${matchedPiece.pageCount} Pages`)
     if (matchedPiece.foldType && matchedPiece.foldType !== "none") {
       lines.push(String(matchedPiece.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold"))
     }
