@@ -12,67 +12,86 @@ import { calculatePerfect } from "@/lib/perfect-pricing"
 import { calculatePad } from "@/lib/pad-pricing"
 import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
+import type { LaminationInputs } from "@/lib/lamination-pricing"
 
 function fmt(n: number) {
   return "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
 }
 
-const SYSTEM_PROMPT = `You are a friendly quote assistant for Postage Plus, a professional print shop in Spring Valley, NY. 
-Customers will describe what they need and you help them get a price quote.
+const SYSTEM_PROMPT = `You are a quick, friendly quote helper for a print shop. Customers don't know printing jargon. Keep every reply SHORT -- 1-3 sentences max. Ask ONE question at a time.
 
-YOUR BEHAVIOR:
-- Be conversational and helpful, not robotic
-- Ask clarifying questions BEFORE running a calculator -- you need enough info to price the job
-- When you have enough info, call the appropriate calculator tool
-- Present prices clearly: total price, per-unit price
-- Suggest alternatives or upsells when appropriate (e.g. "For just $X more you could upgrade to gloss cover stock")
-- If a request is ambiguous, ask -- don't guess
-- Keep responses concise. Customers want prices, not essays.
-- Always round UP: we never underprice
+STYLE:
+- Talk like a real person at a counter, not a robot. Short sentences.
+- Never use bullet lists when talking to the customer. Just ask a plain question.
+- When you're missing info, ask the MOST IMPORTANT missing thing first, then move to the next.
+- Use common words: "front and back" not "double-sided", "full color" not "4/4", "thick cardstock" not "12pt Gloss".
+- When you have enough info, run the calculator right away. Don't ask permission to calculate.
 
-WHAT YOU CAN PRICE:
-1. Flat printing (flyers, postcards, business cards, brochures, letterheads, etc.)
-2. Saddle-stitched booklets (stapled on the spine)
-3. Spiral-bound books (coil binding)
-4. Perfect-bound books (glue binding, 40+ pages)
-5. Notepads / pads
-6. Envelopes
+ASKING FLOW -- always figure these out (ask if not obvious):
+For ANY print job:
+1. What are you making? (flyer, booklet, business card, etc.)
+2. How many?
+3. What size?
+For BOOKS / BOOKLETS -- also ask:
+4. How many pages? (this is REQUIRED -- never skip it)
+5. Color or black & white inside?
+6. Want a nicer cover stock? Lamination on the cover?
+For FLAT PRINTS -- also ask:
+4. Color or black & white?
+5. Front only or front and back?
+6. Regular paper or thick cardstock?
+For PADS:
+4. How many sheets per pad?
+For ENVELOPES:
+4. What size envelope?
+5. Color or black & white?
 
-INFORMATION YOU NEED (ask for what's missing):
-- What product type?
-- How many? (quantity)
-- What size? (e.g. 8.5x11, 5.5x8.5, 4x6)
-- For books/booklets: how many pages?
-- Paper stock (offer suggestions: "Would you like standard 80lb Text Gloss, or heavier card stock?")
-- Printing sides: one-sided (S/S) or double-sided (D/S) for B&W, (4/0) or (4/4) for color
-- Bleed (does the design go to the edge of the paper?)
-- Any finishing (lamination, folding, binding)?
+SMART DEFAULTS (use these so you don't have to ask everything):
+- Paper: 80lb Text Gloss for normal flyers/booklets. 12pt Gloss for postcards/business cards. 20lb Offset for pads/copies.
+- Color both sides unless they say otherwise.
+- No bleed unless it's a postcard, business card, or they mention "edge to edge".
+- No lamination unless they ask for it.
+- Booklet/perfect covers: 80 Cover Gloss, color both sides, bleed on.
+- Perfect binding needs 40+ pages. If they say less, suggest saddle-stitch instead.
+- Saddle-stitch pages must be a multiple of 4. Round up if needed and tell them.
 
-AVAILABLE PAPERS (for flat printing & booklets):
-- Text stocks: 20lb Offset, 60lb Offset, 80lb Text Gloss, 100lb Text Gloss
-- Cover stocks: 65 Cover (White), 67 Cover (White/Off-White), 80 Cover Gloss
-- Heavy stocks: 10pt Offset, 10pt Gloss, 12pt Gloss, 14pt Gloss
-- Sticker (Crack & Peel)
+BINDING TYPES (use the right calculator):
+- Stapled booklet (saddle-stitch): up to ~64 pages. Use calculate_booklet.
+- Perfect binding (glue spine, like a paperback): 40+ pages. Use calculate_perfect_bound.
+- Spiral / coil binding: any page count. Use calculate_spiral.
+- If they say "book" or "booklet", ask how many pages to pick the right binding. If they specify "perfect binding" or "perfect bound", use perfect bound even if you'd normally suggest otherwise.
 
-COMMON DEFAULTS (use when customer doesn't specify):
-- Paper: 80lb Text Gloss for standard flyers/booklets, 12pt Gloss for postcards/business cards
-- Sides: Color double-sided (4/4) unless stated otherwise
-- Bleed: true for postcards/business cards, false for simple copies
-- Size: 8.5x11 for standard flyers, 4x6 for postcards, 3.5x2 for business cards
+BROKER CUSTOMERS:
+- If someone says "broker", "trade pricing", or "wholesale", set isBroker = true.
+- You can ask "Is this for yourself or are you a print broker?" if unclear.
+- Never reveal discount amounts or how broker pricing works.
 
-ENVELOPE TYPES AVAILABLE:
-#6, #9, #10 no window, #10 with window, 6x9, 6x9.5, 9x12, 9x12 open end, Princes, A-2, A-7 (5.25x7.25), Remit, Square 9x9, Square 6x6
+PRESENTING THE QUOTE:
+- Lead with the total and per-unit price: "That'd be $X total ($X each)."
+- Then one short line about what's included.
+- If there's a cost breakdown, mention the big items briefly.
+- Offer one upsell if it makes sense: "Want lamination on the cover? Adds about $X."
 
-IMPORTANT RULES:
-- Never reveal internal pricing formulas or markup percentages
-- Never mention "levels", "markup", "click costs" or other internal terminology
-- Just say "the price is..." -- keep it simple for the customer
-- If a calculation fails or returns an error, explain what went wrong in plain language and ask the customer to adjust`
+NEVER DO:
+- Never mention levels, markup, click costs, formulas, or internal terms.
+- Never say "let me calculate" or "I'll run the numbers" -- just do it.
+- Never write long paragraphs. Keep it punchy.
+- Never guess page count for books. Always ask.
+
+PAPER OPTIONS (for your reference, use plain names when talking to customer):
+Text: 20lb Offset, 60lb Offset, 80lb Text Gloss, 100lb Text Gloss
+Cover: 65 Cover, 67 Cover, 80 Cover Gloss
+Cardstock: 10pt Offset, 10pt Gloss, 12pt Gloss, 14pt Gloss
+Specialty: Sticker (Crack & Peel)
+
+LAMINATION: Gloss, Matte, Silk, Leather. One side or both. Only on cover/cardstock.
+
+ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square 9x9, Square 6x6. InkJet or Laser.`
 
 const tools = {
   calculate_printing: tool({
     description:
-      "Calculate the cost of a flat printing job such as flyers, postcards, business cards, brochures, letterheads, etc. Returns the cheapest sheet option automatically.",
+      "Calculate the cost of a flat printing job such as flyers, postcards, business cards, brochures, letterheads, etc. Supports optional lamination and broker pricing. Returns the cheapest sheet option automatically.",
     inputSchema: z.object({
       qty: z.number().describe("Number of printed pieces"),
       width: z.number().describe("Finished piece width in inches"),
@@ -85,13 +104,32 @@ const tools = {
       sidesValue: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe(
-          "S/S=BW one-sided, D/S=BW both sides, 4/0=Color one-sided, 4/4=Color both sides"
+          "S/S=BW one-sided, D/S=BW both sides, 4/0=Color one-sided, 4/4=Color both sides, 1/0=BW one-sided, 1/1=BW both sides"
         ),
       hasBleed: z
         .boolean()
         .describe("Whether the design bleeds to the edge of the paper"),
+      isBroker: z
+        .boolean()
+        .describe("Whether this is a broker/trade customer. Broker gets Level 10 pricing."),
+      laminationEnabled: z
+        .boolean()
+        .describe("Whether to add lamination to the printed sheets"),
+      laminationType: z
+        .enum(["Gloss", "Matte", "Silk", "Leather"])
+        .nullable()
+        .describe("Lamination type if enabled"),
+      laminationSides: z
+        .enum(["S/S", "D/S"])
+        .nullable()
+        .describe("Lamination sides: S/S = one side, D/S = both sides"),
     }),
-    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed }) => {
+    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides }) => {
+      const lamination: LaminationInputs = {
+        enabled: laminationEnabled,
+        type: (laminationType || "Gloss") as LaminationInputs["type"],
+        sides: (laminationSides || "S/S") as LaminationInputs["sides"],
+      }
       const inputs: PrintingInputs = {
         qty,
         width,
@@ -102,6 +140,8 @@ const tools = {
         addOnCharge: 0,
         addOnDescription: "",
         printingMarkupPct: 10,
+        isBroker,
+        lamination,
       }
       const options = calculateAllSheetOptions(inputs)
       if (!options.length) {
@@ -111,6 +151,15 @@ const tools = {
       }
       const best = options[0]
       const fullResult = buildFullResult(inputs, best.result)
+      const parts: Record<string, string> = {
+        printing: fmt(fullResult.printingCostPlus10),
+      }
+      if (fullResult.laminationCost && fullResult.laminationCost.cost > 0) {
+        parts.lamination = fmt(fullResult.laminationCost.cost)
+      }
+      if (fullResult.cuttingCost > 0) {
+        parts.cutting = fmt(fullResult.cuttingCost)
+      }
       return {
         total: fmt(fullResult.grandTotal),
         perUnit: fmt(fullResult.grandTotal / qty),
@@ -119,16 +168,17 @@ const tools = {
         paper: paperName,
         sides: sidesValue,
         bleed: hasBleed,
+        broker: isBroker,
         sheetSize: best.size,
-        ups: best.ups,
-        sheets: best.sheets,
+        costBreakdown: parts,
+        lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
       }
     },
   }),
 
   calculate_booklet: tool({
     description:
-      "Calculate the cost of a saddle-stitched (stapled) booklet. Includes printing, binding, and optional lamination.",
+      "Calculate the cost of a saddle-stitched (stapled) booklet. Includes printing, binding, and optional lamination. Supports broker pricing.",
     inputSchema: z.object({
       bookQty: z.number().describe("Number of booklets"),
       pagesPerBook: z
@@ -156,6 +206,9 @@ const tools = {
       laminationType: z
         .enum(["none", "Gloss", "Matte", "Silk", "Leather"])
         .describe("Lamination type on cover (if separate cover)"),
+      isBroker: z
+        .boolean()
+        .describe("Whether this is a broker/trade customer"),
     }),
     execute: async ({
       bookQty,
@@ -168,6 +221,7 @@ const tools = {
       coverPaper,
       coverSides,
       laminationType,
+      isBroker,
     }) => {
       const result = calculateBooklet({
         bookQty,
@@ -185,7 +239,7 @@ const tools = {
         insideSheetSize: "Cheapest",
         laminationType: separateCover ? laminationType : "none",
         customLevel: "auto",
-        isBroker: false,
+        isBroker,
         printingMarkupPct: 10,
       })
       if (!result.isValid) {
@@ -201,16 +255,19 @@ const tools = {
         coverPaper: separateCover ? (coverPaper || insidePaper) : "Same as inside",
         binding: "Saddle-stitch",
         lamination: separateCover ? laminationType : "none",
-        printingCost: fmt(result.totalPrintingCost),
-        bindingCost: fmt(result.totalBindingPrice),
-        laminationCost: fmt(result.totalLaminationCost),
+        broker: isBroker,
+        costBreakdown: {
+          printing: fmt(result.totalPrintingCost),
+          binding: fmt(result.totalBindingPrice),
+          lamination: fmt(result.totalLaminationCost),
+        },
       }
     },
   }),
 
   calculate_spiral: tool({
     description:
-      "Calculate the cost of a spiral-bound (coil) book. Good for training manuals, cookbooks, workbooks.",
+      "Calculate the cost of a spiral-bound (coil) book. Good for training manuals, cookbooks, workbooks. Supports broker pricing.",
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
       pagesPerBook: z.number().describe("Number of inside pages"),
@@ -227,6 +284,9 @@ const tools = {
       backPaper: z.string().nullable().describe("Back cover paper if used"),
       clearPlastic: z.boolean().describe("Add clear plastic front cover"),
       blackVinyl: z.boolean().describe("Add black vinyl back cover"),
+      isBroker: z
+        .boolean()
+        .describe("Whether this is a broker/trade customer"),
     }),
     execute: async ({
       bookQty,
@@ -242,6 +302,7 @@ const tools = {
       backPaper,
       clearPlastic,
       blackVinyl,
+      isBroker,
     }) => {
       const result = calculateSpiral({
         bookQty,
@@ -271,7 +332,7 @@ const tools = {
         clearPlastic,
         blackVinyl,
         customLevel: "auto",
-        isBroker: false,
+        isBroker,
       })
       if ("error" in result) {
         return { error: result.error }
@@ -284,15 +345,18 @@ const tools = {
         size: `${pageWidth}x${pageHeight}`,
         paper: insidePaper,
         binding: "Spiral (coil)",
-        printingCost: fmt(result.totalPrintingCost),
-        bindingCost: fmt(result.totalBindingPrice),
+        broker: isBroker,
+        costBreakdown: {
+          printing: fmt(result.totalPrintingCost),
+          binding: fmt(result.totalBindingPrice),
+        },
       }
     },
   }),
 
   calculate_perfect_bound: tool({
     description:
-      "Calculate the cost of a perfect-bound (glue) book. Requires 40+ pages. Good for catalogs, thick manuals, paperbacks.",
+      "Calculate the cost of a perfect-bound (glue) book. Requires 40+ pages. Good for catalogs, thick manuals, paperbacks. Supports broker pricing.",
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
       pagesPerBook: z.number().describe("Number of inside pages (minimum 40)"),
@@ -309,6 +373,9 @@ const tools = {
       laminationType: z
         .enum(["none", "Gloss", "Matte", "Silk", "Leather"])
         .describe("Cover lamination type"),
+      isBroker: z
+        .boolean()
+        .describe("Whether this is a broker/trade customer"),
     }),
     execute: async ({
       bookQty,
@@ -320,6 +387,7 @@ const tools = {
       coverPaper,
       coverSides,
       laminationType,
+      isBroker,
     }) => {
       const result = calculatePerfect({
         bookQty,
@@ -340,7 +408,7 @@ const tools = {
         },
         laminationType,
         customLevel: "auto",
-        isBroker: false,
+        isBroker,
       })
       if ("error" in result) {
         return { error: result.error }
@@ -355,16 +423,19 @@ const tools = {
         coverPaper,
         binding: "Perfect-bound (glue)",
         lamination: laminationType,
-        printingCost: fmt(result.totalPrintingCost),
-        bindingCost: fmt(result.totalBindingPrice),
-        laminationCost: fmt(result.totalLaminationCost),
+        broker: isBroker,
+        costBreakdown: {
+          printing: fmt(result.totalPrintingCost),
+          binding: fmt(result.totalBindingPrice),
+          lamination: fmt(result.totalLaminationCost),
+        },
       }
     },
   }),
 
   calculate_pad: tool({
     description:
-      "Calculate the cost of notepads. Includes printing, padding, and optional chipboard backing.",
+      "Calculate the cost of notepads. Includes printing, padding, and optional chipboard backing. Supports broker pricing.",
     inputSchema: z.object({
       padQty: z.number().describe("Number of pads"),
       pagesPerPad: z.number().describe("Pages per pad (e.g. 25, 50, 100)"),
@@ -375,6 +446,9 @@ const tools = {
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Printing sides"),
       useChipBoard: z.boolean().describe("Include chipboard backing"),
+      isBroker: z
+        .boolean()
+        .describe("Whether this is a broker/trade customer"),
     }),
     execute: async ({
       padQty,
@@ -384,6 +458,7 @@ const tools = {
       insidePaper,
       insideSides,
       useChipBoard,
+      isBroker,
     }) => {
       const result = calculatePad({
         padQty,
@@ -398,7 +473,7 @@ const tools = {
         },
         useChipBoard,
         customLevel: "auto",
-        isBroker: false,
+        isBroker,
       })
       if ("error" in result) {
         return { error: result.error }
@@ -411,16 +486,19 @@ const tools = {
         size: `${pageWidth}x${pageHeight}`,
         paper: insidePaper,
         chipBoard: useChipBoard,
-        printingCost: fmt(result.totalPrintingCost),
-        paddingCost: fmt(result.totalPaddingCost),
-        setupCharge: fmt(result.setupCharge),
+        broker: isBroker,
+        costBreakdown: {
+          printing: fmt(result.totalPrintingCost),
+          padding: fmt(result.totalPaddingCost),
+          setup: fmt(result.setupCharge),
+        },
       }
     },
   }),
 
   calculate_envelope: tool({
     description:
-      "Calculate the cost of printed envelopes. Various envelope sizes and ink types available.",
+      "Calculate the cost of printed envelopes. Various envelope sizes and ink types available. Supports broker pricing.",
     inputSchema: z.object({
       amount: z.number().describe("Number of envelopes"),
       itemName: z
@@ -437,9 +515,9 @@ const tools = {
           'Print type. For InkJet: "Text BW", "Text Color", "Text + Logo", "Custom". For Laser: "BW", "RBW", "Color"'
         ),
       hasBleed: z.boolean().describe("Whether the design bleeds to the edge"),
-      customerType: z
-        .enum(["Regular", "Broker"])
-        .describe("Customer type for pricing"),
+      isBroker: z
+        .boolean()
+        .describe("Whether this is a broker/trade customer"),
     }),
     execute: async ({
       amount,
@@ -447,7 +525,7 @@ const tools = {
       inkType,
       printType,
       hasBleed,
-      customerType,
+      isBroker,
     }) => {
       const result = calculateEnvelope(
         {
@@ -456,7 +534,7 @@ const tools = {
           inkType,
           printType: printType as never,
           hasBleed,
-          customerType,
+          customerType: isBroker ? "Broker" : "Regular",
           customEnvCost: 0,
           customPrintCost: 0,
         },
@@ -473,7 +551,7 @@ const tools = {
         inkType,
         printType,
         bleed: hasBleed,
-        bleedFeesApplied: result.bleedFeesApplied,
+        broker: isBroker,
       }
     },
   }),
@@ -493,7 +571,7 @@ const tools = {
 
   list_envelope_types: tool({
     description:
-      "List all available envelope types with pricing info. Use when customer asks about envelope options.",
+      "List all available envelope types. Use when customer asks about envelope options.",
     inputSchema: z.object({}),
     execute: async () => {
       return DEFAULT_ENVELOPE_SETTINGS.items.map((item) => ({
