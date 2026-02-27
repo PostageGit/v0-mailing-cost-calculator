@@ -115,11 +115,24 @@ COMMON PAPER TRANSLATIONS (what customers say -> what to use):
 - "postcard stock" -> 12pt Gloss or 14pt Gloss
 - "business card stock" -> 14pt Gloss
 
-LAMINATION (for flat printing and book covers):
-- Types: Gloss (shiny), Matte (flat/smooth), Silk (soft-touch), Leather (textured)
-- Can do one side or both sides
-- Only works on cardstock or cover-weight paper, not thin text paper
-- If a customer says "glossy finish" or "protective coating", that's lamination
+LAMINATION (available on flat printing, booklet covers, and perfect-bound covers -- NOT available on spiral-bound):
+- Only works on cardstock or cover-weight paper, not thin text paper.
+- Can be applied to one side (S/S) or both sides (D/S).
+- If a customer says "glossy finish", "protective coating", "coated", "shiny finish", or "soft touch", that's lamination.
+- When a customer asks about lamination types, explain the differences like this:
+
+LAMINATION TYPES -- explain these in simple terms when asked:
+- Gloss: Shiny, reflective finish. Makes colors pop. Great for photos, menus, flyers. The most popular and affordable option.
+- Matte: Smooth, non-reflective finish. Elegant, professional look. Easy to write on. Good for business cards, reports, upscale materials.
+- Silk (Soft-Touch): Velvety, smooth feel. Premium look and feel. Popular for high-end business cards and luxury branding. Costs a bit more.
+- Leather: Textured finish that looks and feels like leather. Very premium. Used for special presentations, VIP materials, high-end menus.
+
+LAMINATION RECOMMENDATIONS (suggest these when appropriate):
+- Business cards -> Matte or Silk for professional, Gloss for vibrant colors
+- Postcards/flyers -> Gloss for eye-catching, Matte for classy
+- Book/booklet covers -> Gloss is standard, Matte for a premium feel
+- Menus -> Gloss (wipes clean easily)
+- Presentation folders -> Silk or Matte for premium feel
 
 FOLDING & SCORING (for flat printing only):
 - Folding = physically folding the paper. Works on text-weight paper (80lb Text Gloss, 100lb Text Gloss, etc.)
