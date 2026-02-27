@@ -364,13 +364,16 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
     items.push({ id: "clear-bags-item", reason: "Clear bags needed for plastic outer" })
   }
 
-  // 6. TABBING -- needed for self-mailers (no envelope, piece mails on its own)
-  //    Also triggered by USPS format: SM_CARD, SM_FOLD, SM_BOOK all require tabs per USPS DMM 201.3
-  const isSelfMailerFormat = ["SM_CARD", "SM_FOLD", "SM_BOOK"].includes(ctx.uspsFormat || "")
-  if (ctx.outerPieceType === "self_mailer" || isSelfMailerFormat) {
-    const reason = isSelfMailerFormat
-      ? "Self-mailer format requires tabs/wafer seals per USPS DMM 201.3"
-      : "Self-mailers require tabs to stay closed"
+  // 6. TABBING -- only needed for FOLDED self-mailers in Letter class.
+  //    Flat-class mail and plain flat cards (SM_CARD) do NOT need tabs.
+  //    SM_FOLD and SM_BOOK need tabs because the folded piece must stay closed.
+  const isLetterShape = ctx.shape === "LETTER"
+  const needsTabByFormat = ["SM_FOLD", "SM_BOOK"].includes(ctx.uspsFormat || "") && isLetterShape
+  const needsTabByPiece = ctx.outerPieceType === "self_mailer" && ctx.hasFoldedPiece && isLetterShape
+  if (needsTabByFormat || needsTabByPiece) {
+    const reason = needsTabByFormat
+      ? "Folded self-mailer (Letter class) requires tabs/wafer seals per USPS DMM 201.3"
+      : "Folded self-mailer requires tabs to stay closed"
     items.push({ id: "tabbing", reason })
   }
 
