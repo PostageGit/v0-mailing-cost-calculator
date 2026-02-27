@@ -30,7 +30,7 @@ const EMPTY_INPUTS: BookletInputs = {
   laminationType: "none",
   customLevel: "auto",
   isBroker: false,
-  printingMarkupPct: 10,
+  printingMarkupPct: 0,
 }
 
 export function BookletCalculator() {

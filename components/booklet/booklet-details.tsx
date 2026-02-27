@@ -50,7 +50,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   ]
 
   const costLines: CostLine[] = [
-    { label: `Printing +${inputs.printingMarkupPct ?? 10}%`, value: totalPrintingCost },
+    { label: "Printing", value: totalPrintingCost },
     { label: "Binding", value: totalBindingPrice },
   ]
   if (totalLaminationCost > 0) {

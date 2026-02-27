@@ -353,7 +353,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
 
   // Broker minimum logic
   const rawPrintingCost = insideResult.cost + coverResult.cost
-  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
+  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
   let totalPrintingCost = rawPrintingCost * pctMultiplier
   let brokerMinimumApplied: string | null = null
 

@@ -47,7 +47,7 @@ const EMPTY_INPUTS: PrintingInputs = {
   isBroker: false,
   scoreFoldOperation: "",
   scoreFoldType: "",
-  printingMarkupPct: 10,
+  printingMarkupPct: 0,
   lamination: {
     enabled: false,
     type: "Gloss",

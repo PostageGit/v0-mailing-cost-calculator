@@ -266,14 +266,7 @@ export function BookletForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-foreground">Markup %</label>
-          <Input
-            type="number" step="1" min={0} max={100}
-            value={inputs.printingMarkupPct ?? 10}
-            onChange={(e) => updateInputs({ printingMarkupPct: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
+
         <div className="flex items-center gap-2 h-9">
           <Checkbox
             id="broker"

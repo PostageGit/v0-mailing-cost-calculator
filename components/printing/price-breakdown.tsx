@@ -39,7 +39,7 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
 
   const costLines: CostLine[] = [
     {
-      label: result.wasPrintingMinApplied ? "Printing (min.)" : `Printing +${inputs.printingMarkupPct ?? 10}%`,
+      label: result.wasPrintingMinApplied ? "Printing (min.)" : "Printing",
       value: printingCostPlus10,
     },
     {
