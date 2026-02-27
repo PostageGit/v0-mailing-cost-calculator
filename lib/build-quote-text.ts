@@ -57,16 +57,19 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
   // 2. Pages (for books)
   if (m.pageCount) parts.push(m.pageCount + " Pages")
 
-  // 3. Paper stock (prefix with "Inside pages:" when there's a separate cover)
-  if (m.paperName) {
-    parts.push(m.coverPaper ? `Inside pages: ${String(m.paperName)}` : String(m.paperName))
+  // 3. Paper stock + sides (when cover exists, sides go on inside pages line)
+  if (m.paperName && m.coverPaper) {
+    const sidesStr = m.sides ? ` ${String(m.sides)}` : ""
+    parts.push(`Inside pages: ${String(m.paperName)}${sidesStr}`)
+  } else if (m.paperName) {
+    parts.push(String(m.paperName))
   }
 
   // 3b. Cover paper (booklet/perfect)
   if (m.coverPaper) parts.push(`Cover: ${String(m.coverPaper)}${m.coverSides ? `, ${String(m.coverSides)}` : ""}`)
 
-  // 4. Color / sides (4/0, 4/4, S/S, D/S etc.)
-  if (m.sides) parts.push(String(m.sides))
+  // 4. Color / sides -- only as separate line when NO cover (flat prints etc.)
+  if (m.sides && !m.coverPaper) parts.push(String(m.sides))
 
   // 5. Fold (from planner fold type)
   if (m.foldType && m.foldType !== "none") {
