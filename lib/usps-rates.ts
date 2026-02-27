@@ -67,7 +67,7 @@ export interface USPSResult {
   total: number
   className: string
   description: string
-  alerts: { type: "error" | "warning" | "info"; message: string }[]
+  alerts: { type: "error" | "warning" | "info" | "override"; message: string }[]
   isValid: boolean
   tierPrices: { tier: TierDef; price: number }[]
   satRate: number
@@ -332,7 +332,12 @@ export function calculateUSPSPostage(inputs: USPSInputs): USPSResult {
   // --- Packaging warnings ---
   const isSelfMailer = pack === "SM_CARD" || pack === "SM_FOLD" || pack === "SM_BOOK"
   if (isSelfMailer) {
-    alerts.push({ type: "warning", message: `Self-Mailer: Must use wafer seals / tabs per USPS DMM 201.3.` })
+    if (shape === "FLAT") {
+      // Flat-class self-mailers: tabbing not required -- override notice
+      alerts.push({ type: "override", message: "USPS tabbing rule overridden by Postage Plus -- no tabs required for Flat class." })
+    } else {
+      alerts.push({ type: "warning", message: `Self-Mailer: Must use wafer seals / tabs per USPS DMM 201.3.` })
+    }
   }
   if (pack === "PLAS" && shape === "LETTER") {
     alerts.push({ type: "warning", message: "Plastic: Letters in poly bags are Non-Machinable. Surcharge applied." })
@@ -417,7 +422,7 @@ export interface Tab2Result {
   total: number
   description: string
   rateInfo: string
-  alerts: { type: "error" | "warning" | "info"; message: string }[]
+  alerts: { type: "error" | "warning" | "info" | "override"; message: string }[]
   isValid: boolean
 }
 
