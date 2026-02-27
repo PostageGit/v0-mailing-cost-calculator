@@ -781,13 +781,13 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   if (editing) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[13px]" onClick={(e) => e.stopPropagation()}>
-        <FileText className="h-4 w-4 text-muted-foreground/50" />
-        <span className="font-bold text-foreground/60">ZD#</span>
+      <span className="inline-flex items-center gap-1.5 text-sm" onClick={(e) => e.stopPropagation()}>
+        <FileText className="h-4 w-4 text-muted-foreground" />
+        <span className="font-bold text-foreground">ZD#</span>
         <input ref={ref} value={draft} onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false) } }}
-          className="w-20 text-[13px] font-mono font-bold text-foreground bg-transparent border-b border-foreground/30 outline-none"
+          className="w-20 text-sm font-mono font-bold text-foreground bg-transparent border-b-2 border-foreground/40 outline-none"
           placeholder="10558"
         />
       </span>
@@ -796,14 +796,14 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   if (value) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[13px] group/zd">
+      <span className="inline-flex items-center gap-1.5 text-sm group/zd">
         <FileText className="h-4 w-4 text-emerald-600" />
-        <span className="font-bold text-foreground/60">ZD#</span>
+        <span className="font-bold text-foreground">ZD#</span>
         <a href={`${ZENDESK_BASE}${value}`} target="_blank" rel="noopener noreferrer"
-          className="font-mono font-extrabold text-emerald-700 dark:text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>
+          className="font-mono font-extrabold text-emerald-700 dark:text-emerald-300 hover:underline" onClick={(e) => e.stopPropagation()}>
           {value}
         </a>
-        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover/zd:text-emerald-500 transition-colors" />
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 group-hover/zd:text-emerald-500 transition-colors" />
         <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
           className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground opacity-0 group-hover/zd:opacity-100 transition-opacity">
           <Pencil className="h-2.5 w-2.5" />
@@ -814,7 +814,7 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   return (
     <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
-      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+      className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground/50 hover:text-muted-foreground transition-colors">
       <FileText className="h-4 w-4" />ZD# <span className="font-mono">---</span>
     </button>
   )
@@ -1077,7 +1077,7 @@ function QuoteCard({
         <div className="pl-7 pr-4 pt-3.5 pb-3">
           {/* Row 1: Title + expand/notes actions */}
           <div className="flex items-start gap-2 mb-0.5 relative">
-            <p className="text-[15px] font-bold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
+            <p className="text-base font-extrabold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
                 className={cn("relative h-6 w-6 flex items-center justify-center rounded transition-colors",
@@ -1103,7 +1103,7 @@ function QuoteCard({
           </div>
 
           {/* Row 2: Contact name as subtitle */}
-          <p className="text-[13px] text-muted-foreground/60 truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
+          <p className="text-sm font-medium text-muted-foreground truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
 
           {/* Row 3: Tags strip -- Overdue + Assignee + Mail Class + Date */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -1169,20 +1169,20 @@ function QuoteCard({
           <div className="flex items-center gap-4 mb-2.5">
             <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
             {quote.reference_number && (
-              <span className="inline-flex items-center gap-1.5 text-[13px] font-mono font-bold text-foreground/60">
-                <Hash className="h-3.5 w-3.5" />
+              <span className="inline-flex items-center gap-1.5 text-sm font-mono font-extrabold text-foreground">
+                <Hash className="h-4 w-4" />
                 INV {quote.reference_number}
               </span>
             )}
             {/* Q/J numbers */}
             <div className="flex items-center gap-1.5 ml-auto">
               {quote.job_number ? (
-                <span className="text-[13px] font-extrabold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-1 rounded">J-{quote.job_number}</span>
+                <span className="text-sm font-extrabold font-mono tabular-nums text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 px-2 py-1 rounded">J-{quote.job_number}</span>
               ) : quote.quote_number ? (
-                <span className="text-[13px] font-extrabold font-mono tabular-nums text-foreground/80 bg-secondary px-2 py-1 rounded">Q-{quote.quote_number}</span>
+                <span className="text-sm font-extrabold font-mono tabular-nums text-foreground bg-secondary px-2 py-1 rounded">Q-{quote.quote_number}</span>
               ) : null}
               {quote.job_number && quote.quote_number && (
-                <span className="text-[12px] font-bold font-mono tabular-nums text-muted-foreground/60">Q-{quote.quote_number}</span>
+                <span className="text-[13px] font-bold font-mono tabular-nums text-muted-foreground">Q-{quote.quote_number}</span>
               )}
             </div>
           </div>
@@ -1192,8 +1192,8 @@ function QuoteCard({
             {(meta.quick_notes || quote.notes) ? (
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
                 className="flex items-start gap-1.5 w-full text-left group/note">
-                <NotepadText className="h-4 w-4 text-muted-foreground/60 shrink-0 mt-0.5" />
-                <span className="text-[13px] font-medium text-foreground/50 truncate group-hover/note:text-foreground/70 transition-colors leading-relaxed">
+                <NotepadText className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                <span className="text-sm font-semibold text-foreground/70 truncate group-hover/note:text-foreground transition-colors leading-relaxed">
                   {meta.quick_notes || quote.notes}
                 </span>
               </button>
