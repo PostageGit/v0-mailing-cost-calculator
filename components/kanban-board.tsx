@@ -895,7 +895,7 @@ function NextStepAdd({ steps, onAdd, existingSteps }: { steps: string[]; onAdd: 
     <div ref={containerRef} className="relative" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-1.5 w-full rounded-lg border border-dashed border-border/50 hover:border-border px-3 py-1.5 text-[12px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-        <PlusCircle className="h-3.5 w-3.5 shrink-0" />
+        <CirclePlus className="h-3.5 w-3.5 shrink-0" />
         <span>Nxt step</span>
         <ChevronDown className={cn("h-3.5 w-3.5 ml-auto shrink-0 transition-transform", isOpen && "rotate-180")} />
       </button>
