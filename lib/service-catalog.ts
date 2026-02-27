@@ -365,12 +365,13 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
   }
 
   // 6. TABBING -- only needed for FOLDED self-mailers in Letter class.
-  //    Flat-class mail and plain flat cards (SM_CARD) do NOT need tabs.
-  //    SM_FOLD and SM_BOOK need tabs because the folded piece must stay closed.
+  //    Flat-class mail does NOT need tabs (overridden by Postage Plus).
+  //    SM_FOLD and SM_BOOK need tabs only when mailed as Letter shape.
   const isLetterShape = ctx.shape === "LETTER"
+  const isFlatShape = ctx.shape === "FLAT"
   const needsTabByFormat = ["SM_FOLD", "SM_BOOK"].includes(ctx.uspsFormat || "") && isLetterShape
   const needsTabByPiece = ctx.outerPieceType === "self_mailer" && ctx.hasFoldedPiece && isLetterShape
-  if (needsTabByFormat || needsTabByPiece) {
+  if ((needsTabByFormat || needsTabByPiece) && !isFlatShape) {
     const reason = needsTabByFormat
       ? "Folded self-mailer (Letter class) requires tabs/wafer seals per USPS DMM 201.3"
       : "Folded self-mailer requires tabs to stay closed"

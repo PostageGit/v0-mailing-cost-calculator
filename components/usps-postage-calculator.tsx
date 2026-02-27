@@ -281,8 +281,8 @@ function Tab2Parcels() {
       {result.alerts.length > 0 && (
         <div className="flex flex-col gap-2">
           {result.alerts.map((a, i) => (
-            <div key={i} className={cn("flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium", a.type === "error" ? "bg-destructive/10 text-destructive" : a.type === "warning" ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300" : "bg-muted text-muted-foreground")}>
-              {a.type === "error" ? <AlertCircle className="h-4 w-4 shrink-0" /> : a.type === "warning" ? <AlertTriangle className="h-4 w-4 shrink-0" /> : <Info className="h-4 w-4 shrink-0" />}
+  <div key={i} className={cn("flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium", a.type === "error" ? "bg-destructive/10 text-destructive" : a.type === "warning" ? "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300" : a.type === "override" ? "bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300" : "bg-muted text-muted-foreground")}>
+  {a.type === "error" ? <AlertCircle className="h-4 w-4 shrink-0" /> : a.type === "warning" ? <AlertTriangle className="h-4 w-4 shrink-0" /> : a.type === "override" ? <Info className="h-4 w-4 shrink-0" /> : <Info className="h-4 w-4 shrink-0" />}
               {a.message}
             </div>
           ))}

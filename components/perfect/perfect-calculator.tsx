@@ -88,8 +88,9 @@ export function PerfectCalculator() {
     const dimStr = `${inputs.pageWidth}x${inputs.pageHeight}"`
     descLines.push(hasBleed ? `${dimStr} + Bleed` : `${dimStr} - No Bleed`)
     descLines.push(`${inputs.pagesPerBook} Pages`)
+    descLines.push(`Inside pages: ${inputs.inside.paperName}`)
     descLines.push(`Cover: ${inputs.cover.paperName}, ${inputs.cover.sides}`)
-    descLines.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
+    descLines.push(inputs.inside.sides)
     if (inputs.laminationType !== "none") {
       descLines.push(`${inputs.laminationType.charAt(0).toUpperCase() + inputs.laminationType.slice(1)} Lamination`)
     }
@@ -209,8 +210,9 @@ export function PerfectCalculator() {
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.bookQty.toLocaleString()} qty</span>
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}" {(inputs.cover.bleed || inputs.inside.bleed) ? "+ Bleed" : "- No Bleed"}</span>
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook} Pages</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Inside pages: {inputs.inside.paperName}</span>
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Cover: {inputs.cover.paperName} {inputs.cover.sides}</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Inside: {inputs.inside.paperName} {inputs.inside.sides}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.inside.sides}</span>
               {inputs.laminationType !== "none" && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.laminationType.charAt(0).toUpperCase() + inputs.laminationType.slice(1)} Lamination</span>}
             </div>
           </div>
