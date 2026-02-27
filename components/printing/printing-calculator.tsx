@@ -323,17 +323,18 @@ export function PrintingCalculator() {
     const lam = inputs.lamination
     const typeLabel = PIECE_TYPE_META[activePiece.type]?.label || "Flat Print"
     const descLines: string[] = []
-    descLines.push(`${inputs.width}x${inputs.height}"`)
+    const dimStr = `${inputs.width}x${inputs.height}"`
+    descLines.push(inputs.hasBleed ? `${dimStr} + Bleed` : `${dimStr} - No Bleed`)
     descLines.push(inputs.paperName)
     descLines.push(inputs.sidesValue)
-    if (inputs.hasBleed) descLines.push("Bleed")
     if (ff?.enabled && ff.finishType && ff.foldType) {
       const opMap: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
-      const foldMap: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion" }
-      descLines.push(`${opMap[ff.finishType] || ff.finishType}: ${foldMap[ff.foldType] || ff.foldType}`)
+      const foldMap: Record<string, string> = { half: "in Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate Fold", roll: "Roll Fold", accordion: "Accordion Fold" }
+      descLines.push(`${opMap[ff.finishType] || ff.finishType} ${foldMap[ff.foldType] || ff.foldType}`)
     }
     if (lam?.enabled) {
-      descLines.push(`${lam.type} Lam ${lam.sides}`)
+      const lamSides = lam.sides === "both" ? "both sides" : "one side"
+      descLines.push(`${lam.type} Lamination (${lamSides})`)
     }
     quote.addItem({
       category: "ohp",
@@ -467,18 +468,17 @@ export function PrintingCalculator() {
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.qty.toLocaleString()} qty</span>
-                <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.width}" x {inputs.height}"</span>
+                <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.width}" x {inputs.height}" {inputs.hasBleed ? "+ Bleed" : "- No Bleed"}</span>
                 <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.paperName}</span>
                 <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.sidesValue}</span>
-                {inputs.hasBleed && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Bleed</span>}
                 {inputs.foldFinish?.enabled && inputs.foldFinish.foldType && (
                   <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">
-                    {inputs.foldFinish.finishType === "score_and_fold" ? "Score & Fold" : inputs.foldFinish.finishType === "score_only" ? "Score Only" : "Fold"}: {inputs.foldFinish.foldType}
+                    {inputs.foldFinish.finishType === "score_and_fold" ? "Score & Fold" : inputs.foldFinish.finishType === "score_only" ? "Score Only" : "Fold"} {inputs.foldFinish.foldType === "half" ? "in Half" : inputs.foldFinish.foldType === "tri" ? "Tri-Fold" : inputs.foldFinish.foldType}
                   </span>
                 )}
                 {inputs.lamination?.enabled && (
                   <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">
-                    {inputs.lamination.type} Lam {inputs.lamination.sides}
+                    {inputs.lamination.type} Lamination ({inputs.lamination.sides === "both" ? "both sides" : "one side"})
                   </span>
                 )}
               </div>

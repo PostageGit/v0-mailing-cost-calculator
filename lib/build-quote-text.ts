@@ -48,8 +48,11 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
   }
 
   // ── PRINTING specs (flat, booklet, spiral, perfect, pad, ohp) ──
-  // 1. Size
-  if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
+  // 1. Size + Bleed (always on same line)
+  if (m.pieceDimensions) {
+    const dimStr = String(m.pieceDimensions) + '"'
+    parts.push(m.hasBleed ? `${dimStr} + Bleed` : `${dimStr} - No Bleed`)
+  }
 
   // 2. Pages (for books)
   if (m.pageCount) parts.push(m.pageCount + " Pages")
@@ -63,10 +66,7 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
   // 4. Color / sides (4/0, 4/4, S/S, D/S etc.)
   if (m.sides) parts.push(String(m.sides))
 
-  // 5. Bleed
-  if (m.hasBleed) parts.push("Bleed")
-
-  // 6. Fold (from planner fold type)
+  // 5. Fold (from planner fold type)
   if (m.foldType && m.foldType !== "none") {
     const fLabel = String(m.foldType)
       .replace("x3long", "Tri-Fold")
@@ -77,16 +77,16 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
     parts.push(fLabel)
   }
 
-  // 7. Score / Fold finishing
+  // 6. Score / Fold finishing
   if (m.scoreFoldEnabled) {
     const opLabels: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
-    const foldLabels: Record<string, string> = { half: "Half Fold", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate Fold", roll: "Roll Fold", accordion: "Accordion Fold", double_gate: "Double Gate Fold", double_parallel: "Double Parallel Fold" }
+    const foldLabels: Record<string, string> = { half: "in Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate Fold", roll: "Roll Fold", accordion: "Accordion Fold", double_gate: "Double Gate Fold", double_parallel: "Double Parallel Fold" }
     const op = opLabels[String(m.scoreFoldFinishType)] || String(m.scoreFoldFinishType)
     const ft = foldLabels[String(m.scoreFoldFoldType)] || String(m.scoreFoldFoldType)
-    parts.push(`${op}: ${ft}`)
+    parts.push(`${op} ${ft}`)
   }
 
-  // 8. Lamination
+  // 7. Lamination
   if (m.laminationEnabled) {
     const lamSides = m.laminationSides === "both" ? "both sides" : "one side"
     parts.push(`${String(m.laminationType || "Gloss")} Lamination (${lamSides})`)

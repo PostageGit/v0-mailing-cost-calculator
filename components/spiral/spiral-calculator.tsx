@@ -97,7 +97,8 @@ export function SpiralCalculator() {
   const handleSaveOhpSpecs = useCallback(() => {
     if (!activePiece || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) return
     const descLines: string[] = []
-    descLines.push(`${inputs.pageWidth}x${inputs.pageHeight}"`)
+    const dimStr = `${inputs.pageWidth}x${inputs.pageHeight}"`
+    descLines.push(`${dimStr} - No Bleed`)
     descLines.push(`${inputs.pagesPerBook} Pages`)
     descLines.push(inputs.inside.paperName)
     descLines.push(inputs.inside.sides)
@@ -216,9 +217,10 @@ export function SpiralCalculator() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.bookQty.toLocaleString()} qty</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook}pg</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}"</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Inside: {inputs.inside.paperName} {inputs.inside.sides}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}" - No Bleed</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook} Pages</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.inside.paperName}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.inside.sides}</span>
               {inputs.useFrontCover && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Front: {inputs.front.paperName}</span>}
               {inputs.useBackCover && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Back: {inputs.back.paperName}</span>}
             </div>
