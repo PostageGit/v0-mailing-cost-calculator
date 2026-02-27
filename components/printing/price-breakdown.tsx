@@ -141,6 +141,7 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
       stats={stats}
       level={{
         level: result.level,
+        defaultLevel: result.autoLevel,
         maxLevel: 10,
         markup: result.markup,
         pricePerSheet: result.pricePerSheet,

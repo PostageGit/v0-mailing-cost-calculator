@@ -20,6 +20,7 @@ export interface PaperStat {
 
 export interface LevelInfo {
   level: number
+  defaultLevel: number
   maxLevel: number
   markup: number
   pricePerSheet: number
@@ -122,55 +123,62 @@ export function CalcPriceCard({
       {level && (
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Level</span>
-              <span className="ml-2 text-lg font-bold text-foreground font-mono">{level.level}</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Level</span>
+              <span className="text-lg font-extrabold text-foreground font-mono">{level.level}</span>
               {level.markup > 0 && (
-                <span className="ml-1.5 text-xs text-muted-foreground">/ {level.markup.toFixed(2)}x markup</span>
+                <span className="text-xs font-semibold text-muted-foreground">/ {level.markup.toFixed(2)}x</span>
+              )}
+              {level.level !== level.defaultLevel && (
+                <span className={`text-xs font-bold ${level.level < level.defaultLevel ? "text-emerald-600" : "text-red-500"}`}>
+                  {level.level < level.defaultLevel ? "cheaper" : "higher"}
+                </span>
               )}
             </div>
-            {level.onLevelChange && (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => level.onLevelChange!(-1)}
-                  disabled={level.level <= 1}
-                  className="h-8 w-8 rounded-lg border border-border bg-background flex items-center justify-center hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Decrease level"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => level.onLevelChange!(1)}
-                  disabled={level.level >= level.maxLevel}
-                  className="h-8 w-8 rounded-lg border border-border bg-background flex items-center justify-center hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Increase level"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
-              </div>
+            {level.level !== level.defaultLevel && level.onLevelChange && (
+              <button
+                type="button"
+                onClick={() => level.onLevelChange!(level.defaultLevel - level.level)}
+                className="text-[11px] font-bold text-muted-foreground hover:text-foreground border border-border rounded-lg px-2 py-1 hover:bg-secondary transition-colors"
+              >
+                Reset
+              </button>
             )}
           </div>
-          <div className="mt-2 flex gap-1">
-            {Array.from({ length: level.maxLevel }, (_, i) => i + 1).map((lvl) => (
-              <button
-                key={lvl}
-                type="button"
-                onClick={() => {
-                  if (level.onLevelChange && lvl !== level.level) {
-                    level.onLevelChange(lvl - level.level)
-                  }
-                }}
-                className={`flex-1 h-2.5 rounded-full transition-colors cursor-pointer hover:opacity-80 ${
-                  lvl <= level.level ? "bg-foreground" : "bg-border hover:bg-muted-foreground/30"
-                }`}
-                aria-label={`Set level ${lvl}`}
-                title={`Level ${lvl}`}
-              />
-            ))}
+          {/* Level bars with default marker */}
+          <div className="mt-2.5 relative">
+            <div className="flex gap-1">
+              {Array.from({ length: level.maxLevel }, (_, i) => i + 1).map((lvl) => {
+                const isActive = lvl <= level.level
+                const isDefault = lvl === level.defaultLevel
+                let barColor = "bg-border hover:bg-muted-foreground/30"
+                if (isActive) {
+                  if (level.level < level.defaultLevel) barColor = "bg-emerald-500"
+                  else if (level.level > level.defaultLevel) barColor = "bg-red-400"
+                  else barColor = "bg-foreground"
+                }
+                return (
+                  <div key={lvl} className="flex-1 flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (level.onLevelChange && lvl !== level.level) {
+                          level.onLevelChange(lvl - level.level)
+                        }
+                      }}
+                      className={`w-full h-2.5 rounded-full transition-colors cursor-pointer hover:opacity-80 ${barColor} ${isDefault ? "ring-1 ring-foreground/30 ring-offset-1 ring-offset-card" : ""}`}
+                      aria-label={`Set level ${lvl}`}
+                      title={`Level ${lvl}${isDefault ? " (default)" : ""}`}
+                    />
+                    {isDefault && (
+                      <span className="text-[8px] font-black text-muted-foreground leading-none select-none">DEF</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1.5">
+          <p className="text-xs font-medium text-muted-foreground mt-2">
             ${level.pricePerSheet.toFixed(level.level >= 7 ? 4 : 3)} / sheet
           </p>
         </div>

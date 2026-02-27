@@ -265,21 +265,6 @@ export function PerfectForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="pb-custom-level" className="text-sm font-medium text-foreground">Custom Level</label>
-          <Select
-            value={inputs.customLevel}
-            onValueChange={(val) => update({ customLevel: val })}
-          >
-            <SelectTrigger id="pb-custom-level"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="auto">Auto</SelectItem>
-              {Array.from({ length: 10 }, (_, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)}>Level {i + 1}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="flex items-center gap-2 h-9">
           <Checkbox
             id="pb-broker"

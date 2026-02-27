@@ -37,6 +37,7 @@ export interface SpiralPartResult {
   maxUps: number
   pricePerSheet: number
   levelName: string
+  autoLevelName: string
 }
 
 export interface SpiralCalcResult {
@@ -52,6 +53,7 @@ export interface SpiralCalcResult {
   grandTotal: number
   pricePerBook: number
   levelName: string
+  autoLevelName: string
   hasClearPlastic: boolean
   hasBlackVinyl: boolean
   bookQty: number

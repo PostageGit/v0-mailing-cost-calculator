@@ -40,6 +40,7 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange }:
   } = result
 
   const levelNum = parseLevelNum(result.levelName)
+  const autoLevelNum = parseLevelNum(result.autoLevelName)
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: insideResult.sheetSize },
@@ -116,8 +117,9 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange }:
       stats={stats}
       level={{
         level: levelNum,
+        defaultLevel: autoLevelNum,
         maxLevel: 10,
-        markup: 0, // spiral doesn't expose a multiplier
+        markup: 0,
         pricePerSheet: insideResult.pricePerSheet,
         onLevelChange,
       }}

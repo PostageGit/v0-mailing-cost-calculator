@@ -157,7 +157,8 @@ function calculatePart(
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
-    const level = forcedLevel ?? getLevel(totalSheets)
+    const autoLevel = getLevel(totalSheets)
+    const level = forcedLevel ?? autoLevel
     const markup = getMarkup(level, part.sides, paperData.isCardstock)
     const base = paperCost + clickPerSheet
     let price = base * markup
@@ -170,7 +171,7 @@ function calculatePart(
       sheets: totalSheets, sheetSize: sizeStr, paper: part.paperName,
       sides: part.sides, bleed: part.hasBleed, isRotated: layout.isRotated,
       finalSheetWidth: sheet.w, finalSheetHeight: sheet.h,
-      maxUps: layout.maxUps, pricePerSheet: price, level, markup,
+      maxUps: layout.maxUps, pricePerSheet: price, level, autoLevel, markup,
     }
   }
 

@@ -42,6 +42,7 @@ export interface PartCalcResult {
   bleed: boolean
   pricePerSheet: number
   level: number
+  autoLevel: number
   markup: number
   maxUps: number
   isRotated: boolean

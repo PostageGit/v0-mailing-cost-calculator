@@ -33,6 +33,7 @@ export interface PerfectPartResult {
   maxUps: number
   pricePerSheet: number
   level: number
+  autoLevel: number
   markup: number
 }
 

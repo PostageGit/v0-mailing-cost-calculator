@@ -289,6 +289,7 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
     sheetSize: size,
     layout,
     level,
+    autoLevel,
     markup,
     pricePerSheet: effectivePricePerSheet,
     sheetDimensions: sheet,

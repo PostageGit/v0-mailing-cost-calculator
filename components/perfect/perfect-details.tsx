@@ -98,6 +98,7 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange }
       stats={stats}
       level={{
         level: insideResult.level,
+        defaultLevel: insideResult.autoLevel ?? insideResult.level,
         maxLevel: 10,
         markup: insideResult.markup,
         pricePerSheet: insideResult.pricePerSheet,

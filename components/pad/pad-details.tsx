@@ -97,6 +97,7 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
       stats={stats}
       level={{
         level: levelNum,
+        defaultLevel: levelNum, // pad auto-calculates
         maxLevel: 10,
         markup: 0,
         pricePerSheet: insideResult.pricePerSheet,
