@@ -114,25 +114,24 @@ export function ChatBubble() {
                     Need a quote?
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed max-w-[260px]">
-                    Tell me what you need printed and I will get you a price.
-                    Flyers, booklets, business cards, envelopes -- you name it.
+                    What are you looking for?
                   </p>
                 </div>
                 <div className="mt-2 flex flex-wrap justify-center gap-1.5">
                   {[
-                    "1000 flyers 8.5x11",
-                    "500 booklets 20 pages",
-                    "250 business cards",
-                    "1000 #10 envelopes",
+                    { label: "Flat printing", text: "I need flat printing" },
+                    { label: "Envelopes", text: "I need envelopes" },
+                    { label: "Books / Booklets", text: "I need a book or booklet" },
+                    { label: "Notepads", text: "I need notepads" },
                   ].map((suggestion) => (
                     <button
-                      key={suggestion}
+                      key={suggestion.label}
                       onClick={() => {
-                        sendMessage({ text: suggestion })
+                        sendMessage({ text: suggestion.text })
                       }}
                       className="rounded-full border border-border px-3 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
-                      {suggestion}
+                      {suggestion.label}
                     </button>
                   ))}
                 </div>
