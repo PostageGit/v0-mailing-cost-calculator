@@ -57,8 +57,10 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
   // 2. Pages (for books)
   if (m.pageCount) parts.push(m.pageCount + " Pages")
 
-  // 3. Paper stock
-  if (m.paperName) parts.push(String(m.paperName))
+  // 3. Paper stock (prefix with "Inside pages:" when there's a separate cover)
+  if (m.paperName) {
+    parts.push(m.coverPaper ? `Inside pages: ${String(m.paperName)}` : String(m.paperName))
+  }
 
   // 3b. Cover paper (booklet/perfect)
   if (m.coverPaper) parts.push(`Cover: ${String(m.coverPaper)}${m.coverSides ? `, ${String(m.coverSides)}` : ""}`)
