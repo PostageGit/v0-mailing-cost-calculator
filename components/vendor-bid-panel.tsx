@@ -47,11 +47,11 @@ function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefine
   const lines: string[] = []
   lines.push(`Qty: ${qty.toLocaleString()}`)
 
-  // Try to get full specs from matching quote item metadata
+  // Try to get full specs from matching quote item metadata (includes OHP spec items)
   const matchingItem = quoteItems.find((it) => {
     const cat = it.category?.toLowerCase()
-    const printCats = ["flat", "booklet", "spiral", "perfect", "envelope"]
-    if (!printCats.includes(cat)) return false
+    const specCats = ["flat", "booklet", "spiral", "perfect", "envelope", "ohp"]
+    if (!specCats.includes(cat)) return false
     if (!matchedPiece) return bid.item_label.includes(it.label.replace(/^\d[\d,]*\s*-\s*/, ""))
     const dims = [`${matchedPiece.width}x${matchedPiece.height}`, `${matchedPiece.height}x${matchedPiece.width}`]
     return dims.some((d) => it.label.includes(d))
