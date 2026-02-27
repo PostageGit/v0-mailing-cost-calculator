@@ -120,10 +120,16 @@ HOW SADDLE-STITCH BOOKLETS WORK:
 
 HOW PERFECT BINDING WORKS:
 - Perfect binding = glue spine (like a paperback). Needs 40+ inside pages minimum.
-- pagesPerBook = INSIDE pages only (NOT counting the cover). If customer says "100 page book", pass 96 inside pages (100 minus 4 cover pages).
-- Cover wraps around the spine. Spine width is auto-calculated from page count and paper thickness.
+- The COVER is separate (wraps around the spine). It is NOT counted in the page count.
+- pagesPerBook = number of INSIDE pages. If customer says "100 pages inside" or "100 pages", pass 100. The cover is automatically added on top. Don't subtract anything.
 - Cover always uses cardstock (default "80 Gloss"). Inside uses text paper (default "80lb Text Gloss").
-- Tool auto-picks cheapest parent sheet.
+- Spine width is auto-calculated. Tool auto-picks cheapest parent sheet.
+
+EXAMPLE -- "500 copies, 8.5x11, 100 pages inside BW, color cover, perfect bound":
+  bookQty: 500, pagesPerBook: 100, pageWidth: 8.5, pageHeight: 11,
+  insidePaper: "80lb Text Gloss", insideSides: "1/1" (BW both sides),
+  coverPaper: "80 Gloss", coverSides: "4/4" (color both sides),
+  laminationType: "none", isBroker: false
 
 HOW SPIRAL BINDING WORKS:
 - Spiral / coil binding. Any page count up to ~290 sheets (~580 pages double-sided).
@@ -429,11 +435,11 @@ pageWidth/pageHeight = the FINISHED page size (e.g. 8.5 and 11 for letter, 5.5 a
         coverPaper: coverPaper || "80 Gloss",
         coverSides: coverSides || "4/4",
         coverBleed: true,
-        coverSheetSize: "Cheapest",
+        coverSheetSize: "cheapest",
         insidePaper,
         insideSides,
         insideBleed: false,
-        insideSheetSize: "Cheapest",
+        insideSheetSize: "cheapest",
         laminationType: separateCover ? laminationType : "none",
         customLevel: "auto",
         isBroker,
@@ -516,21 +522,21 @@ Optional: clear plastic front, black vinyl back ($0.50 each per book).`,
           paperName: insidePaper,
           sides: insideSides,
           hasBleed: insideBleed,
-          sheetSize: "Cheapest",
+          sheetSize: "cheapest",
         },
         useFrontCover,
         front: {
           paperName: frontPaper || "80 Gloss",
           sides: "4/4",
           hasBleed: false,
-          sheetSize: "Cheapest",
+          sheetSize: "cheapest",
         },
         useBackCover,
         back: {
           paperName: backPaper || "80 Gloss",
           sides: "4/4",
           hasBleed: false,
-          sheetSize: "Cheapest",
+          sheetSize: "cheapest",
         },
         clearPlastic,
         blackVinyl,
@@ -610,13 +616,13 @@ Tool auto-picks cheapest parent sheet. pageWidth/pageHeight = FINISHED page size
           paperName: insidePaper,
           sides: insideSides,
           hasBleed: false,
-          sheetSize: "Cheapest",
+          sheetSize: "cheapest",
         },
         cover: {
           paperName: coverPaper || "80 Gloss",
           sides: coverSides || "4/4",
           hasBleed: true,
-          sheetSize: "Cheapest",
+          sheetSize: "cheapest",
         },
         laminationType,
         customLevel: "auto",
@@ -681,7 +687,7 @@ Tool auto-picks cheapest parent sheet. pageWidth/pageHeight = FINISHED page size
           paperName: insidePaper,
           sides: insideSides,
           hasBleed: false,
-          sheetSize: "Cheapest",
+          sheetSize: "cheapest",
         },
         useChipBoard,
         customLevel: "auto",
