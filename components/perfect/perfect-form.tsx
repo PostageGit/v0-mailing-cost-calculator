@@ -22,10 +22,8 @@ interface PerfectFormProps {
   inputs: PerfectInputs
   onInputsChange: (inputs: PerfectInputs) => void
   onCalculate: () => void
-  onAddToOrder: () => void
   onReset: () => void
   isEditing: boolean
-  canAddToOrder: boolean
   validationError: string | null
   ohpMode?: boolean
 }
@@ -34,10 +32,8 @@ export function PerfectForm({
   inputs,
   onInputsChange,
   onCalculate,
-  onAddToOrder,
   onReset,
   isEditing,
-  canAddToOrder,
   validationError,
   ohpMode,
 }: PerfectFormProps) {
@@ -302,40 +298,30 @@ export function PerfectForm({
       )}
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex gap-3">
         {ohpMode ? (
           <Button type="submit" className="flex-1 font-semibold gap-2 bg-sky-600 hover:bg-sky-700 text-white">
             <Save className="h-4 w-4" /> Save Specs
           </Button>
         ) : (
-          <>
-            <Button
-              type="submit"
-              className={`flex-1 font-semibold ${
-                isEditing
-                  ? "bg-amber-500 hover:bg-amber-600 text-foreground"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              }`}
-            >
-              {isEditing ? "Recalculate" : "Calculate"}
-            </Button>
-            <Button
-              type="button"
-              onClick={onAddToOrder}
-              disabled={!canAddToOrder}
-              className="flex-1 font-semibold bg-accent hover:bg-accent/90 text-accent-foreground disabled:opacity-50"
-            >
-              {isEditing ? "Update Order" : "Add to Order"}
-            </Button>
-          </>
+          <Button
+            type="submit"
+            className={`flex-1 font-semibold ${
+              isEditing
+                ? "bg-amber-500 hover:bg-amber-600 text-foreground"
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            }`}
+          >
+            {isEditing ? "Recalculate" : "Calculate"}
+          </Button>
         )}
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           onClick={handleReset}
-          className="flex-1 font-semibold"
+          className="text-muted-foreground hover:text-foreground font-medium"
         >
-          {isEditing ? "Cancel Edit" : "Reset"}
+          Reset
         </Button>
       </div>
     </form>

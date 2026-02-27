@@ -384,17 +384,17 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     }
   }
 
-  // Binding
+  // Binding – broker applies percentage discount on finishing
   const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, totalSheetsPerBooklet, isBroker)
   const totalBindingPrice = bindingPricePerBook * bookQty
 
-  // Lamination
+  // Lamination – broker applies percentage discount on finishing
   const totalLaminationCost = (separateCover && hasLamination)
     ? getLaminationPrice(laminationType, coverResult.paper, coverResult.sheets, isBroker)
     : 0
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 
-  // Totals
+  // Totals – broker discount on non-printing costs (binding + lamination)
   let subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
   let brokerDiscountAmount = 0
   if (isBroker) {
