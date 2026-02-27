@@ -43,6 +43,19 @@ function describePiece(piece: MailPiece, qty: number) {
  *  Only includes what the customer cares about:
  *  Qty, Size, Paper, Color (4/0 4/4 etc.), Fold, Score, Lamination.
  *  No internal details (sort levels, buffers, vendors, entry points). */
+/** Piece type to customer-facing label */
+const PIECE_TYPE_LABELS: Record<string, string> = {
+  postcard: "Postcard",
+  flat_card: "Flat Card",
+  folded_card: "Folded Card",
+  self_mailer: "Self Mailer",
+  letter: "Letter",
+  booklet: "Saddle Stitch Book",
+  spiral_book: "Spiral Book",
+  perfect_bound: "Perfect Bound Book",
+  envelope: "Envelope",
+}
+
 function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefined, qty: number, quoteItems: { label: string; category: string; amount: number; description: string; metadata?: Record<string, unknown> }[]): string {
   const lines: string[] = []
   lines.push(`Qty: ${qty.toLocaleString()}`)
@@ -58,22 +71,27 @@ function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefine
   })
 
   const m = matchingItem?.metadata as Record<string, unknown> | undefined
+
+  // Add piece type label (e.g. "Saddle Stitch Book", "Postcard")
+  const pieceType = m?.pieceType ? String(m.pieceType) : matchedPiece?.type
+  if (pieceType && PIECE_TYPE_LABELS[pieceType]) {
+    lines.push(PIECE_TYPE_LABELS[pieceType])
+  }
+
   if (m) {
-    // Use the same customer-facing spec builder as PDF / quote text
+    // buildCustomerSpecs returns newline-separated specs by default
     const specs = buildCustomerSpecs(m, matchingItem?.category as QuoteCategory)
     if (specs) lines.push(specs)
   } else if (matchedPiece) {
-    // Fallback: build from piece data directly (customer-relevant only)
-    const parts: string[] = []
-    if (matchedPiece.width && matchedPiece.height) parts.push(`${matchedPiece.width}" x ${matchedPiece.height}"`)
-    if (matchedPiece.paperName) parts.push(String(matchedPiece.paperName))
-    if (matchedPiece.sides) parts.push(String(matchedPiece.sides))
-    if (matchedPiece.hasBleed) parts.push("Bleed")
-    if (matchedPiece.pageCount && matchedPiece.pageCount > 1) parts.push(`${matchedPiece.pageCount} Pages`)
+    // Fallback: build from piece data directly (one spec per line)
+    if (matchedPiece.width && matchedPiece.height) lines.push(`${matchedPiece.width}" x ${matchedPiece.height}"`)
+    if (matchedPiece.paperName) lines.push(String(matchedPiece.paperName))
+    if (matchedPiece.sides) lines.push(String(matchedPiece.sides))
+    if (matchedPiece.hasBleed) lines.push("Bleed")
+    if (matchedPiece.pageCount && matchedPiece.pageCount > 1) lines.push(`${matchedPiece.pageCount} Pages`)
     if (matchedPiece.foldType && matchedPiece.foldType !== "none") {
-      parts.push(String(matchedPiece.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold"))
+      lines.push(String(matchedPiece.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold"))
     }
-    if (parts.length) lines.push(parts.join(", "))
   }
 
   return lines.join("\n")
@@ -331,10 +349,10 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
     // In-house items have metadata with paperName, pieceDimensions, sides, etc.
     const existingItems = quote.items ?? []
     const matchingItem = existingItems.find((it) => {
-      if (it.category !== "printing" && it.category !== "booklet") return false
+      const specCats = ["flat", "booklet", "spiral", "perfect", "printing", "ohp"]
+      if (!specCats.includes(it.category)) return false
       const md = it.metadata as Record<string, unknown> | undefined
       if (!md?.pieceDimensions) return false
-      // Match by piece dimensions from the bid label
       return bid.item_label.includes(String(md.pieceDimensions).replace("x", "x"))
     })
     const inhouseMeta = (matchingItem?.metadata ?? {}) as Record<string, unknown>
@@ -343,7 +361,7 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
     let description = ""
     if (Object.keys(inhouseMeta).length > 0) {
       // Use the same buildCustomerSpecs that in-house printing uses
-      description = buildCustomerSpecs(inhouseMeta, matchingItem?.category as any) || bid.item_description || ""
+      description = buildCustomerSpecs(inhouseMeta, matchingItem?.category as any, ", ") || bid.item_description || ""
     } else {
       // Fallback: use the bid label itself (e.g. "2,850 - 8.11x11 Booklet")
       description = bid.item_description || bid.item_label

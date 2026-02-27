@@ -104,16 +104,18 @@ export function BookletCalculator() {
 
   const handleSaveOhpSpecs = useCallback(() => {
     if (!activePiece || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) return
-    const descParts: string[] = []
-    descParts.push(`${inputs.pagesPerBook}pg`)
-    if (inputs.separateCover) descParts.push(`Cover: ${inputs.coverPaper}, ${inputs.coverSides}`)
-    descParts.push(`Inside: ${inputs.insidePaper}, ${inputs.insideSides}`)
-    if (inputs.coverBleed || inputs.insideBleed) descParts.push("Bleed")
-    if (inputs.laminationType !== "none") descParts.push(`${inputs.laminationType} Lam`)
+    const descLines: string[] = []
+    descLines.push(`${inputs.pageWidth}x${inputs.pageHeight}"`)
+    descLines.push(`${inputs.pagesPerBook} Pages`)
+    descLines.push(inputs.insidePaper)
+    descLines.push(inputs.insideSides)
+    if (inputs.separateCover) descLines.push(`Cover: ${inputs.coverPaper}, ${inputs.coverSides}`)
+    if (inputs.coverBleed || inputs.insideBleed) descLines.push("Bleed")
+    if (inputs.laminationType !== "none") descLines.push(`${inputs.laminationType} Lam`)
     quote.addItem({
       category: "ohp",
-      label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight}`,
-      description: descParts.join(", "),
+      label: `${inputs.bookQty.toLocaleString()} - Saddle Stitch Book`,
+      description: descLines.join(", "),
       amount: 0,
       metadata: {
         pieceType: activePiece.type,

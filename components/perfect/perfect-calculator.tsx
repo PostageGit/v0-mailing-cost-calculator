@@ -83,16 +83,17 @@ export function PerfectCalculator() {
 
   const handleSaveOhpSpecs = useCallback(() => {
     if (!activePiece || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) return
-    const descParts: string[] = []
-    descParts.push(`${inputs.pagesPerBook}pg`)
-    descParts.push(`Cover: ${inputs.cover.paperName}, ${inputs.cover.sides}`)
-    descParts.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
-    if (inputs.cover.bleed || inputs.inside.bleed) descParts.push("Bleed")
-    if (inputs.laminationType !== "none") descParts.push(`${inputs.laminationType} Lam`)
+    const descLines: string[] = []
+    descLines.push(`${inputs.pageWidth}x${inputs.pageHeight}"`)
+    descLines.push(`${inputs.pagesPerBook} Pages`)
+    descLines.push(`Cover: ${inputs.cover.paperName}, ${inputs.cover.sides}`)
+    descLines.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
+    if (inputs.cover.bleed || inputs.inside.bleed) descLines.push("Bleed")
+    if (inputs.laminationType !== "none") descLines.push(`${inputs.laminationType} Lam`)
     quote.addItem({
       category: "ohp",
-      label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
-      description: descParts.join(", "),
+      label: `${inputs.bookQty.toLocaleString()} - Perfect Bound Book`,
+      description: descLines.join(", "),
       amount: 0,
       metadata: {
         pieceType: activePiece.type,

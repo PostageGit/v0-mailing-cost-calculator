@@ -20,18 +20,19 @@ interface TextItem {
  *
  * Intentionally excluded: production method, tier names, entry points, broker flags.
  */
-export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory): string {
+/**
+ * Build customer-facing spec string from metadata.
+ * @param separator - defaults to "\n" for multi-line (copy/email). Pass ", " for inline (PDF rows).
+ */
+export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteCategory, separator: string = "\n"): string {
   const parts: string[] = []
 
   // ── ENVELOPE specs ──
   if (category === "envelope") {
-    // "Paper Envelope" or "Plastic Envelope"
     const kind = m.envelopeKind ? String(m.envelopeKind).toLowerCase() : "paper"
     parts.push(kind === "plastic" ? "Plastic Envelope" : "Paper Envelope")
-    // Size (use envelopeSize or pieceDimensions, not both -- they're usually the same)
     if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
     else if (m.envelopeSize) parts.push(String(m.envelopeSize))
-    // Printing method: derive Color/BW from printType
     if (m.printType) {
       const pt = String(m.printType).toLowerCase()
       const ink = m.inkType ? String(m.inkType) : ""
@@ -39,26 +40,27 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
         parts.push(ink ? `${ink} Color` : "Color")
       } else if (pt.includes("bw") || pt.includes("black")) {
         parts.push(ink ? `${ink} B&W` : "B&W")
-      } else if (pt.includes("text") || pt.includes("logo")) {
-        parts.push(ink ? `${ink} ${String(m.printType)}` : String(m.printType))
       } else {
         parts.push(ink ? `${ink} ${String(m.printType)}` : String(m.printType))
       }
     }
-    return parts.join(", ")
+    return parts.join(separator)
   }
 
-  // ── PRINTING specs (flat, booklet, spiral, perfect, pad) ──
+  // ── PRINTING specs (flat, booklet, spiral, perfect, pad, ohp) ──
   // 1. Size
   if (m.pieceDimensions) parts.push(String(m.pieceDimensions) + '"')
 
-  // 2. Pages (for books -- spelled out, listed early)
+  // 2. Pages (for books)
   if (m.pageCount) parts.push(m.pageCount + " Pages")
 
   // 3. Paper stock
   if (m.paperName) parts.push(String(m.paperName))
 
-  // 4. Color / sides (4/0, 4/4 etc.)
+  // 3b. Cover paper (booklet/perfect)
+  if (m.coverPaper) parts.push(`Cover: ${String(m.coverPaper)}${m.coverSides ? `, ${String(m.coverSides)}` : ""}`)
+
+  // 4. Color / sides (4/0, 4/4, S/S, D/S etc.)
   if (m.sides) parts.push(String(m.sides))
 
   // 5. Bleed
@@ -90,8 +92,7 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
     parts.push(`${String(m.laminationType || "Gloss")} Lamination (${lamSides})`)
   }
 
-  // Intentionally excluded: production, tierName, entryPoint, envelopeKind (handled above)
-  return parts.join(", ")
+  return parts.join(separator)
 }
 
 /** Strip internal tier names and entry points from postage description */
@@ -172,7 +173,7 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
       if (item.category !== "flat") lines.push(catSub)
       // Only show description if there are NO metadata specs (fallback)
       if (item.metadata) {
-        const specs = buildCustomerSpecs(item.metadata, item.category)
+        const specs = buildCustomerSpecs(item.metadata, item.category, ", ")
         if (specs) lines.push(`>  ${specs}`)
       } else if (item.description) {
         lines.push(item.description)
@@ -190,7 +191,7 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
     lines.push("ENVELOPES")
     envItems.forEach((item) => {
       if (item.metadata) {
-        const specs = buildCustomerSpecs(item.metadata, "envelope")
+        const specs = buildCustomerSpecs(item.metadata, "envelope", ", ")
         if (specs) lines.push(`>  ${specs}`)
       } else if (item.description) {
         // Fallback: strip internal words from description
@@ -247,7 +248,7 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
     if (printItems.length === 0) lines.push("PRINTING")
     ohpItems.forEach((item) => {
       const m = (item.metadata ?? {}) as Record<string, unknown>
-      const specs = buildCustomerSpecs(m, "flat") // treat OHP metadata as flat printing specs
+      const specs = buildCustomerSpecs(m, "flat", ", ") // treat OHP metadata as flat printing specs
       if (item.label) lines.push(item.label)
       if (specs) lines.push(`>  ${specs}`)
       lines.push(formatCurrency(item.amount))

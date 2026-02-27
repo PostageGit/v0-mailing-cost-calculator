@@ -321,22 +321,24 @@ export function PrintingCalculator() {
     if (!isFormValid || !activePiece) return
     const ff = inputs.foldFinish
     const lam = inputs.lamination
-    const descParts: string[] = []
-    descParts.push(inputs.paperName)
-    descParts.push(inputs.sidesValue)
-    if (inputs.hasBleed) descParts.push("Bleed")
+    const typeLabel = PIECE_TYPE_META[activePiece.type]?.label || "Flat Print"
+    const descLines: string[] = []
+    descLines.push(`${inputs.width}x${inputs.height}"`)
+    descLines.push(inputs.paperName)
+    descLines.push(inputs.sidesValue)
+    if (inputs.hasBleed) descLines.push("Bleed")
     if (ff?.enabled && ff.finishType && ff.foldType) {
       const opMap: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
       const foldMap: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion" }
-      descParts.push(`${opMap[ff.finishType] || ff.finishType}: ${foldMap[ff.foldType] || ff.foldType}`)
+      descLines.push(`${opMap[ff.finishType] || ff.finishType}: ${foldMap[ff.foldType] || ff.foldType}`)
     }
     if (lam?.enabled) {
-      descParts.push(`${lam.type} Lam ${lam.sides}`)
+      descLines.push(`${lam.type} Lam ${lam.sides}`)
     }
     quote.addItem({
       category: "ohp",
-      label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} ${PIECE_TYPE_META[activePiece.type]?.label || "Flat Prints"}`,
-      description: descParts.join(", "),
+      label: `${inputs.qty.toLocaleString()} - ${typeLabel}`,
+      description: descLines.join(", "),
       amount: 0,
       metadata: {
         pieceType: activePiece.type,

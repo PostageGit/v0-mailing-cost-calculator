@@ -215,7 +215,7 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
       const label = item.category !== "flat" ? catSub : (item.description || catSub)
       let specs: string | null = null
       if (item.metadata) {
-        specs = buildCustomerSpecs(item.metadata, item.category)
+        specs = buildCustomerSpecs(item.metadata, item.category, ", ")
       }
       // For flat printing, description is redundant with specs -- use label only if no sub-cat
       const desc = item.category !== "flat" ? catSub : (item.label || "Flat Printing")
@@ -230,7 +230,7 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
     envItems.forEach((item) => {
       let specs: string | null = null
       if (item.metadata) {
-        specs = buildCustomerSpecs(item.metadata, "envelope")
+        specs = buildCustomerSpecs(item.metadata, "envelope", ", ")
       }
       const desc = item.label || "Envelope"
       lineItem(desc, specs, item.amount)
@@ -280,7 +280,7 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
     if (printItems.length === 0) sectionHeader("PRINTING")
     ohpItems.forEach((item) => {
       const m = (item.metadata ?? {}) as Record<string, unknown>
-      const specs = buildCustomerSpecs(m, "flat") // treat OHP metadata as flat printing specs
+      const specs = buildCustomerSpecs(m, "flat", ", ") // treat OHP metadata as flat printing specs
       const desc = item.label || "Printing"
       lineItem(desc, specs || null, item.amount)
     })
