@@ -781,13 +781,13 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   if (editing) {
     return (
-      <span className="inline-flex items-center gap-1 text-[12px]" onClick={(e) => e.stopPropagation()}>
-        <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
-        <span className="text-muted-foreground/50">ZD#</span>
+      <span className="inline-flex items-center gap-1.5 text-[13px]" onClick={(e) => e.stopPropagation()}>
+        <FileText className="h-4 w-4 text-muted-foreground/50" />
+        <span className="font-bold text-foreground/60">ZD#</span>
         <input ref={ref} value={draft} onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false) } }}
-          className="w-20 text-[12px] font-mono text-foreground bg-transparent border-b border-foreground/20 outline-none"
+          className="w-20 text-[13px] font-mono font-bold text-foreground bg-transparent border-b border-foreground/30 outline-none"
           placeholder="10558"
         />
       </span>
@@ -796,14 +796,14 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   if (value) {
     return (
-      <span className="inline-flex items-center gap-1 text-[12px] group/zd">
-        <FileText className="h-3.5 w-3.5 text-emerald-600" />
-        <span className="font-semibold text-muted-foreground/70">ZD#</span>
+      <span className="inline-flex items-center gap-1.5 text-[13px] group/zd">
+        <FileText className="h-4 w-4 text-emerald-600" />
+        <span className="font-bold text-foreground/60">ZD#</span>
         <a href={`${ZENDESK_BASE}${value}`} target="_blank" rel="noopener noreferrer"
-          className="font-mono font-bold text-emerald-700 dark:text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>
+          className="font-mono font-extrabold text-emerald-700 dark:text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>
           {value}
         </a>
-        <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover/zd:text-emerald-500 transition-colors" />
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover/zd:text-emerald-500 transition-colors" />
         <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
           className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground opacity-0 group-hover/zd:opacity-100 transition-opacity">
           <Pencil className="h-2.5 w-2.5" />
@@ -814,8 +814,8 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
 
   return (
     <button onClick={(e) => { e.stopPropagation(); setEditing(true) }}
-      className="inline-flex items-center gap-1 text-[12px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-      <FileText className="h-3.5 w-3.5" />ZD# <span className="font-mono">---</span>
+      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+      <FileText className="h-4 w-4" />ZD# <span className="font-mono">---</span>
     </button>
   )
 }
@@ -1108,7 +1108,7 @@ function QuoteCard({
           {/* Row 3: Tags strip -- Overdue + Assignee + Mail Class + Date */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {overdue && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
+              <span className="inline-flex items-center gap-1 text-[12px] font-bold px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
                 <Calendar className="h-3 w-3" />
                 OVERDUE ({days}d)
               </span>
@@ -1119,7 +1119,7 @@ function QuoteCard({
               return meta.assignee ? (
                 <div className="relative">
                   <span
-                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-bold px-2.5 py-1 rounded-full cursor-pointer"
                     style={{ backgroundColor: assigneeColor + "12", color: assigneeColor }}
                   >
                     <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: assigneeColor }} />
@@ -1137,7 +1137,7 @@ function QuoteCard({
                 </div>
               ) : (
                 <div className="relative">
-                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/30 px-2.5 py-1 rounded-full border border-dashed border-border/50 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
+                  <span className="inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground/40 px-2.5 py-1 rounded-full border border-dashed border-border/50 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
                     <User className="h-3 w-3" /> Assign
                   </span>
                   <select
@@ -1154,7 +1154,7 @@ function QuoteCard({
             })()}
             {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
               <span className={cn(
-                "inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-full border",
+                "inline-flex items-center text-[12px] font-bold px-2.5 py-1 rounded-full border",
                 MAIL_CLASS_COLORS[meta.mailing_class].bg,
                 MAIL_CLASS_COLORS[meta.mailing_class].text,
                 MAIL_CLASS_COLORS[meta.mailing_class].border,
@@ -1169,20 +1169,20 @@ function QuoteCard({
           <div className="flex items-center gap-4 mb-2.5">
             <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
             {quote.reference_number && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-mono font-semibold text-muted-foreground/70">
-                <Hash className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-mono font-bold text-foreground/60">
+                <Hash className="h-3.5 w-3.5" />
                 INV {quote.reference_number}
               </span>
             )}
             {/* Q/J numbers */}
             <div className="flex items-center gap-1.5 ml-auto">
               {quote.job_number ? (
-                <span className="text-[12px] font-extrabold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded">J-{quote.job_number}</span>
+                <span className="text-[13px] font-extrabold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-1 rounded">J-{quote.job_number}</span>
               ) : quote.quote_number ? (
-                <span className="text-[12px] font-extrabold font-mono tabular-nums text-foreground/70 bg-secondary/80 px-2 py-0.5 rounded">Q-{quote.quote_number}</span>
+                <span className="text-[13px] font-extrabold font-mono tabular-nums text-foreground/80 bg-secondary px-2 py-1 rounded">Q-{quote.quote_number}</span>
               ) : null}
               {quote.job_number && quote.quote_number && (
-                <span className="text-[11px] font-bold font-mono tabular-nums text-muted-foreground/50">Q-{quote.quote_number}</span>
+                <span className="text-[12px] font-bold font-mono tabular-nums text-muted-foreground/60">Q-{quote.quote_number}</span>
               )}
             </div>
           </div>
@@ -1192,8 +1192,8 @@ function QuoteCard({
             {(meta.quick_notes || quote.notes) ? (
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
                 className="flex items-start gap-1.5 w-full text-left group/note">
-                <NotepadText className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-0.5" />
-                <span className="text-[12px] font-medium text-muted-foreground/70 truncate group-hover/note:text-muted-foreground transition-colors leading-relaxed">
+                <NotepadText className="h-4 w-4 text-muted-foreground/60 shrink-0 mt-0.5" />
+                <span className="text-[13px] font-medium text-foreground/50 truncate group-hover/note:text-foreground/70 transition-colors leading-relaxed">
                   {meta.quick_notes || quote.notes}
                 </span>
               </button>
