@@ -83,16 +83,20 @@ export function PerfectCalculator() {
 
   const handleSaveOhpSpecs = useCallback(() => {
     if (!activePiece || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) return
-    const descParts: string[] = []
-    descParts.push(`${inputs.pagesPerBook}pg`)
-    descParts.push(`Cover: ${inputs.cover.paperName}, ${inputs.cover.sides}`)
-    descParts.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
-    if (inputs.cover.bleed || inputs.inside.bleed) descParts.push("Bleed")
-    if (inputs.laminationType !== "none") descParts.push(`${inputs.laminationType} Lam`)
+    const descLines: string[] = []
+    const hasBleed = inputs.cover.bleed || inputs.inside.bleed
+    const dimStr = `${inputs.pageWidth}x${inputs.pageHeight}"`
+    descLines.push(hasBleed ? `${dimStr} + Bleed` : `${dimStr} - No Bleed`)
+    descLines.push(`${inputs.pagesPerBook} Pages`)
+    descLines.push(`Cover: ${inputs.cover.paperName}, ${inputs.cover.sides}`)
+    descLines.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
+    if (inputs.laminationType !== "none") {
+      descLines.push(`${inputs.laminationType.charAt(0).toUpperCase() + inputs.laminationType.slice(1)} Lamination`)
+    }
     quote.addItem({
       category: "ohp",
-      label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
-      description: descParts.join(", "),
+      label: `${inputs.bookQty.toLocaleString()} - Perfect Bound Book`,
+      description: descLines.join(", "),
       amount: 0,
       metadata: {
         pieceType: activePiece.type,
@@ -203,11 +207,11 @@ export function PerfectCalculator() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.bookQty.toLocaleString()} qty</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook}pg</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}"</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}" {(inputs.cover.bleed || inputs.inside.bleed) ? "+ Bleed" : "- No Bleed"}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook} Pages</span>
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Cover: {inputs.cover.paperName} {inputs.cover.sides}</span>
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Inside: {inputs.inside.paperName} {inputs.inside.sides}</span>
-              {inputs.laminationType !== "none" && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.laminationType} Lam</span>}
+              {inputs.laminationType !== "none" && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.laminationType.charAt(0).toUpperCase() + inputs.laminationType.slice(1)} Lamination</span>}
             </div>
           </div>
         )}

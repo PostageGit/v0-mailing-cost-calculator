@@ -96,17 +96,20 @@ export function SpiralCalculator() {
 
   const handleSaveOhpSpecs = useCallback(() => {
     if (!activePiece || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) return
-    const descParts: string[] = []
-    descParts.push(`${inputs.pagesPerBook}pg`)
-    descParts.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
-    if (inputs.useFrontCover && inputs.front.paperName) descParts.push(`Front: ${inputs.front.paperName}`)
-    if (inputs.useBackCover && inputs.back.paperName) descParts.push(`Back: ${inputs.back.paperName}`)
-    if (inputs.clearPlastic) descParts.push("Clear Plastic")
-    if (inputs.blackVinyl) descParts.push("Black Vinyl")
+    const descLines: string[] = []
+    const dimStr = `${inputs.pageWidth}x${inputs.pageHeight}"`
+    descLines.push(`${dimStr} - No Bleed`)
+    descLines.push(`${inputs.pagesPerBook} Pages`)
+    descLines.push(inputs.inside.paperName)
+    descLines.push(inputs.inside.sides)
+    if (inputs.useFrontCover && inputs.front.paperName) descLines.push(`Front: ${inputs.front.paperName}`)
+    if (inputs.useBackCover && inputs.back.paperName) descLines.push(`Back: ${inputs.back.paperName}`)
+    if (inputs.clearPlastic) descLines.push("Clear Plastic")
+    if (inputs.blackVinyl) descLines.push("Black Vinyl")
     quote.addItem({
       category: "ohp",
-      label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}`,
-      description: descParts.join(", "),
+      label: `${inputs.bookQty.toLocaleString()} - Spiral Book`,
+      description: descLines.join(", "),
       amount: 0,
       metadata: {
         pieceType: activePiece.type,
@@ -214,9 +217,10 @@ export function SpiralCalculator() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.bookQty.toLocaleString()} qty</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook}pg</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}"</span>
-              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Inside: {inputs.inside.paperName} {inputs.inside.sides}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}" - No Bleed</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook} Pages</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.inside.paperName}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.inside.sides}</span>
               {inputs.useFrontCover && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Front: {inputs.front.paperName}</span>}
               {inputs.useBackCover && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Back: {inputs.back.paperName}</span>}
             </div>
