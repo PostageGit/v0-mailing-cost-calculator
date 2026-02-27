@@ -384,24 +384,19 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     }
   }
 
-  // Binding
-  const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, totalSheetsPerBooklet, isBroker)
+  // Binding – broker only means level 10, no percentage discount on binding
+  const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, totalSheetsPerBooklet, false)
   const totalBindingPrice = bindingPricePerBook * bookQty
 
-  // Lamination
+  // Lamination – broker only means level 10, no percentage discount on lamination
   const totalLaminationCost = (separateCover && hasLamination)
-    ? getLaminationPrice(laminationType, coverResult.paper, coverResult.sheets, isBroker)
+    ? getLaminationPrice(laminationType, coverResult.paper, coverResult.sheets, false)
     : 0
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 
-  // Totals
-  let subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
-  let brokerDiscountAmount = 0
-  if (isBroker) {
-    const nonPrintingCosts = totalBindingPrice + totalLaminationCost
-    brokerDiscountAmount = nonPrintingCosts * BROKER_DISCOUNT_RATE
-    subtotal -= brokerDiscountAmount
-  }
+  // Totals – broker = level 10 pricing only, no separate broker discount
+  const brokerDiscountAmount = 0
+  const subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
 
   const grandTotal = Math.ceil(subtotal)
   const pricePerBook = bookQty > 0 ? grandTotal / bookQty : 0
