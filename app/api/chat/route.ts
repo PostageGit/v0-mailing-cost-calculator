@@ -115,7 +115,39 @@ COMMON PAPER TRANSLATIONS (what customers say -> what to use):
 - "postcard stock" -> 12pt Gloss or 14pt Gloss
 - "business card stock" -> 14pt Gloss
 
-LAMINATION: Gloss, Matte, Silk, Leather. One side or both. Only on cover/cardstock.
+LAMINATION (available on flat printing, booklet covers, and perfect-bound covers -- NOT available on spiral-bound):
+- Only works on cardstock or cover-weight paper, not thin text paper.
+- Can be applied to one side (S/S) or both sides (D/S).
+- If a customer says "glossy finish", "protective coating", "coated", "shiny finish", or "soft touch", that's lamination.
+- When a customer asks about lamination types, explain the differences like this:
+
+LAMINATION TYPES -- explain these in simple terms when asked:
+- Gloss: Shiny, reflective finish. Makes colors pop. Great for photos, menus, flyers. The most popular and affordable option.
+- Matte: Smooth, non-reflective finish. Elegant, professional look. Easy to write on. Good for business cards, reports, upscale materials.
+- Silk (Soft-Touch): Velvety, smooth feel. Premium look and feel. Popular for high-end business cards and luxury branding. Costs a bit more.
+- Leather: Textured finish that looks and feels like leather. Very premium. Used for special presentations, VIP materials, high-end menus.
+
+LAMINATION RECOMMENDATIONS (suggest these when appropriate):
+- Business cards -> Matte or Silk for professional, Gloss for vibrant colors
+- Postcards/flyers -> Gloss for eye-catching, Matte for classy
+- Book/booklet covers -> Gloss is standard, Matte for a premium feel
+- Menus -> Gloss (wipes clean easily)
+- Presentation folders -> Silk or Matte for premium feel
+
+FOLDING & SCORING (for flat printing only):
+- Folding = physically folding the paper. Works on text-weight paper (80lb Text Gloss, 100lb Text Gloss, etc.)
+- Scoring = creasing the paper first so it folds cleanly. REQUIRED for cardstock -- you can't just fold thick paper without scoring it first.
+- If someone asks for a "brochure" or "tri-fold flyer", that's a fold in 3 (tri-fold).
+- If someone asks for something "folded in half", that's fold in half.
+- Fold types: foldInHalf (1 fold), foldIn3 (tri-fold, 2 folds), foldIn4 (3 folds), gateFold
+- For text paper: use operation "folding"
+- For cardstock: use operation "scoring" (score & fold)
+- Common combos:
+  - Tri-fold brochure: 8.5x11, foldIn3, 80lb Text Gloss, color both sides
+  - Folded flyer: 8.5x11, foldInHalf, 80lb Text Gloss
+  - Scored greeting card: 8.5x11, foldInHalf, 12pt Gloss, scoring
+- If a customer wants folding on cardstock, tell them it needs to be scored first (we do that automatically).
+- Not all paper/size/fold combos are available. If the calculator returns an error, explain and suggest alternatives.
 
 ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square 9x9, Square 6x6. InkJet or Laser.`
 
@@ -154,8 +186,16 @@ const tools = {
         .enum(["S/S", "D/S"])
         .nullable()
         .describe("Lamination sides: S/S = one side, D/S = both sides"),
+      scoreFoldOperation: z
+        .enum(["folding", "scoring", ""])
+        .nullable()
+        .describe("Folding = fold only (text-weight paper). Scoring = score then fold (cardstock/thick paper). Empty or null = no fold."),
+      scoreFoldType: z
+        .enum(["foldInHalf", "foldIn3", "foldIn4", "gateFold", ""])
+        .nullable()
+        .describe("foldInHalf = fold in half (1 fold), foldIn3 = tri-fold / letter fold (2 folds), foldIn4 = fold in 4 (3 folds), gateFold = gate fold. Empty or null = no fold."),
     }),
-    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides }) => {
+    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, scoreFoldOperation, scoreFoldType }) => {
       const lamination: LaminationInputs = {
         enabled: laminationEnabled,
         type: (laminationType || "Gloss") as LaminationInputs["type"],
@@ -173,6 +213,8 @@ const tools = {
         printingMarkupPct: 10,
         isBroker,
         lamination,
+        scoreFoldOperation: (scoreFoldOperation || "") as PrintingInputs["scoreFoldOperation"],
+        scoreFoldType: (scoreFoldType || "") as PrintingInputs["scoreFoldType"],
       }
       const options = calculateAllSheetOptions(inputs)
       if (!options.length) {
@@ -191,6 +233,9 @@ const tools = {
       if (fullResult.cuttingCost > 0) {
         parts.cutting = fmt(fullResult.cuttingCost)
       }
+      if (fullResult.scoreFoldCost && fullResult.scoreFoldCost.cost > 0) {
+        parts.scoreFold = `${fmt(fullResult.scoreFoldCost.cost)} (${fullResult.scoreFoldCost.operation} - ${fullResult.scoreFoldCost.foldType})`
+      }
       return {
         total: fmt(fullResult.grandTotal),
         perUnit: fmt(fullResult.grandTotal / qty),
@@ -203,6 +248,7 @@ const tools = {
         sheetSize: best.size,
         costBreakdown: parts,
         lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
+        scoreFold: scoreFoldOperation ? `${scoreFoldOperation} - ${scoreFoldType}` : "none",
       }
     },
   }),
