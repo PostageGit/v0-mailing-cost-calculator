@@ -167,12 +167,11 @@ export function PrintingCalculator() {
   }, [mailing.printQty])
 
   // Helper to compute finishing calculator costs
-  // Broker only means level 10 – never pass broker discount to finishing calcs
   const getFinCalcCosts = useCallback(
-    (qty: number, sheets: number) => {
+    (qty: number, sheets: number, broker: boolean) => {
       const ids = inputs.finishingCalcIds || []
       if (!finCalcs || !finRates || ids.length === 0) return []
-      return computeFinishingCalcTotals(finCalcs, finRates, ids, qty, sheets, false).map((c) => ({
+      return computeFinishingCalcTotals(finCalcs, finRates, ids, qty, sheets, broker).map((c) => ({
         id: c.id,
         name: c.name,
         cost: c.total,
@@ -248,7 +247,7 @@ export function PrintingCalculator() {
   const calcResult = inputs.levelOverride
     ? calculatePrintingCost(inputs, selectedOption.size) || selectedOption.result
     : selectedOption.result
-      const fcCosts = getFinCalcCosts(inputs.qty, calcResult.sheets)
+      const fcCosts = getFinCalcCosts(inputs.qty, calcResult.sheets, inputs.isBroker || false)
   const result = buildFullResult(inputs, calcResult, fcCosts, foldSettings, precomputedFoldCost)
   setFullResult(result)
   }
@@ -273,7 +272,7 @@ export function PrintingCalculator() {
   const handleSelectSheet = useCallback(
     (option: SheetOptionRow) => {
       setSelectedOption(option)
-      const fcCosts = getFinCalcCosts(inputs.qty, option.result.sheets)
+      const fcCosts = getFinCalcCosts(inputs.qty, option.result.sheets, inputs.isBroker || false)
       const result = buildFullResult(inputs, option.result, fcCosts, foldSettings, precomputedFoldCost)
       setFullResult(result)
       setShowResults(true)
@@ -287,7 +286,7 @@ export function PrintingCalculator() {
     if (fullResult && selectedOption) {
       const newCalcResult = calculatePrintingCost(updated, selectedOption.size)
       if (newCalcResult) {
-        const fcCosts = getFinCalcCosts(updated.qty, newCalcResult.sheets)
+        const fcCosts = getFinCalcCosts(updated.qty, newCalcResult.sheets, val)
         const result = buildFullResult(updated, newCalcResult, fcCosts, foldSettings, precomputedFoldCost)
         setFullResult(result)
       }
@@ -303,7 +302,7 @@ export function PrintingCalculator() {
     const updatedInputs = { ...inputs, levelOverride: newLevel }
     const newCalcResult = calculatePrintingCost(updatedInputs, selectedOption.size)
     if (!newCalcResult) return
-      const fcCosts = getFinCalcCosts(inputs.qty, newCalcResult.sheets)
+      const fcCosts = getFinCalcCosts(inputs.qty, newCalcResult.sheets, inputs.isBroker || false)
     const result = buildFullResult(updatedInputs, newCalcResult, fcCosts, foldSettings, precomputedFoldCost)
     setInputs(updatedInputs)
     setFullResult(result)

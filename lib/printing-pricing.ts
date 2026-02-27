@@ -309,13 +309,13 @@ function getFinishingCosts(inputs: PrintingInputs, parentSheets: number): { line
   const ids = inputs.finishingIds || []
   if (ids.length === 0) return { lines: [], total: 0 }
   const cfg = getActiveConfig()
-  // Broker only means level 10 pricing – no percentage discount on finishing
+  const isBroker = inputs.isBroker || false
   const lines: FinishingCostLine[] = []
   let total = 0
   for (const id of ids) {
     const f = cfg.finishings.find((o) => o.id === id)
     if (!f) continue
-    const cost = calculateFinishingCost(f, inputs.paperName, parentSheets, false)
+    const cost = calculateFinishingCost(f, inputs.paperName, parentSheets, isBroker)
     lines.push({ id: f.id, name: f.name, cost })
     total += cost
   }
@@ -326,8 +326,7 @@ function getScoreFoldCost(inputs: PrintingInputs): ScoreFoldCostLine | null {
   const op = inputs.scoreFoldOperation
   const ft = inputs.scoreFoldType
   if (!op || !ft) return null
-  // Broker only means level 10 – no percentage discount on score/fold
-  const result = calculateScoreFoldCost(op, ft, inputs.paperName, inputs.width, inputs.height, inputs.qty, false)
+  const result = calculateScoreFoldCost(op, ft, inputs.paperName, inputs.width, inputs.height, inputs.qty, inputs.isBroker || false)
   if (!result) return null
   const foldLabels: Record<string, string> = { foldInHalf: "Fold in Half", foldIn3: "Fold in 3", foldIn4: "Fold in 4", gateFold: "Gate Fold" }
   return {
@@ -354,8 +353,7 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
     const sfCost = getScoreFoldCost(inputs)
     const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
-    // Broker only means level 10 – no percentage discount on lamination
-    const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, false)
+    const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
     const lamCost = lamResult?.total || 0
     const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + (sfCost?.cost || 0) + lamCost
     const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
@@ -394,8 +392,7 @@ export function buildFullResult(
   const scoreFoldCost = getScoreFoldCost(inputs)
   // Lamination cost (per parent sheet)
   const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
-  // Broker only means level 10 – no percentage discount on lamination
-  const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, false)
+  const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
   const laminationCost: LaminationCostLine | null = lamResult
     ? { type: lamInputs.type, sides: lamInputs.sides, cost: lamResult.total, isMinimumApplied: lamResult.isMinimumApplied, timeMinutes: lamResult.timeMinutes }
     : null

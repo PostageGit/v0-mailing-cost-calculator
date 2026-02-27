@@ -283,15 +283,19 @@ export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { erro
   if ("error" in coverRes) return coverRes
 
   const totalPrintingCost = insideRes.cost + coverRes.cost
-  // Broker only means level 10, no percentage discount on binding/lamination
-  const bindingPricePerBook = getBindingPrice(bookQty, pagesPerBook, inside.paperName, pageWidth, pageHeight, false)
+  // Broker applies percentage discount on finishing (binding + lamination)
+  const bindingPricePerBook = getBindingPrice(bookQty, pagesPerBook, inside.paperName, pageWidth, pageHeight, isBroker)
   const totalBindingPrice = bindingPricePerBook * bookQty
-  const totalLaminationCost = hasLamination ? getLaminationPrice(laminationType, coverRes.paper, coverRes.sheets, false) : 0
+  const totalLaminationCost = hasLamination ? getLaminationPrice(laminationType, coverRes.paper, coverRes.sheets, isBroker) : 0
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 
-  // Broker = level 10 pricing only, no separate broker discount
-  const brokerDiscountAmount = 0
-  const subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
+  // Broker discount on non-printing costs (binding + lamination)
+  let brokerDiscountAmount = 0
+  let subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
+  if (isBroker) {
+    brokerDiscountAmount = (totalBindingPrice + totalLaminationCost) * BROKER_DISCOUNT_RATE
+    subtotal -= brokerDiscountAmount
+  }
   const subtotalRounded = Math.ceil(subtotal)
   const grandTotal = subtotalRounded
 
