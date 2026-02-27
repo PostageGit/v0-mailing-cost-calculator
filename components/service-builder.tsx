@@ -130,16 +130,17 @@ export function ServiceBuilder() {
     const outerPiece = mailing.outerPiece
     const innerPieces = pieces.filter((p) => p.position > 1)
     return inferRequiredItems({
-      shape,
-      quantity: mailingQty,
-      mailService,
-      outerPieceType: outerPiece?.type || "",
-      outerEnvelopeKind: outerPiece?.envelopeKind || "",
-      innerPieceCount: innerPieces.length,
-      hasInhousePrinting: pieces.some((p) => p.production === "inhouse"),
-      hasFoldedPiece: pieces.some((p) => p.foldType && p.foldType !== "none"),
+  shape,
+  quantity: mailingQty,
+  mailService,
+  outerPieceType: outerPiece?.type || "",
+  outerEnvelopeKind: outerPiece?.envelopeKind || "",
+  innerPieceCount: innerPieces.length,
+  hasInhousePrinting: pieces.some((p) => p.production === "inhouse"),
+  hasFoldedPiece: pieces.some((p) => p.foldType && p.foldType !== "none"),
+  uspsFormat: mailing.uspsFormat || "",
     })
-  }, [shape, mailingQty, mailService, mailing.pieces, mailing.outerPiece])
+  }, [shape, mailingQty, mailService, mailing.pieces, mailing.outerPiece, mailing.uspsFormat])
 
   const inferredMap = useMemo(() => {
     const m = new Map<string, string>()

@@ -451,6 +451,8 @@ function Tab1LettersFlats() {
     }
     if (Object.keys(patch).length > 0) {
       setInputs((prev) => ({ ...prev, ...patch }))
+      // Sync format to mailing context for tabbing inference
+      if (patch.pack) mailing.setUspsFormat(patch.pack)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mailing.outerPiece?.id, mailing.outerPiece?.type, mailing.outerPiece?.width, mailing.outerPiece?.height, mailing.outerPiece?.envelopeKind])
@@ -460,6 +462,14 @@ function Tab1LettersFlats() {
       const next = { ...prev, ...partial }
       if ((next.service === "MKT_COMM" || next.service === "MKT_NP") && next.shape === "POSTCARD") {
         next.shape = "LETTER"
+      }
+      // USPS rule: postcards >4x6 must be Letter rate at Retail
+      if (next.service === "FCM_RETAIL" && next.shape === "POSTCARD") {
+        const w = mailing.mailerWidth || 0
+        const h = mailing.mailerHeight || 0
+        if (w > 0 && h > 0 && (Math.min(w, h) > 4 || Math.max(w, h) > 6)) {
+          next.shape = "LETTER"
+        }
       }
       if (next.service === "FCM_RETAIL") {
         next.saturationQty = 0
@@ -471,9 +481,13 @@ function Tab1LettersFlats() {
       if (newTiers.length > 0 && next.tierIndex >= newTiers.length) {
         next.tierIndex = newTiers.length - 1
       }
+      // Sync USPS format to mailing context for downstream inference (e.g. tabbing)
+      if (partial.pack !== undefined) {
+        mailing.setUspsFormat(next.pack)
+      }
       return next
     })
-  }, [])
+  }, [mailing])
 
   const [bufferCents, setBufferCents] = useState("0")
   const parsedBuffer = parseFloat(bufferCents) || 0
@@ -585,8 +599,19 @@ function Tab1LettersFlats() {
 
   const isMkt = inputs.service === "MKT_COMM" || inputs.service === "MKT_NP"
   const isRetail = inputs.service === "FCM_RETAIL"
+  // USPS rule: postcards larger than 4x6 are only postcard rate if presorted.
+  // For retail, they must be classified as Letter.
+  const isLargePostcard = hasDimensions && (() => {
+    const w = mailing.mailerWidth || 0
+    const h = mailing.mailerHeight || 0
+    const s = Math.min(w, h)
+    const l = Math.max(w, h)
+    return s > 4 || l > 6
+  })()
+  const postcardBlockedByRetail = isRetail && isLargePostcard
   const isShapeDisabled = (shape: string) => {
     if (shape === "POSTCARD" && isMkt) return true
+    if (shape === "POSTCARD" && postcardBlockedByRetail) return true
     if (hasDimensions && !shapeOverride && !suggestedShapes.includes(shape as USPSShape)) return true
     return false
   }
@@ -663,6 +688,15 @@ function Tab1LettersFlats() {
               <Pill active={inputs.shape === "LETTER"} disabled={isShapeDisabled("LETTER")} onClick={() => update({ shape: "LETTER" })} label="Letter" compact />
               <Pill active={inputs.shape === "FLAT"} disabled={isShapeDisabled("FLAT")} onClick={() => update({ shape: "FLAT" })} label="Flat" compact />
             </div>
+            {/* Retail large-postcard rule alert */}
+            {postcardBlockedByRetail && inputs.shape === "LETTER" && (
+              <div className="flex items-start gap-2 mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 px-3 py-2">
+                <Info className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <span className="text-xs text-amber-800 dark:text-amber-300">
+                  <strong>USPS Rule:</strong> Postcards larger than 4" x 6" are charged as <strong>Letter</strong> rate at Retail. Switch to <strong>FC Presort</strong> to use Postcard rates.
+                </span>
+              </div>
+            )}
             {/* NM checkbox inline for letters */}
             {inputs.shape === "LETTER" && (
               <label className="flex items-center gap-2.5 mt-2.5 p-2.5 rounded-lg bg-secondary/50 border border-border cursor-pointer">
