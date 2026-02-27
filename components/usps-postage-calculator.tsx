@@ -451,6 +451,8 @@ function Tab1LettersFlats() {
     }
     if (Object.keys(patch).length > 0) {
       setInputs((prev) => ({ ...prev, ...patch }))
+      // Sync format to mailing context for tabbing inference
+      if (patch.pack) mailing.setUspsFormat(patch.pack)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mailing.outerPiece?.id, mailing.outerPiece?.type, mailing.outerPiece?.width, mailing.outerPiece?.height, mailing.outerPiece?.envelopeKind])
@@ -479,9 +481,13 @@ function Tab1LettersFlats() {
       if (newTiers.length > 0 && next.tierIndex >= newTiers.length) {
         next.tierIndex = newTiers.length - 1
       }
+      // Sync USPS format to mailing context for downstream inference (e.g. tabbing)
+      if (partial.pack !== undefined) {
+        mailing.setUspsFormat(next.pack)
+      }
       return next
     })
-  }, [])
+  }, [mailing])
 
   const [bufferCents, setBufferCents] = useState("0")
   const parsedBuffer = parseFloat(bufferCents) || 0

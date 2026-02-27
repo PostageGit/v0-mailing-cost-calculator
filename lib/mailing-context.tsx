@@ -133,6 +133,8 @@ interface MailingState {
   setShape: (s: string) => void; setClassName: (n: string) => void
   /** USPS service code from Tab 1/2 e.g. "FCM_COMM","MKT_COMM","MKT_NP","FCM_RETAIL","PS","MM","LM","BPM" */
   mailService: string; setMailService: (s: string) => void
+  /** USPS packaging format from postage page: ENV, PLAS, SM_CARD, SM_FOLD, SM_BOOK */
+  uspsFormat: string; setUspsFormat: (s: string) => void
 
   // All pieces in the mailing
   pieces: MailPiece[]
@@ -170,6 +172,7 @@ export interface MailingSnapshot {
   shape: string
   className: string
   mailService: string
+  uspsFormat?: string
   pieces: MailPiece[]
 }
 
@@ -199,6 +202,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   const [shape, setShape] = useState("LETTER")
   const [className, setClassName] = useState("Letter")
   const [mailService, setMailService] = useState("")
+  const [uspsFormat, setUspsFormat] = useState("")
   const [pieces, setPieces] = useState<MailPiece[]>([])
 
   const addPiece = useCallback((type: PieceType) => {
@@ -270,9 +274,9 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   // ── Snapshot: capture & restore full mailing state ──
   const getSnapshot = useCallback((): MailingSnapshot => ({
-    quantity, extraPrintQty, shape, className, mailService,
+    quantity, extraPrintQty, shape, className, mailService, uspsFormat,
     pieces: pieces.map((p) => ({ ...p })), // shallow clone each piece
-  }), [quantity, extraPrintQty, shape, className, mailService, pieces])
+  }), [quantity, extraPrintQty, shape, className, mailService, uspsFormat, pieces])
 
   const restoreState = useCallback((snap: MailingSnapshot) => {
     if (!snap) return
@@ -281,6 +285,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
     setShape(snap.shape ?? "LETTER")
     setClassName(snap.className ?? "Letter")
     setMailService(snap.mailService ?? "")
+    setUspsFormat(snap.uspsFormat ?? "")
     // Restore pieces and bump counter so new pieces don't collide with existing IDs
     const restored = (snap.pieces ?? []).map((p, i) => ({ ...p, position: i + 1 }))
     setPieces(restored)
@@ -297,7 +302,7 @@ export function MailingProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      quantity, setQuantity, extraPrintQty, setExtraPrintQty, printQty, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService,
+      quantity, setQuantity, extraPrintQty, setExtraPrintQty, printQty, shape, className, suggestedShapes, setShape, setClassName, mailService, setMailService, uspsFormat, setUspsFormat,
       pieces, setPieces, addPiece, removePiece, updatePiece,
       outerPiece, mailerWidth, mailerHeight,
       needsEnvelope, needsPrinting, needsBooklet, needsSpiral, needsPerfect, needsPad, needsOHP,

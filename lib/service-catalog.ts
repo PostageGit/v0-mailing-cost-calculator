@@ -304,6 +304,8 @@ export interface JobContext {
   innerPieceCount: number   // number of pieces INSIDE the outer
   hasInhousePrinting: boolean
   hasFoldedPiece: boolean   // any piece with foldType !== "none"
+  /** USPS format from postage page: SM_CARD, SM_FOLD, SM_BOOK, ENV, PLAS */
+  uspsFormat?: string
 }
 
 export type InferredReason = string
@@ -363,8 +365,13 @@ export function inferRequiredItems(ctx: JobContext): InferredItem[] {
   }
 
   // 6. TABBING -- needed for self-mailers (no envelope, piece mails on its own)
-  if (ctx.outerPieceType === "self_mailer") {
-    items.push({ id: "tabbing", reason: "Self-mailers require tabs to stay closed" })
+  //    Also triggered by USPS format: SM_CARD, SM_FOLD, SM_BOOK all require tabs per USPS DMM 201.3
+  const isSelfMailerFormat = ["SM_CARD", "SM_FOLD", "SM_BOOK"].includes(ctx.uspsFormat || "")
+  if (ctx.outerPieceType === "self_mailer" || isSelfMailerFormat) {
+    const reason = isSelfMailerFormat
+      ? "Self-mailer format requires tabs/wafer seals per USPS DMM 201.3"
+      : "Self-mailers require tabs to stay closed"
+    items.push({ id: "tabbing", reason })
   }
 
   // 7. FOLDING -- needed if any piece is folded, BUT NOT for self-mailers
