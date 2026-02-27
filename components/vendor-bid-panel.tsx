@@ -7,11 +7,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
-  X, Plus, Loader2, Send, ShoppingCart, Check, ArrowRight, Star,
+  X, Plus, Loader2, Send, ShoppingCart, Check, ArrowRight, Star, ClipboardCopy,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
 import { buildCustomerSpecs } from "@/lib/build-quote-text"
 import { useQuote } from "@/lib/quote-context"
+import type { QuoteCategory } from "@/lib/quote-types"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
 
@@ -23,10 +24,59 @@ function describePiece(piece: MailPiece, qty: number) {
   const flat = getFlatSize(piece)
   const flatStr = flat.w && flat.h && (flat.w !== piece.width || flat.h !== piece.height) ? ` (flat: ${flat.w}" x ${flat.h}")` : ""
   const label = `${qty.toLocaleString()} - ${sizeStr} ${meta.label}${flatStr}`
+  // Build a richer description from piece data
   const parts: string[] = []
   if (piece.envelopeId && piece.envelopeId !== "custom") parts.push(piece.envelopeId)
+  if (piece.envelopeKind) parts.push(piece.envelopeKind === "plastic" ? "Plastic" : "Paper")
+  if (piece.paperName) parts.push(piece.paperName)
+  if (piece.sides) parts.push(piece.sides)
+  if (piece.hasBleed) parts.push("Bleed")
+  if (piece.pageCount && piece.pageCount > 1) parts.push(`${piece.pageCount}pg`)
+  if (piece.foldType && piece.foldType !== "none") {
+    parts.push(String(piece.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold").replace("x3h","Tri-Fold").replace("x3w","Tri-Fold"))
+  }
   const category = meta.calc === "booklet" ? "booklet" : meta.calc === "spiral" ? "spiral" : meta.calc === "perfect" ? "perfect" : meta.calc === "envelope" ? "envelope" : "flat"
-  return { label, desc: parts.join(" | "), category }
+  return { label, desc: parts.join(", "), category }
+}
+
+/** Build a customer-facing copyable spec description for an OHP bid.
+ *  Only includes what the customer cares about:
+ *  Qty, Size, Paper, Color (4/0 4/4 etc.), Fold, Score, Lamination.
+ *  No internal details (sort levels, buffers, vendors, entry points). */
+function buildFullDescription(bid: VendorBid, matchedPiece: MailPiece | undefined, qty: number, quoteItems: { label: string; category: string; amount: number; description: string; metadata?: Record<string, unknown> }[]): string {
+  const lines: string[] = []
+  lines.push(`Qty: ${qty.toLocaleString()}`)
+
+  // Try to get full specs from matching quote item metadata
+  const matchingItem = quoteItems.find((it) => {
+    const cat = it.category?.toLowerCase()
+    const printCats = ["flat", "booklet", "spiral", "perfect", "envelope"]
+    if (!printCats.includes(cat)) return false
+    if (!matchedPiece) return bid.item_label.includes(it.label.replace(/^\d[\d,]*\s*-\s*/, ""))
+    const dims = [`${matchedPiece.width}x${matchedPiece.height}`, `${matchedPiece.height}x${matchedPiece.width}`]
+    return dims.some((d) => it.label.includes(d))
+  })
+
+  const m = matchingItem?.metadata as Record<string, unknown> | undefined
+  if (m) {
+    // Use the same customer-facing spec builder as PDF / quote text
+    const specs = buildCustomerSpecs(m, matchingItem?.category as QuoteCategory)
+    if (specs) lines.push(specs)
+  } else if (matchedPiece) {
+    // Fallback: build from piece data directly (customer-relevant only)
+    const parts: string[] = []
+    if (matchedPiece.width && matchedPiece.height) parts.push(`${matchedPiece.width}" x ${matchedPiece.height}"`)
+    if (matchedPiece.paperName) parts.push(String(matchedPiece.paperName))
+    if (matchedPiece.sides) parts.push(String(matchedPiece.sides))
+    if (matchedPiece.hasBleed) parts.push("Bleed")
+    if (matchedPiece.pageCount && matchedPiece.pageCount > 1) parts.push(`${matchedPiece.pageCount} Pages`)
+    if (matchedPiece.foldType && matchedPiece.foldType !== "none") {
+      parts.push(String(matchedPiece.foldType).replace("x3long","Tri-Fold").replace("x2h","Half Fold").replace("x2w","Half Fold"))
+    }
+    if (parts.length) lines.push(parts.join(", "))
+  }
+
+  return lines.join("\n")
 }
 
 interface Props { quoteId: string; onClose?: () => void; inline?: boolean }
@@ -222,6 +272,7 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
   const [markupPct, setMarkupPct] = useState(20)
   const [pushed, setPushed] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [descCopied, setDescCopied] = useState(false)
 
   // Allow adding ANY vendor -- even duplicates if user wants to re-bid
   const quickAddVendor = async (vendorId: string) => {
@@ -329,11 +380,35 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
         <div className="min-w-0 flex-1">
           <h4 className="text-base font-black text-foreground leading-snug">{bid.item_label}</h4>
           {bid.item_description && <p className="text-xs text-muted-foreground mt-0.5">{bid.item_description}</p>}
+          {/* Full print specs from quote metadata */}
+          {(() => {
+            const specLines = buildFullDescription(bid, matchedPiece, qty, quote.items as any).split("\n").filter(l => !l.startsWith("Job:") && !l.startsWith("Qty:"))
+            return specLines.length > 0 ? (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {specLines.map((line, i) => (
+                  <span key={i} className="px-1.5 py-0.5 rounded bg-secondary/60 text-[10px] font-medium text-muted-foreground leading-none">{line}</span>
+                ))}
+              </div>
+            ) : null
+          })()}
         </div>
-        <button onClick={deleteBid} disabled={deleting}
-          className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors shrink-0 ml-3">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0 ml-3">
+          <button
+            onClick={async () => {
+              const text = buildFullDescription(bid, matchedPiece, qty, quote.items as any)
+              try { await navigator.clipboard.writeText(text) } catch { /* fallback */ }
+              setDescCopied(true); setTimeout(() => setDescCopied(false), 2000)
+            }}
+            className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-foreground hover:bg-secondary transition-colors"
+            title="Copy full description"
+          >
+            {descCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <ClipboardCopy className="h-4 w-4" />}
+          </button>
+          <button onClick={deleteBid} disabled={deleting}
+            className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* "BOTH" COMPARISON: In-House vs OHP Best -- big bold split */}

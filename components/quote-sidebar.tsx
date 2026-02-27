@@ -22,7 +22,8 @@ import { buildQuoteText } from "@/lib/build-quote-text"
 import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { Download } from "lucide-react"
 
-const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad", "envelope", "postage", "listwork", "item", "ohp"]
+// Printing categories first, then services/postage/ohp
+const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad", "envelope", "ohp", "postage", "listwork", "item"]
 
 /* ── Inline-editable item row ─────────────────────────── */
 function QuoteItemRow({

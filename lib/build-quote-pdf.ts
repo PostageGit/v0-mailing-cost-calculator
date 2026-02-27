@@ -243,11 +243,12 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
   if (postageItems.length > 0) {
     sectionHeader(hasEstimatedPostage ? "POSTAGE / USPS (ESTIMATED)" : "POSTAGE / USPS")
     postageItems.forEach((item) => {
-      const isEst = item.metadata?.isEstimated
-      let desc = item.description
-        ? cleanPostageDescription(item.description)
-        : item.label || "Postage"
-      if (isEst) desc += "  *Estimated"
+      const m = (item.metadata ?? {}) as Record<string, unknown>
+      // Customer sees: Mail class + qty x ~$rate (no sort tiers, no buffer, no entry point)
+      const mailClass = m.mailingClass ? String(m.mailingClass) : ""
+      const avgPP = m.avgPerPiece ? `~${formatCurrency(Number(m.avgPerPiece))}/pc` : ""
+      let desc = [mailClass, avgPP].filter(Boolean).join(", ")
+      if (!desc) desc = item.description ? cleanPostageDescription(item.description) : item.label || "Postage"
       lineItem(desc, null, item.amount)
     })
     // Postage disclaimer for estimated rates
@@ -272,16 +273,16 @@ export function buildQuotePDF(opts: QuoteTextOptions): jsPDF {
     })
   }
 
-  // --- OHP ---
+  // --- OHP (shown as PRINTING to customer) ---
   const ohpItems = items.filter((i) => i.category === "ohp")
   if (ohpItems.length > 0) {
-    sectionHeader("PRINTING")
+    // If there's already a printing section, don't add another header
+    if (printItems.length === 0) sectionHeader("PRINTING")
     ohpItems.forEach((item) => {
-      // Use customer specs from metadata, fallback to description, then label
       const m = (item.metadata ?? {}) as Record<string, unknown>
-      const specs = buildCustomerSpecs(m, "printing")
-      const desc = specs || item.description || item.label || "Printing"
-      lineItem(desc, null, item.amount)
+      const specs = buildCustomerSpecs(m, "flat") // treat OHP metadata as flat printing specs
+      const desc = item.label || "Printing"
+      lineItem(desc, specs || null, item.amount)
     })
   }
 
