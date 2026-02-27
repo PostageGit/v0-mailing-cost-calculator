@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { PerfectForm } from "./perfect-form"
 import { PerfectLayoutSvg } from "./perfect-layout-svg"
 import { PerfectDetails } from "./perfect-details"
+import { PaperStatsRow } from "@/components/calc-price-card"
 import { calculatePerfect } from "@/lib/perfect-pricing"
 import { defaultPerfectInputs } from "@/lib/perfect-types"
 import type { PerfectInputs, PerfectCalcResult } from "@/lib/perfect-types"
@@ -69,6 +70,15 @@ export function PerfectCalculator() {
     setCalcResult(result)
     setActiveTab("cover")
   }, [inputs, isFormValid])
+
+  const handleBrokerChange = useCallback((val: boolean) => {
+    const updated = { ...inputs, isBroker: val }
+    setInputs(updated)
+    if (calcResult) {
+      const newResult = calculatePerfect(updated)
+      if (!("error" in newResult)) setCalcResult(newResult)
+    }
+  }, [inputs, calcResult])
 
   // Change pricing level via the level bars
   const handleLevelChange = useCallback((delta: number) => {
@@ -277,11 +287,31 @@ export function PerfectCalculator() {
                     />
                   </TabsContent>
                 </Tabs>
+                  {/* Paper info + stats under layout */}
+                  {(() => {
+                    const r = activeTab === "cover" ? calcResult.coverResult : calcResult.insideResult
+                    return (
+                      <>
+                        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
+                          <span className="font-semibold text-foreground">{r.paper}</span>
+                          <span>{r.sheetSize} {r.isRotated ? "(rotated)" : ""}</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground text-center mt-1">
+                          Total Sheets: {r.sheets.toLocaleString()} | Cost: {formatCurrency(r.cost)}
+                        </div>
+                        <PaperStatsRow stats={[
+                          { label: "Sheet", value: r.sheetSize },
+                          { label: "Ups", value: String(r.maxUps) },
+                          { label: "Sheets", value: r.sheets.toLocaleString() },
+                        ]} />
+                      </>
+                    )
+                  })()}
               </div>
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
+                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

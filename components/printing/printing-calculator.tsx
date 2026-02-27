@@ -5,6 +5,7 @@ import { PrintingForm } from "./printing-form"
 import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
 import { PriceBreakdown } from "./price-breakdown"
+import { PaperStatsRow } from "@/components/calc-price-card"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -278,6 +279,19 @@ export function PrintingCalculator() {
     },
     [inputs, getFinCalcCosts, foldSettings, precomputedFoldCost]
   )
+
+  const handleBrokerChange = useCallback((val: boolean) => {
+    const updated = { ...inputs, isBroker: val }
+    setInputs(updated)
+    if (fullResult && selectedOption) {
+      const newCalcResult = calculatePrintingCost(updated, selectedOption.size)
+      if (newCalcResult) {
+        const fcCosts = getFinCalcCosts(updated.qty, newCalcResult.sheets, val)
+        const result = buildFullResult(updated, newCalcResult, fcCosts, foldSettings, precomputedFoldCost)
+        setFullResult(result)
+      }
+    }
+  }, [inputs, fullResult, selectedOption, getFinCalcCosts, foldSettings, precomputedFoldCost])
 
   // Change pricing level override
   const handleLevelChange = useCallback((delta: number) => {
@@ -561,13 +575,27 @@ export function PrintingCalculator() {
           {!isOhpMode && showResults && fullResult && (
             <div className="mt-6 pt-6 border-t border-border">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <SheetLayoutSvg
-                  result={fullResult.result}
-                  pageWidth={inputs.width}
-                  pageHeight={inputs.height}
-                />
+                <div className="flex flex-col">
+                  <SheetLayoutSvg
+                    result={fullResult.result}
+                    pageWidth={inputs.width}
+                    pageHeight={inputs.height}
+                  />
+                  <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
+                    <span className="font-semibold text-foreground">{inputs.paperName}</span>
+                    <span>{fullResult.result.sheetSize} {fullResult.result.isRotated ? "(rotated)" : ""}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground text-center mt-1">
+                    Total Sheets: {fullResult.result.sheets.toLocaleString()} | Cost: {formatCurrency(fullResult.printingCostPlus10)}
+                  </div>
+                  <PaperStatsRow stats={[
+                    { label: "Sheet", value: fullResult.result.sheetSize },
+                    { label: "Ups", value: String(fullResult.result.maxUps) },
+                    { label: "Sheets", value: fullResult.result.sheets.toLocaleString() },
+                  ]} />
+                </div>
                 <div className="flex flex-col gap-4">
-                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
+                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
                   <Button
                     onClick={handleAddToQuote}
                     className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

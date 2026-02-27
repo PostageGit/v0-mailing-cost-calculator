@@ -97,20 +97,30 @@ export function CalcPriceCard({
         )}
       </div>
 
-      {/* ── Paper + stats ── */}
-      <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
-          <span className="text-sm font-semibold text-foreground">{paperName}</span>
-        </div>
-        {stats.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            {stats.map((s) => (
-              <StatBadge key={s.label} label={s.label} value={s.value} />
-            ))}
+      {/* ── Broker toggle bar (before everything) ── */}
+      {onBrokerChange && (
+        <button
+          type="button"
+          onClick={() => onBrokerChange(!isBroker)}
+          className={`w-full rounded-xl border-2 px-5 py-3.5 flex items-center justify-between transition-all duration-200 ${
+            isBroker
+              ? "border-foreground bg-foreground text-background"
+              : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+              isBroker ? "border-background bg-background" : "border-muted-foreground/40"
+            }`}>
+              {isBroker && <div className="h-2.5 w-2.5 rounded-full bg-foreground" />}
+            </div>
+            <span className="text-sm font-bold tracking-wide">Broker Pricing</span>
           </div>
-        )}
-      </div>
+          <span className={`text-xs font-bold uppercase tracking-widest ${isBroker ? "text-background/60" : "text-muted-foreground/50"}`}>
+            {isBroker ? "ON" : "OFF"}
+          </span>
+        </button>
+      )}
 
       {/* ── Level control ── */}
       {level && (
@@ -174,6 +184,12 @@ export function CalcPriceCard({
         </div>
       )}
 
+      {/* ── Paper name ── */}
+      <div className="rounded-xl border border-border bg-card px-4 py-2.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
+        <span className="text-sm font-semibold text-foreground">{paperName}</span>
+      </div>
+
       {/* ── Cost lines ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
         {costLines.filter((c) => c.value !== 0 || c.accent).map((line, i) => (
@@ -186,31 +202,6 @@ export function CalcPriceCard({
           <span className="text-sm font-bold text-foreground font-mono">{formatCurrency(effectiveTotal)}</span>
         </div>
       </div>
-
-      {/* ── Broker toggle bar ── */}
-      {onBrokerChange && (
-        <button
-          type="button"
-          onClick={() => onBrokerChange(!isBroker)}
-          className={`w-full rounded-xl border-2 px-5 py-3.5 flex items-center justify-between transition-all duration-200 ${
-            isBroker
-              ? "border-foreground bg-foreground text-background"
-              : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-              isBroker ? "border-background bg-background" : "border-muted-foreground/40"
-            }`}>
-              {isBroker && <div className="h-2.5 w-2.5 rounded-full bg-foreground" />}
-            </div>
-            <span className="text-sm font-bold tracking-wide">Broker Pricing</span>
-          </div>
-          <span className={`text-xs font-bold uppercase tracking-widest ${isBroker ? "text-background/60" : "text-muted-foreground/50"}`}>
-            {isBroker ? "ON" : "OFF"}
-          </span>
-        </button>
-      )}
 
       {/* ── Expandable details ── */}
       {details && (
@@ -233,13 +224,18 @@ export function CalcPriceCard({
   )
 }
 
-/* ── Small helpers ── */
+/* ── Exported sub-components ── */
 
-function StatBadge({ label, value }: { label: string; value: string }) {
+export function PaperStatsRow({ stats }: { stats: PaperStat[] }) {
+  if (!stats.length) return null
   return (
-    <div className="flex flex-col items-center rounded-lg bg-secondary/30 py-2 px-1">
-      <span className="text-[10px] text-muted-foreground">{label}</span>
-      <span className="text-sm font-bold text-foreground font-mono leading-tight">{value}</span>
+    <div className="grid grid-cols-3 gap-2 mt-2">
+      {stats.map((s) => (
+        <div key={s.label} className="flex flex-col items-center rounded-lg bg-secondary/30 py-2 px-1">
+          <span className="text-[10px] text-muted-foreground">{s.label}</span>
+          <span className="text-sm font-bold text-foreground font-mono leading-tight">{s.value}</span>
+        </div>
+      ))}
     </div>
   )
 }
