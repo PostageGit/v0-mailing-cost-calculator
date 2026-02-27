@@ -797,10 +797,10 @@ function ZendeskField({ value, onChange }: { value: string; onChange: (v: string
   if (value) {
     return (
       <span className="inline-flex items-center gap-1 text-[12px] group/zd">
-        <FileText className="h-3.5 w-3.5 text-emerald-500" />
-        <span className="text-muted-foreground/50">ZD#</span>
+        <FileText className="h-3.5 w-3.5 text-emerald-600" />
+        <span className="font-semibold text-muted-foreground/70">ZD#</span>
         <a href={`${ZENDESK_BASE}${value}`} target="_blank" rel="noopener noreferrer"
-          className="font-mono text-emerald-600 dark:text-emerald-400 font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+          className="font-mono font-bold text-emerald-700 dark:text-emerald-400 hover:underline" onClick={(e) => e.stopPropagation()}>
           {value}
         </a>
         <ExternalLink className="h-3 w-3 text-muted-foreground/30 group-hover/zd:text-emerald-500 transition-colors" />
@@ -1169,7 +1169,7 @@ function QuoteCard({
           <div className="flex items-center gap-4 mb-2.5">
             <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
             {quote.reference_number && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/50">
+              <span className="inline-flex items-center gap-1 text-[12px] font-mono font-semibold text-muted-foreground/70">
                 <Hash className="h-3 w-3" />
                 INV {quote.reference_number}
               </span>
@@ -1177,12 +1177,12 @@ function QuoteCard({
             {/* Q/J numbers */}
             <div className="flex items-center gap-1.5 ml-auto">
               {quote.job_number ? (
-                <span className="text-[11px] font-bold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded">J-{quote.job_number}</span>
+                <span className="text-[12px] font-extrabold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-2 py-0.5 rounded">J-{quote.job_number}</span>
               ) : quote.quote_number ? (
-                <span className="text-[11px] font-bold font-mono tabular-nums text-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
+                <span className="text-[12px] font-extrabold font-mono tabular-nums text-foreground/70 bg-secondary/80 px-2 py-0.5 rounded">Q-{quote.quote_number}</span>
               ) : null}
               {quote.job_number && quote.quote_number && (
-                <span className="text-[10px] font-mono tabular-nums text-muted-foreground/30">Q-{quote.quote_number}</span>
+                <span className="text-[11px] font-bold font-mono tabular-nums text-muted-foreground/50">Q-{quote.quote_number}</span>
               )}
             </div>
           </div>
@@ -1192,8 +1192,8 @@ function QuoteCard({
             {(meta.quick_notes || quote.notes) ? (
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
                 className="flex items-start gap-1.5 w-full text-left group/note">
-                <NotepadText className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0 mt-0.5" />
-                <span className="text-[12px] text-muted-foreground/60 truncate group-hover/note:text-muted-foreground transition-colors leading-relaxed">
+                <NotepadText className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-0.5" />
+                <span className="text-[12px] font-medium text-muted-foreground/70 truncate group-hover/note:text-muted-foreground transition-colors leading-relaxed">
                   {meta.quick_notes || quote.notes}
                 </span>
               </button>
