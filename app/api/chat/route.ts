@@ -6,13 +6,18 @@ import {
   buildFullResult,
   PAPER_OPTIONS,
 } from "@/lib/printing-pricing"
-import { calculateBooklet } from "@/lib/booklet-pricing"
+import { calculateBooklet, BOOKLET_PAPER_OPTIONS } from "@/lib/booklet-pricing"
 import { calculateSpiral } from "@/lib/spiral-pricing"
 import { calculatePerfect } from "@/lib/perfect-pricing"
 import { calculatePad } from "@/lib/pad-pricing"
 import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
+
+// Build paper name lists at module level so the AI can use them
+const FLAT_PAPER_NAMES = PAPER_OPTIONS.map((p) => p.name)
+const BOOKLET_INSIDE_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p) => !p.isCardstock).map((p) => p.name)
+const BOOKLET_COVER_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p) => p.isCardstock).map((p) => p.name)
 
 function fmt(n: number) {
   return "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -78,11 +83,25 @@ NEVER DO:
 - Never write long paragraphs. Keep it punchy.
 - Never guess page count for books. Always ask.
 
-PAPER OPTIONS (for your reference, use plain names when talking to customer):
-Text: 20lb Offset, 60lb Offset, 80lb Text Gloss, 100lb Text Gloss
-Cover: 65 Cover, 67 Cover, 80 Cover Gloss
-Cardstock: 10pt Offset, 10pt Gloss, 12pt Gloss, 14pt Gloss
-Specialty: Sticker (Crack & Peel)
+CRITICAL -- PAPER NAMES MUST BE EXACT (each calculator has its own paper list):
+
+FOR FLAT PRINTING (calculate_printing):
+  ${FLAT_PAPER_NAMES.join(", ")}
+
+FOR BOOKLETS / SPIRAL / PERFECT / PADS -- inside pages:
+  ${BOOKLET_INSIDE_PAPERS.join(", ")}
+
+FOR BOOKLETS / SPIRAL / PERFECT -- covers (cardstock):
+  ${BOOKLET_COVER_PAPERS.join(", ")}
+
+Note: flat printing uses "80 Cover Gloss" but booklets use "80 Gloss". They are different names -- always use the exact name for the right calculator. If unsure, use the list_papers tool.
+
+COMMON PAPER TRANSLATIONS (what customers say -> what to use):
+- "regular paper" or "copy paper" -> 20lb Offset
+- "nice paper" or "glossy" -> 80lb Text Gloss (flat) or 80lb Text Gloss (booklet inside)
+- "thick" or "cardstock" -> 12pt Gloss (flat) or 12pt Gloss (booklet cover)
+- "postcard stock" -> 12pt Gloss or 14pt Gloss
+- "business card stock" -> 14pt Gloss
 
 LAMINATION: Gloss, Matte, Silk, Leather. One side or both. Only on cover/cardstock.
 
@@ -99,7 +118,7 @@ const tools = {
       paperName: z
         .string()
         .describe(
-          'Paper type, e.g. "80lb Text Gloss", "12pt Gloss", "20lb Offset"'
+          `Paper name -- MUST be one of: ${FLAT_PAPER_NAMES.join(", ")}`
         ),
       sidesValue: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
@@ -188,7 +207,7 @@ const tools = {
       pageHeight: z.number().describe("Page height in inches (e.g. 11)"),
       insidePaper: z
         .string()
-        .describe('Inside paper type, e.g. "80lb Text Gloss"'),
+        .describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Inside page printing sides"),
@@ -198,7 +217,7 @@ const tools = {
       coverPaper: z
         .string()
         .nullable()
-        .describe('Cover paper type if separate, e.g. "80 Cover Gloss"'),
+        .describe(`Cover paper if separate -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
       coverSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .nullable()
@@ -273,15 +292,15 @@ const tools = {
       pagesPerBook: z.number().describe("Number of inside pages"),
       pageWidth: z.number().describe("Page width in inches"),
       pageHeight: z.number().describe("Page height in inches"),
-      insidePaper: z.string().describe('Inside paper type'),
+      insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Inside printing sides"),
       insideBleed: z.boolean().describe("Inside pages have bleed"),
       useFrontCover: z.boolean().describe("Use a front cover page"),
       useBackCover: z.boolean().describe("Use a back cover page"),
-      frontPaper: z.string().nullable().describe("Front cover paper if used"),
-      backPaper: z.string().nullable().describe("Back cover paper if used"),
+      frontPaper: z.string().nullable().describe(`Front cover paper if used -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
+      backPaper: z.string().nullable().describe(`Back cover paper if used -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
       clearPlastic: z.boolean().describe("Add clear plastic front cover"),
       blackVinyl: z.boolean().describe("Add black vinyl back cover"),
       isBroker: z
@@ -362,11 +381,11 @@ const tools = {
       pagesPerBook: z.number().describe("Number of inside pages (minimum 40)"),
       pageWidth: z.number().describe("Page width in inches"),
       pageHeight: z.number().describe("Page height in inches"),
-      insidePaper: z.string().describe("Inside paper type"),
+      insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Inside printing sides"),
-      coverPaper: z.string().describe("Cover paper type"),
+      coverPaper: z.string().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
       coverSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Cover printing sides"),
@@ -441,7 +460,7 @@ const tools = {
       pagesPerPad: z.number().describe("Pages per pad (e.g. 25, 50, 100)"),
       pageWidth: z.number().describe("Page width in inches"),
       pageHeight: z.number().describe("Page height in inches"),
-      insidePaper: z.string().describe('Paper type, e.g. "20lb Offset"'),
+      insidePaper: z.string().describe(`Paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Printing sides"),
@@ -558,14 +577,36 @@ const tools = {
 
   list_available_papers: tool({
     description:
-      "List all available paper stocks with their available sheet sizes. Use this when the customer asks what papers are available.",
-    inputSchema: z.object({}),
-    execute: async () => {
-      return PAPER_OPTIONS.map((p) => ({
-        name: p.name,
-        isCardstock: p.isCardstock,
-        sizes: p.availableSizes,
-      }))
+      "List all available paper stocks grouped by calculator type. Use this if unsure which paper name to use.",
+    inputSchema: z.object({
+      calculatorType: z
+        .enum(["flat", "booklet", "spiral", "perfect", "pad"])
+        .describe("Which calculator the papers are for"),
+    }),
+    execute: async ({ calculatorType }) => {
+      if (calculatorType === "flat") {
+        return {
+          type: "Flat printing",
+          papers: PAPER_OPTIONS.map((p) => ({
+            name: p.name,
+            isCardstock: p.isCardstock,
+            sizes: p.availableSizes,
+          })),
+        }
+      }
+      // Booklet/spiral/perfect/pad all use the same paper list
+      return {
+        type: calculatorType,
+        insidePapers: BOOKLET_PAPER_OPTIONS.filter((p) => !p.isCardstock).map((p) => ({
+          name: p.name,
+          sizes: p.availableSizes,
+        })),
+        coverPapers: BOOKLET_PAPER_OPTIONS.filter((p) => p.isCardstock).map((p) => ({
+          name: p.name,
+          canLaminate: p.canLaminate,
+          sizes: p.availableSizes,
+        })),
+      }
     },
   }),
 
