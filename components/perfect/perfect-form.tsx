@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save } from "lucide-react"
-import { getCoverPapers, getInsidePapers, canLaminate } from "@/lib/perfect-pricing"
+import { getCoverPapers, getInsidePapers, canLaminate, getLaminationPrice } from "@/lib/perfect-pricing"
+import { formatCurrency } from "@/lib/pricing"
 import { PAPER_OPTIONS, COVER_SIDES, INSIDE_SIDES } from "@/lib/perfect-types"
 import type { PerfectInputs, PerfectPartInputs } from "@/lib/perfect-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
@@ -246,27 +247,44 @@ export function PerfectForm({
 
       <Separator className="my-4" />
 
-      {/* Lamination, Custom Level, Broker */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 items-end">
-        <div className="flex flex-col gap-1.5 md:col-span-2">
-          <label htmlFor="pb-lamination" className="text-sm font-medium text-foreground">Lamination</label>
-          <Select
-            value={inputs.laminationType}
-            onValueChange={(val) => update({ laminationType: val as PerfectInputs["laminationType"] })}
-            disabled={!coverCanLaminate}
-          >
-            <SelectTrigger id="pb-lamination"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="gloss">Gloss</SelectItem>
-              <SelectItem value="matte">Matte</SelectItem>
-              <SelectItem value="silk">Silk</SelectItem>
-              <SelectItem value="leather">Leather</SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Lamination (on cover) */}
+      {coverCanLaminate && (
+        <div className="mb-4">
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+            Lamination <span className="font-normal normal-case text-muted-foreground/70">on cover</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(["none", "gloss", "matte", "silk", "leather"] as const).map((t) => {
+              const selected = inputs.laminationType === t
+              const isNone = t === "none"
+              let price: number | null = null
+              if (!isNone && inputs.bookQty > 0 && inputs.cover.paperName) {
+                const estSheets = Math.max(inputs.bookQty, 1)
+                price = getLaminationPrice(t, inputs.cover.paperName, estSheets, inputs.isBroker)
+              }
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => update({ laminationType: t })}
+                  className={`flex flex-col items-center rounded-xl border-2 px-4 py-2.5 transition-all min-w-[80px] ${
+                    selected
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card text-foreground hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="text-[12px] font-bold">{isNone ? "None" : t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                  {price !== null && price > 0 && (
+                    <span className={`text-[10px] font-mono font-semibold mt-0.5 ${selected ? "text-background/70" : "text-muted-foreground"}`}>
+                      +{formatCurrency(price)}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
-
-      </div>
+      )}
 
       {/* Validation Error */}
       {validationError && v.attempted && (

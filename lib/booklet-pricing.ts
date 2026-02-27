@@ -290,7 +290,7 @@ function getSaddleStitchBindingPrice(quantity: number, sheetsPerBooklet: number,
 
 // ==================== LAMINATION ====================
 
-function getLaminationPrice(
+export function getLaminationPrice(
   laminationType: string,
   coverPaperName: string,
   quantity: number,

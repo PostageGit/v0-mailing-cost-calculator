@@ -91,6 +91,19 @@ export function BookletCalculator() {
     setActiveTab(inputs.separateCover ? "cover" : "inside")
   }, [inputs, isFormValid])
 
+  // Change pricing level via the level bars
+  const handleLevelChange = useCallback((delta: number) => {
+    if (!calcResult) return
+    const currentLevel = calcResult.coverResult.level || calcResult.insideResult.level
+    const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
+    if (newLevel === currentLevel) return
+    const updatedInputs = { ...inputs, customLevel: String(newLevel) }
+    const newResult = calculateBooklet(updatedInputs)
+    if (!newResult.isValid) return
+    setInputs(updatedInputs)
+    setCalcResult(newResult)
+  }, [calcResult, inputs])
+
   function resetForm() {
     setInputs(EMPTY_INPUTS)
     setCalcResult(null)
@@ -299,6 +312,7 @@ export function BookletCalculator() {
                 result={calcResult}
                 bookQty={inputs.bookQty}
                 inputs={inputs}
+                onLevelChange={handleLevelChange}
                 onEffectiveTotalChange={setEffectiveTotal}
                 onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))}
               />

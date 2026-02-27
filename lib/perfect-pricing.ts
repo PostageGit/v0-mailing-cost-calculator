@@ -223,7 +223,7 @@ function getBindingPrice(
 }
 
 // ─── Lamination Price ────────────────────────────────────
-function getLaminationPrice(
+export function getLaminationPrice(
   type: string, coverPaper: string, qty: number, isBroker: boolean
 ): number {
   if (type === "none") return 0
