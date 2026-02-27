@@ -21,7 +21,7 @@ import {
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
-  LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward,
+  LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward, Calendar,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -1018,53 +1018,35 @@ function QuoteCard({
         setDropPosition(null)
       }}
       className={cn(
-        "group rounded-xl border bg-card transition-all relative",
+        "group rounded-xl border bg-white dark:bg-card transition-all relative",
         dropPosition === "before" && "ring-t-2 before:absolute before:top-0 before:left-2 before:right-2 before:h-0.5 before:bg-primary before:rounded-full",
         dropPosition === "after" && "ring-b-2 after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:bg-primary after:rounded-full",
-        isArchived ? "opacity-50 border-border"
-        : boardType === "job"
-          ? "border-teal-400/30 dark:border-teal-700/30 hover:border-teal-400/50 dark:hover:border-teal-600/50 hover:shadow-md"
-          : "border-border hover:border-foreground/20 hover:shadow-md",
-        open
-          ? boardType === "job"
-            ? "shadow-md ring-1 ring-teal-400/10 dark:ring-teal-600/10"
-            : "shadow-md ring-1 ring-foreground/5"
-          : "shadow-sm"
+        isArchived ? "opacity-50 border-border/50"
+        : open
+          ? "shadow-md ring-1 ring-foreground/5 border-border/40"
+          : "border-border/30 shadow-sm hover:shadow-md hover:border-border/50"
       )}
     >
       {/* ── CARD CONTENT ── */}
       <div className="relative">
         {/* Drag handle strip */}
-        <div className="absolute left-0 top-0 bottom-0 w-6 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
+        <div className="absolute left-0 top-0 bottom-0 w-7 flex items-center justify-center cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/25" />
         </div>
 
-        <div className="pl-5 pr-3 pt-2.5 pb-2.5">
-          {/* Header: Numbers + Title + Actions */}
-          <div className="flex items-center gap-1.5 mb-1 relative">
-            {/* Numbers cluster */}
-            <div className="flex items-center gap-1 shrink-0">
-              {quote.job_number ? (
-                <span className="text-[10px] font-bold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 border border-teal-200/50 dark:border-teal-800/30 px-1.5 py-0.5 rounded">J-{quote.job_number}</span>
-              ) : quote.quote_number ? (
-                <span className="text-[10px] font-bold font-mono tabular-nums text-foreground/60 bg-secondary/80 px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
-              ) : null}
-              {quote.job_number && quote.quote_number && (
-                <span className="text-[8px] font-mono tabular-nums text-muted-foreground/40">Q-{quote.quote_number}</span>
-              )}
-            </div>
-            {/* Title */}
-            <p className="text-sm font-bold text-foreground truncate flex-1 min-w-0">{quote.project_name || "Untitled"}</p>
-            {/* Actions */}
-            <div className="flex items-center gap-0.5 shrink-0">
+        <div className="pl-7 pr-4 pt-3.5 pb-3">
+          {/* Row 1: Title + expand/notes actions */}
+          <div className="flex items-start gap-2 mb-0.5 relative">
+            <p className="text-[15px] font-bold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
+            <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
                 className={cn("h-5 w-5 flex items-center justify-center rounded transition-colors",
-                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/30 hover:text-foreground"
+                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/25 hover:text-foreground"
                 )} title="Quick Notes">
                 <NotepadText className="h-3 w-3" />
               </button>
               <button onClick={() => setOpen(!open)}
-                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground transition-colors" title="Expand">
+                className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/25 hover:text-foreground transition-colors" title="Expand">
                 <ChevronRight className={cn("h-3 w-3 transition-transform duration-200", open && "rotate-90")} />
               </button>
             </div>
@@ -1077,29 +1059,27 @@ function QuoteCard({
             )}
           </div>
 
-          {/* Contact + Reference row */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-muted-foreground truncate">{quote.contact_name || "\u00A0"}</span>
-            {quote.reference_number && (
-              <span className="text-[9px] font-mono text-muted-foreground/40 shrink-0">INV {quote.reference_number}</span>
-            )}
-          </div>
+          {/* Row 2: Contact name as subtitle */}
+          <p className="text-xs text-muted-foreground/70 truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
 
-          {/* Tags strip: Date + Assignee + Mail Class + Overdue */}
-          <div className="flex items-center gap-1.5 flex-wrap mb-2">
-            <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
+          {/* Row 3: Tags strip -- Overdue + Assignee + Mail Class + Date */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {overdue && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border border-orange-200/50 dark:border-orange-800/30">
+                <Calendar className="h-3 w-3" />
+                OVERDUE ({days}d)
+              </span>
+            )}
             {(() => {
               const assignedMember = activeTeam.find((m) => m.name === meta.assignee)
               const assigneeColor = assignedMember?.color || "#6b7280"
               return meta.assignee ? (
                 <div className="relative">
                   <span
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border cursor-pointer"
-                    style={{ backgroundColor: assigneeColor + "15", borderColor: assigneeColor + "30", color: assigneeColor }}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-pointer"
+                    style={{ backgroundColor: assigneeColor + "12", color: assigneeColor }}
                   >
-                    <span className="h-3.5 w-3.5 rounded-full text-white text-[7px] font-bold flex items-center justify-center shrink-0" style={{ backgroundColor: assigneeColor }}>
-                      {meta.assignee.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
-                    </span>
+                    <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: assigneeColor }} />
                     {meta.assignee.split(" ")[0]}
                   </span>
                   <select
@@ -1114,7 +1094,7 @@ function QuoteCard({
                 </div>
               ) : (
                 <div className="relative">
-                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/30 px-1.5 py-0.5 rounded-md border border-dashed border-border/60 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/30 px-2 py-0.5 rounded-full border border-dashed border-border/50 cursor-pointer hover:text-muted-foreground hover:border-border transition-colors">
                     <User className="h-2.5 w-2.5" /> Assign
                   </span>
                   <select
@@ -1131,7 +1111,7 @@ function QuoteCard({
             })()}
             {meta.mailing_class && MAIL_CLASS_COLORS[meta.mailing_class] && (
               <span className={cn(
-                "inline-flex items-center text-[9px] font-semibold px-1.5 py-0.5 rounded-md border",
+                "inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border",
                 MAIL_CLASS_COLORS[meta.mailing_class].bg,
                 MAIL_CLASS_COLORS[meta.mailing_class].text,
                 MAIL_CLASS_COLORS[meta.mailing_class].border,
@@ -1139,41 +1119,58 @@ function QuoteCard({
                 {meta.mailing_class}
               </span>
             )}
-            {overdue && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-destructive/10 text-destructive border border-destructive/20">
-                {days}d late
+            <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
+          </div>
+
+          {/* Row 4: ZD# + INV# reference row */}
+          <div className="flex items-center gap-4 mb-2">
+            <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
+            {quote.reference_number && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground/50">
+                <Hash className="h-3 w-3" />
+                INV {quote.reference_number}
               </span>
+            )}
+            {/* Q/J numbers */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {quote.job_number ? (
+                <span className="text-[10px] font-bold font-mono tabular-nums text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 px-1.5 py-0.5 rounded">J-{quote.job_number}</span>
+              ) : quote.quote_number ? (
+                <span className="text-[10px] font-bold font-mono tabular-nums text-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">Q-{quote.quote_number}</span>
+              ) : null}
+              {quote.job_number && quote.quote_number && (
+                <span className="text-[9px] font-mono tabular-nums text-muted-foreground/30">Q-{quote.quote_number}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Row 5: Quick note */}
+          <div className="mb-2">
+            {(meta.quick_notes || quote.notes) ? (
+              <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
+                className="text-[11px] text-muted-foreground/50 italic truncate block w-full text-left hover:text-muted-foreground transition-colors leading-relaxed">
+                {meta.quick_notes || quote.notes}
+              </button>
+            ) : (
+              <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
+                className="text-[11px] text-muted-foreground/20 hover:text-muted-foreground/40 transition-colors italic">
+                note...
+              </button>
             )}
           </div>
 
-          {/* Bottom bar: ZD# + Note + Status -- all inline */}
-          <div className="flex items-center gap-3 pt-1.5 border-t border-border/30">
-            <ZendeskField value={meta.zendesk_ticket || ""} onChange={(v) => updateMeta({ zendesk_ticket: v })} />
-            <div className="flex-1 min-w-0">
-              {(meta.quick_notes || quote.notes) ? (
-                <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
-                  className="text-[10px] text-muted-foreground/60 italic truncate block w-full text-left hover:text-muted-foreground transition-colors">
-                  {meta.quick_notes || quote.notes}
-                </button>
-              ) : (
-                <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(true) }}
-                  className="text-[10px] text-muted-foreground/20 hover:text-muted-foreground/50 transition-colors italic">
-                  note...
-                </button>
-              )}
-            </div>
-            <div className="shrink-0">
-              <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
-            </div>
+          {/* Row 6: Next Step selector -- separated */}
+          <div className="pt-2 border-t border-border/20">
+            <NextStepSelect value={meta.next_step || ""} onChange={(v) => updateMeta({ next_step: v })} steps={nextSteps} />
           </div>
 
           {/* Skipped/incomplete steps indicator */}
           {meta.skipped_steps && meta.skipped_steps.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap pt-1">
+            <div className="flex items-center gap-1 flex-wrap pt-1.5">
               <SkipForward className="h-3 w-3 text-amber-500 shrink-0" />
               {(meta.skipped_steps as string[]).map((step) => (
                 <span key={step}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium border border-dashed border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium border border-dashed border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20"
                 >
                   {step.charAt(0).toUpperCase() + step.slice(1)}
                 </span>
@@ -1183,7 +1180,7 @@ function QuoteCard({
 
           {/* Activate Job (quote board only) */}
           {!isArchived && boardType === "quote" && onConvertToJob && (
-            <div className="pt-2">
+            <div className="pt-2.5">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1864,7 +1861,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
   )
 }
 
-/* ════════════════════════���═══════════════════════════
+/* ════════════════════════���═════��═════════════════════
    MAIN KANBAN BOARD
    ════════════════════════════════════��═══════════════ */
 
