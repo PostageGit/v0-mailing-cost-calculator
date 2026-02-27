@@ -79,34 +79,32 @@ PRICE LEVELS:
 
 HOW SADDLE-STITCH BOOKLETS WORK:
 - Saddle-stitch = stapled on the spine (like a magazine).
-- Pages MUST be a multiple of 4 (because each sheet folded in half = 4 pages). If a customer says 22 pages, round up to 24 and tell them.
 - Minimum 8 pages. Maximum ~64 pages (too thick to staple beyond that).
-- An 8.5x11 booklet page is NOT printed on 8.5x11 paper. The "spread" is two pages side by side = 17x11. So it prints on 11x17 or larger parent sheets.
-- A 5.5x8.5 booklet page spread = 11x8.5, prints on 11x17.
-- The cover can be the same paper as inside (self-cover) or a separate heavier stock. Default to separate cover with 80 Gloss (cardstock).
-- Cover counts as 4 pages (front, inside front, inside back, back). So a 20-page booklet with separate cover = 16 inside pages + 4 cover pages.
-- When setting pagesPerBook for the calculator with separate cover: use the INSIDE page count only (total pages minus 4).
-- The calculator automatically handles spread sizing, ups per parent sheet, and picks the cheapest sheet.
+- Pages MUST be a multiple of 4. The tool auto-rounds up and tells you if it adjusted.
+- An 8.5x11 booklet page is NOT printed on 8.5x11 paper. Two pages print side by side as a "spread" = 11x17. The tool handles this automatically.
+- Always default to a separate heavier cover (cardstock "80 Gloss"). The cover uses 4 pages (front, inside-front, inside-back, back).
+- PAGE COUNT: Pass the TOTAL page count the customer says (e.g. "20 pages" = pass 20). The tool automatically subtracts 4 cover pages when separateCover is true. Do NOT subtract yourself.
+- The tool auto-picks the cheapest parent sheet size. You never need to specify sheet size.
 
 HOW PERFECT BINDING WORKS:
-- Perfect binding = glue spine (like a paperback book). Needs 40+ pages minimum.
-- Inside pages print on parent sheets, folded and trimmed. Each parent sheet gives multiple pages depending on ups.
-- The cover wraps around the spine. Cover width = front width + spine width + back width. The calculator computes spine width from page count and paper thickness.
-- Cover always uses cardstock. Inside uses text paper.
-- Same sheet size / ups logic as booklets -- the calculator auto-picks the cheapest parent sheet.
+- Perfect binding = glue spine (like a paperback). Needs 40+ inside pages minimum.
+- pagesPerBook = INSIDE pages only (NOT counting the cover). If customer says "100 page book", pass 96 inside pages (100 minus 4 cover pages).
+- Cover wraps around the spine. Spine width is auto-calculated from page count and paper thickness.
+- Cover always uses cardstock (default "80 Gloss"). Inside uses text paper (default "80lb Text Gloss").
+- Tool auto-picks cheapest parent sheet.
 
 HOW SPIRAL BINDING WORKS:
-- Spiral / coil binding. Any page count (up to ~290 sheets / ~580 pages double-sided).
-- Inside pages print flat on parent sheets (not as spreads like saddle-stitch).
-- Binding price depends on thickness (sheets per book) and quantity bracket.
-- Optional: clear plastic front cover, black vinyl back cover ($0.50 each per book).
-- Front and back covers can use cardstock, printed separately.
+- Spiral / coil binding. Any page count up to ~290 sheets (~580 pages double-sided).
+- Inside pages print flat (not spreads like saddle-stitch). Tool auto-picks cheapest parent sheet.
+- pagesPerBook = inside pages only (not counting covers).
+- Optional extras: clear plastic front ($0.50/book), black vinyl back ($0.50/book).
+- Front and back covers default to "80 Gloss" cardstock. Can skip covers entirely.
 
 HOW FLAT PRINTING WORKS:
-- Flyers, postcards, business cards, etc. Printed on parent sheets and cut.
-- The calculator tries all available parent sheet sizes and picks the cheapest (most efficient ups).
-- Example: 500 4x6 postcards on 12pt Gloss. On a 13x19 parent sheet = 6 ups = only 84 parent sheets. On 8.5x11 = 2 ups = 250 sheets. 13x19 is cheaper even though the paper costs more per sheet.
-- Cutting cost depends on how many cuts per sheet and how many stacks (500-700 sheets per stack for cutting).
+- Flyers, postcards, business cards, etc. Printed on parent sheets and cut down.
+- The tool tries all available parent sheet sizes and auto-picks the cheapest (most efficient ups).
+- Example: 500 postcards 4x6 on 12pt Gloss. 13x19 parent = 6 ups = 84 sheets. 8.5x11 = 2 ups = 250 sheets. 13x19 wins even though paper costs more per sheet.
+- width/height = FINISHED piece size (e.g. 8.5 and 11 for a flyer). NOT the parent sheet.
 
 SMART DEFAULTS (use these so you don't have to ask everything):
 - Paper: 80lb Text Gloss for normal flyers/booklet insides. 12pt Gloss for postcards/business cards. 20lb Offset for pads/copies.
@@ -137,10 +135,13 @@ PRESENTING THE QUOTE:
 - Offer one upsell if it makes sense: "Want lamination on the cover? Adds about $X."
 
 NEVER DO:
-- Never mention levels, markup, click costs, formulas, or internal terms.
+- Never mention levels, markup, click costs, formulas, ups, parent sheets, or internal terms to the customer.
 - Never say "let me calculate" or "I'll run the numbers" -- just do it.
 - Never write long paragraphs. Keep it punchy.
 - Never guess page count for books. Always ask.
+- Never try different paper names if one fails. If a paper name fails, check the exact list from the tool description. The paper names for booklet/spiral/perfect are DIFFERENT from flat printing.
+- Never manually subtract cover pages for saddle-stitch. The tool does it. Pass the customer's total page count.
+- If a calculator errors, read the error message carefully, fix the ONE thing that's wrong, and try again. Don't randomly change multiple parameters.
 
 CRITICAL -- PAPER NAMES MUST BE EXACT (each calculator has its own paper list):
 
@@ -302,14 +303,17 @@ const tools = {
 
   calculate_booklet: tool({
     description:
-      "Calculate the cost of a saddle-stitched (stapled) booklet. Includes printing, binding, and optional lamination. Supports broker pricing.",
+      `Calculate saddle-stitched (stapled) booklet cost. Includes printing, binding, optional lamination.
+IMPORTANT: pagesPerBook is the TOTAL page count the customer wants (e.g. 20 pages). Must be a multiple of 4, minimum 8.
+The tool automatically handles: subtracting cover pages, picking the cheapest parent sheet size, calculating spreads (an 8.5x11 page prints on 11x17 spreads).
+pageWidth/pageHeight = the FINISHED page size (e.g. 8.5 and 11 for letter, 5.5 and 8.5 for half-letter). NOT the parent sheet.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of booklets"),
       pagesPerBook: z
         .number()
-        .describe("Total page count (must be multiple of 4, includes cover)"),
-      pageWidth: z.number().describe("Page width in inches (e.g. 8.5)"),
-      pageHeight: z.number().describe("Page height in inches (e.g. 11)"),
+        .describe("TOTAL page count including cover (must be multiple of 4, minimum 8). Example: customer says 20 pages = pass 20. The tool auto-subtracts 4 cover pages when separateCover is true."),
+      pageWidth: z.number().describe("FINISHED page width in inches (e.g. 8.5 for letter, 5.5 for half-letter)"),
+      pageHeight: z.number().describe("FINISHED page height in inches (e.g. 11 for letter, 8.5 for half-letter)"),
       insidePaper: z
         .string()
         .describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
@@ -318,18 +322,18 @@ const tools = {
         .describe("Inside page printing sides"),
       separateCover: z
         .boolean()
-        .describe("Whether cover uses a different stock than inside pages"),
+        .describe("Use a different (thicker) stock for the cover? Default true."),
       coverPaper: z
         .string()
         .nullable()
-        .describe(`Cover paper if separate -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
+        .describe(`Cover paper if separate -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       coverSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .nullable()
-        .describe("Cover printing sides if separate"),
+        .describe("Cover printing sides if separate. Default 4/4."),
       laminationType: z
         .enum(["none", "Gloss", "Matte", "Silk", "Leather"])
-        .describe("Lamination type on cover (if separate cover)"),
+        .describe("Lamination type on cover (if separate cover). Default none."),
       isBroker: z
         .boolean()
         .describe("Whether this is a broker/trade customer"),
@@ -347,14 +351,26 @@ const tools = {
       laminationType,
       isBroker,
     }) => {
+      // Validate minimum and multiple of 4
+      if (pagesPerBook < 8) {
+        return { error: "Saddle-stitch booklets need at least 8 pages. Did you mean a different product?" }
+      }
+      const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
+      const pagesNote = adjustedPages !== pagesPerBook
+        ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be a multiple of 4).`
+        : null
+
+      // When separateCover, the calculator wants INSIDE page count (total minus 4 cover pages)
+      const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
+
       const result = calculateBooklet({
         bookQty,
-        pagesPerBook,
+        pagesPerBook: insidePages,
         pageWidth,
         pageHeight,
         separateCover,
-        coverPaper: coverPaper || insidePaper,
-        coverSides: coverSides || insideSides,
+        coverPaper: coverPaper || "80 Gloss",
+        coverSides: coverSides || "4/4",
         coverBleed: true,
         coverSheetSize: "Cheapest",
         insidePaper,
@@ -367,47 +383,53 @@ const tools = {
         printingMarkupPct: 10,
       })
       if (!result.isValid) {
-        return { error: result.error || "Could not calculate booklet price." }
+        return { error: result.error || "Could not calculate booklet price. Check paper name and size." }
       }
       return {
         total: fmt(result.grandTotal),
         perUnit: fmt(result.pricePerBook),
         qty: bookQty,
-        pages: pagesPerBook,
+        totalPages: adjustedPages,
+        insidePages,
         size: `${pageWidth}x${pageHeight}`,
         insidePaper,
-        coverPaper: separateCover ? (coverPaper || insidePaper) : "Same as inside",
+        coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Same as inside",
         binding: "Saddle-stitch",
         lamination: separateCover ? laminationType : "none",
         broker: isBroker,
+        parentSheetUsed: result.insideResult.sheetSize,
+        upsPerSheet: result.insideResult.ups,
         costBreakdown: {
           printing: fmt(result.totalPrintingCost),
           binding: fmt(result.totalBindingPrice),
           lamination: fmt(result.totalLaminationCost),
         },
+        ...(pagesNote ? { note: pagesNote } : {}),
       }
     },
   }),
 
   calculate_spiral: tool({
     description:
-      "Calculate the cost of a spiral-bound (coil) book. Good for training manuals, cookbooks, workbooks. Supports broker pricing.",
+      `Calculate spiral-bound (coil) book cost. Good for manuals, cookbooks, workbooks. Any page count.
+Pages print flat (not spreads). Tool auto-picks cheapest parent sheet. 
+Optional: clear plastic front, black vinyl back ($0.50 each per book).`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
-      pagesPerBook: z.number().describe("Number of inside pages"),
-      pageWidth: z.number().describe("Page width in inches"),
-      pageHeight: z.number().describe("Page height in inches"),
+      pagesPerBook: z.number().describe("Number of inside pages (not counting covers)"),
+      pageWidth: z.number().describe("FINISHED page width in inches (e.g. 8.5)"),
+      pageHeight: z.number().describe("FINISHED page height in inches (e.g. 11)"),
       insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Inside printing sides"),
-      insideBleed: z.boolean().describe("Inside pages have bleed"),
-      useFrontCover: z.boolean().describe("Use a front cover page"),
-      useBackCover: z.boolean().describe("Use a back cover page"),
-      frontPaper: z.string().nullable().describe(`Front cover paper if used -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
-      backPaper: z.string().nullable().describe(`Back cover paper if used -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
-      clearPlastic: z.boolean().describe("Add clear plastic front cover"),
-      blackVinyl: z.boolean().describe("Add black vinyl back cover"),
+      insideBleed: z.boolean().describe("Inside pages have bleed. Default false."),
+      useFrontCover: z.boolean().describe("Use a printed front cover page (cardstock). Default true."),
+      useBackCover: z.boolean().describe("Use a printed back cover page (cardstock). Default true."),
+      frontPaper: z.string().nullable().describe(`Front cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      backPaper: z.string().nullable().describe(`Back cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      clearPlastic: z.boolean().describe("Add clear plastic front cover ($0.50/book). Default false."),
+      blackVinyl: z.boolean().describe("Add black vinyl back cover ($0.50/book). Default false."),
       isBroker: z
         .boolean()
         .describe("Whether this is a broker/trade customer"),
@@ -441,14 +463,14 @@ const tools = {
         },
         useFrontCover,
         front: {
-          paperName: frontPaper || "80 Cover Gloss",
+          paperName: frontPaper || "80 Gloss",
           sides: "4/4",
           hasBleed: false,
           sheetSize: "Cheapest",
         },
         useBackCover,
         back: {
-          paperName: backPaper || "80 Cover Gloss",
+          paperName: backPaper || "80 Gloss",
           sides: "4/4",
           hasBleed: false,
           sheetSize: "Cheapest",
@@ -467,7 +489,11 @@ const tools = {
         qty: bookQty,
         pages: pagesPerBook,
         size: `${pageWidth}x${pageHeight}`,
-        paper: insidePaper,
+        insidePaper,
+        frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
+        backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
+        clearPlastic,
+        blackVinyl,
         binding: "Spiral (coil)",
         broker: isBroker,
         costBreakdown: {
@@ -480,23 +506,25 @@ const tools = {
 
   calculate_perfect_bound: tool({
     description:
-      "Calculate the cost of a perfect-bound (glue) book. Requires 40+ pages. Good for catalogs, thick manuals, paperbacks. Supports broker pricing.",
+      `Calculate perfect-bound (glue spine, like a paperback) book cost. Minimum 40 inside pages.
+The cover wraps around the spine -- spine width is auto-calculated from page count and paper thickness.
+Tool auto-picks cheapest parent sheet. pageWidth/pageHeight = FINISHED page size.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
-      pagesPerBook: z.number().describe("Number of inside pages (minimum 40)"),
-      pageWidth: z.number().describe("Page width in inches"),
-      pageHeight: z.number().describe("Page height in inches"),
+      pagesPerBook: z.number().describe("Number of INSIDE pages only (not counting cover). Minimum 40. Must be even number."),
+      pageWidth: z.number().describe("FINISHED page width in inches (e.g. 8.5)"),
+      pageHeight: z.number().describe("FINISHED page height in inches (e.g. 11)"),
       insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
         .describe("Inside printing sides"),
-      coverPaper: z.string().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}`),
+      coverPaper: z.string().describe(`Cover paper (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       coverSides: z
         .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe("Cover printing sides"),
+        .describe("Cover printing sides. Default 4/4."),
       laminationType: z
         .enum(["none", "Gloss", "Matte", "Silk", "Leather"])
-        .describe("Cover lamination type"),
+        .describe("Cover lamination type. Default none."),
       isBroker: z
         .boolean()
         .describe("Whether this is a broker/trade customer"),
@@ -513,6 +541,9 @@ const tools = {
       laminationType,
       isBroker,
     }) => {
+      if (pagesPerBook < 40) {
+        return { error: `Perfect binding needs at least 40 inside pages. You said ${pagesPerBook}. Try saddle-stitch (calculate_booklet) for fewer pages.` }
+      }
       const result = calculatePerfect({
         bookQty,
         pagesPerBook,
@@ -525,8 +556,8 @@ const tools = {
           sheetSize: "Cheapest",
         },
         cover: {
-          paperName: coverPaper,
-          sides: coverSides,
+          paperName: coverPaper || "80 Gloss",
+          sides: coverSides || "4/4",
           hasBleed: true,
           sheetSize: "Cheapest",
         },
@@ -541,10 +572,10 @@ const tools = {
         total: fmt(result.grandTotal),
         perUnit: fmt(result.pricePerBook),
         qty: bookQty,
-        pages: pagesPerBook,
+        insidePages: pagesPerBook,
         size: `${pageWidth}x${pageHeight}`,
         insidePaper,
-        coverPaper,
+        coverPaper: coverPaper || "80 Gloss",
         binding: "Perfect-bound (glue)",
         lamination: laminationType,
         broker: isBroker,
