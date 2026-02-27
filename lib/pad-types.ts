@@ -40,6 +40,7 @@ export interface PadCalcResult {
   grandTotal: number
   pricePerPad: number
   levelName: string
+  autoLevelName: string
   padQty: number
   pagesPerPad: number
   pageWidth: number

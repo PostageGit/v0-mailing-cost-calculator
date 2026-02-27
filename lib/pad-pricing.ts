@@ -68,6 +68,7 @@ export function calculatePad(
     grandTotal,
     pricePerPad,
     levelName: insideResult.levelName,
+    autoLevelName: insideResult.autoLevelName,
     padQty,
     pagesPerPad,
     pageWidth,

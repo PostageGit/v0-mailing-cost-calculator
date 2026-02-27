@@ -40,6 +40,7 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
   } = result
 
   const levelNum = parseLevelNum(result.levelName)
+  const autoLevelNum = parseLevelNum(result.autoLevelName)
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: insideResult.sheetSize },
@@ -97,7 +98,7 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
       stats={stats}
       level={{
         level: levelNum,
-        defaultLevel: levelNum, // pad auto-calculates
+        defaultLevel: autoLevelNum,
         maxLevel: 10,
         markup: 0,
         pricePerSheet: insideResult.pricePerSheet,
