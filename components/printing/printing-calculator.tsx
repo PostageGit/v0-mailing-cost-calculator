@@ -506,10 +506,8 @@ export function PrintingCalculator() {
             inputs={inputs}
             onInputsChange={setInputs}
             onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
-            onAddToOrder={handleAddToQuote}
             onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
             isEditing={editingItemId !== null}
-            canAddToOrder={fullResult !== null}
             hasCalculated={hasCalculated}
             currentResult={isOhpMode ? null : fullResult}
             ohpMode={isOhpMode}
@@ -581,31 +579,29 @@ export function PrintingCalculator() {
                     pageWidth={inputs.width}
                     pageHeight={inputs.height}
                   />
-                  <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
-                    <span className="font-semibold text-foreground">{inputs.paperName}</span>
-                    <span>{fullResult.result.sheetSize} {fullResult.result.isRotated ? "(rotated)" : ""}</span>
+                  <div className="mt-3">
+                    <p className="text-center text-xs font-semibold text-foreground mb-1.5">{inputs.paperName}</p>
+                    <PaperStatsRow stats={[
+                      { label: "Sheet", value: fullResult.result.sheetSize },
+                      { label: "Ups", value: String(fullResult.result.maxUps) },
+                      { label: "Sheets", value: fullResult.result.sheets.toLocaleString() },
+                    ]} />
                   </div>
-                  <div className="text-[11px] text-muted-foreground text-center mt-1">
-                    Total Sheets: {fullResult.result.sheets.toLocaleString()} | Cost: {formatCurrency(fullResult.printingCostPlus10)}
-                  </div>
-                  <PaperStatsRow stats={[
-                    { label: "Sheet", value: fullResult.result.sheetSize },
-                    { label: "Ups", value: String(fullResult.result.maxUps) },
-                    { label: "Sheets", value: fullResult.result.sheets.toLocaleString() },
-                  ]} />
                 </div>
                 <div className="flex flex-col gap-4">
                   <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
-                  <Button
-                    onClick={handleAddToQuote}
-                    className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
-                  </Button>
                 </div>
               </div>
+
+              {/* Add to Quote -- full width below results */}
+              <Button
+                onClick={handleAddToQuote}
+                className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
+                size="lg"
+              >
+                <Plus className="h-4 w-4" />
+                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
+              </Button>
             </div>
           )}
         </div>

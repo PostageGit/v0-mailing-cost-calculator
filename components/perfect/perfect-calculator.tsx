@@ -246,10 +246,8 @@ export function PerfectCalculator() {
           inputs={inputs}
           onInputsChange={setInputs}
           onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
-          onAddToOrder={handleAddToQuote}
           onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
           isEditing={false}
-          canAddToOrder={calcResult !== null}
           validationError={validationError}
           ohpMode={isOhpMode}
         />
@@ -287,24 +285,18 @@ export function PerfectCalculator() {
                     />
                   </TabsContent>
                 </Tabs>
-                  {/* Paper info + stats under layout */}
+                  {/* Paper stats under layout */}
                   {(() => {
                     const r = activeTab === "cover" ? calcResult.coverResult : calcResult.insideResult
                     return (
-                      <>
-                        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
-                          <span className="font-semibold text-foreground">{r.paper}</span>
-                          <span>{r.sheetSize} {r.isRotated ? "(rotated)" : ""}</span>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground text-center mt-1">
-                          Total Sheets: {r.sheets.toLocaleString()} | Cost: {formatCurrency(r.cost)}
-                        </div>
+                      <div className="mt-3">
+                        <p className="text-center text-xs font-semibold text-foreground mb-1.5">{r.paper}</p>
                         <PaperStatsRow stats={[
                           { label: "Sheet", value: r.sheetSize },
                           { label: "Ups", value: String(r.maxUps) },
                           { label: "Sheets", value: r.sheets.toLocaleString() },
                         ]} />
-                      </>
+                      </div>
                     )
                   })()}
               </div>
@@ -312,16 +304,18 @@ export function PerfectCalculator() {
               {/* Price Details */}
               <div className="flex flex-col gap-4">
                 <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} />
-                <Button
-                  onClick={handleAddToQuote}
-                  className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-                </Button>
               </div>
             </div>
+
+            {/* Add to Quote -- full width below results */}
+            <Button
+              onClick={handleAddToQuote}
+              className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
+              size="lg"
+            >
+              <Plus className="h-4 w-4" />
+              Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
+            </Button>
           </div>
         )}
       </div>

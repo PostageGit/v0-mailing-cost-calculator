@@ -28,10 +28,8 @@ interface PrintingFormProps {
   inputs: PrintingInputs
   onInputsChange: (inputs: PrintingInputs) => void
   onCalculate: () => void
-  onAddToOrder: () => void
   onReset: () => void
   isEditing: boolean
-  canAddToOrder: boolean
   hasCalculated: boolean
   /** Pass the current result so we can show real finishing prices */
   currentResult?: FullPrintingResult | null
@@ -43,10 +41,8 @@ export function PrintingForm({
   inputs,
   onInputsChange,
   onCalculate,
-  onAddToOrder,
   onReset,
   isEditing,
-  canAddToOrder,
   hasCalculated,
   currentResult,
   ohpMode,

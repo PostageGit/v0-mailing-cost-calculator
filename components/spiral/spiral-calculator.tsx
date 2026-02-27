@@ -244,10 +244,8 @@ export function SpiralCalculator() {
           inputs={inputs}
           onInputsChange={setInputs}
           onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
-          onAddToOrder={handleAddToQuote}
           onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
           isEditing={false}
-          canAddToOrder={calcResult !== null}
           validationError={validationError}
           ohpMode={isOhpMode}
         />
@@ -298,34 +296,32 @@ export function SpiralCalculator() {
                     </TabsContent>
                   )}
                 </Tabs>
-                  {/* Paper info + stats under layout */}
-                  <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
-                    <span className="font-semibold text-foreground">{calcResult.insideResult.paper}</span>
-                    <span>{calcResult.insideResult.sheetSize} {calcResult.insideResult.isRotated ? "(rotated)" : ""}</span>
+                  {/* Paper stats under layout */}
+                  <div className="mt-3">
+                    <p className="text-center text-xs font-semibold text-foreground mb-1.5">{calcResult.insideResult.paper}</p>
+                    <PaperStatsRow stats={[
+                      { label: "Sheet", value: calcResult.insideResult.sheetSize },
+                      { label: "Ups", value: String(calcResult.insideResult.maxUps) },
+                      { label: "Sheets", value: calcResult.insideResult.sheets.toLocaleString() },
+                    ]} />
                   </div>
-                  <div className="text-[11px] text-muted-foreground text-center mt-1">
-                    Total Sheets: {calcResult.insideResult.sheets.toLocaleString()} | Cost: {formatCurrency(calcResult.insideResult.cost)}
-                  </div>
-                  <PaperStatsRow stats={[
-                    { label: "Sheet", value: calcResult.insideResult.sheetSize },
-                    { label: "Ups", value: String(calcResult.insideResult.maxUps) },
-                    { label: "Sheets", value: calcResult.insideResult.sheets.toLocaleString() },
-                  ]} />
               </div>
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
                 <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
-                <Button
-                  onClick={handleAddToQuote}
-                  className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-                </Button>
               </div>
             </div>
+
+            {/* Add to Quote -- full width below results */}
+            <Button
+              onClick={handleAddToQuote}
+              className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
+              size="lg"
+            >
+              <Plus className="h-4 w-4" />
+              Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
+            </Button>
           </div>
         )}
       </div>
