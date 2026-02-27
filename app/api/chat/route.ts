@@ -136,6 +136,17 @@ BINDING TYPES (always let the customer choose -- never pick for them):
   - 65+ pages -> perfect bound or spiral
 - If they say "perfect binding" or "spiral", use that even if you'd normally suggest otherwise.
 
+OUT OF RANGE -- always suggest an alternative, never leave the customer stuck:
+- Too many pages for saddle-stitch (over ~64): "That's too thick to staple. I'd suggest perfect binding (like a paperback) or spiral binding. Which sounds better?"
+- Too few pages for perfect binding (under 40): "Perfect binding needs at least 40 pages. For fewer pages, a stapled booklet works great and is cheaper. Want to try that?"
+- Too many pages for spiral (over ~580 double-sided): "That's a big book! We might need to split it into two volumes. Want me to price that?"
+- Customer wants a size/paper combo that doesn't exist: "That paper doesn't come in that size. The closest we have is [alternative]. Want me to price that instead?"
+- Customer wants lamination on thin paper: "Lamination only works on thicker cardstock. Want me to upgrade the paper so we can laminate it?"
+- Customer wants folding on cardstock without scoring: "Thick paper needs to be scored (creased) first so it folds cleanly. We do that automatically -- I'll include scoring in the price."
+- Customer wants fewer than 8 pages in a booklet: "The minimum for a stapled booklet is 8 pages. Would a folded flyer or a flat print work instead?"
+- Pad with too few sheets: "Pads need at least 25 sheets. Want me to quote 25?"
+- Any other dead end: always offer the closest thing we CAN do. Never just say "we can't do that."
+
 BROKER CUSTOMERS:
 - If someone says "broker", "trade pricing", or "wholesale", set isBroker = true.
 - You can ask "Is this for yourself or are you a print broker?" if unclear.
@@ -155,6 +166,7 @@ NEVER DO:
 - Never try different paper names if one fails. If a paper name fails, check the exact list from the tool description. The paper names for booklet/spiral/perfect are DIFFERENT from flat printing.
 - Never manually subtract cover pages for saddle-stitch. The tool does it. Pass the customer's total page count.
 - If a calculator errors, read the error message carefully, fix the ONE thing that's wrong, and try again. Don't randomly change multiple parameters.
+- Never leave the customer at a dead end. If something doesn't work, always suggest the closest alternative we CAN do.
 
 CRITICAL -- PAPER NAMES MUST BE EXACT (each calculator has its own paper list):
 
@@ -366,7 +378,10 @@ pageWidth/pageHeight = the FINISHED page size (e.g. 8.5 and 11 for letter, 5.5 a
     }) => {
       // Validate minimum and multiple of 4
       if (pagesPerBook < 8) {
-        return { error: "Saddle-stitch booklets need at least 8 pages. Did you mean a different product?" }
+        return { error: "Saddle-stitch booklets need at least 8 pages. Suggest a folded flyer or flat print instead." }
+      }
+      if (pagesPerBook > 64) {
+        return { error: `${pagesPerBook} pages is too thick to staple. Suggest perfect binding (40+ pages, flat spine like a paperback) or spiral binding instead. Ask the customer which they prefer.` }
       }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook
@@ -555,7 +570,7 @@ Tool auto-picks cheapest parent sheet. pageWidth/pageHeight = FINISHED page size
       isBroker,
     }) => {
       if (pagesPerBook < 40) {
-        return { error: `Perfect binding needs at least 40 inside pages. You said ${pagesPerBook}. Try saddle-stitch (calculate_booklet) for fewer pages.` }
+        return { error: `Perfect binding needs at least 40 inside pages. You said ${pagesPerBook}. Suggest a stapled booklet (saddle-stitch) instead -- it's cheaper and works great for fewer pages. Ask the customer if they want to try that.` }
       }
       const result = calculatePerfect({
         bookQty,
