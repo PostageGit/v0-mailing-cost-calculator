@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { PadForm } from "./pad-form"
 import { SpiralLayoutSvg } from "@/components/spiral/spiral-layout-svg"
 import { PadDetails } from "./pad-details"
+import { PaperStatsRow } from "@/components/calc-price-card"
 import { calculatePad } from "@/lib/pad-pricing"
 import { defaultPadInputs } from "@/lib/pad-types"
 import type { PadInputs, PadCalcResult, PadSettings } from "@/lib/pad-types"
@@ -63,6 +64,15 @@ export function PadCalculator() {
 
     setCalcResult(result)
   }, [inputs, isFormValid, padSettings])
+
+  const handleBrokerChange = useCallback((val: boolean) => {
+    const updated: PadInputs = { ...inputs, isBroker: val }
+    setInputs(updated)
+    if (calcResult) {
+      const newResult = calculatePad(updated, padSettings)
+      if (!("error" in newResult)) setCalcResult(newResult)
+    }
+  }, [inputs, calcResult, padSettings])
 
   const handleLevelChange = useCallback((delta: number) => {
     if (!calcResult) return
@@ -129,6 +139,18 @@ export function PadCalculator() {
                   pageHeight={inputs.pageHeight}
                   label="Inside Pages"
                 />
+                  <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
+                    <span className="font-semibold text-foreground">{calcResult.insideResult.paper}</span>
+                    <span>{calcResult.insideResult.sheetSize} {calcResult.insideResult.isRotated ? "(rotated)" : ""}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground text-center mt-1">
+                    Total Sheets: {calcResult.insideResult.sheets.toLocaleString()} | Cost: {formatCurrency(calcResult.insideResult.cost)}
+                  </div>
+                  <PaperStatsRow stats={[
+                    { label: "Sheet", value: calcResult.insideResult.sheetSize },
+                    { label: "Ups", value: String(calcResult.insideResult.maxUps) },
+                    { label: "Sheets", value: calcResult.insideResult.sheets.toLocaleString() },
+                  ]} />
               </div>
 
               {/* Price Details */}
@@ -138,7 +160,7 @@ export function PadCalculator() {
                   onLevelChange={handleLevelChange}
                   onEffectiveTotalChange={setEffectiveTotal}
                   isBroker={inputs.isBroker}
-                  onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))}
+                  onBrokerChange={handleBrokerChange}
                 />
                 <Button
                   onClick={handleAddToQuote}

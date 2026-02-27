@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { SpiralForm } from "./spiral-form"
 import { SpiralLayoutSvg } from "./spiral-layout-svg"
 import { SpiralDetails } from "./spiral-details"
+import { PaperStatsRow } from "@/components/calc-price-card"
 import { calculateSpiral } from "@/lib/spiral-pricing"
 import { defaultSpiralInputs } from "@/lib/spiral-types"
 import type { SpiralInputs, SpiralCalcResult } from "@/lib/spiral-types"
@@ -69,6 +70,15 @@ export function SpiralCalculator() {
     setCalcResult(result)
     setActiveTab("inside")
   }, [inputs, isFormValid])
+
+  const handleBrokerChange = useCallback((val: boolean) => {
+    const updated = { ...inputs, isBroker: val }
+    setInputs(updated)
+    if (calcResult) {
+      const newResult = calculateSpiral(updated)
+      if (!("error" in newResult)) setCalcResult(newResult)
+    }
+  }, [inputs, calcResult])
 
   // Change pricing level override
   const handleLevelChange = useCallback((delta: number) => {
@@ -288,11 +298,24 @@ export function SpiralCalculator() {
                     </TabsContent>
                   )}
                 </Tabs>
+                  {/* Paper info + stats under layout */}
+                  <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-3">
+                    <span className="font-semibold text-foreground">{calcResult.insideResult.paper}</span>
+                    <span>{calcResult.insideResult.sheetSize} {calcResult.insideResult.isRotated ? "(rotated)" : ""}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground text-center mt-1">
+                    Total Sheets: {calcResult.insideResult.sheets.toLocaleString()} | Cost: {formatCurrency(calcResult.insideResult.cost)}
+                  </div>
+                  <PaperStatsRow stats={[
+                    { label: "Sheet", value: calcResult.insideResult.sheetSize },
+                    { label: "Ups", value: String(calcResult.insideResult.maxUps) },
+                    { label: "Sheets", value: calcResult.insideResult.sheets.toLocaleString() },
+                  ]} />
               </div>
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
+                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
