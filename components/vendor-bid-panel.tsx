@@ -12,7 +12,6 @@ import {
 import { formatCurrency } from "@/lib/pricing"
 import { buildCustomerSpecs } from "@/lib/build-quote-text"
 import { useQuote } from "@/lib/quote-context"
-import { buildCustomerSpecs } from "@/lib/build-quote-text"
 import type { QuoteCategory } from "@/lib/quote-types"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { VendorBid, VendorBidPrice, Vendor } from "@/lib/vendor-types"
