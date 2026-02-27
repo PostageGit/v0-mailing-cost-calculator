@@ -12,6 +12,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Save } from "lucide-react"
 import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
 import { getActiveConfig } from "@/lib/pricing-config"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
@@ -34,6 +35,8 @@ interface PrintingFormProps {
   hasCalculated: boolean
   /** Pass the current result so we can show real finishing prices */
   currentResult?: FullPrintingResult | null
+  /** When true, form is in OHP spec-builder mode (no cost calculation) */
+  ohpMode?: boolean
 }
 
 export function PrintingForm({
@@ -46,6 +49,7 @@ export function PrintingForm({
   canAddToOrder,
   hasCalculated,
   currentResult,
+  ohpMode,
 }: PrintingFormProps) {
   const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
   const v = useFormValidation()
@@ -208,8 +212,8 @@ export function PrintingForm({
             currentResult={currentResult}
           />
 
-          {/* Row 4: Add-on */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Row 4: Add-on (in-house only) */}
+          {!ohpMode && <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="add-on-charge" className="text-sm font-medium text-foreground">
                 Add on ($)
@@ -241,10 +245,10 @@ export function PrintingForm({
                 }
               />
             </div>
-          </div>
+          </div>}
 
-          {/* Broker toggle */}
-          <div className="flex items-center gap-2 mb-4">
+          {/* Broker toggle (in-house only) */}
+          {!ohpMode && <div className="flex items-center gap-2 mb-4">
             <Checkbox
               id="print-broker"
               checked={inputs.isBroker || false}
@@ -258,7 +262,7 @@ export function PrintingForm({
             {inputs.isBroker && (
               <span className="text-[10px] text-muted-foreground">(Level 10 default)</span>
             )}
-          </div>
+          </div>}
 
           {/* Validation summary */}
           {v.attempted && (!inputs.qty || !inputs.width || !inputs.height || !inputs.paperName || !inputs.sidesValue) && (
@@ -271,16 +275,26 @@ export function PrintingForm({
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              type="submit"
-              className={`flex-1 font-semibold ${
-                isEditing
-                  ? "bg-amber-500 hover:bg-amber-600 text-foreground"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              }`}
-            >
-              {isEditing ? "Recalculate" : "Calculate"}
-            </Button>
+            {ohpMode ? (
+              <Button
+                type="submit"
+                className="flex-1 font-semibold gap-2 bg-sky-600 hover:bg-sky-700 text-white"
+              >
+                <Save className="h-4 w-4" />
+                Save Specs
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className={`flex-1 font-semibold ${
+                  isEditing
+                    ? "bg-amber-500 hover:bg-amber-600 text-foreground"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                }`}
+              >
+                {isEditing ? "Recalculate" : "Calculate"}
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"

@@ -23,7 +23,7 @@ import type {
 
 } from "@/lib/printing-types"
 import { useQuote } from "@/lib/quote-context"
-import { Plus, ArrowDown } from "lucide-react"
+import { Plus, ArrowDown, Save, Pencil, ExternalLink } from "lucide-react"
 import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { FinishingCalculator, FinishingGlobalRates } from "@/lib/finishing-calculator-types"
@@ -163,6 +163,7 @@ export function PrintingCalculator() {
     setFullResult(null)
     setHasCalculated(false)
     setShowResults(false)
+    setOhpSpecsSaved(false)
   }, [mailing.printQty])
 
   // Helper to compute finishing calculator costs
@@ -313,6 +314,51 @@ export function PrintingCalculator() {
 
   // Track which planner piece was loaded so we can pass its metadata along
   const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
+  const isOhpMode = activePiece?.production === "ohp"
+  const [ohpSpecsSaved, setOhpSpecsSaved] = useState(false)
+
+  // OHP Spec Builder: save specs as a quote item with amount=0
+  const handleSaveOhpSpecs = useCallback(() => {
+    if (!isFormValid || !activePiece) return
+    const ff = inputs.foldFinish
+    const lam = inputs.lamination
+    const descParts: string[] = []
+    descParts.push(inputs.paperName)
+    descParts.push(inputs.sidesValue)
+    if (inputs.hasBleed) descParts.push("Bleed")
+    if (ff?.enabled && ff.finishType && ff.foldType) {
+      const opMap: Record<string, string> = { fold: "Fold", score_and_fold: "Score & Fold", score_only: "Score Only" }
+      const foldMap: Record<string, string> = { half: "Half", tri: "Tri-Fold", z: "Z-Fold", gate: "Gate", roll: "Roll", accordion: "Accordion" }
+      descParts.push(`${opMap[ff.finishType] || ff.finishType}: ${foldMap[ff.foldType] || ff.foldType}`)
+    }
+    if (lam?.enabled) {
+      descParts.push(`${lam.type} Lam ${lam.sides}`)
+    }
+    quote.addItem({
+      category: "ohp",
+      label: `${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} ${PIECE_TYPE_META[activePiece.type]?.label || "Flat Prints"}`,
+      description: descParts.join(", "),
+      amount: 0,
+      metadata: {
+        pieceType: activePiece.type,
+        pieceLabel: activePiece.label,
+        pieceDimensions: `${inputs.width}x${inputs.height}`,
+        production: "ohp",
+        piecePosition: activePiece.position,
+        paperName: inputs.paperName,
+        sides: inputs.sidesValue,
+        hasBleed: inputs.hasBleed || undefined,
+        scoreFoldEnabled: ff?.enabled || undefined,
+        scoreFoldFinishType: ff?.enabled ? ff.finishType : undefined,
+        scoreFoldFoldType: ff?.enabled ? ff.foldType : undefined,
+        scoreFoldOrientation: ff?.enabled ? ff.orientation : undefined,
+        laminationEnabled: lam?.enabled || undefined,
+        laminationType: lam?.enabled ? lam.type : undefined,
+        laminationSides: lam?.enabled ? lam.sides : undefined,
+      },
+    })
+    setOhpSpecsSaved(true)
+  }, [inputs, isFormValid, activePiece, quote])
 
   const handleAddToQuote = useCallback(() => {
     if (!fullResult) return
@@ -351,8 +397,18 @@ export function PrintingCalculator() {
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
-      <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
-          <h2 className="text-base font-semibold text-foreground mb-2">Flat Printing Calculator</h2>
+      <div className={cn("bg-card rounded-2xl border p-6 flex flex-col", isOhpMode ? "border-sky-200 dark:border-sky-800/50" : "border-border")}>
+          {isOhpMode && (
+            <div className="flex items-center gap-2 mb-3 rounded-lg bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/40 px-3 py-2">
+              <ExternalLink className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+              <span className="text-xs font-medium text-sky-800 dark:text-sky-300">
+                OHP Spec Builder -- Fill in print specs for vendor quote. No cost calculation.
+              </span>
+            </div>
+          )}
+          <h2 className="text-base font-semibold text-foreground mb-2">
+            {isOhpMode ? "Flat Print Specs (OHP)" : "Flat Printing Calculator"}
+          </h2>
 
           {/* Piece selector -- auto-fill from planner */}
           {flatPieces.length > 0 && (
@@ -393,20 +449,61 @@ export function PrintingCalculator() {
             </div>
           )}
 
+          {/* OHP Spec Saved Summary */}
+          {isOhpMode && ohpSpecsSaved && (
+            <div className="rounded-xl border border-sky-200 dark:border-sky-800/50 bg-sky-50/50 dark:bg-sky-950/20 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-foreground">Specs Saved</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs gap-1.5"
+                  onClick={() => setOhpSpecsSaved(false)}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit Specs
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.qty.toLocaleString()} qty</span>
+                <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.width}" x {inputs.height}"</span>
+                <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.paperName}</span>
+                <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.sidesValue}</span>
+                {inputs.hasBleed && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Bleed</span>}
+                {inputs.foldFinish?.enabled && inputs.foldFinish.foldType && (
+                  <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">
+                    {inputs.foldFinish.finishType === "score_and_fold" ? "Score & Fold" : inputs.foldFinish.finishType === "score_only" ? "Score Only" : "Fold"}: {inputs.foldFinish.foldType}
+                  </span>
+                )}
+                {inputs.lamination?.enabled && (
+                  <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">
+                    {inputs.lamination.type} Lam {inputs.lamination.sides}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Form: show when NOT in saved OHP state */}
+          {!(isOhpMode && ohpSpecsSaved) && (
+            <>
           <PrintingForm
             inputs={inputs}
             onInputsChange={setInputs}
-            onCalculate={handleCalculate}
+            onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
             onAddToOrder={handleAddToQuote}
-            onReset={resetForm}
+            onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
             isEditing={editingItemId !== null}
             canAddToOrder={fullResult !== null}
             hasCalculated={hasCalculated}
-            currentResult={fullResult}
+            currentResult={isOhpMode ? null : fullResult}
+            ohpMode={isOhpMode}
           />
+            </>
+          )}
 
-          {/* No-fit error */}
-          {calcError && (
+          {/* No-fit error (in-house only) */}
+          {!isOhpMode && calcError && (
             <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
               <div className="flex items-start gap-3">
                 <div className="shrink-0 mt-0.5 h-5 w-5 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -450,8 +547,8 @@ export function PrintingCalculator() {
             </div>
           )}
 
-          {/* Sheet Options Table */}
-          {hasCalculated && sheetOptions.length > 0 && !showResults && (
+          {/* Sheet Options Table (in-house only) */}
+          {!isOhpMode && hasCalculated && sheetOptions.length > 0 && !showResults && (
             <SheetOptionsTable
               options={sheetOptions}
               onSelectSheet={handleSelectSheet}
@@ -459,8 +556,8 @@ export function PrintingCalculator() {
             />
           )}
 
-          {/* Results: SVG + Breakdown */}
-          {showResults && fullResult && (
+          {/* Results: SVG + Breakdown (in-house only) */}
+          {!isOhpMode && showResults && fullResult && (
             <div className="mt-6 pt-6 border-t border-border">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <SheetLayoutSvg

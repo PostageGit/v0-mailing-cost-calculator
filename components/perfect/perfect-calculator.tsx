@@ -11,7 +11,7 @@ import { defaultPerfectInputs } from "@/lib/perfect-types"
 import type { PerfectInputs, PerfectCalcResult } from "@/lib/perfect-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus, ArrowDown } from "lucide-react"
+import { Plus, ArrowDown, Save, Pencil, ExternalLink } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 export function PerfectCalculator() {
@@ -30,6 +30,7 @@ export function PerfectCalculator() {
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
   const loadPiece = useCallback((piece: MailPiece) => {
+    setActivePiece(piece)
     setInputs((prev) => ({
       ...prev,
       bookQty: mailing.printQty || prev.bookQty,
@@ -38,6 +39,7 @@ export function PerfectCalculator() {
     }))
     setCalcResult(null)
     setValidationError(null)
+    setOhpSpecsSaved(false)
   }, [mailing.printQty])
 
   const isFormValid =
@@ -75,6 +77,41 @@ export function PerfectCalculator() {
   }
 
   const perfectPiece = perfectPieces.length > 0 ? perfectPieces[0] : null
+  const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
+  const isOhpMode = activePiece?.production === "ohp"
+  const [ohpSpecsSaved, setOhpSpecsSaved] = useState(false)
+
+  const handleSaveOhpSpecs = useCallback(() => {
+    if (!activePiece || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) return
+    const descParts: string[] = []
+    descParts.push(`${inputs.pagesPerBook}pg`)
+    descParts.push(`Cover: ${inputs.cover.paperName}, ${inputs.cover.sides}`)
+    descParts.push(`Inside: ${inputs.inside.paperName}, ${inputs.inside.sides}`)
+    if (inputs.cover.bleed || inputs.inside.bleed) descParts.push("Bleed")
+    if (inputs.laminationType !== "none") descParts.push(`${inputs.laminationType} Lam`)
+    quote.addItem({
+      category: "ohp",
+      label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
+      description: descParts.join(", "),
+      amount: 0,
+      metadata: {
+        pieceType: activePiece.type,
+        pieceLabel: activePiece.label,
+        pieceDimensions: `${inputs.pageWidth}x${inputs.pageHeight}`,
+        production: "ohp",
+        piecePosition: activePiece.position,
+        paperName: inputs.inside.paperName,
+        sides: inputs.inside.sides,
+        pageCount: inputs.pagesPerBook,
+        coverPaper: inputs.cover.paperName,
+        coverSides: inputs.cover.sides,
+        hasBleed: inputs.cover.bleed || inputs.inside.bleed || undefined,
+        laminationEnabled: inputs.laminationType !== "none" || undefined,
+        laminationType: inputs.laminationType !== "none" ? inputs.laminationType : undefined,
+      },
+    })
+    setOhpSpecsSaved(true)
+  }, [inputs, activePiece, quote])
 
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
@@ -107,8 +144,18 @@ export function PerfectCalculator() {
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
-      <div className="bg-card rounded-2xl border border-border p-6 flex flex-col">
-        <h2 className="text-base font-semibold text-foreground mb-2">Perfect Binding Calculator</h2>
+      <div className={`bg-card rounded-2xl border p-6 flex flex-col ${isOhpMode ? "border-sky-200 dark:border-sky-800/50" : "border-border"}`}>
+        {isOhpMode && (
+          <div className="flex items-center gap-2 mb-3 rounded-lg bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800/40 px-3 py-2">
+            <ExternalLink className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+            <span className="text-xs font-medium text-sky-800 dark:text-sky-300">
+              OHP Spec Builder -- Fill in print specs for vendor quote. No cost calculation.
+            </span>
+          </div>
+        )}
+        <h2 className="text-base font-semibold text-foreground mb-2">
+          {isOhpMode ? "Glue Bind Specs (OHP)" : "Perfect Binding Calculator"}
+        </h2>
 
         {/* Piece selector -- auto-fill from planner */}
         {perfectPieces.length > 0 && (
@@ -145,19 +192,45 @@ export function PerfectCalculator() {
           </div>
         )}
 
+        {/* OHP Spec Saved Summary */}
+        {isOhpMode && ohpSpecsSaved && (
+          <div className="rounded-xl border border-sky-200 dark:border-sky-800/50 bg-sky-50/50 dark:bg-sky-950/20 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground">Specs Saved</h3>
+              <Button variant="ghost" size="sm" className="h-7 px-2.5 text-xs gap-1.5" onClick={() => setOhpSpecsSaved(false)}>
+                <Pencil className="h-3 w-3" /> Edit Specs
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.bookQty.toLocaleString()} qty</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pagesPerBook}pg</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.pageWidth}" x {inputs.pageHeight}"</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Cover: {inputs.cover.paperName} {inputs.cover.sides}</span>
+              <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">Inside: {inputs.inside.paperName} {inputs.inside.sides}</span>
+              {inputs.laminationType !== "none" && <span className="px-2 py-1 rounded-md bg-sky-100 dark:bg-sky-900/40 text-[11px] font-medium text-sky-800 dark:text-sky-300">{inputs.laminationType} Lam</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Form: show when NOT in saved OHP state */}
+        {!(isOhpMode && ohpSpecsSaved) && (
+          <>
         <PerfectForm
           inputs={inputs}
           onInputsChange={setInputs}
-          onCalculate={handleCalculate}
+          onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
           onAddToOrder={handleAddToQuote}
-          onReset={resetForm}
+          onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
           isEditing={false}
           canAddToOrder={calcResult !== null}
           validationError={validationError}
+          ohpMode={isOhpMode}
         />
+          </>
+        )}
 
-        {/* Results */}
-        {calcResult && (
+        {/* Results (in-house only) */}
+        {!isOhpMode && calcResult && (
           <div className="mt-6 pt-6 border-t border-border">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* SVG Tabs */}
