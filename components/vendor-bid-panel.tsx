@@ -212,7 +212,7 @@ export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
                 return (
                   <button key={piece.id} onClick={() => autoCreateBid(piece)} disabled={busy}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-dashed border-border bg-card hover:border-foreground/30 hover:bg-secondary/30 transition-all text-left">
-                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
+                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${meta.color}`}>{meta.short}</span>
                     <span className="text-sm font-semibold text-foreground">{label}</span>
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" /> : <Plus className="h-3.5 w-3.5 text-muted-foreground ml-1" />}
                   </button>
@@ -401,15 +401,15 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
       {/* HEADER */}
       <div className="px-5 py-3.5 flex items-center justify-between bg-secondary/20 border-b border-border">
         <div className="min-w-0 flex-1">
-          <h4 className="text-base font-black text-foreground leading-snug">{bid.item_label}</h4>
-          {bid.item_description && <p className="text-xs text-muted-foreground mt-0.5">{bid.item_description}</p>}
+          <h4 className="text-lg font-black text-foreground leading-snug">{bid.item_label}</h4>
+          {bid.item_description && <p className="text-sm text-muted-foreground mt-0.5">{bid.item_description}</p>}
           {/* Full print specs from quote metadata */}
           {(() => {
             const specLines = buildFullDescription(bid, matchedPiece, qty, quote.items as any).split("\n").filter(l => !l.startsWith("Job:") && !l.startsWith("Qty:"))
             return specLines.length > 0 ? (
-              <div className="flex flex-wrap gap-1 mt-1.5">
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 {specLines.map((line, i) => (
-                  <span key={i} className="px-1.5 py-0.5 rounded bg-secondary/60 text-[10px] font-medium text-muted-foreground leading-none">{line}</span>
+                  <span key={i} className="px-2 py-0.5 rounded bg-secondary/80 text-xs font-semibold text-muted-foreground leading-snug">{line}</span>
                 ))}
               </div>
             ) : null
@@ -438,25 +438,25 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
       {isBoth && (
         <div className="grid grid-cols-2 border-b border-border">
           <div className={`px-5 py-3 text-center border-r border-border transition-colors ${inhouseWins ? "bg-emerald-50" : "bg-card"}`}>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">In-House</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">In-House</p>
             <p className={`text-2xl font-black font-mono tabular-nums mt-0.5 ${inhouseWins ? "text-emerald-600" : "text-foreground"}`}>
               {inhouseCost != null ? formatCurrency(inhouseCost) : "---"}
             </p>
-            {inhouseWins && <p className="text-[10px] font-bold text-emerald-600 mt-0.5">BEST PRICE</p>}
+            {inhouseWins && <p className="text-xs font-bold text-emerald-600 mt-0.5">BEST PRICE</p>}
           </div>
           <div className={`px-5 py-3 text-center transition-colors ${ohpWins ? "bg-emerald-50" : "bg-card"}`}>
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">OHP Best</p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">OHP Best</p>
             <p className={`text-2xl font-black font-mono tabular-nums mt-0.5 ${ohpWins ? "text-emerald-600" : "text-foreground"}`}>
               {bestPrice != null ? formatCurrency(bestPrice) : "---"}
             </p>
-            {ohpWins && <p className="text-[10px] font-bold text-emerald-600 mt-0.5">BEST PRICE</p>}
+            {ohpWins && <p className="text-xs font-bold text-emerald-600 mt-0.5">BEST PRICE</p>}
           </div>
         </div>
       )}
 
       {/* COLUMN LABELS -- desktop only */}
       {(prices?.length ?? 0) > 0 && (
-        <div className="hidden sm:flex px-5 pt-3 pb-1 items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50">
+        <div className="hidden sm:flex px-5 pt-3 pb-1 items-center gap-3 text-xs font-bold uppercase tracking-wider text-muted-foreground/60">
           <span className="w-32 shrink-0">Vendor</span>
           <span className="w-16 shrink-0 text-center">Qty</span>
           <span className="w-20 shrink-0">Ref #</span>
@@ -507,12 +507,12 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Best</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-background/40 block">Best</span>
                 <span className="text-lg font-black font-mono tabular-nums">{formatCurrency(bestPrice)}</span>
               </div>
               <ArrowRight className="h-3.5 w-3.5 text-background/20 hidden sm:block" />
               <div className="flex items-center gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-background/40">+</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-background/40">+</span>
                 <input type="number" step="1" min="0" max="200" value={markupPct}
                   onChange={(e) => setMarkupPct(parseFloat(e.target.value) || 0)}
                   className="w-14 h-8 text-sm text-center rounded-md bg-background/10 border border-background/20 text-background font-mono font-bold" />
@@ -520,12 +520,12 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
               </div>
               {bestPickup > 0 && (
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Pickup</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-background/40 block">Pickup</span>
                   <span className="text-sm font-mono font-bold text-background/70">{formatCurrency(bestPickup)}</span>
                 </div>
               )}
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-background/40 block">Customer</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-background/40 block">Customer</span>
                 <span className="text-xl font-black font-mono tabular-nums">{bestCustomerTotal != null ? formatCurrency(bestCustomerTotal) : "---"}</span>
               </div>
             </div>
@@ -575,7 +575,7 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
             {isBest && <Star className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600 shrink-0" />}
             <span className="text-sm font-bold text-foreground truncate">{vendorName}</span>
           </div>
-          {pickupCost > 0 && <span className="text-[11px] text-muted-foreground">+{formatCurrency(pickupCost)} pickup</span>}
+          {pickupCost > 0 && <span className="text-xs font-medium text-muted-foreground">+{formatCurrency(pickupCost)} pickup</span>}
         </div>
         <div className="w-16 shrink-0">
           <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
@@ -598,10 +598,10 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
           <p className={`text-sm font-black font-mono tabular-nums ${isBest ? "text-emerald-700" : "text-foreground"}`}>
             {customerTotal != null ? formatCurrency(customerTotal) : "---"}
           </p>
-          <p className="text-[10px] text-muted-foreground">customer</p>
+          <p className="text-xs text-muted-foreground">customer</p>
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          {isBest && <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase tracking-wider">Best</span>}
+          {isBest && <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase tracking-wider">Best</span>}
           <button onClick={onRemove} className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive hover:bg-destructive/5 transition-colors">
             <X className="h-3.5 w-3.5" />
           </button>
@@ -614,10 +614,10 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
           <div className="flex items-center gap-1.5">
             {isBest && <Star className="h-3.5 w-3.5 text-emerald-600 fill-emerald-600 shrink-0" />}
             <span className="text-sm font-bold text-foreground">{vendorName}</span>
-            {pickupCost > 0 && <span className="text-[11px] text-muted-foreground ml-1">+{formatCurrency(pickupCost)}</span>}
+            {pickupCost > 0 && <span className="text-xs font-medium text-muted-foreground ml-1">+{formatCurrency(pickupCost)}</span>}
           </div>
           <div className="flex items-center gap-1">
-            {isBest && <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase">Best</span>}
+            {isBest && <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md uppercase">Best</span>}
             <button onClick={onRemove} className="p-2 rounded-lg text-muted-foreground/40 hover:text-destructive min-h-[44px] min-w-[44px] flex items-center justify-center">
               <X className="h-4 w-4" />
             </button>
@@ -625,18 +625,18 @@ function VendorRow({ entry, vendorName, pickupCost, isBest, markupPct, customerT
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Qty</label>
+            <label className="text-xs font-bold text-muted-foreground uppercase block mb-1">Qty</label>
             <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)}
               className="h-10 w-full text-sm text-center rounded-lg border border-border bg-background px-1 font-mono font-bold tabular-nums" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Ref #</label>
+            <label className="text-xs font-bold text-muted-foreground uppercase block mb-1">Ref #</label>
             <input type="text" value={quoteNum} onChange={(e) => setQuoteNum(e.target.value)}
               onBlur={handleSave} placeholder="---"
               className="h-10 w-full text-sm rounded-lg border border-border bg-background px-2 font-mono" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">Price</label>
+            <label className="text-xs font-bold text-muted-foreground uppercase block mb-1">Price</label>
             <div className="relative">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
               <input type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}

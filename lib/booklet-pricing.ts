@@ -210,7 +210,8 @@ function calculatePartCost(
 
     const sheetClickMul = CLICK_COST_SHEET_MULTIPLIERS[sizeString] ?? 1
     const clickCost = (sidesRule.clickAmount * clickCostData.regular + sidesRule.machineClickAmount * clickCostData.machine) * sheetClickMul
-    const level = forcedLevel ?? getLevel(totalSheets)
+    const autoLevel = getLevel(totalSheets)
+    const level = forcedLevel ?? autoLevel
     const markup = getMarkup(level, sidesValue, paperData.isCardstock)
     const baseCost = paperCost + clickCost
 
@@ -231,6 +232,7 @@ function calculatePartCost(
       bleed: hasBleed,
       pricePerSheet,
       level,
+      autoLevel,
       markup,
       maxUps: layout.maxUps,
       isRotated: layout.isRotated,
@@ -353,7 +355,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
 
   // Broker minimum logic
   const rawPrintingCost = insideResult.cost + coverResult.cost
-  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
+  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
   let totalPrintingCost = rawPrintingCost * pctMultiplier
   let brokerMinimumApplied: string | null = null
 

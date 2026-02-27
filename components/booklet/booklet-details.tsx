@@ -10,6 +10,7 @@ interface BookletDetailsProps {
   inputs: BookletInputs
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  onBrokerChange?: (value: boolean) => void
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -29,7 +30,7 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange }: BookletDetailsProps) {
+export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange, onBrokerChange }: BookletDetailsProps) {
   const {
     insideResult, coverResult, totalSheetsPerBooklet,
     bindingPricePerBook, totalBindingPrice, laminationCostPerBook,
@@ -40,6 +41,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   const hasCover = coverResult.paper !== "N/A" && coverResult.cost > 0
   const primaryPaper = hasCover ? coverResult.paper : insideResult.paper
   const primaryLevel = hasCover ? coverResult.level : insideResult.level
+  const primaryAutoLevel = hasCover ? (coverResult.autoLevel ?? coverResult.level) : (insideResult.autoLevel ?? insideResult.level)
   const primaryMarkup = hasCover ? coverResult.markup : insideResult.markup
   const primaryPPS = hasCover ? coverResult.pricePerSheet : insideResult.pricePerSheet
 
@@ -50,7 +52,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   ]
 
   const costLines: CostLine[] = [
-    { label: `Printing +${inputs.printingMarkupPct ?? 10}%`, value: totalPrintingCost },
+    { label: "Printing", value: totalPrintingCost },
     { label: "Binding", value: totalBindingPrice },
   ]
   if (totalLaminationCost > 0) {
@@ -111,6 +113,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
       stats={stats}
       level={{
         level: primaryLevel,
+        defaultLevel: primaryAutoLevel,
         maxLevel: 10,
         markup: primaryMarkup,
         pricePerSheet: primaryPPS,
@@ -119,6 +122,8 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
       costLines={costLines}
       details={expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={inputs.isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

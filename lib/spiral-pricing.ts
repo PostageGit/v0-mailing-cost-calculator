@@ -249,9 +249,16 @@ function roundByLevel(price: number, levelName: string): number {
   return parseFloat(price.toFixed(4))
 }
 
-export function getPriceInfo(paperName: string, sizeId: string, sides: string, quantity: number, forcedLevel?: string): { price: number; levelName: string } {
+export function getPriceInfo(paperName: string, sizeId: string, sides: string, quantity: number, forcedLevel?: string): { price: number; levelName: string; autoLevelName: string } {
   const entry = PAPER_CATALOG[paperName]?.[sizeId]?.[sides]
-  if (!entry) return { price: 0, levelName: "N/A" }
+  if (!entry) return { price: 0, levelName: "N/A", autoLevelName: "N/A" }
+
+  // Always compute the auto level from quantity
+  let autoLevelName = ""
+  for (const t of LEVEL_TIERS) {
+    if (quantity >= t.min && quantity <= t.max) { autoLevelName = t.level; break }
+  }
+  if (!autoLevelName) autoLevelName = LEVEL_TIERS[LEVEL_TIERS.length - 1].level
 
   let levelName = ""
   let tierKey = ""
@@ -270,7 +277,7 @@ export function getPriceInfo(paperName: string, sizeId: string, sides: string, q
   if (!tierKey) { tierKey = LEVEL_TIERS[LEVEL_TIERS.length - 1].key; levelName = LEVEL_TIERS[LEVEL_TIERS.length - 1].level }
 
   const raw = entry.pricing[tierKey] || 0
-  return { price: roundByLevel(raw, levelName), levelName }
+  return { price: roundByLevel(raw, levelName), levelName, autoLevelName }
 }
 
 // ─── Binding price lookup ────────────────────────────────
@@ -360,6 +367,7 @@ export function calculatePart(
     maxUps,
     pricePerSheet: info.price,
     levelName: info.levelName,
+    autoLevelName: info.autoLevelName,
   }
 }
 
@@ -425,6 +433,7 @@ export function calculateSpiral(inputs: SpiralInputs): SpiralCalcResult | { erro
     grandTotal,
     pricePerBook: bookQty > 0 ? grandTotal / bookQty : 0,
     levelName: insideResult.levelName,
+    autoLevelName: insideResult.autoLevelName,
     hasClearPlastic: inputs.clearPlastic,
     hasBlackVinyl: inputs.blackVinyl,
     bookQty,

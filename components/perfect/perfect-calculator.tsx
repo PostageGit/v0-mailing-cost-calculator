@@ -268,7 +268,7 @@ export function PerfectCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <PerfectDetails result={calcResult} onEffectiveTotalChange={setEffectiveTotal} />
+                <PerfectDetails result={calcResult} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={(val) => setInputs((p) => ({ ...p, isBroker: val }))} />
                 <Button
                   onClick={handleAddToQuote}
                   className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"

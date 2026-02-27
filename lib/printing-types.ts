@@ -68,6 +68,7 @@ export interface PrintingCalcResult {
   sheetSize: string
   layout: LayoutResult
   level: number
+  autoLevel: number
   markup: number
   pricePerSheet: number
   sheetDimensions: SheetDimensions

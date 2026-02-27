@@ -30,9 +30,11 @@ interface PadDetailsProps {
   result: PadCalcResult
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
+  isBroker?: boolean
+  onBrokerChange?: (value: boolean) => void
 }
 
-export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: PadDetailsProps) {
+export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: PadDetailsProps) {
   const {
     insideResult, sheetsPerPad,
     totalPrintingCost, paddingRate, totalPaddingCost,
@@ -40,6 +42,7 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
   } = result
 
   const levelNum = parseLevelNum(result.levelName)
+  const autoLevelNum = parseLevelNum(result.autoLevelName)
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: insideResult.sheetSize },
@@ -97,6 +100,7 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
       stats={stats}
       level={{
         level: levelNum,
+        defaultLevel: autoLevelNum,
         maxLevel: 10,
         markup: 0,
         pricePerSheet: insideResult.pricePerSheet,
@@ -105,6 +109,8 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange }: Pa
       costLines={costLines}
       details={expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
+      isBroker={isBroker}
+      onBrokerChange={onBrokerChange}
     />
   )
 }

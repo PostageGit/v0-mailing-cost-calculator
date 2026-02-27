@@ -289,6 +289,7 @@ export function calculatePrintingCost(inputs: PrintingInputs, size: string): Pri
     sheetSize: size,
     layout,
     level,
+    autoLevel,
     markup,
     pricePerSheet: effectivePricePerSheet,
     sheetDimensions: sheet,
@@ -347,7 +348,7 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     if (!result) continue
 
     const printingCost = result.cost
-    const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
+    const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
     const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
     const sfCost = getScoreFoldCost(inputs)
@@ -385,7 +386,7 @@ export function buildFullResult(
   precomputedFoldCost?: FoldFinishCostLine | null,
 ): FullPrintingResult {
   const printingCost = result.cost
-  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 10) / 100
+  const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
   const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
   const scoreFoldCost = getScoreFoldCost(inputs)
