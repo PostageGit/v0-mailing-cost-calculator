@@ -18,6 +18,7 @@ function getMessageText(msg: UIMessage): string {
 const transport = new DefaultChatTransport({ api: "/api/chat" })
 
 export function ChatBubble() {
+  console.log("[v0] ChatBubble rendering")
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
