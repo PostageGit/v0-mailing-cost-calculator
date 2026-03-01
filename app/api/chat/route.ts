@@ -597,9 +597,9 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
         if (error) return { error: `Failed to save quote: ${error.message}` }
 
         // Generate PDF via our API endpoint
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
+        const baseUrl = process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000"
+          : (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000")
         const pdfRes = await fetch(`${baseUrl}/api/quote-pdf`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
