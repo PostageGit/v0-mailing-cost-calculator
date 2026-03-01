@@ -20,17 +20,7 @@ interface QuotePdfInput {
   quoteNumber: string
   customerName: string | null
   jobType: string
-  jobDetails: {
-    quantity?: number
-    size?: string
-    paper?: string
-    sides?: string
-    pages?: number | null
-    binding?: string | null
-    cover?: string | null
-    lamination?: string | null
-    extras?: string | null
-  }
+  jobDetails: Record<string, unknown>
   totalPrice: number
   perUnitPrice: number
   expiresAt: string
@@ -113,15 +103,28 @@ export async function generateQuotePdf(input: QuotePdfInput): Promise<string | n
   y += 8
 
   const details: [string, string][] = []
-  if (jobDetails.quantity) details.push(["Quantity", jobDetails.quantity.toLocaleString()])
-  if (jobDetails.size) details.push(["Finished Size", jobDetails.size])
-  if (jobDetails.pages) details.push(["Pages", jobDetails.pages.toString()])
-  if (jobDetails.binding) details.push(["Binding", jobDetails.binding])
-  if (jobDetails.paper) details.push(["Paper", jobDetails.paper])
-  if (jobDetails.cover) details.push(["Cover", jobDetails.cover])
-  if (jobDetails.sides) details.push(["Print Sides", describeSides(jobDetails.sides)])
-  if (jobDetails.lamination && jobDetails.lamination !== "none") details.push(["Lamination", jobDetails.lamination])
-  if (jobDetails.extras) details.push(["Extras", jobDetails.extras])
+  const jd = jobDetails as Record<string, unknown>
+
+  // Handle new summary format
+  if (typeof jd.summary === "string") {
+    // Split summary into lines for display
+    const summaryParts = (jd.summary as string).split(/,\s*/)
+    summaryParts.forEach((part) => {
+      const trimmed = part.trim()
+      if (trimmed) details.push(["", trimmed])
+    })
+  } else {
+    // Handle old structured format
+    if (jd.quantity) details.push(["Quantity", String(jd.quantity)])
+    if (jd.size) details.push(["Finished Size", String(jd.size)])
+    if (jd.pages) details.push(["Pages", String(jd.pages)])
+    if (jd.binding) details.push(["Binding", String(jd.binding)])
+    if (jd.paper) details.push(["Paper", String(jd.paper)])
+    if (jd.cover) details.push(["Cover", String(jd.cover)])
+    if (jd.sides) details.push(["Print Sides", describeSides(String(jd.sides))])
+    if (jd.lamination && jd.lamination !== "none") details.push(["Lamination", String(jd.lamination)])
+    if (jd.extras) details.push(["Extras", String(jd.extras)])
+  }
 
   const rowHeight = 8
   const labelWidth = 45
@@ -131,13 +134,20 @@ export async function generateQuotePdf(input: QuotePdfInput): Promise<string | n
       doc.setFillColor(248, 250, 252)
       doc.rect(margin, y - 5, contentWidth, rowHeight, "F")
     }
-    doc.setFont("helvetica", "bold")
-    doc.setTextColor(71, 85, 105)
-    doc.setFontSize(10)
-    doc.text(label, margin + 4, y)
-    doc.setFont("helvetica", "normal")
-    doc.setTextColor(30, 41, 59)
-    doc.text(value, margin + labelWidth, y)
+    if (label) {
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(71, 85, 105)
+      doc.setFontSize(10)
+      doc.text(label, margin + 4, y)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(30, 41, 59)
+      doc.text(value, margin + labelWidth, y)
+    } else {
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(30, 41, 59)
+      doc.setFontSize(10)
+      doc.text(value, margin + 4, y)
+    }
     y += rowHeight
   })
 
