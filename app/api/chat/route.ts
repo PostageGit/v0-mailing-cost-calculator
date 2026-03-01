@@ -61,7 +61,12 @@ HOW TO PICK:
 - Customer says "color cover" -> coverSides: "4/4"
 - Customer says "BW inside" -> insideSides: "D/S" (both sides, regular BW) or "S/S" (front only, regular BW)
 - Default BW to regular BW (S/S or D/S) unless they specifically ask for rich black or RBW.
-- When in doubt about sides, default to both sides.
+
+BOOKS ARE ALWAYS BOTH SIDES:
+- Saddle-stitch booklets and perfect-bound books ALWAYS print both sides by default. Never use single-side (4/0, 1/0, S/S) for book insides.
+- Color inside -> "4/4". BW inside -> "D/S". RBW inside -> "1/1".
+- Cover is also both sides by default -> color cover: "4/4", BW cover: "D/S".
+- Single-sided codes (4/0, 1/0, S/S) are for flat printing and pads only.
 
 REQUIRED FIELDS -- NEVER CALL A CALCULATOR WITHOUT THESE:
 You MUST have ALL required fields before calling any calculator. If you're missing even one, ASK for it. Never guess or use a default for these:
@@ -174,6 +179,8 @@ HOW FLAT PRINTING WORKS:
 THINGS YOU CAN DEFAULT (don't need to ask):
 - Paper: 80lb Text Gloss for flyers/booklet insides. 12pt Gloss for postcards/business cards. 20lb Offset for pads/copies.
 - Cover: 80 Gloss (cardstock) for booklet/perfect covers. Separate cover = yes.
+- Sides for books (booklet/perfect/spiral): ALWAYS both sides. Color: "4/4". BW: "D/S". Never use single-side for book insides.
+- Cover sides: "4/4" (color both sides) by default.
 - Bleed: true for postcards/business cards, false for everything else.
 - Lamination: none unless they ask for it.
 - Spiral extras: no clear plastic, no black vinyl unless asked.
