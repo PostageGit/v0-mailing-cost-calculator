@@ -1,5 +1,4 @@
 import { put } from "@vercel/blob"
-import { jsPDF } from "jspdf"
 
 function fmt(n: number) {
   return "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -16,6 +15,9 @@ export async function POST(req: Request) {
       perUnitPrice,
       expiresAt,
     } = await req.json()
+
+    // Dynamic import -- jsPDF accesses DOM globals at module level so it must be lazy-loaded
+    const { jsPDF } = await import("jspdf")
 
     // Create PDF
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" })
