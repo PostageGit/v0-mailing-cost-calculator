@@ -561,26 +561,25 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
   // ============ QUOTE MANAGEMENT ============
   save_quote: tool({
     description:
-      `Save a completed quote to the system. Call this AUTOMATICALLY after presenting a price to the customer. Returns a quote number (PP-XXXX) and a PDF download link.`,
+      `Save a completed quote. Call AUTOMATICALLY after giving a price. Returns quote number (PP-XXXX) and PDF link.`,
     inputSchema: z.object({
       customerName: z.string().nullable().describe("Customer name if known, null if not"),
-      jobType: z.string().describe("Short job type label: 'Flat Printing', 'Saddle-Stitch Booklet', 'Perfect Bound Book', 'Spiral Book', 'Pads', 'Envelopes'"),
-      jobDetails: z.object({
-        quantity: z.number().describe("Number of pieces"),
-        size: z.string().describe("Finished size e.g. '8.5x11'"),
-        paper: z.string().describe("Paper used"),
-        sides: z.string().describe("Sides code used e.g. '4/4'"),
-        pages: z.number().nullable().describe("Page count for books, null for flat"),
-        binding: z.string().nullable().describe("Binding type for books, null for flat"),
-        cover: z.string().nullable().describe("Cover paper if applicable"),
-        lamination: z.string().nullable().describe("Lamination type if any"),
-        extras: z.string().nullable().describe("Any other details (score/fold, chipboard, etc)"),
-      }).describe("All job specs"),
-      totalPrice: z.number().describe("Total price as a number (e.g. 245.50)"),
-      perUnitPrice: z.number().describe("Per-unit price as a number"),
+      jobType: z.string().describe("e.g. 'Flat Printing', 'Saddle-Stitch Booklet', 'Perfect Bound Book', 'Spiral Book', 'Pads', 'Envelopes'"),
+      quantity: z.number().describe("Number of pieces"),
+      size: z.string().describe("Finished size e.g. '8.5x11'"),
+      paper: z.string().describe("Paper used"),
+      sides: z.string().describe("Sides code e.g. '4/4', 'D/S'"),
+      pages: z.number().nullable().describe("Page count for books, null for flat"),
+      binding: z.string().nullable().describe("Binding type for books, null for flat"),
+      coverPaper: z.string().nullable().describe("Cover paper if applicable"),
+      lamination: z.string().nullable().describe("Lamination if any, null or 'none' if not"),
+      extras: z.string().nullable().describe("Other details (score/fold, chipboard, etc)"),
+      totalPrice: z.number().describe("Total price number e.g. 245.50"),
+      perUnitPrice: z.number().describe("Per-unit price number"),
     }),
-    execute: async ({ customerName, jobType, jobDetails, totalPrice, perUnitPrice }) => {
+    execute: async ({ customerName, jobType, quantity, size, paper, sides, pages, binding, coverPaper, lamination, extras, totalPrice, perUnitPrice }) => {
       try {
+        const jobDetails = { quantity, size, paper, sides, pages, binding, cover: coverPaper, lamination, extras }
         const supabase = await createClient()
         const { data, error } = await supabase
           .from("quotes")
@@ -596,34 +595,20 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
 
         if (error) return { error: `Failed to save quote: ${error.message}` }
 
-        // Generate PDF via our API endpoint
-        const baseUrl = process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000")
-        const pdfRes = await fetch(`${baseUrl}/api/quote-pdf`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        // Generate PDF inline (no self-fetch which can deadlock)
+        let pdfUrl: string | null = null
+        try {
+          const { generateQuotePdf } = await import("@/lib/quote-pdf")
+          pdfUrl = await generateQuotePdf({
             quoteNumber: data.quote_number,
-            customerName,
-            jobType,
-            jobDetails,
-            totalPrice,
-            perUnitPrice,
+            customerName, jobType, jobDetails, totalPrice, perUnitPrice,
             expiresAt: data.expires_at,
-          }),
-        })
-
-        let pdfUrl = null
-        if (pdfRes.ok) {
-          const pdfData = await pdfRes.json()
-          pdfUrl = pdfData.url
-
-          // Update the quote record with the PDF URL
-          await supabase
-            .from("quotes")
-            .update({ pdf_url: pdfUrl })
-            .eq("id", data.id)
+          })
+          if (pdfUrl) {
+            await supabase.from("quotes").update({ pdf_url: pdfUrl }).eq("id", data.id)
+          }
+        } catch (pdfErr) {
+          console.error("[v0] PDF generation failed:", pdfErr)
         }
 
         return {
@@ -632,7 +617,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
           pdfUrl,
           message: pdfUrl
             ? `Quote ${data.quote_number} saved. PDF: ${pdfUrl}`
-            : `Quote ${data.quote_number} saved (PDF generation pending).`,
+            : `Quote ${data.quote_number} saved.`,
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Unknown error"
@@ -682,15 +667,23 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
 }
 
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  try {
+    const { messages } = await req.json()
 
-  const result = streamText({
-    model: "anthropic/claude-opus-4.6",
-    system: SYSTEM_PROMPT,
-    messages: await convertToModelMessages(messages),
-    tools,
-    stopWhen: stepCountIs(10),
-  })
+    const result = streamText({
+      model: "anthropic/claude-sonnet-4",
+      system: SYSTEM_PROMPT,
+      messages: await convertToModelMessages(messages),
+      tools,
+      stopWhen: stepCountIs(10),
+    })
 
-  return result.toUIMessageStreamResponse()
+    return result.toUIMessageStreamResponse()
+  } catch (e: unknown) {
+    console.error("[v0] Chat route error:", e)
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Chat failed" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    )
+  }
 }
