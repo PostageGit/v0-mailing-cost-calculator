@@ -37,6 +37,39 @@ ONE JOB AT A TIME:
 - Only quote one product at a time. Finish the current quote before starting another.
 - If the customer asks for multiple things ("I need flyers and booklets"), say "Let's start with [first one]. We can do the other after."
 
+PRINTING SIDES CODES -- these are NOT the same! Understand the difference:
+
+There are 3 TYPES of printing, each with one-side and both-sides options:
+  COLOR (printed on the color machine):
+  - "4/4" = full color, both sides. Use for: color flyers both sides, color booklet pages, color covers.
+  - "4/0" = full color, front only (back blank). Use for: one-sided color flyers, postcards color front only.
+
+  RBW = Rich Black & White (printed on the COLOR machine -- looks richer but costs MORE than regular BW):
+  - "1/1" = RBW both sides. Printed on color press. More expensive than S/S or D/S.
+  - "1/0" = RBW front only. Printed on color press. More expensive than S/S.
+
+  REGULAR BW (printed on the BW machine -- cheapest option):
+  - "S/S" = regular BW, front only. Cheapest single-side option.
+  - "D/S" = regular BW, both sides. Cheapest both-sides option.
+
+1/1 and 1/0 are NOT the same as D/S and S/S! They look similar but cost differently because 1/1 and 1/0 run on the color machine.
+
+HOW TO PICK:
+- Customer says "color" or "full color" -> both sides: "4/4", front only: "4/0"
+- Customer says "black and white" or "BW" (standard) -> both sides: "D/S", front only: "S/S"
+- Customer says "rich black" or "RBW" or wants BW on the color machine -> both sides: "1/1", front only: "1/0"
+- Customer says "color cover" -> coverSides: "4/4"
+- Customer says "BW inside" -> insideSides: "D/S" (both sides, regular BW) or "S/S" (front only, regular BW)
+- Default BW to regular BW (S/S or D/S) unless they specifically ask for rich black or RBW.
+
+GLUE BIND (PERFECT BINDING) AND SADDLE STITCH (STAPLED) -- ALWAYS BOTH SIDES:
+- These two binding types ALWAYS print both sides. This is not optional -- it's how books work.
+- Never use single-side codes (4/0, 1/0, S/S) for glue bind or saddle stitch insides or covers.
+- Color inside -> "4/4". BW inside -> "D/S". RBW inside -> "1/1". These are ALL both-sides codes.
+- Cover is also both sides -> color cover: "4/4", BW cover: "D/S".
+- Don't ask the customer "front only or both sides?" for books. It's always both sides.
+- Single-sided codes (4/0, 1/0, S/S) are for flat printing, pads, and spiral covers only.
+
 REQUIRED FIELDS -- NEVER CALL A CALCULATOR WITHOUT THESE:
 You MUST have ALL required fields before calling any calculator. If you're missing even one, ASK for it. Never guess or use a default for these:
 - Flat printing: quantity, width, height
@@ -61,16 +94,16 @@ For FLAT PRINTS:
 
 For BOOKS / BOOKLETS:
 1. What kind of binding? Explain simply:
-   - "Stapled (like a magazine) -- up to about 60 pages"
-   - "Perfect bound (flat spine, like a paperback) -- 40+ pages"
+   - "Stapled / saddle stitch (like a magazine) -- up to about 60 pages"
+   - "Glue bind / perfect bound (flat spine, like a paperback) -- 40+ pages"
    - "Spiral / coil (plastic coil, pages lay flat) -- any page count"
    If they don't know, ask how many pages first, then recommend.
 2. How many copies?
 3. What page size? (MUST ASK -- never default. Suggest 8.5x11 or 5.5x8.5)
 4. How many pages? (MUST ASK -- never skip, never guess)
-5. Color or black & white inside?
+5. Color or black & white inside? (Books are ALWAYS both sides -- don't ask "front only or both sides?")
 6. Want a thicker cover? (default yes, but still mention it)
--> Then calculate.
+-> Then calculate. Remember: insideSides is always a both-sides code (4/4, D/S, or 1/1). Never single-sided for books.
 
 For PADS:
 1. How many pads?
@@ -127,9 +160,10 @@ HOW PERFECT BINDING WORKS:
 
 EXAMPLE -- "500 copies, 8.5x11, 100 pages inside BW, color cover, perfect bound":
   bookQty: 500, pagesPerBook: 100, pageWidth: 8.5, pageHeight: 11,
-  insidePaper: "80lb Text Gloss", insideSides: "1/1" (BW both sides),
+  insidePaper: "80lb Text Gloss", insideSides: "D/S" (regular BW both sides -- cheapest BW option),
   coverPaper: "80 Gloss", coverSides: "4/4" (color both sides),
   laminationType: "none", isBroker: false
+  NOTE: If customer said "rich black" or "RBW" instead, use insideSides: "1/1"
 
 HOW SPIRAL BINDING WORKS:
 - Spiral / coil binding. Any page count up to ~290 sheets (~580 pages double-sided).
@@ -147,6 +181,8 @@ HOW FLAT PRINTING WORKS:
 THINGS YOU CAN DEFAULT (don't need to ask):
 - Paper: 80lb Text Gloss for flyers/booklet insides. 12pt Gloss for postcards/business cards. 20lb Offset for pads/copies.
 - Cover: 80 Gloss (cardstock) for booklet/perfect covers. Separate cover = yes.
+- Sides for books (booklet/perfect/spiral): ALWAYS both sides. Color: "4/4". BW: "D/S". Never use single-side for book insides.
+- Cover sides: "4/4" (color both sides) by default.
 - Bleed: true for postcards/business cards, false for everything else.
 - Lamination: none unless they ask for it.
 - Spiral extras: no clear plastic, no black vinyl unless asked.
@@ -259,49 +295,26 @@ FOLDING & SCORING (for flat printing only):
 
 ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square 9x9, Square 6x6. InkJet or Laser.`
 
+const SIDES_DESC = "4/4=color both sides, 4/0=color front only, 1/1=RBW(rich BW on color press, more expensive) both sides, 1/0=RBW front only, S/S=regular BW front only (cheapest), D/S=regular BW both sides (cheapest)"
+
 const tools = {
+  // ============ FLAT PRINTING ============
   calculate_printing: tool({
     description:
-      "Calculate the cost of a flat printing job such as flyers, postcards, business cards, brochures, letterheads, etc. Supports optional lamination and broker pricing. Returns the cheapest sheet option automatically.",
+      "Calculate flat printing cost (flyers, postcards, business cards, brochures, etc). Auto-picks cheapest parent sheet. Supports lamination, score/fold, broker pricing.",
     inputSchema: z.object({
       qty: z.number().describe("Number of printed pieces"),
-      width: z.number().describe("Finished piece width in inches"),
-      height: z.number().describe("Finished piece height in inches"),
-      paperName: z
-        .string()
-        .describe(
-          `Paper name -- MUST be one of: ${FLAT_PAPER_NAMES.join(", ")}`
-        ),
-      sidesValue: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe(
-          "S/S=BW one-sided, D/S=BW both sides, 4/0=Color one-sided, 4/4=Color both sides, 1/0=BW one-sided, 1/1=BW both sides"
-        ),
-      hasBleed: z
-        .boolean()
-        .describe("Whether the design bleeds to the edge of the paper"),
-      isBroker: z
-        .boolean()
-        .describe("Whether this is a broker/trade customer. Broker gets Level 10 pricing."),
-      laminationEnabled: z
-        .boolean()
-        .describe("Whether to add lamination to the printed sheets"),
-      laminationType: z
-        .enum(["Gloss", "Matte", "Silk", "Leather"])
-        .nullable()
-        .describe("Lamination type if enabled"),
-      laminationSides: z
-        .enum(["S/S", "D/S"])
-        .nullable()
-        .describe("Lamination sides: S/S = one side, D/S = both sides"),
-      scoreFoldOperation: z
-        .enum(["folding", "scoring", ""])
-        .nullable()
-        .describe("Folding = fold only (text-weight paper). Scoring = score then fold (cardstock/thick paper). Empty or null = no fold."),
-      scoreFoldType: z
-        .enum(["foldInHalf", "foldIn3", "foldIn4", "gateFold", ""])
-        .nullable()
-        .describe("foldInHalf = fold in half (1 fold), foldIn3 = tri-fold / letter fold (2 folds), foldIn4 = fold in 4 (3 folds), gateFold = gate fold. Empty or null = no fold."),
+      width: z.number().describe("FINISHED piece width in inches"),
+      height: z.number().describe("FINISHED piece height in inches"),
+      paperName: z.string().describe(`Paper -- MUST be one of: ${FLAT_PAPER_NAMES.join(", ")}`),
+      sidesValue: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
+      hasBleed: z.boolean().describe("Design bleeds to edge. True for postcards/business cards."),
+      isBroker: z.boolean().describe("Broker/trade customer"),
+      laminationEnabled: z.boolean().describe("Add lamination. Only on cardstock."),
+      laminationType: z.enum(["Gloss", "Matte", "Silk", "Leather"]).nullable().describe("Lamination type if enabled"),
+      laminationSides: z.enum(["S/S", "D/S"]).nullable().describe("Lamination sides: S/S=one side, D/S=both"),
+      scoreFoldOperation: z.enum(["folding", "scoring", ""]).nullable().describe("folding=text paper, scoring=cardstock. Empty=no fold."),
+      scoreFoldType: z.enum(["foldInHalf", "foldIn3", "foldIn4", "gateFold", ""]).nullable().describe("Fold type. Empty=no fold."),
     }),
     execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, scoreFoldOperation, scoreFoldType }) => {
       const lamination: LaminationInputs = {
@@ -310,514 +323,232 @@ const tools = {
         sides: (laminationSides || "S/S") as LaminationInputs["sides"],
       }
       const inputs: PrintingInputs = {
-        qty,
-        width,
-        height,
-        paperName,
-        sidesValue,
-        hasBleed,
-        addOnCharge: 0,
-        addOnDescription: "",
-        printingMarkupPct: 10,
-        isBroker,
-        lamination,
+        qty, width, height, paperName, sidesValue, hasBleed,
+        addOnCharge: 0, addOnDescription: "", printingMarkupPct: 10, isBroker, lamination,
         scoreFoldOperation: (scoreFoldOperation || "") as PrintingInputs["scoreFoldOperation"],
         scoreFoldType: (scoreFoldType || "") as PrintingInputs["scoreFoldType"],
       }
       const options = calculateAllSheetOptions(inputs)
       if (!options.length) {
-        return {
-          error: `Could not calculate for ${paperName} at ${width}x${height}. This paper/size combination may not be available.`,
-        }
+        return { error: `Could not calculate for ${paperName} at ${width}x${height}. Check paper name and size.` }
       }
       const best = options[0]
       const fullResult = buildFullResult(inputs, best.result)
-      const parts: Record<string, string> = {
-        printing: fmt(fullResult.printingCostPlus10),
-      }
-      if (fullResult.laminationCost && fullResult.laminationCost.cost > 0) {
-        parts.lamination = fmt(fullResult.laminationCost.cost)
-      }
-      if (fullResult.cuttingCost > 0) {
-        parts.cutting = fmt(fullResult.cuttingCost)
-      }
+      const parts: Record<string, string> = { printing: fmt(fullResult.printingCostPlus10) }
+      if (fullResult.laminationCost && fullResult.laminationCost.cost > 0) parts.lamination = fmt(fullResult.laminationCost.cost)
+      if (fullResult.cuttingCost > 0) parts.cutting = fmt(fullResult.cuttingCost)
       if (fullResult.scoreFoldCost && fullResult.scoreFoldCost.cost > 0) {
         parts.scoreFold = `${fmt(fullResult.scoreFoldCost.cost)} (${fullResult.scoreFoldCost.operation} - ${fullResult.scoreFoldCost.foldType})`
       }
       return {
-        total: fmt(fullResult.grandTotal),
-        perUnit: fmt(fullResult.grandTotal / qty),
-        qty,
-        size: `${width}x${height}`,
-        paper: paperName,
-        sides: sidesValue,
-        bleed: hasBleed,
-        broker: isBroker,
-        sheetSize: best.size,
-        costBreakdown: parts,
+        total: fmt(fullResult.grandTotal), perUnit: fmt(fullResult.grandTotal / qty),
+        qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
+        bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
         lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
         scoreFold: scoreFoldOperation ? `${scoreFoldOperation} - ${scoreFoldType}` : "none",
       }
     },
   }),
 
+  // ============ SADDLE-STITCH BOOKLET ============
   calculate_booklet: tool({
     description:
-      `Calculate saddle-stitched (stapled) booklet cost. Includes printing, binding, optional lamination.
-IMPORTANT: pagesPerBook is the TOTAL page count the customer wants (e.g. 20 pages). Must be a multiple of 4, minimum 8.
-The tool automatically handles: subtracting cover pages, picking the cheapest parent sheet size, calculating spreads (an 8.5x11 page prints on 11x17 spreads).
-pageWidth/pageHeight = the FINISHED page size (e.g. 8.5 and 11 for letter, 5.5 and 8.5 for half-letter). NOT the parent sheet.`,
+      `Calculate saddle-stitched (stapled) booklet cost. Auto-handles: page rounding to multiple of 4, subtracting cover pages, picking cheapest parent sheet.
+Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, maximum ~64.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of booklets"),
-      pagesPerBook: z
-        .number()
-        .describe("TOTAL page count including cover (must be multiple of 4, minimum 8). Example: customer says 20 pages = pass 20. The tool auto-subtracts 4 cover pages when separateCover is true."),
-      pageWidth: z.number().describe("FINISHED page width in inches (e.g. 8.5 for letter, 5.5 for half-letter)"),
-      pageHeight: z.number().describe("FINISHED page height in inches (e.g. 11 for letter, 8.5 for half-letter)"),
-      insidePaper: z
-        .string()
-        .describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
-      insideSides: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe("Inside page printing sides"),
-      separateCover: z
-        .boolean()
-        .describe("Use a different (thicker) stock for the cover? Default true."),
-      coverPaper: z
-        .string()
-        .nullable()
-        .describe(`Cover paper if separate -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
-      coverSides: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .nullable()
-        .describe("Cover printing sides if separate. Default 4/4."),
-      laminationType: z
-        .enum(["none", "Gloss", "Matte", "Silk", "Leather"])
-        .describe("Lamination type on cover (if separate cover). Default none."),
-      isBroker: z
-        .boolean()
-        .describe("Whether this is a broker/trade customer"),
+      pagesPerBook: z.number().describe("TOTAL page count including cover (multiple of 4, min 8). Tool auto-rounds."),
+      pageWidth: z.number().describe("FINISHED page width (e.g. 8.5 for letter)"),
+      pageHeight: z.number().describe("FINISHED page height (e.g. 11 for letter)"),
+      insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+      insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
+      separateCover: z.boolean().describe("Use thicker cover stock? Default true."),
+      coverPaper: z.string().nullable().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. Default "4/4". ${SIDES_DESC}`),
+      laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
+      isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({
-      bookQty,
-      pagesPerBook,
-      pageWidth,
-      pageHeight,
-      insidePaper,
-      insideSides,
-      separateCover,
-      coverPaper,
-      coverSides,
-      laminationType,
-      isBroker,
-    }) => {
-      // Validate minimum and multiple of 4
-      if (pagesPerBook < 8) {
-        return { error: "Saddle-stitch booklets need at least 8 pages. Suggest a folded flyer or flat print instead." }
-      }
-      if (pagesPerBook > 64) {
-        return { error: `${pagesPerBook} pages is too thick to staple. Suggest perfect binding (40+ pages, flat spine like a paperback) or spiral binding instead. Ask the customer which they prefer.` }
-      }
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, isBroker }) => {
+      if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
+      if (pagesPerBook > 64) return { error: `${pagesPerBook} pages is too thick to staple. Suggest perfect binding or spiral binding instead.` }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
-      const pagesNote = adjustedPages !== pagesPerBook
-        ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be a multiple of 4).`
-        : null
-
-      // When separateCover, the calculator wants INSIDE page count (total minus 4 cover pages)
+      const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
       const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
-
       const result = calculateBooklet({
-        bookQty,
-        pagesPerBook: insidePages,
-        pageWidth,
-        pageHeight,
-        separateCover,
-        coverPaper: coverPaper || "80 Gloss",
-        coverSides: coverSides || "4/4",
-        coverBleed: true,
-        coverSheetSize: "cheapest",
-        insidePaper,
-        insideSides,
-        insideBleed: false,
-        insideSheetSize: "cheapest",
+        bookQty, pagesPerBook: insidePages, pageWidth, pageHeight, separateCover,
+        coverPaper: coverPaper || "80 Gloss", coverSides: coverSides || "4/4",
+        coverBleed: true, coverSheetSize: "cheapest",
+        insidePaper, insideSides, insideBleed: false, insideSheetSize: "cheapest",
         laminationType: separateCover ? laminationType : "none",
-        customLevel: "auto",
-        isBroker,
-        printingMarkupPct: 10,
+        customLevel: "auto", isBroker, printingMarkupPct: 10,
       })
-      if (!result.isValid) {
-        return { error: result.error || "Could not calculate booklet price. Check paper name and size." }
-      }
+      if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
       return {
-        total: fmt(result.grandTotal),
-        perUnit: fmt(result.pricePerBook),
-        qty: bookQty,
-        totalPages: adjustedPages,
-        insidePages,
-        size: `${pageWidth}x${pageHeight}`,
-        insidePaper,
+        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+        qty: bookQty, totalPages: adjustedPages, insidePages,
+        size: `${pageWidth}x${pageHeight}`, insidePaper,
         coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Same as inside",
-        binding: "Saddle-stitch",
-        lamination: separateCover ? laminationType : "none",
+        binding: "Saddle-stitch", lamination: separateCover ? laminationType : "none",
         broker: isBroker,
-        parentSheetUsed: result.insideResult.sheetSize,
-        upsPerSheet: result.insideResult.ups,
-        costBreakdown: {
-          printing: fmt(result.totalPrintingCost),
-          binding: fmt(result.totalBindingPrice),
-          lamination: fmt(result.totalLaminationCost),
-        },
+        costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
         ...(pagesNote ? { note: pagesNote } : {}),
       }
     },
   }),
 
+  // ============ SPIRAL BINDING ============
   calculate_spiral: tool({
     description:
-      `Calculate spiral-bound (coil) book cost. Good for manuals, cookbooks, workbooks. Any page count.
-Pages print flat (not spreads). Tool auto-picks cheapest parent sheet. 
-Optional: clear plastic front, black vinyl back ($0.50 each per book).`,
+      `Calculate spiral-bound (coil) book cost. Any page count up to ~290 sheets. Pages print flat (not spreads). Tool auto-picks cheapest parent sheet.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
-      pagesPerBook: z.number().describe("Number of inside pages (not counting covers)"),
-      pageWidth: z.number().describe("FINISHED page width in inches (e.g. 8.5)"),
-      pageHeight: z.number().describe("FINISHED page height in inches (e.g. 11)"),
+      pagesPerBook: z.number().describe("Inside pages only (not counting covers)"),
+      pageWidth: z.number().describe("FINISHED page width (e.g. 8.5)"),
+      pageHeight: z.number().describe("FINISHED page height (e.g. 11)"),
       insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
-      insideSides: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe("Inside printing sides"),
-      insideBleed: z.boolean().describe("Inside pages have bleed. Default false."),
-      useFrontCover: z.boolean().describe("Use a printed front cover page (cardstock). Default true."),
-      useBackCover: z.boolean().describe("Use a printed back cover page (cardstock). Default true."),
+      insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
+      insideBleed: z.boolean().describe("Inside pages bleed. Default false."),
+      useFrontCover: z.boolean().describe("Printed front cover (cardstock). Default true."),
+      useBackCover: z.boolean().describe("Printed back cover (cardstock). Default true."),
       frontPaper: z.string().nullable().describe(`Front cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       backPaper: z.string().nullable().describe(`Back cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
-      clearPlastic: z.boolean().describe("Add clear plastic front cover ($0.50/book). Default false."),
-      blackVinyl: z.boolean().describe("Add black vinyl back cover ($0.50/book). Default false."),
-      isBroker: z
-        .boolean()
-        .describe("Whether this is a broker/trade customer"),
+      clearPlastic: z.boolean().describe("Clear plastic front ($0.50/book). Default false."),
+      blackVinyl: z.boolean().describe("Black vinyl back ($0.50/book). Default false."),
+      isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({
-      bookQty,
-      pagesPerBook,
-      pageWidth,
-      pageHeight,
-      insidePaper,
-      insideSides,
-      insideBleed,
-      useFrontCover,
-      useBackCover,
-      frontPaper,
-      backPaper,
-      clearPlastic,
-      blackVinyl,
-      isBroker,
-    }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, useFrontCover, useBackCover, frontPaper, backPaper, clearPlastic, blackVinyl, isBroker }) => {
       const result = calculateSpiral({
-        bookQty,
-        pagesPerBook,
-        pageWidth,
-        pageHeight,
-        inside: {
-          paperName: insidePaper,
-          sides: insideSides,
-          hasBleed: insideBleed,
-          sheetSize: "cheapest",
-        },
+        bookQty, pagesPerBook, pageWidth, pageHeight,
+        inside: { paperName: insidePaper, sides: insideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
         useFrontCover,
-        front: {
-          paperName: frontPaper || "80 Gloss",
-          sides: "4/4",
-          hasBleed: false,
-          sheetSize: "cheapest",
-        },
+        front: { paperName: frontPaper || "80 Gloss", sides: "4/4", hasBleed: false, sheetSize: "cheapest" },
         useBackCover,
-        back: {
-          paperName: backPaper || "80 Gloss",
-          sides: "4/4",
-          hasBleed: false,
-          sheetSize: "cheapest",
-        },
-        clearPlastic,
-        blackVinyl,
-        customLevel: "auto",
-        isBroker,
+        back: { paperName: backPaper || "80 Gloss", sides: "4/4", hasBleed: false, sheetSize: "cheapest" },
+        clearPlastic, blackVinyl, customLevel: "auto", isBroker,
       })
-      if ("error" in result) {
-        return { error: result.error }
-      }
+      if ("error" in result) return { error: result.error }
       return {
-        total: fmt(result.grandTotal),
-        perUnit: fmt(result.pricePerBook),
-        qty: bookQty,
-        pages: pagesPerBook,
-        size: `${pageWidth}x${pageHeight}`,
-        insidePaper,
-        frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
+        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+        qty: bookQty, pages: pagesPerBook, size: `${pageWidth}x${pageHeight}`,
+        insidePaper, frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
         backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
-        clearPlastic,
-        blackVinyl,
-        binding: "Spiral (coil)",
-        broker: isBroker,
-        costBreakdown: {
-          printing: fmt(result.totalPrintingCost),
-          binding: fmt(result.totalBindingPrice),
-        },
+        clearPlastic, blackVinyl, binding: "Spiral (coil)", broker: isBroker,
+        costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice) },
       }
     },
   }),
 
+  // ============ PERFECT BINDING ============
   calculate_perfect_bound: tool({
     description:
-      `Calculate perfect-bound (glue spine, like a paperback) book cost. Minimum 40 inside pages.
-The cover wraps around the spine -- spine width is auto-calculated from page count and paper thickness.
-Tool auto-picks cheapest parent sheet. pageWidth/pageHeight = FINISHED page size.`,
+      `Calculate perfect-bound (glue spine, like a paperback) book cost. Minimum 40 inside pages. Cover wraps around spine (auto-calculated). Tool auto-picks cheapest parent sheet.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
-      pagesPerBook: z.number().describe("Number of INSIDE pages only (not counting cover). Minimum 40. Must be even number."),
-      pageWidth: z.number().describe("FINISHED page width in inches (e.g. 8.5)"),
-      pageHeight: z.number().describe("FINISHED page height in inches (e.g. 11)"),
+      pagesPerBook: z.number().describe("INSIDE pages only (not counting cover). Minimum 40."),
+      pageWidth: z.number().describe("FINISHED page width (e.g. 8.5)"),
+      pageHeight: z.number().describe("FINISHED page height (e.g. 11)"),
       insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
-      insideSides: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe("Inside printing sides"),
-      coverPaper: z.string().describe(`Cover paper (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
-      coverSides: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe("Cover printing sides. Default 4/4."),
-      laminationType: z
-        .enum(["none", "Gloss", "Matte", "Silk", "Leather"])
-        .describe("Cover lamination type. Default none."),
-      isBroker: z
-        .boolean()
-        .describe("Whether this is a broker/trade customer"),
+      insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
+      coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Cover sides. Default "4/4". ${SIDES_DESC}`),
+      laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
+      isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({
-      bookQty,
-      pagesPerBook,
-      pageWidth,
-      pageHeight,
-      insidePaper,
-      insideSides,
-      coverPaper,
-      coverSides,
-      laminationType,
-      isBroker,
-    }) => {
-      if (pagesPerBook < 40) {
-        return { error: `Perfect binding needs at least 40 inside pages. You said ${pagesPerBook}. Suggest a stapled booklet (saddle-stitch) instead -- it's cheaper and works great for fewer pages. Ask the customer if they want to try that.` }
-      }
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, isBroker }) => {
+      if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you said ${pagesPerBook}). Suggest stapled booklet instead.` }
       const result = calculatePerfect({
-        bookQty,
-        pagesPerBook,
-        pageWidth,
-        pageHeight,
-        inside: {
-          paperName: insidePaper,
-          sides: insideSides,
-          hasBleed: false,
-          sheetSize: "cheapest",
-        },
-        cover: {
-          paperName: coverPaper || "80 Gloss",
-          sides: coverSides || "4/4",
-          hasBleed: true,
-          sheetSize: "cheapest",
-        },
-        laminationType,
-        customLevel: "auto",
-        isBroker,
+        bookQty, pagesPerBook, pageWidth, pageHeight,
+        inside: { paperName: insidePaper, sides: insideSides, hasBleed: false, sheetSize: "cheapest" },
+        cover: { paperName: coverPaper || "80 Gloss", sides: coverSides || "4/4", hasBleed: true, sheetSize: "cheapest" },
+        laminationType, customLevel: "auto", isBroker,
       })
-      if ("error" in result) {
-        return { error: result.error }
-      }
+      if ("error" in result) return { error: result.error }
       return {
-        total: fmt(result.grandTotal),
-        perUnit: fmt(result.pricePerBook),
-        qty: bookQty,
-        insidePages: pagesPerBook,
-        size: `${pageWidth}x${pageHeight}`,
-        insidePaper,
-        coverPaper: coverPaper || "80 Gloss",
-        binding: "Perfect-bound (glue)",
-        lamination: laminationType,
-        broker: isBroker,
-        costBreakdown: {
-          printing: fmt(result.totalPrintingCost),
-          binding: fmt(result.totalBindingPrice),
-          lamination: fmt(result.totalLaminationCost),
-        },
+        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+        qty: bookQty, insidePages: pagesPerBook, size: `${pageWidth}x${pageHeight}`,
+        insidePaper, coverPaper: coverPaper || "80 Gloss",
+        binding: "Perfect-bound (glue)", lamination: laminationType, broker: isBroker,
+        costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
       }
     },
   }),
 
+  // ============ PADS ============
   calculate_pad: tool({
-    description:
-      "Calculate the cost of notepads. Includes printing, padding, and optional chipboard backing. Supports broker pricing.",
+    description: "Calculate notepad/pad cost. Includes printing, padding, and setup.",
     inputSchema: z.object({
       padQty: z.number().describe("Number of pads"),
-      pagesPerPad: z.number().describe("Pages per pad (e.g. 25, 50, 100)"),
-      pageWidth: z.number().describe("Page width in inches"),
-      pageHeight: z.number().describe("Page height in inches"),
+      pagesPerPad: z.number().describe("Sheets per pad (min 25)"),
+      pageWidth: z.number().describe("FINISHED width in inches"),
+      pageHeight: z.number().describe("FINISHED height in inches"),
       insidePaper: z.string().describe(`Paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
-      insideSides: z
-        .enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"])
-        .describe("Printing sides"),
+      insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
       useChipBoard: z.boolean().describe("Include chipboard backing"),
-      isBroker: z
-        .boolean()
-        .describe("Whether this is a broker/trade customer"),
+      isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({
-      padQty,
-      pagesPerPad,
-      pageWidth,
-      pageHeight,
-      insidePaper,
-      insideSides,
-      useChipBoard,
-      isBroker,
-    }) => {
+    execute: async ({ padQty, pagesPerPad, pageWidth, pageHeight, insidePaper, insideSides, useChipBoard, isBroker }) => {
       const result = calculatePad({
-        padQty,
-        pagesPerPad,
-        pageWidth,
-        pageHeight,
-        inside: {
-          paperName: insidePaper,
-          sides: insideSides,
-          hasBleed: false,
-          sheetSize: "cheapest",
-        },
-        useChipBoard,
-        customLevel: "auto",
-        isBroker,
+        padQty, pagesPerPad, pageWidth, pageHeight,
+        inside: { paperName: insidePaper, sides: insideSides, hasBleed: false, sheetSize: "cheapest" },
+        useChipBoard, customLevel: "auto", isBroker,
       })
-      if ("error" in result) {
-        return { error: result.error }
-      }
+      if ("error" in result) return { error: result.error }
       return {
-        total: fmt(result.grandTotal),
-        perUnit: fmt(result.pricePerPad),
-        qty: padQty,
-        pagesPerPad,
-        size: `${pageWidth}x${pageHeight}`,
-        paper: insidePaper,
-        chipBoard: useChipBoard,
-        broker: isBroker,
-        costBreakdown: {
-          printing: fmt(result.totalPrintingCost),
-          padding: fmt(result.totalPaddingCost),
-          setup: fmt(result.setupCharge),
-        },
+        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerPad),
+        qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
+        paper: insidePaper, chipBoard: useChipBoard, broker: isBroker,
+        costBreakdown: { printing: fmt(result.totalPrintingCost), padding: fmt(result.totalPaddingCost), setup: fmt(result.setupCharge) },
       }
     },
   }),
 
+  // ============ ENVELOPES ============
   calculate_envelope: tool({
-    description:
-      "Calculate the cost of printed envelopes. Various envelope sizes and ink types available. Supports broker pricing.",
+    description: "Calculate printed envelope cost. Various sizes and ink types.",
     inputSchema: z.object({
       amount: z.number().describe("Number of envelopes"),
-      itemName: z
-        .string()
-        .describe(
-          'Envelope type, e.g. "#10 no window", "6x9", "#9", "A-7 (5.25x7.25)"'
-        ),
-      inkType: z
-        .enum(["InkJet", "Laser"])
-        .describe("Printing method: InkJet or Laser"),
-      printType: z
-        .string()
-        .describe(
-          'Print type. For InkJet: "Text BW", "Text Color", "Text + Logo", "Custom". For Laser: "BW", "RBW", "Color"'
-        ),
-      hasBleed: z.boolean().describe("Whether the design bleeds to the edge"),
-      isBroker: z
-        .boolean()
-        .describe("Whether this is a broker/trade customer"),
+      itemName: z.string().describe('Envelope type, e.g. "#10 no window", "6x9", "#9", "A-7 (5.25x7.25)"'),
+      inkType: z.enum(["InkJet", "Laser"]).describe("Printing method"),
+      printType: z.string().describe('For InkJet: "Text BW", "Text Color", "Text + Logo", "Custom". For Laser: "BW", "RBW", "Color"'),
+      hasBleed: z.boolean().describe("Design bleeds to edge"),
+      isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({
-      amount,
-      itemName,
-      inkType,
-      printType,
-      hasBleed,
-      isBroker,
-    }) => {
+    execute: async ({ amount, itemName, inkType, printType, hasBleed, isBroker }) => {
       const result = calculateEnvelope(
-        {
-          amount,
-          itemName,
-          inkType,
-          printType: printType as never,
-          hasBleed,
-          customerType: isBroker ? "Broker" : "Regular",
-          customEnvCost: 0,
-          customPrintCost: 0,
-        },
+        { amount, itemName, inkType, printType: printType as never, hasBleed, customerType: isBroker ? "Broker" : "Regular", customEnvCost: 0, customPrintCost: 0 },
         DEFAULT_ENVELOPE_SETTINGS
       )
-      if ("error" in result) {
-        return { error: result.error }
-      }
+      if ("error" in result) return { error: result.error }
       return {
-        total: fmt(result.price),
-        perUnit: fmt(result.pricePerUnit),
-        qty: result.quantity,
-        envelope: itemName,
-        inkType,
-        printType,
-        bleed: hasBleed,
-        broker: isBroker,
+        total: fmt(result.price), perUnit: fmt(result.pricePerUnit),
+        qty: result.quantity, envelope: itemName, inkType, printType, bleed: hasBleed, broker: isBroker,
       }
     },
   }),
 
+  // ============ HELPERS ============
   list_available_papers: tool({
-    description:
-      "List all available paper stocks grouped by calculator type. Use this if unsure which paper name to use.",
+    description: "List all paper stocks for a calculator type. Use if unsure which paper name to use.",
     inputSchema: z.object({
-      calculatorType: z
-        .enum(["flat", "booklet", "spiral", "perfect", "pad"])
-        .describe("Which calculator the papers are for"),
+      calculatorType: z.enum(["flat", "booklet", "spiral", "perfect", "pad"]).describe("Which calculator"),
     }),
     execute: async ({ calculatorType }) => {
       if (calculatorType === "flat") {
-        return {
-          type: "Flat printing",
-          papers: PAPER_OPTIONS.map((p) => ({
-            name: p.name,
-            isCardstock: p.isCardstock,
-            sizes: p.availableSizes,
-          })),
-        }
+        return { type: "Flat printing", papers: PAPER_OPTIONS.map((p) => ({ name: p.name, isCardstock: p.isCardstock, sizes: p.availableSizes })) }
       }
-      // Booklet/spiral/perfect/pad all use the same paper list
       return {
         type: calculatorType,
-        insidePapers: BOOKLET_PAPER_OPTIONS.filter((p) => !p.isCardstock).map((p) => ({
-          name: p.name,
-          sizes: p.availableSizes,
-        })),
-        coverPapers: BOOKLET_PAPER_OPTIONS.filter((p) => p.isCardstock).map((p) => ({
-          name: p.name,
-          canLaminate: p.canLaminate,
-          sizes: p.availableSizes,
-        })),
+        insidePapers: BOOKLET_PAPER_OPTIONS.filter((p) => !p.isCardstock).map((p) => ({ name: p.name, sizes: p.availableSizes })),
+        coverPapers: BOOKLET_PAPER_OPTIONS.filter((p) => p.isCardstock).map((p) => ({ name: p.name, canLaminate: p.canLaminate, sizes: p.availableSizes })),
       }
     },
   }),
 
   list_envelope_types: tool({
-    description:
-      "List all available envelope types. Use when customer asks about envelope options.",
+    description: "List all envelope types and sizes.",
     inputSchema: z.object({}),
     execute: async () => {
-      return DEFAULT_ENVELOPE_SETTINGS.items.map((item) => ({
-        name: item.name,
-        canBleed: item.bleed,
-      }))
+      return DEFAULT_ENVELOPE_SETTINGS.items.map((item) => ({ name: item.name, canBleed: item.bleed }))
     },
   }),
 }
