@@ -37,21 +37,31 @@ ONE JOB AT A TIME:
 - Only quote one product at a time. Finish the current quote before starting another.
 - If the customer asks for multiple things ("I need flyers and booklets"), say "Let's start with [first one]. We can do the other after."
 
-PRINTING SIDES CODES -- understand this so you pick the right one:
-The codes describe COLOR vs BW and ONE SIDE vs BOTH SIDES:
-- "4/4" = full color, both sides (front AND back are color). Use for: color flyers printed both sides, color booklet pages, color covers.
-- "4/0" = full color, front side only (back is blank). Use for: postcards with color on front only, one-sided flyers.
-- "1/1" = black & white, both sides. Use for: BW booklet inside pages, BW documents printed both sides.
-- "1/0" = black & white, front side only. Use for: BW one-sided forms, BW pads.
-- "S/S" = same as "1/0" (single side BW). Mostly used for flat printing.
-- "D/S" = same as "1/1" (double side BW). Mostly used for flat printing.
+PRINTING SIDES CODES -- these are NOT the same! Understand the difference:
+
+There are 3 TYPES of printing, each with one-side and both-sides options:
+  COLOR (printed on the color machine):
+  - "4/4" = full color, both sides. Use for: color flyers both sides, color booklet pages, color covers.
+  - "4/0" = full color, front only (back blank). Use for: one-sided color flyers, postcards color front only.
+
+  RBW = Rich Black & White (printed on the COLOR machine -- looks richer but costs MORE than regular BW):
+  - "1/1" = RBW both sides. Printed on color press. More expensive than S/S or D/S.
+  - "1/0" = RBW front only. Printed on color press. More expensive than S/S.
+
+  REGULAR BW (printed on the BW machine -- cheapest option):
+  - "S/S" = regular BW, front only. Cheapest single-side option.
+  - "D/S" = regular BW, both sides. Cheapest both-sides option.
+
+1/1 and 1/0 are NOT the same as D/S and S/S! They look similar but cost differently because 1/1 and 1/0 run on the color machine.
 
 HOW TO PICK:
-- Customer says "color" or "full color" -> front and back? If yes: "4/4". If front only: "4/0".
-- Customer says "black and white" or "BW" -> front and back? If yes: "1/1". If front only: "1/0".
+- Customer says "color" or "full color" -> both sides: "4/4", front only: "4/0"
+- Customer says "black and white" or "BW" (standard) -> both sides: "D/S", front only: "S/S"
+- Customer says "rich black" or "RBW" or wants BW on the color machine -> both sides: "1/1", front only: "1/0"
 - Customer says "color cover" -> coverSides: "4/4"
-- Customer says "BW inside" -> insideSides: "1/1" (both sides) or "1/0" (front only)
-- When in doubt, default to both sides: "4/4" for color, "1/1" for BW.
+- Customer says "BW inside" -> insideSides: "D/S" (both sides, regular BW) or "S/S" (front only, regular BW)
+- Default BW to regular BW (S/S or D/S) unless they specifically ask for rich black or RBW.
+- When in doubt about sides, default to both sides.
 
 REQUIRED FIELDS -- NEVER CALL A CALCULATOR WITHOUT THESE:
 You MUST have ALL required fields before calling any calculator. If you're missing even one, ASK for it. Never guess or use a default for these:
@@ -143,9 +153,10 @@ HOW PERFECT BINDING WORKS:
 
 EXAMPLE -- "500 copies, 8.5x11, 100 pages inside BW, color cover, perfect bound":
   bookQty: 500, pagesPerBook: 100, pageWidth: 8.5, pageHeight: 11,
-  insidePaper: "80lb Text Gloss", insideSides: "1/1" (BW both sides),
+  insidePaper: "80lb Text Gloss", insideSides: "D/S" (regular BW both sides -- cheapest BW option),
   coverPaper: "80 Gloss", coverSides: "4/4" (color both sides),
   laminationType: "none", isBroker: false
+  NOTE: If customer said "rich black" or "RBW" instead, use insideSides: "1/1"
 
 HOW SPIRAL BINDING WORKS:
 - Spiral / coil binding. Any page count up to ~290 sheets (~580 pages double-sided).
@@ -275,7 +286,7 @@ FOLDING & SCORING (for flat printing only):
 
 ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square 9x9, Square 6x6. InkJet or Laser.`
 
-const SIDES_DESC = "4/4=color both sides, 4/0=color front only, 1/1=BW both sides, 1/0=BW front only, S/S=BW front only, D/S=BW both sides"
+const SIDES_DESC = "4/4=color both sides, 4/0=color front only, 1/1=RBW(rich BW on color press, more expensive) both sides, 1/0=RBW front only, S/S=regular BW front only (cheapest), D/S=regular BW both sides (cheapest)"
 
 const tools = {
   // ============ FLAT PRINTING ============
