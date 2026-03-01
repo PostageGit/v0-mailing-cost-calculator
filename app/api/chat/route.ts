@@ -12,6 +12,7 @@ import { calculatePad } from "@/lib/pad-pricing"
 import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
+import { createClient } from "@/lib/supabase/server"
 
 // Build paper name lists at module level so the AI can use them
 const FLAT_PAPER_NAMES = PAPER_OPTIONS.map((p) => p.name)
@@ -226,6 +227,13 @@ PRESENTING THE QUOTE:
 - Then one short line about what's included.
 - If there's a cost breakdown, mention the big items briefly.
 - Offer one upsell if it makes sense: "Want lamination on the cover? Adds about $X."
+
+SAVING QUOTES:
+- After giving a price, IMMEDIATELY call save_quote to save it. Don't ask permission -- just save it automatically.
+- Include the customer's name if they mentioned it, otherwise leave it blank.
+- The tool returns a quote number (like PP-1000) and a PDF download link.
+- Tell the customer: "Your quote number is PP-XXXX. Here's your quote PDF: [link]. Valid for 30 days. Just bring the quote number when you're ready to order."
+- If the customer asks about an old quote, use lookup_quote with their quote number to pull it up.
 
 NEVER DO:
 - NEVER call a calculator without quantity AND size. These are MANDATORY. If you don't have them, ASK.
@@ -549,6 +557,128 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, maximu
     inputSchema: z.object({}),
     execute: async () => {
       return DEFAULT_ENVELOPE_SETTINGS.items.map((item) => ({ name: item.name, canBleed: item.bleed }))
+    },
+  }),
+
+  // ============ QUOTE MANAGEMENT ============
+  save_quote: tool({
+    description:
+      `Save a completed quote to the system. Call this AUTOMATICALLY after presenting a price to the customer. Returns a quote number (PP-XXXX) and a PDF download link.`,
+    inputSchema: z.object({
+      customerName: z.string().nullable().describe("Customer name if known, null if not"),
+      jobType: z.string().describe("Short job type label: 'Flat Printing', 'Saddle-Stitch Booklet', 'Perfect Bound Book', 'Spiral Book', 'Pads', 'Envelopes'"),
+      jobDetails: z.object({
+        quantity: z.number().describe("Number of pieces"),
+        size: z.string().describe("Finished size e.g. '8.5x11'"),
+        paper: z.string().describe("Paper used"),
+        sides: z.string().describe("Sides code used e.g. '4/4'"),
+        pages: z.number().nullable().describe("Page count for books, null for flat"),
+        binding: z.string().nullable().describe("Binding type for books, null for flat"),
+        cover: z.string().nullable().describe("Cover paper if applicable"),
+        lamination: z.string().nullable().describe("Lamination type if any"),
+        extras: z.string().nullable().describe("Any other details (score/fold, chipboard, etc)"),
+      }).describe("All job specs"),
+      totalPrice: z.number().describe("Total price as a number (e.g. 245.50)"),
+      perUnitPrice: z.number().describe("Per-unit price as a number"),
+    }),
+    execute: async ({ customerName, jobType, jobDetails, totalPrice, perUnitPrice }) => {
+      try {
+        const supabase = await createClient()
+        const { data, error } = await supabase
+          .from("quotes")
+          .insert({
+            customer_name: customerName,
+            job_type: jobType,
+            job_details: jobDetails,
+            total_price: totalPrice,
+            per_unit_price: perUnitPrice,
+          })
+          .select("quote_number, id, expires_at")
+          .single()
+
+        if (error) return { error: `Failed to save quote: ${error.message}` }
+
+        // Generate PDF via our API endpoint
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : "http://localhost:3000"
+        const pdfRes = await fetch(`${baseUrl}/api/quote-pdf`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteNumber: data.quote_number,
+            customerName,
+            jobType,
+            jobDetails,
+            totalPrice,
+            perUnitPrice,
+            expiresAt: data.expires_at,
+          }),
+        })
+
+        let pdfUrl = null
+        if (pdfRes.ok) {
+          const pdfData = await pdfRes.json()
+          pdfUrl = pdfData.url
+
+          // Update the quote record with the PDF URL
+          await supabase
+            .from("quotes")
+            .update({ pdf_url: pdfUrl })
+            .eq("id", data.id)
+        }
+
+        return {
+          quoteNumber: data.quote_number,
+          expiresAt: data.expires_at,
+          pdfUrl,
+          message: pdfUrl
+            ? `Quote ${data.quote_number} saved. PDF: ${pdfUrl}`
+            : `Quote ${data.quote_number} saved (PDF generation pending).`,
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Unknown error"
+        return { error: `Failed to save quote: ${msg}` }
+      }
+    },
+  }),
+
+  lookup_quote: tool({
+    description:
+      "Look up an existing quote by quote number (e.g. PP-1000). Use when a customer comes in with a quote number.",
+    inputSchema: z.object({
+      quoteNumber: z.string().describe("Quote number like PP-1000"),
+    }),
+    execute: async ({ quoteNumber }) => {
+      try {
+        const supabase = await createClient()
+        const normalized = quoteNumber.toUpperCase().trim()
+        const { data, error } = await supabase
+          .from("quotes")
+          .select("*")
+          .eq("quote_number", normalized)
+          .single()
+
+        if (error || !data) return { error: `Quote ${normalized} not found. Check the number and try again.` }
+
+        const isExpired = new Date(data.expires_at) < new Date()
+        return {
+          quoteNumber: data.quote_number,
+          customerName: data.customer_name,
+          jobType: data.job_type,
+          jobDetails: data.job_details,
+          totalPrice: fmt(Number(data.total_price)),
+          perUnitPrice: data.per_unit_price ? fmt(Number(data.per_unit_price)) : null,
+          pdfUrl: data.pdf_url,
+          createdAt: data.created_at,
+          expiresAt: data.expires_at,
+          isExpired,
+          status: isExpired ? "EXPIRED -- price may have changed, offer to re-quote" : "VALID",
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Unknown error"
+        return { error: `Failed to look up quote: ${msg}` }
+      }
     },
   }),
 }
