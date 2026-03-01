@@ -1,9 +1,9 @@
-// Test: 500 copies, 8.5x11, 100 pages inside BW, color cover, perfect bound
+// Test all three binding calculators with real parameters
 import { calculatePerfect } from "../lib/perfect-pricing.js"
 import { calculateBooklet } from "../lib/booklet-pricing.js"
 import { calculateSpiral } from "../lib/spiral-pricing.js"
 
-console.log("=== TEST: Perfect Bound ===")
+console.log("=== TEST 1: Perfect Bound ===")
 console.log("500 copies, 8.5x11, 100 inside pages BW, color cover")
 try {
   const perfectResult = calculatePerfect({
@@ -34,18 +34,19 @@ try {
     console.log("Per Book:", perfectResult.pricePerBook)
     console.log("Inside sheets:", perfectResult.insideResult?.sheets)
     console.log("Inside sheet size:", perfectResult.insideResult?.sheetSize)
+    console.log("Inside ups:", perfectResult.insideResult?.ups)
     console.log("Cover sheet size:", perfectResult.coverResult?.sheetSize)
   }
-} catch (e: any) {
+} catch (e) {
   console.log("EXCEPTION:", e.message)
 }
 
-console.log("\n=== TEST: Saddle-Stitch Booklet ===")
-console.log("500 copies, 8.5x11, 20 total pages, color, separate cover")
+console.log("\n=== TEST 2: Saddle-Stitch Booklet ===")
+console.log("500 copies, 8.5x11, 16 inside pages (20 total), color, separate 80 Gloss cover")
 try {
   const bookletResult = calculateBooklet({
     bookQty: 500,
-    pagesPerBook: 16, // 20 total minus 4 cover pages
+    pagesPerBook: 16,
     pageWidth: 8.5,
     pageHeight: 11,
     separateCover: true,
@@ -67,23 +68,23 @@ try {
   } else {
     console.log("Grand Total:", bookletResult.grandTotal)
     console.log("Per Book:", bookletResult.pricePerBook)
-    console.log("Inside result:", {
+    console.log("Inside:", JSON.stringify({
       sheets: bookletResult.insideResult.sheets,
       sheetSize: bookletResult.insideResult.sheetSize,
       ups: bookletResult.insideResult.maxUps,
-    })
-    console.log("Cover result:", {
+    }))
+    console.log("Cover:", JSON.stringify({
       sheets: bookletResult.coverResult.sheets,
       sheetSize: bookletResult.coverResult.sheetSize,
       ups: bookletResult.coverResult.maxUps,
-    })
+    }))
   }
-} catch (e: any) {
+} catch (e) {
   console.log("EXCEPTION:", e.message)
 }
 
-console.log("\n=== TEST: Spiral Bound ===")
-console.log("500 copies, 8.5x11, 100 inside pages BW, front/back cover")
+console.log("\n=== TEST 3: Spiral Bound ===")
+console.log("500 copies, 8.5x11, 100 inside pages BW, front/back 80 Gloss cover")
 try {
   const spiralResult = calculateSpiral({
     bookQty: 500,
@@ -120,7 +121,43 @@ try {
   } else {
     console.log("Grand Total:", spiralResult.grandTotal)
     console.log("Per Book:", spiralResult.pricePerBook)
+    console.log("Printing cost:", spiralResult.totalPrintingCost)
+    console.log("Binding cost:", spiralResult.totalBindingPrice)
   }
-} catch (e: any) {
+} catch (e) {
+  console.log("EXCEPTION:", e.message)
+}
+
+console.log("\n=== TEST 4: Flat Print ===")
+console.log("1000 flyers, 8.5x11, 80lb Text Gloss, color both sides")
+import { calculateAllSheetOptions, buildFullResult } from "../lib/printing-pricing.js"
+try {
+  const inputs = {
+    qty: 1000,
+    width: 8.5,
+    height: 11,
+    paperName: "80lb Text Gloss",
+    sidesValue: "4/4",
+    hasBleed: false,
+    addOnCharge: 0,
+    addOnDescription: "",
+    printingMarkupPct: 10,
+    isBroker: false,
+    lamination: { enabled: false, type: "Gloss", sides: "S/S" },
+    scoreFoldOperation: "",
+    scoreFoldType: "",
+  }
+  const options = calculateAllSheetOptions(inputs)
+  if (!options.length) {
+    console.log("ERROR: No sheet options found")
+  } else {
+    const best = options[0]
+    const result = buildFullResult(inputs, best.result)
+    console.log("Grand Total:", result.grandTotal)
+    console.log("Per Unit:", result.grandTotal / 1000)
+    console.log("Sheet size:", best.size)
+    console.log("Ups:", best.result.ups)
+  }
+} catch (e) {
   console.log("EXCEPTION:", e.message)
 }
