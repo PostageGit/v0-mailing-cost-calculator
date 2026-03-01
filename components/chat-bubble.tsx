@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
-import { MessageCircle, X, Send, RotateCcw, FileDown } from "lucide-react"
+import { MessageCircle, X, Send, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { UIMessage } from "ai"
 
@@ -245,21 +245,6 @@ function FormatLine({ line }: { line: string }) {
           )
         }
         if (/^https?:\/\//.test(part)) {
-          const isPdf = part.toLowerCase().endsWith(".pdf")
-          if (isPdf) {
-            return (
-              <a
-                key={i}
-                href={part}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900"
-              >
-                <FileDown className="h-4 w-4 shrink-0" />
-                Download Quote PDF
-              </a>
-            )
-          }
           return (
             <a
               key={i}

@@ -228,10 +228,9 @@ PRESENTING THE QUOTE:
 - Offer one upsell if it makes sense: "Want lamination on the cover? Adds about $X."
 
 SAVING QUOTES:
-- After giving a price, ask: "Want me to save this as an official quote? You'll get a quote number and PDF you can bring in."
+- After giving a price, ask: "Want me to save this as an official quote? You'll get a quote number you can bring in."
 - If they say yes (or anything affirmative), call save_quote with a summary of ALL the job details in one string.
-- The tool returns a quote number (like PP-1000) and a PDF download link.
-- Tell the customer: "Your quote number is PP-XXXX. Here's your quote PDF: [link]. Valid for 30 days. Just bring the quote number when you're ready to order."
+- Tell the customer: "Your quote number is PP-XXXX. Valid for 30 days. Just bring the quote number when you're ready to order."
 - If the customer asks about an old quote, use lookup_quote with their quote number to pull it up.
 - IMPORTANT: Do NOT call save_quote automatically. Only call it when the customer confirms they want it saved.
 
@@ -561,18 +560,16 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
 
   // ============ QUOTE MANAGEMENT ============
   save_quote: tool({
-    description:
-      `Save a completed quote to the system. Call after presenting a price. Returns a quote number (PP-XXXX) and PDF download link. Pass ALL job details as a single summary string.`,
+    description: `Save a completed quote. Returns a quote number (PP-XXXX). Call after customer confirms they want the quote saved.`,
     inputSchema: z.object({
       customerName: z.string().nullable().describe("Customer name if known"),
       jobType: z.string().describe("e.g. Flat Printing, Saddle-Stitch Booklet, Perfect Bound Book, Spiral Book, Pads, Envelopes"),
-      jobSummary: z.string().describe("Full job description in one string, e.g. '500 copies, 8.5x11, 80lb Text Gloss, 4/4 color both sides, saddle-stitch, 20 pages, 80 Gloss cover, no lamination'"),
-      totalPrice: z.number().describe("Total price as a number"),
-      perUnitPrice: z.number().describe("Per-unit price as a number"),
+      jobSummary: z.string().describe("Full job description in one string"),
+      totalPrice: z.number().describe("Total price"),
+      perUnitPrice: z.number().describe("Per-unit price"),
     }),
     execute: async ({ customerName, jobType, jobSummary, totalPrice, perUnitPrice }) => {
       try {
-        console.log("[v0] save_quote called:", { customerName, jobType, totalPrice })
         const supabase = await createClient()
         const { data, error } = await supabase
           .from("quotes")
@@ -583,45 +580,16 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
             total_price: totalPrice,
             per_unit_price: perUnitPrice,
           })
-          .select("quote_number, id, expires_at")
+          .select("quote_number, expires_at")
           .single()
 
-        if (error) {
-          console.error("[v0] save_quote DB error:", error)
-          return { error: `Failed to save quote: ${error.message}` }
-        }
-
-        console.log("[v0] Quote saved:", data.quote_number)
-
-        // Generate PDF
-        let pdfUrl: string | null = null
-        try {
-          const { generateQuotePdf } = await import("@/lib/quote-pdf")
-          pdfUrl = await generateQuotePdf({
-            quoteNumber: data.quote_number,
-            customerName,
-            jobType,
-            jobDetails: { summary: jobSummary },
-            totalPrice,
-            perUnitPrice,
-            expiresAt: data.expires_at,
-          })
-          if (pdfUrl) {
-            await supabase.from("quotes").update({ pdf_url: pdfUrl }).eq("id", data.id)
-            console.log("[v0] PDF generated:", pdfUrl)
-          }
-        } catch (pdfErr) {
-          console.error("[v0] PDF generation failed:", pdfErr)
-          // Quote is still saved, just no PDF
-        }
+        if (error) return { error: `Failed to save quote: ${error.message}` }
 
         return {
           quoteNumber: data.quote_number,
           expiresAt: data.expires_at,
-          pdfUrl,
         }
       } catch (e: unknown) {
-        console.error("[v0] save_quote error:", e)
         const msg = e instanceof Error ? e.message : "Unknown error"
         return { error: `Failed to save quote: ${msg}` }
       }
@@ -654,7 +622,6 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
           jobDetails: data.job_details,
           totalPrice: fmt(Number(data.total_price)),
           perUnitPrice: data.per_unit_price ? fmt(Number(data.per_unit_price)) : null,
-          pdfUrl: data.pdf_url,
           createdAt: data.created_at,
           expiresAt: data.expires_at,
           isExpired,
@@ -670,26 +637,16 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
 
 export async function POST(req: Request) {
   try {
-    console.log("[v0] POST /api/chat called")
-    const body = await req.json()
-    const { messages } = body
-    console.log("[v0] Messages count:", messages?.length)
-
-    const converted = await convertToModelMessages(messages)
-    console.log("[v0] Converted messages count:", converted?.length)
+    const { messages } = await req.json()
 
     const result = streamText({
       model: "anthropic/claude-sonnet-4",
       system: SYSTEM_PROMPT,
-      messages: converted,
+      messages: await convertToModelMessages(messages),
       tools,
       stopWhen: stepCountIs(10),
-      onError: (err) => {
-        console.error("[v0] streamText onError:", err)
-      },
     })
 
-    console.log("[v0] streamText created, returning response")
     return result.toUIMessageStreamResponse()
   } catch (e: unknown) {
     console.error("[v0] Chat route error:", e)
