@@ -397,6 +397,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
+      console.log("[v0] calculate_booklet called with:", JSON.stringify({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }))
       if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
@@ -409,6 +410,12 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         laminationType: separateCover ? laminationType : "none",
         customLevel: "auto", isBroker, printingMarkupPct: 0,
       })
+      console.log("[v0] booklet result:", JSON.stringify({
+        valid: result.isValid, total: result.grandTotal, error: result.error,
+        insideLevel: result.insideResult?.level, insideAutoLevel: result.insideResult?.autoLevel, insideSheets: result.insideResult?.sheets,
+        coverLevel: result.coverResult?.level, coverAutoLevel: result.coverResult?.autoLevel, coverSheets: result.coverResult?.sheets,
+        printing: result.totalPrintingCost, binding: result.totalBindingPrice, lamination: result.totalLaminationCost,
+      }))
       if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
       return {
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
@@ -417,6 +424,8 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Same as inside",
         binding: "Saddle-stitch", lamination: separateCover ? laminationType : "none",
         broker: isBroker,
+        insideBleed, coverBleed,
+        levels: { insideLevel: result.insideResult?.level, coverLevel: result.coverResult?.level },
         costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
         ...(pagesNote ? { note: pagesNote } : {}),
       }
