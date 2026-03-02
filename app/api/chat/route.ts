@@ -135,11 +135,15 @@ PAPER KNOWLEDGE -- understand this so you can guide customers:
 - If they say "matte" they probably mean 80lb Text Matte or 10pt Matte.
 
 COVER PAPER FOR BOOKS -- important:
+- SELF-COVER vs SEPARATE COVER:
+  - "Self-cover" means the ENTIRE book (cover AND inside) uses the EXACT SAME paper. Example: everything is 20lb Offset. Set separateCover = false.
+  - "Separate cover" means the cover is a DIFFERENT paper from the inside pages. Example: cover is 10pt Offset, inside is 20lb Offset. These are TWO DIFFERENT papers, so separateCover = true.
+  - Even if the cover is NOT cardstock (e.g. 10pt Offset, 60lb Offset), if it's a different paper from the inside, it IS a separate cover.
 - PERFECT BINDING: ALWAYS has a separate cover. Most popular cover is 12pt Gloss or 10pt Gloss. Default to 12pt Gloss if they don't specify.
-- SADDLE-STITCH: Can have a separate heavier cover OR "self-cover" (same paper as inside pages).
-  - If they want a cover: most popular is 10pt or 12pt Gloss. Some budget-conscious customers use 80 Cover Gloss to save a bit, but 10pt is not much more expensive -- suggest 10pt as a good middle ground.
-  - If they say "self-cover": no separate cover, all pages (including the outer 4) are the same inside paper. Set separateCover to false.
-  - Default: ask if they want a separate cover. If unsure, recommend a separate cover with 10pt or 12pt Gloss.
+- SADDLE-STITCH: Can have a separate cover OR self-cover.
+  - Separate cover: most popular is 10pt or 12pt Gloss. Some use 80 Cover Gloss or even 10pt Offset. Suggest 10pt Gloss as a good middle ground.
+  - Self-cover: all pages (including the outer 4) are the same paper. Set separateCover = false.
+  - Default: ask if they want a separate cover. If unsure, recommend a separate cover.
 - SPIRAL: covers vary -- can be clear plastic front, black vinyl back, or printed card covers. The calculator handles these separately.
 
 HOW PRINTING ACTUALLY WORKS (understand this so you don't get confused):
@@ -186,7 +190,8 @@ HOW SADDLE-STITCH BOOKLETS WORK:
 - Minimum 8 pages, maximum about 140 pages plus cover. Must be multiple of 4 (tool auto-rounds up). Over 140 pages, suggest perfect binding instead.
 - Pages MUST be a multiple of 4. The tool auto-rounds up and tells you if it adjusted.
 - An 8.5x11 booklet page is NOT printed on 8.5x11 paper. Two pages print side by side as a "spread" = 11x17. The tool handles this automatically.
-- Separate cover uses 4 pages (front, inside-front, inside-back, back). Recommend 10pt or 12pt Gloss for the cover. Self-cover = no separate cover, same paper throughout.
+- Separate cover uses 4 pages (front, inside-front, inside-back, back). Self-cover = no separate cover, the EXACT SAME paper for every page.
+- IMPORTANT: If cover paper is different from inside paper in ANY way (different weight, different coating, different type), it's a SEPARATE cover, even if both are offset stock.
 - PAGE COUNT: Pass the TOTAL page count the customer says (e.g. "20 pages" = pass 20). The tool automatically subtracts 4 cover pages when separateCover is true. Do NOT subtract yourself.
 - The tool auto-picks the cheapest parent sheet size. You never need to specify sheet size.
 
