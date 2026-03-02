@@ -350,7 +350,7 @@ const tools = {
       }
       const inputs: PrintingInputs = {
         qty, width, height, paperName, sidesValue, hasBleed,
-        addOnCharge: 0, addOnDescription: "", printingMarkupPct: 10, isBroker, lamination,
+        addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker, lamination,
         scoreFoldOperation: (scoreFoldOperation || "") as PrintingInputs["scoreFoldOperation"],
         scoreFoldType: (scoreFoldType || "") as PrintingInputs["scoreFoldType"],
       }
@@ -407,7 +407,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
         insidePaper, insideSides, insideBleed, insideSheetSize: "cheapest",
         laminationType: separateCover ? laminationType : "none",
-        customLevel: "auto", isBroker, printingMarkupPct: 10,
+        customLevel: "auto", isBroker, printingMarkupPct: 0,
       })
       if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
       return {
