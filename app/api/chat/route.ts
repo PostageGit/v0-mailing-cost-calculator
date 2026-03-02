@@ -12,7 +12,6 @@ import { calculatePad } from "@/lib/pad-pricing"
 import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
-import { createClient } from "@/lib/supabase/server"
 
 // Build paper name lists at module level so the AI can use them
 const FLAT_PAPER_NAMES = PAPER_OPTIONS.map((p) => p.name)
@@ -95,8 +94,8 @@ For FLAT PRINTS:
 
 For BOOKS / BOOKLETS:
 1. What kind of binding? Explain simply:
-   - "Stapled / saddle stitch (like a magazine) -- any page count (multiple of 4, minimum 8)"
-   - "Glue bind / perfect bound (flat spine, like a paperback) -- 40+ inside pages"
+   - "Stapled / saddle stitch (like a magazine) -- up to about 60 pages"
+   - "Glue bind / perfect bound (flat spine, like a paperback) -- 40+ pages"
    - "Spiral / coil (plastic coil, pages lay flat) -- any page count"
    If they don't know, ask how many pages first, then recommend.
 2. How many copies?
@@ -145,7 +144,7 @@ PRICE LEVELS:
 
 HOW SADDLE-STITCH BOOKLETS WORK:
 - Saddle-stitch = stapled on the spine (like a magazine).
-- Minimum 8 pages. No hard maximum -- the calculator handles any page count (must be multiple of 4, tool auto-rounds up).
+- Minimum 8 pages. Maximum ~64 pages (too thick to staple beyond that).
 - Pages MUST be a multiple of 4. The tool auto-rounds up and tells you if it adjusted.
 - An 8.5x11 booklet page is NOT printed on 8.5x11 paper. Two pages print side by side as a "spread" = 11x17. The tool handles this automatically.
 - Always default to a separate heavier cover (cardstock "80 Gloss"). The cover uses 4 pages (front, inside-front, inside-back, back).
@@ -196,17 +195,18 @@ THINGS YOU MUST NEVER DEFAULT -- always ask:
 - Binding type (for books)
 
 BINDING TYPES (always let the customer choose -- never pick for them):
-- Saddle-stitch (stapled): any page count (minimum 8, must be multiple of 4). Use calculate_booklet.
-- Perfect binding / glue bind (flat spine, like a paperback): 40+ inside pages. Use calculate_perfect_bound.
-- Spiral / coil binding: any page count. Use calculate_spiral.
+- Stapled booklet (saddle-stitch): up to ~64 pages. Use calculate_booklet.
+- Perfect binding (glue spine, like a paperback): 40+ inside pages. Use calculate_perfect_bound.
+- Spiral / coil binding: any page count up to ~580 pages. Use calculate_spiral.
 - ALWAYS ask binding type before calculating. If the customer already said which one, skip the question.
 - If they don't know, ask how many pages first, then recommend:
   - Under 40 pages -> saddle-stitch (stapled)
-  - 40+ pages -> ask: "That could be stapled or glue bound (perfect binding). Stapled is cheaper, glue bound looks more like a real book. Which do you prefer?"
+  - 40-64 pages -> ask: "That could be stapled or perfect bound. Stapled is cheaper, perfect bound looks more like a real book. Which do you prefer?"
+  - 65+ pages -> perfect bound or spiral
 - If they say "perfect binding" or "spiral", use that even if you'd normally suggest otherwise.
 
 OUT OF RANGE -- always suggest an alternative, never leave the customer stuck:
-- High page count saddle-stitch (over ~80 pages): Let the calculator handle it -- it works. But mention to the customer that thick stapled booklets may not lay flat, and offer glue bind or spiral as alternatives.
+- Too many pages for saddle-stitch (over ~64): "That's too thick to staple. I'd suggest perfect binding (like a paperback) or spiral binding. Which sounds better?"
 - Too few pages for perfect binding (under 40): "Perfect binding needs at least 40 pages. For fewer pages, a stapled booklet works great and is cheaper. Want to try that?"
 - Too many pages for spiral (over ~580 double-sided): "That's a big book! We might need to split it into two volumes. Want me to price that?"
 - Customer wants a size/paper combo that doesn't exist: "That paper doesn't come in that size. The closest we have is [alternative]. Want me to price that instead?"
@@ -226,13 +226,6 @@ PRESENTING THE QUOTE:
 - Then one short line about what's included.
 - If there's a cost breakdown, mention the big items briefly.
 - Offer one upsell if it makes sense: "Want lamination on the cover? Adds about $X."
-
-SAVING QUOTES:
-- After giving a price, ask: "Want me to save this as an official quote? You'll get a quote number you can bring in."
-- If they say yes (or anything affirmative), call save_quote with a summary of ALL the job details in one string.
-- Tell the customer: "Your quote number is PP-XXXX. Valid for 30 days. Just bring the quote number when you're ready to order."
-- If the customer asks about an old quote, use lookup_quote with their quote number to pull it up.
-- IMPORTANT: Do NOT call save_quote automatically. Only call it when the customer confirms they want it saved.
 
 NEVER DO:
 - NEVER call a calculator without quantity AND size. These are MANDATORY. If you don't have them, ASK.
@@ -361,7 +354,7 @@ const tools = {
   calculate_booklet: tool({
     description:
       `Calculate saddle-stitched (stapled) booklet cost. Auto-handles: page rounding to multiple of 4, subtracting cover pages, picking cheapest parent sheet.
-Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must be multiple of 4 (auto-rounded).`,
+Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, maximum ~64.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of booklets"),
       pagesPerBook: z.number().describe("TOTAL page count including cover (multiple of 4, min 8). Tool auto-rounds."),
@@ -377,6 +370,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, isBroker }) => {
       if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
+      if (pagesPerBook > 64) return { error: `${pagesPerBook} pages is too thick to staple. Suggest perfect binding or spiral binding instead.` }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
       const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
@@ -557,106 +551,18 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must b
       return DEFAULT_ENVELOPE_SETTINGS.items.map((item) => ({ name: item.name, canBleed: item.bleed }))
     },
   }),
-
-  // ============ QUOTE MANAGEMENT ============
-  save_quote: tool({
-    description: `Save a completed quote. Returns a quote number (PP-XXXX). Call after customer confirms they want the quote saved.`,
-    inputSchema: z.object({
-      customerName: z.string().nullable().describe("Customer name if known"),
-      jobType: z.string().describe("e.g. Flat Printing, Saddle-Stitch Booklet, Perfect Bound Book, Spiral Book, Pads, Envelopes"),
-      jobSummary: z.string().describe("Full job description in one string"),
-      totalPrice: z.number().describe("Total price"),
-      perUnitPrice: z.number().describe("Per-unit price"),
-    }),
-    execute: async ({ customerName, jobType, jobSummary, totalPrice, perUnitPrice }) => {
-      try {
-        const supabase = await createClient()
-        const { data, error } = await supabase
-          .from("quotes")
-          .insert({
-            customer_name: customerName,
-            job_type: jobType,
-            job_details: { summary: jobSummary },
-            total_price: totalPrice,
-            per_unit_price: perUnitPrice,
-          })
-          .select("quote_number, expires_at")
-          .single()
-
-        if (error) return { error: `Failed to save quote: ${error.message}` }
-
-        return {
-          quoteNumber: data.quote_number,
-          expiresAt: data.expires_at,
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Unknown error"
-        return { error: `Failed to save quote: ${msg}` }
-      }
-    },
-  }),
-
-  lookup_quote: tool({
-    description:
-      "Look up an existing quote by quote number (e.g. PP-1000). Use when a customer comes in with a quote number.",
-    inputSchema: z.object({
-      quoteNumber: z.string().describe("Quote number like PP-1000"),
-    }),
-    execute: async ({ quoteNumber }) => {
-      try {
-        const supabase = await createClient()
-        const normalized = quoteNumber.toUpperCase().trim()
-        const { data, error } = await supabase
-          .from("quotes")
-          .select("*")
-          .eq("quote_number", normalized)
-          .single()
-
-        if (error || !data) return { error: `Quote ${normalized} not found. Check the number and try again.` }
-
-        const isExpired = new Date(data.expires_at) < new Date()
-        return {
-          quoteNumber: data.quote_number,
-          customerName: data.customer_name,
-          jobType: data.job_type,
-          jobDetails: data.job_details,
-          totalPrice: fmt(Number(data.total_price)),
-          perUnitPrice: data.per_unit_price ? fmt(Number(data.per_unit_price)) : null,
-          createdAt: data.created_at,
-          expiresAt: data.expires_at,
-          isExpired,
-          status: isExpired ? "EXPIRED -- price may have changed, offer to re-quote" : "VALID",
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Unknown error"
-        return { error: `Failed to look up quote: ${msg}` }
-      }
-    },
-  }),
 }
 
 export async function POST(req: Request) {
-  try {
-    const { messages } = await req.json()
+  const { messages } = await req.json()
 
-    console.log("[v0] Chat route - messages:", messages?.length, "converting...")
-    const converted = await convertToModelMessages(messages)
-    console.log("[v0] Chat route - converted, calling streamText with openai/gpt-4o")
+  const result = streamText({
+    model: "anthropic/claude-opus-4.6",
+    system: SYSTEM_PROMPT,
+    messages: await convertToModelMessages(messages),
+    tools,
+    stopWhen: stepCountIs(10),
+  })
 
-    const result = streamText({
-      model: "openai/gpt-4o",
-      system: SYSTEM_PROMPT,
-      messages: converted,
-      tools,
-      stopWhen: stepCountIs(10),
-    })
-
-    return result.toUIMessageStreamResponse()
-  } catch (e: unknown) {
-    console.error("[v0] Chat route CRASHED:", e)
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    )
-  }
+  return result.toUIMessageStreamResponse()
 }
