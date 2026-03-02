@@ -1,8 +1,28 @@
 /**
- * Converts calculator specs to a natural-language chat prompt
- * so the AI chatbot prices the exact same job for comparison.
- * Prefixed with [CALC-CHECK] so the AI knows to skip confirmation and just price it.
+ * Converts calculator specs to natural customer language.
+ * NO codes, NO prices, NO hints -- just how a real customer would ask.
  */
+
+function sidesHuman(sides: string): string {
+  switch (sides) {
+    case "4/4": return "color both sides"
+    case "4/0": return "color front only"
+    case "1/1": return "black and white both sides"
+    case "1/0": return "black and white front only"
+    case "D/S": return "black and white both sides"
+    case "S/S": return "black and white one side"
+    default: return sides
+  }
+}
+
+function bleedHuman(hasBleed: boolean): string {
+  return hasBleed ? "with bleed" : "no bleed"
+}
+
+function lamHuman(lam: string): string {
+  if (!lam || lam === "none" || lam === "None") return ""
+  return `I want ${lam.toLowerCase()} lamination on the cover.`
+}
 
 export function bookletSpecsToChat(inputs: {
   bookQty: number
@@ -19,27 +39,19 @@ export function bookletSpecsToChat(inputs: {
   laminationType: string
   isBroker: boolean
 }): string {
-  const parts = [
-    `[CALC-CHECK] Price this EXACTLY, skip confirmation:`,
-    `${inputs.bookQty} saddle-stitch booklets`,
-    `${inputs.pageWidth}x${inputs.pageHeight}`,
-    `${inputs.pagesPerBook} total pages`,
-    `inside: ${inputs.insidePaper} ${inputs.insideSides}`,
-    `inside bleed: ${inputs.insideBleed ? "yes" : "no"}`,
-  ]
+  const totalPages = inputs.pagesPerBook + (inputs.separateCover ? 4 : 0)
+  let msg = `Hi, I need ${inputs.bookQty} saddle stitch booklets, ${inputs.pageWidth}x${inputs.pageHeight} finished size, ${totalPages} total pages.`
+  msg += ` Inside pages on ${inputs.insidePaper}, ${sidesHuman(inputs.insideSides)}, ${bleedHuman(inputs.insideBleed)}.`
   if (inputs.separateCover) {
-    parts.push(`separate cover: ${inputs.coverPaper} ${inputs.coverSides}`)
-    parts.push(`cover bleed: ${inputs.coverBleed ? "yes" : "no"}`)
+    msg += ` Separate cover on ${inputs.coverPaper}, ${sidesHuman(inputs.coverSides)}, ${bleedHuman(inputs.coverBleed)}.`
   } else {
-    parts.push(`self-cover (no separate cover)`)
+    msg += ` Same paper throughout, no separate cover.`
   }
-  if (inputs.laminationType !== "none") {
-    parts.push(`${inputs.laminationType} lamination`)
-  } else {
-    parts.push(`no lamination`)
-  }
-  parts.push(inputs.isBroker ? `broker pricing` : `regular pricing`)
-  return parts.join(", ")
+  const lam = lamHuman(inputs.laminationType)
+  if (lam) msg += ` ${lam}`
+  if (inputs.isBroker) msg += ` I'm a print broker.`
+  msg += ` How much?`
+  return msg
 }
 
 export function perfectSpecsToChat(inputs: {
@@ -56,18 +68,14 @@ export function perfectSpecsToChat(inputs: {
   laminationType: string
   isBroker: boolean
 }): string {
-  return [
-    `[CALC-CHECK] Price this EXACTLY, skip confirmation:`,
-    `${inputs.bookQty} perfect-bound books`,
-    `${inputs.pageWidth}x${inputs.pageHeight}`,
-    `${inputs.pagesPerBook} inside pages`,
-    `inside: ${inputs.insidePaper} ${inputs.insideSides}`,
-    `inside bleed: ${inputs.insideBleed ? "yes" : "no"}`,
-    `cover: ${inputs.coverPaper} ${inputs.coverSides}`,
-    `cover bleed: ${inputs.coverBleed ? "yes" : "no"}`,
-    inputs.laminationType !== "none" ? `${inputs.laminationType} lamination` : `no lamination`,
-    inputs.isBroker ? `broker pricing` : `regular pricing`,
-  ].join(", ")
+  let msg = `Hi, I need ${inputs.bookQty} perfect bound books, ${inputs.pageWidth}x${inputs.pageHeight}, ${inputs.pagesPerBook} inside pages.`
+  msg += ` Inside on ${inputs.insidePaper}, ${sidesHuman(inputs.insideSides)}, ${bleedHuman(inputs.insideBleed)}.`
+  msg += ` Cover on ${inputs.coverPaper}, ${sidesHuman(inputs.coverSides)}, ${bleedHuman(inputs.coverBleed)}.`
+  const lam = lamHuman(inputs.laminationType)
+  if (lam) msg += ` ${lam}`
+  if (inputs.isBroker) msg += ` This is broker pricing.`
+  msg += ` What's the price?`
+  return msg
 }
 
 export function spiralSpecsToChat(inputs: {
@@ -87,21 +95,15 @@ export function spiralSpecsToChat(inputs: {
   blackVinyl: boolean
   isBroker: boolean
 }): string {
-  const parts = [
-    `[CALC-CHECK] Price this EXACTLY, skip confirmation:`,
-    `${inputs.bookQty} spiral-bound books`,
-    `${inputs.pageWidth}x${inputs.pageHeight}`,
-    `${inputs.pagesPerBook} inside pages`,
-    `inside: ${inputs.insidePaper} ${inputs.insideSides}`,
-    `inside bleed: ${inputs.insideBleed ? "yes" : "no"}`,
-  ]
-  if (inputs.useFrontCover) parts.push(`front cover: ${inputs.frontPaper}`)
-  if (inputs.useBackCover) parts.push(`back cover: ${inputs.backPaper}`)
-  if (inputs.clearPlastic) parts.push(`clear plastic front`)
-  if (inputs.blackVinyl) parts.push(`black vinyl back`)
-  parts.push(`cover bleed: ${inputs.coverBleed ? "yes" : "no"}`)
-  parts.push(inputs.isBroker ? `broker pricing` : `regular pricing`)
-  return parts.join(", ")
+  let msg = `Hey, I need ${inputs.bookQty} spiral bound books, ${inputs.pageWidth}x${inputs.pageHeight}, ${inputs.pagesPerBook} inside pages.`
+  msg += ` Inside pages on ${inputs.insidePaper}, ${sidesHuman(inputs.insideSides)}, ${bleedHuman(inputs.insideBleed)}.`
+  if (inputs.useFrontCover) msg += ` Printed front cover on ${inputs.frontPaper}, ${bleedHuman(inputs.coverBleed)}.`
+  if (inputs.useBackCover) msg += ` Printed back cover on ${inputs.backPaper}.`
+  if (inputs.clearPlastic) msg += ` Clear plastic front.`
+  if (inputs.blackVinyl) msg += ` Black vinyl back.`
+  if (inputs.isBroker) msg += ` Broker pricing.`
+  msg += ` How much would that be?`
+  return msg
 }
 
 export function flatSpecsToChat(inputs: {
@@ -113,14 +115,9 @@ export function flatSpecsToChat(inputs: {
   hasBleed: boolean
   isBroker: boolean
 }): string {
-  return [
-    `[CALC-CHECK] Price this EXACTLY, skip confirmation:`,
-    `${inputs.qty} flat prints`,
-    `${inputs.width}x${inputs.height}`,
-    `${inputs.paper} ${inputs.sides}`,
-    `bleed: ${inputs.hasBleed ? "yes" : "no"}`,
-    inputs.isBroker ? `broker pricing` : `regular pricing`,
-  ].join(", ")
+  let msg = `Hi, can I get a price on ${inputs.qty} flat prints, ${inputs.width}x${inputs.height}, on ${inputs.paper}, ${sidesHuman(inputs.sides)}, ${bleedHuman(inputs.hasBleed)}.`
+  if (inputs.isBroker) msg += ` I'm a broker.`
+  return msg
 }
 
 export function padSpecsToChat(inputs: {
@@ -133,12 +130,8 @@ export function padSpecsToChat(inputs: {
   hasBleed: boolean
   isBroker: boolean
 }): string {
-  return [
-    `[CALC-CHECK] Price this EXACTLY, skip confirmation:`,
-    `${inputs.padQty} pads, ${inputs.sheetsPerPad} sheets each`,
-    `${inputs.pageWidth}x${inputs.pageHeight}`,
-    `${inputs.paper} ${inputs.sides}`,
-    `bleed: ${inputs.hasBleed ? "yes" : "no"}`,
-    inputs.isBroker ? `broker pricing` : `regular pricing`,
-  ].join(", ")
+  let msg = `Hi, I need ${inputs.padQty} pads with ${inputs.sheetsPerPad} sheets each, ${inputs.pageWidth}x${inputs.pageHeight}, on ${inputs.paper}, ${sidesHuman(inputs.sides)}, ${bleedHuman(inputs.hasBleed)}.`
+  if (inputs.isBroker) msg += ` Trade pricing please.`
+  msg += ` How much?`
+  return msg
 }
