@@ -639,12 +639,10 @@ export async function POST(req: Request) {
   try {
     const { messages } = await req.json()
 
-    console.log("[v0] Chat route - messages:", messages?.length, "converting...")
     const converted = await convertToModelMessages(messages)
-    console.log("[v0] Chat route - converted, calling streamText with openai/gpt-4o")
 
     const result = streamText({
-      model: "openai/gpt-4o",
+      model: "anthropic/claude-sonnet-4",
       system: SYSTEM_PROMPT,
       messages: converted,
       tools,
