@@ -25,7 +25,7 @@ const EMPTY_INPUTS: BookletInputs = {
   coverBleed: false,
   coverSheetSize: "cheapest",
   insidePaper: "20lb Offset",
-  insideSides: "S/S",
+  insideSides: "D/S",
   insideBleed: false,
   insideSheetSize: "cheapest",
   laminationType: "none",

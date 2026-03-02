@@ -18,6 +18,7 @@ import {
   getAvailableSizes,
   canPaperLaminate,
   ALL_SIDES,
+  INSIDE_SIDES,
   getLaminationPrice,
 } from "@/lib/booklet-pricing"
 import { formatCurrency } from "@/lib/pricing"
@@ -205,7 +206,7 @@ export function BookletForm({
         <Select value={inputs.insideSides} onValueChange={(val) => updateInputs({ insideSides: val })}>
           <SelectTrigger className={v.cls(!inputs.insideSides)}><SelectValue placeholder="Sides" /></SelectTrigger>
           <SelectContent>
-            {ALL_SIDES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            {INSIDE_SIDES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 h-9">
