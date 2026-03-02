@@ -41,7 +41,8 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   const hasCover = coverResult.paper !== "N/A" && coverResult.cost > 0
   const primaryPaper = hasCover ? coverResult.paper : insideResult.paper
   const primaryLevel = hasCover ? coverResult.level : insideResult.level
-  const primaryAutoLevel = hasCover ? (coverResult.autoLevel ?? coverResult.level) : (insideResult.autoLevel ?? insideResult.level)
+  // The "default" level should reflect the inside auto level because the cover is forced to match the inside level
+  const primaryAutoLevel = insideResult.autoLevel ?? insideResult.level
   const primaryMarkup = hasCover ? coverResult.markup : insideResult.markup
   const primaryPPS = hasCover ? coverResult.pricePerSheet : insideResult.pricePerSheet
 
