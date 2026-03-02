@@ -24,11 +24,19 @@ export function ChatBubble() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, error } = useChat({
     transport,
+    onError: (err) => {
+      console.error("[v0] useChat error:", err)
+    },
   })
 
   const isLoading = status === "streaming" || status === "submitted"
+
+  // Log status changes for debugging
+  useEffect(() => {
+    console.log("[v0] Chat status:", status, "messages:", messages.length, "error:", error?.message)
+  }, [status, messages.length, error])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -161,6 +169,14 @@ export function ChatBubble() {
                 </div>
               )
             })}
+
+            {error && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-red-100 px-3.5 py-2.5 text-[13px] leading-relaxed text-red-700">
+                  Something went wrong. Please try again. ({error.message})
+                </div>
+              </div>
+            )}
 
             {isLoading && messages.length > 0 && !getMessageText(messages[messages.length - 1]) && (
               <div className="flex justify-start">
