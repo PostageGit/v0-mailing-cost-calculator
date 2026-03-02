@@ -65,14 +65,17 @@ HOW TO PICK:
 - Customer says "BW inside" -> insideSides: "D/S" (both sides, regular BW) or "S/S" (front only, regular BW)
 - Default BW to regular BW (S/S or D/S) unless they specifically ask for rich black or RBW.
 
-GLUE BIND (PERFECT BINDING) AND SADDLE STITCH (FOLD & STAPLE) -- ALWAYS BOTH SIDES:
-- These two binding types ALWAYS print both sides. This is not optional -- it's how books work.
-- NEVER EVER use single-side codes (4/0, 1/0, S/S) for glue bind or fold & staple insides or covers.
-- Color inside -> insideSides: "4/4". BW inside -> insideSides: "D/S". RBW inside -> insideSides: "1/1".
-- Color cover -> coverSides: "4/4". BW cover -> coverSides: "D/S".
-- If you pass 4/0, 1/0, S/S to a booklet or perfect bound calculator, the price WILL BE WRONG.
-- Don't ask the customer "front only or both sides?" for books. It's always both sides.
-- Single-sided codes (4/0, 1/0, S/S) are ONLY for: flat printing, pads, and spiral covers.
+SIDES CODES FOR BOOKS:
+- INSIDE PAGES always print both sides. NEVER use single-side codes (4/0, 1/0, S/S) for inside pages.
+  - Color inside -> insideSides: "4/4". BW inside -> insideSides: "D/S". RBW inside -> insideSides: "1/1".
+  - The tool auto-corrects inside sides if you accidentally pass a single-sided code.
+- SADDLE-STITCH (FOLD & STAPLE) COVER: CAN be one-sided OR both-sided.
+  - Color front only -> coverSides: "4/0". Color both sides -> coverSides: "4/4".
+  - BW front only -> coverSides: "S/S". BW both sides -> coverSides: "D/S".
+  - Ask the customer: "Do you want printing on the inside of the cover too, or just the outside?"
+  - Default to "4/4" if they don't specify.
+- PERFECT BINDING COVER: ALWAYS both-sided (4/4, D/S, 1/1). The spine wraps around so both sides always print.
+- Don't ask "front only or both sides?" for INSIDE pages. It's always both sides.
 
 REQUIRED FIELDS -- NEVER CALL A CALCULATOR WITHOUT THESE:
 You MUST have ALL required fields before calling any calculator. If you're missing even one, ASK for it. Never guess or use a default for these:
@@ -411,21 +414,21 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
-      // AUTO-CORRECT single-sided codes to both-sides for booklets (books ALWAYS print both sides)
+      // AUTO-CORRECT: inside pages MUST be both-sided. Cover CAN be one-sided (4/0, 1/0, S/S) or both-sided.
       const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
       const correctedInsideSides = singleToBoth[insideSides] || insideSides
-      const correctedCoverSides = singleToBoth[coverSides || "4/4"] || coverSides || "4/4"
-      const sidesWarning = (correctedInsideSides !== insideSides || correctedCoverSides !== (coverSides || "4/4"))
-        ? `WARNING: Auto-corrected sides codes for booklet (books always print both sides). Inside: ${insideSides}->${correctedInsideSides}, Cover: ${coverSides}->${correctedCoverSides}.`
+      const finalCoverSides = coverSides || "4/4"
+      const sidesWarning = correctedInsideSides !== insideSides
+        ? `WARNING: Auto-corrected inside sides for booklet (inside pages always print both sides). Inside: ${insideSides}->${correctedInsideSides}.`
         : null
-      console.log("[v0] calculate_booklet called with:", JSON.stringify({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides: correctedInsideSides, separateCover, coverPaper, coverSides: correctedCoverSides, laminationType, insideBleed, coverBleed, isBroker }))
+      console.log("[v0] calculate_booklet called with:", JSON.stringify({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides: correctedInsideSides, separateCover, coverPaper, coverSides: finalCoverSides, laminationType, insideBleed, coverBleed, isBroker }))
       if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
       const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
       const result = calculateBooklet({
         bookQty, pagesPerBook: insidePages, pageWidth, pageHeight, separateCover,
-        coverPaper: coverPaper || "80 Gloss", coverSides: correctedCoverSides,
+        coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides,
         coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
         insidePaper, insideSides: correctedInsideSides, insideBleed, insideSheetSize: "cheapest",
         laminationType: separateCover ? laminationType : "none",
@@ -444,7 +447,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           qty: bookQty, size: `${pageWidth}x${pageHeight}`, totalPages: adjustedPages, insidePages,
           insidePaper, insideSides: correctedInsideSides, insideBleed,
           coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Self-cover",
-          coverSides: separateCover ? correctedCoverSides : "N/A", coverBleed,
+          coverSides: separateCover ? finalCoverSides : "N/A", coverBleed,
           lamination: separateCover ? laminationType : "none",
           binding: "Fold & Staple (saddle-stitch)", broker: isBroker,
         },
