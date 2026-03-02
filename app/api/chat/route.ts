@@ -94,8 +94,8 @@ For FLAT PRINTS:
 
 For BOOKS / BOOKLETS:
 1. What kind of binding? Explain simply:
-   - "Stapled / saddle stitch (like a magazine) -- up to about 60 pages"
-   - "Glue bind / perfect bound (flat spine, like a paperback) -- 40+ pages"
+   - "Stapled / saddle stitch (like a magazine) -- any page count (multiple of 4, minimum 8)"
+   - "Glue bind / perfect bound (flat spine, like a paperback) -- 40+ inside pages"
    - "Spiral / coil (plastic coil, pages lay flat) -- any page count"
    If they don't know, ask how many pages first, then recommend.
 2. How many copies?
@@ -144,7 +144,7 @@ PRICE LEVELS:
 
 HOW SADDLE-STITCH BOOKLETS WORK:
 - Saddle-stitch = stapled on the spine (like a magazine).
-- Minimum 8 pages. Maximum ~64 pages (too thick to staple beyond that).
+- Minimum 8 pages. No hard maximum -- the calculator handles any page count (must be multiple of 4, tool auto-rounds up).
 - Pages MUST be a multiple of 4. The tool auto-rounds up and tells you if it adjusted.
 - An 8.5x11 booklet page is NOT printed on 8.5x11 paper. Two pages print side by side as a "spread" = 11x17. The tool handles this automatically.
 - Always default to a separate heavier cover (cardstock "80 Gloss"). The cover uses 4 pages (front, inside-front, inside-back, back).
@@ -195,18 +195,17 @@ THINGS YOU MUST NEVER DEFAULT -- always ask:
 - Binding type (for books)
 
 BINDING TYPES (always let the customer choose -- never pick for them):
-- Stapled booklet (saddle-stitch): up to ~64 pages. Use calculate_booklet.
-- Perfect binding (glue spine, like a paperback): 40+ inside pages. Use calculate_perfect_bound.
-- Spiral / coil binding: any page count up to ~580 pages. Use calculate_spiral.
+- Saddle-stitch (stapled): any page count (minimum 8, must be multiple of 4). Use calculate_booklet.
+- Perfect binding / glue bind (flat spine, like a paperback): 40+ inside pages. Use calculate_perfect_bound.
+- Spiral / coil binding: any page count. Use calculate_spiral.
 - ALWAYS ask binding type before calculating. If the customer already said which one, skip the question.
 - If they don't know, ask how many pages first, then recommend:
   - Under 40 pages -> saddle-stitch (stapled)
-  - 40-64 pages -> ask: "That could be stapled or perfect bound. Stapled is cheaper, perfect bound looks more like a real book. Which do you prefer?"
-  - 65+ pages -> perfect bound or spiral
+  - 40+ pages -> ask: "That could be stapled or glue bound (perfect binding). Stapled is cheaper, glue bound looks more like a real book. Which do you prefer?"
 - If they say "perfect binding" or "spiral", use that even if you'd normally suggest otherwise.
 
 OUT OF RANGE -- always suggest an alternative, never leave the customer stuck:
-- Too many pages for saddle-stitch (over ~64): "That's too thick to staple. I'd suggest perfect binding (like a paperback) or spiral binding. Which sounds better?"
+- High page count saddle-stitch (over ~80 pages): Let the calculator handle it -- it works. But mention to the customer that thick stapled booklets may not lay flat, and offer glue bind or spiral as alternatives.
 - Too few pages for perfect binding (under 40): "Perfect binding needs at least 40 pages. For fewer pages, a stapled booklet works great and is cheaper. Want to try that?"
 - Too many pages for spiral (over ~580 double-sided): "That's a big book! We might need to split it into two volumes. Want me to price that?"
 - Customer wants a size/paper combo that doesn't exist: "That paper doesn't come in that size. The closest we have is [alternative]. Want me to price that instead?"
@@ -354,7 +353,7 @@ const tools = {
   calculate_booklet: tool({
     description:
       `Calculate saddle-stitched (stapled) booklet cost. Auto-handles: page rounding to multiple of 4, subtracting cover pages, picking cheapest parent sheet.
-Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, maximum ~64.`,
+Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, must be multiple of 4 (auto-rounded).`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of booklets"),
       pagesPerBook: z.number().describe("TOTAL page count including cover (multiple of 4, min 8). Tool auto-rounds."),
@@ -370,7 +369,6 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, maximu
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, isBroker }) => {
       if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
-      if (pagesPerBook > 64) return { error: `${pagesPerBook} pages is too thick to staple. Suggest perfect binding or spiral binding instead.` }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
       const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
