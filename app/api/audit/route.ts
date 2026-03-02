@@ -314,6 +314,16 @@ export async function GET() {
   const failed = results.filter(r => r.status === "FAIL").length
   const warned = results.filter(r => r.status === "WARN").length
 
+  console.log("[v0] ====== AUDIT RESULTS ======")
+  console.log(`[v0] SUMMARY: ${passed} PASS | ${failed} FAIL | ${warned} WARN out of ${results.length} tests`)
+  for (const t of results) {
+    console.log(`[v0] ${t.status} | ${t.name}`)
+    console.log(`[v0]   Expected: ${t.expected}`)
+    console.log(`[v0]   Actual:   ${t.actual}`)
+    if (t.details) console.log(`[v0]   Details:  ${t.details}`)
+  }
+  console.log("[v0] ====== END AUDIT ======")
+
   return NextResponse.json({
     summary: `${passed} PASS | ${failed} FAIL | ${warned} WARN out of ${results.length} tests`,
     tests: results,
