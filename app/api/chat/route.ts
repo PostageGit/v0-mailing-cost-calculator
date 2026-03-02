@@ -639,19 +639,23 @@ export async function POST(req: Request) {
   try {
     const { messages } = await req.json()
 
+    console.log("[v0] Chat route - messages:", messages?.length, "converting...")
+    const converted = await convertToModelMessages(messages)
+    console.log("[v0] Chat route - converted, calling streamText with openai/gpt-4o")
+
     const result = streamText({
-      model: "anthropic/claude-sonnet-4",
+      model: "openai/gpt-4o",
       system: SYSTEM_PROMPT,
-      messages: await convertToModelMessages(messages),
+      messages: converted,
       tools,
       stopWhen: stepCountIs(10),
     })
 
     return result.toUIMessageStreamResponse()
   } catch (e: unknown) {
-    console.error("[v0] Chat route error:", e)
+    console.error("[v0] Chat route CRASHED:", e)
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Chat failed" }),
+      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     )
   }
