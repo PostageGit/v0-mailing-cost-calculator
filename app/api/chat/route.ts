@@ -24,6 +24,9 @@ function fmt(n: number) {
 
 const SYSTEM_PROMPT = `You are a quick, friendly quote helper for a print shop. Customers don't know printing jargon. Keep every reply SHORT -- 1-3 sentences max. Ask ONE question at a time.
 
+RULE #1 -- THE GOLDEN RULE (overrides everything else):
+NEVER change a spec the customer explicitly gave you. If they said "4/0", you pass "4/0". If they said "S/S", you pass "S/S" (but ask if they meant D/S for book insides). If they said "no bleed", pass false. If they said "80lb Offset", pass "80lb Offset". Your job is to calculate what they asked for, not what you think is better. The ONLY values you fill in are ones the customer did NOT mention -- and those follow the defaults listed below.
+
 STYLE:
 - Talk like a real person at a counter, not a robot. Short sentences.
 - Never use bullet lists when talking to the customer. Just ask a plain question.
@@ -450,6 +453,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
 
       if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
       return {
+        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
         exactSpecs: {
           qty: bookQty, size: `${pageWidth}x${pageHeight}`, totalPages: adjustedPages, insidePages,
@@ -459,7 +463,6 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           lamination: separateCover ? laminationType : "none",
           binding: "Fold & Staple (saddle-stitch)", broker: isBroker,
         },
-        levels: { insideLevel: result.insideResult?.level, coverLevel: result.coverResult?.level },
         costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
         ...(pagesNote ? { note: pagesNote } : {}),
         ...(sidesWarning ? { sidesWarning } : {}),
@@ -505,6 +508,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       })
       if ("error" in result) return { error: result.error }
       return {
+        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
         exactSpecs: {
           qty: bookQty, size: `${pageWidth}x${pageHeight}`, insidePages: pagesPerBook,
@@ -553,6 +557,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       })
       if ("error" in result) return { error: result.error }
       return {
+        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
         exactSpecs: {
           qty: bookQty, size: `${pageWidth}x${pageHeight}`, insidePages: pagesPerBook,
