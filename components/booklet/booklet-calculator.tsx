@@ -84,14 +84,7 @@ export function BookletCalculator() {
   return
   }
 
-  // Single-sided inside (S/S, 4/0, 1/0) = double the pages, then calc as both-sided
-  const singleSidedInside = ["S/S", "4/0", "1/0"].includes(inputs.insideSides)
-  const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-  const calcInputs = singleSidedInside
-    ? { ...inputs, pagesPerBook: inputs.pagesPerBook * 2, insideSides: singleToBoth[inputs.insideSides] || inputs.insideSides }
-    : inputs
-  
-  const result = calculateBooklet(calcInputs)
+  const result = calculateBooklet(inputs)
     if (!result.isValid) {
       setValidationError(result.error || "Calculation error.")
       setCalcResult(null)
