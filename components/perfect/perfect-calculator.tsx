@@ -56,6 +56,14 @@ export function PerfectCalculator() {
     inputs.inside.paperName !== "" &&
     inputs.inside.sides !== ""
 
+  // Helper: adjust inputs for single-sided inside pages (double the page count)
+  const adjustForSingleSided = useCallback((inp: PerfectInputs): PerfectInputs => {
+    const isSS = ["S/S", "4/0", "1/0"].includes(inp.inside.sides)
+    if (!isSS) return inp
+    const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
+    return { ...inp, pagesPerBook: inp.pagesPerBook * 2, inside: { ...inp.inside, sides: singleToBoth[inp.inside.sides] || inp.inside.sides } }
+  }, [])
+
   const handleCalculate = useCallback(() => {
     setValidationError(null)
     if (!isFormValid) {
@@ -63,7 +71,7 @@ export function PerfectCalculator() {
       return
     }
 
-    const result = calculatePerfect(inputs)
+    const result = calculatePerfect(adjustForSingleSided(inputs))
     if ("error" in result) {
       setValidationError(result.error)
       setCalcResult(null)
@@ -78,10 +86,10 @@ export function PerfectCalculator() {
     const updated = { ...inputs, isBroker: val }
     setInputs(updated)
     if (calcResult) {
-      const newResult = calculatePerfect(updated)
+      const newResult = calculatePerfect(adjustForSingleSided(updated))
       if (!("error" in newResult)) setCalcResult(newResult)
     }
-  }, [inputs, calcResult])
+  }, [inputs, calcResult, adjustForSingleSided])
 
   // Change pricing level via the level bars
   const handleLevelChange = useCallback((delta: number) => {
@@ -90,11 +98,11 @@ export function PerfectCalculator() {
     const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
     if (newLevel === currentLevel) return
     const updatedInputs = { ...inputs, customLevel: String(newLevel) }
-    const newResult = calculatePerfect(updatedInputs)
+    const newResult = calculatePerfect(adjustForSingleSided(updatedInputs))
     if ("error" in newResult) return
     setInputs(updatedInputs)
     setCalcResult(newResult)
-  }, [calcResult, inputs])
+  }, [calcResult, inputs, adjustForSingleSided])
 
   function resetForm() {
     setInputs(defaultPerfectInputs())

@@ -72,7 +72,7 @@ const BLEED_MARGIN = 0.25
 const BROKER_DISCOUNT_RATE = 0.15
 
 export const ALL_SIDES = ["4/4", "4/0", "4/1", "1/1", "1/0", "D/S", "S/S"]
-export const INSIDE_SIDES = ["4/4", "1/1", "D/S"] // inside pages always print both sides
+export const INSIDE_SIDES = ["4/4", "1/1", "D/S"] // saddle-stitch = folded signatures, ALWAYS both-sided
 
 // ==================== HELPER FUNCTIONS ====================
 

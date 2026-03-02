@@ -78,13 +78,13 @@ export function BookletCalculator() {
     (!inputs.separateCover || (inputs.coverPaper !== "" && inputs.coverSides !== ""))
 
   const handleCalculate = useCallback(() => {
-    setValidationError(null)
-    if (!isFormValid) {
-      setValidationError("Please fill in all required fields correctly.")
-      return
-    }
+  setValidationError(null)
+  if (!isFormValid) {
+  setValidationError("Please fill in all required fields correctly.")
+  return
+  }
 
-    const result = calculateBooklet(inputs)
+  const result = calculateBooklet(inputs)
     if (!result.isValid) {
       setValidationError(result.error || "Calculation error.")
       setCalcResult(null)

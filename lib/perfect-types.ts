@@ -86,8 +86,8 @@ export const PAPER_OPTIONS: PaperOption[] = [
 
 // Cover sides options -- perfect bound cover always prints both sides (spine wraps)
 export const COVER_SIDES = ["4/4", "1/1", "D/S"] as const
-// Inside sides options -- inside pages always print both sides
-export const INSIDE_SIDES = ["4/4", "1/1", "D/S"] as const
+// Inside sides options -- single-sided (S/S, 4/0, 1/0) = double the pages (blank backs)
+export const INSIDE_SIDES = ["4/4", "4/0", "1/1", "1/0", "D/S", "S/S"] as const
 
 export const DEFAULT_PERFECT_PART: PerfectPartInputs = {
   paperName: "",
