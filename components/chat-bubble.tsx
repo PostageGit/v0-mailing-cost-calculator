@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
+import { useChat, type UIMessage } from "@ai-sdk/react"
 import { MessageCircle, X, Send, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { UIMessage } from "ai"
 
 function getMessageText(msg: UIMessage): string {
   if (!msg.parts || !Array.isArray(msg.parts)) return ""
@@ -15,8 +13,6 @@ function getMessageText(msg: UIMessage): string {
     .join("")
 }
 
-const transport = new DefaultChatTransport({ api: "/api/chat" })
-
 export function ChatBubble() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
@@ -24,7 +20,7 @@ export function ChatBubble() {
 
 
   const { messages, sendMessage, status, setMessages } = useChat({
-    transport,
+    api: "/api/chat",
   })
 
   const isLoading = status === "streaming" || status === "submitted"
