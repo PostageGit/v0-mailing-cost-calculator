@@ -79,10 +79,11 @@ HOW TO PICK:
 - Customer says "BW inside" -> insideSides: "D/S" (both sides, regular BW) or "S/S" (front only, regular BW)
 - Default BW to regular BW (S/S or D/S) unless they specifically ask for rich black or RBW.
 
-SIDES CODES FOR BOOKS:
-- INSIDE PAGES always print both sides. NEVER use single-side codes (4/0, 1/0, S/S) for inside pages.
-  - Color inside -> insideSides: "4/4". BW inside -> insideSides: "D/S". RBW inside -> insideSides: "1/1".
-  - The tool auto-corrects inside sides if you accidentally pass a single-sided code.
+SIDES CODES FOR BOOK INSIDES:
+- Both-sided (D/S, 4/4, 1/1): each leaf has content on BOTH sides. 150 content pages = 75 leaves. This is the normal/cheaper option.
+- Single-sided (S/S, 4/0, 1/0): each leaf has content on ONE side, blank on back. 150 content pages = 150 leaves = DOUBLE the paper. The tool handles this by doubling the page count automatically.
+- If customer says "BW both sides" -> insideSides: "D/S". If they say "BW one side" or "single sided" -> insideSides: "S/S" (will cost more due to double paper).
+- IMPORTANT: Single-sided inside pages are valid but expensive. Warn the customer: "Single-sided uses twice the paper, so it'll cost more. Want me to price both ways?"
 - SADDLE-STITCH (FOLD & STAPLE) COVER: CAN be one-sided OR both-sided. RESPECT what the customer says.
   - If they say "4/0" or "front only" or "one side" -> coverSides: "4/0". Do NOT override to 4/4.
   - If they say "4/4" or "both sides" -> coverSides: "4/4".
@@ -433,23 +434,26 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
-      // AUTO-CORRECT: inside pages MUST be both-sided. Cover CAN be one-sided (4/0, 1/0, S/S) or both-sided.
-      const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-      const correctedInsideSides = singleToBoth[insideSides] || insideSides
       const finalCoverSides = coverSides || "4/4"
-      const sidesWarning = correctedInsideSides !== insideSides
-        ? `WARNING: Auto-corrected inside sides for booklet (inside pages always print both sides). Inside: ${insideSides}->${correctedInsideSides}.`
+
+      // Single-sided insides (S/S, 4/0, 1/0) = each content page uses a full leaf (blank on back) = DOUBLE the pages
+      const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
+      const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
+      const calcInsideSides = singleToBoth[insideSides] || insideSides
+      const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
+      const ssNote = isSingleSidedInside
+        ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs). This uses double the paper.`
         : null
 
-      if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
-      const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
-      const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
+      if (effectivePages < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
+      const adjustedPages = Math.ceil(effectivePages / 4) * 4
+      const pagesNote = adjustedPages !== effectivePages ? `Rounded up from ${effectivePages} to ${adjustedPages} pages (must be multiple of 4).` : null
       const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
       const result = calculateBooklet({
         bookQty, pagesPerBook: insidePages, pageWidth, pageHeight, separateCover,
         coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides,
         coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
-        insidePaper, insideSides: correctedInsideSides, insideBleed, insideSheetSize: "cheapest",
+        insidePaper, insideSides: calcInsideSides, insideBleed, insideSheetSize: "cheapest",
         laminationType: separateCover ? laminationType : "none",
         customLevel: "auto", isBroker, printingMarkupPct: 0,
       })
@@ -459,8 +463,10 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
         exactSpecs: {
-          qty: bookQty, size: `${pageWidth}x${pageHeight}`, totalPages: adjustedPages, insidePages,
-          insidePaper, insideSides: correctedInsideSides, insideBleed,
+          qty: bookQty, size: `${pageWidth}x${pageHeight}`,
+          contentPages: pagesPerBook, physicalPages: adjustedPages, insidePages,
+          insidePaper, insideSides: insideSides, insideBleed,
+          ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
           coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Self-cover",
           coverSides: separateCover ? finalCoverSides : "N/A", coverBleed,
           lamination: separateCover ? laminationType : "none",
@@ -468,7 +474,6 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         },
         costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
         ...(pagesNote ? { note: pagesNote } : {}),
-        ...(sidesWarning ? { sidesWarning } : {}),
       }
     },
   }),
@@ -497,12 +502,17 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, frontSides, backPaper, backSides, clearPlastic, blackVinyl, isBroker }) => {
-      // AUTO-CORRECT inside sides for spiral (inside pages always both sides)
+      // Single-sided insides = double the pages
+      const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
       const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-      const correctedInsideSides = singleToBoth[insideSides] || insideSides
+      const calcInsideSides = singleToBoth[insideSides] || insideSides
+      const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
+      const ssNote = isSingleSidedInside
+        ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs).`
+        : null
       const result = calculateSpiral({
-        bookQty, pagesPerBook, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: correctedInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
+        bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
+        inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
         useFrontCover,
         front: { paperName: frontPaper || "80 Gloss", sides: frontSides || "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
         useBackCover,
@@ -514,8 +524,10 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
         exactSpecs: {
-          qty: bookQty, size: `${pageWidth}x${pageHeight}`, insidePages: pagesPerBook,
-          insidePaper, insideSides: correctedInsideSides, insideBleed,
+          qty: bookQty, size: `${pageWidth}x${pageHeight}`,
+          contentPages: pagesPerBook, physicalPages: effectivePages,
+          insidePaper, insideSides: insideSides, insideBleed,
+          ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
           frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
           frontSides: useFrontCover ? (frontSides || "4/4") : "N/A",
           backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
@@ -547,14 +559,19 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
-      // AUTO-CORRECT single-sided codes for perfect bound (always both sides)
+      // Single-sided insides = double the pages (each content page uses a full leaf, blank on back)
+      const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
       const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-      const correctedInsideSides = singleToBoth[insideSides] || insideSides
+      const calcInsideSides = singleToBoth[insideSides] || insideSides
       const correctedCoverSides = singleToBoth[coverSides || "4/4"] || coverSides || "4/4"
-      if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you said ${pagesPerBook}). Suggest fold & staple booklet instead.` }
+      const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
+      const ssNote = isSingleSidedInside
+        ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs). Double the paper.`
+        : null
+      if (effectivePages < 40) return { error: `Perfect binding needs at least 40 inside pages (you have ${effectivePages}${isSingleSidedInside ? ` physical pages from ${pagesPerBook} content pages single-sided` : ""}). Suggest fold & staple booklet instead.` }
       const result = calculatePerfect({
-        bookQty, pagesPerBook, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: correctedInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
+        bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
+        inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
         cover: { paperName: coverPaper || "80 Gloss", sides: correctedCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
         laminationType, customLevel: "auto", isBroker,
       })
@@ -563,8 +580,10 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
         exactSpecs: {
-          qty: bookQty, size: `${pageWidth}x${pageHeight}`, insidePages: pagesPerBook,
-          insidePaper, insideSides: correctedInsideSides, insideBleed,
+          qty: bookQty, size: `${pageWidth}x${pageHeight}`,
+          contentPages: pagesPerBook, physicalPages: effectivePages,
+          insidePaper, insideSides: insideSides, insideBleed,
+          ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
           coverPaper: coverPaper || "80 Gloss", coverSides: correctedCoverSides, coverBleed,
           lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
         },
