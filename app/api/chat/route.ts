@@ -94,7 +94,7 @@ For FLAT PRINTS:
 
 For BOOKS / BOOKLETS:
 1. What kind of binding? Explain simply:
-   - "Stapled / saddle stitch (like a magazine) -- minimum 8 pages, multiple of 4, no hard max but gets bulky past ~60 pages"
+   - "Stapled / saddle stitch (like a magazine) -- minimum 8 pages, multiple of 4, max about 140 pages plus cover"
    - "Glue bind / perfect bound (flat spine, like a paperback) -- minimum 40 inside pages, no hard max"
    - "Spiral / coil (plastic coil, pages lay flat) -- up to about 580 pages double-sided (290 sheets max)"
    If they don't know, ask how many pages first, then recommend.
@@ -144,7 +144,7 @@ PRICE LEVELS:
 
 HOW SADDLE-STITCH BOOKLETS WORK:
 - Saddle-stitch = stapled on the spine (like a magazine).
-- Minimum 8 pages, no hard maximum in the calculator but physically gets bulky past ~60 pages. Must be multiple of 4 (tool auto-rounds up).
+- Minimum 8 pages, maximum about 140 pages plus cover. Must be multiple of 4 (tool auto-rounds up). Over 140 pages, suggest perfect binding instead.
 - Pages MUST be a multiple of 4. The tool auto-rounds up and tells you if it adjusted.
 - An 8.5x11 booklet page is NOT printed on 8.5x11 paper. Two pages print side by side as a "spread" = 11x17. The tool handles this automatically.
 - Always default to a separate heavier cover (cardstock "80 Gloss"). The cover uses 4 pages (front, inside-front, inside-back, back).
@@ -195,18 +195,18 @@ THINGS YOU MUST NEVER DEFAULT -- always ask:
 - Binding type (for books)
 
 BINDING TYPES (always let the customer choose -- never pick for them):
-- Saddle-stitch (stapled): minimum 8 pages, multiple of 4, no hard max but bulky past ~60. Use calculate_booklet.
+- Saddle-stitch (stapled): minimum 8 pages, multiple of 4, max ~140 pages plus cover. Use calculate_booklet.
 - Perfect binding / glue bind (flat spine, like a paperback): minimum 40 inside pages. Use calculate_perfect_bound.
 - Spiral / coil binding: max 290 sheets (~580 pages double-sided). Use calculate_spiral.
 - ALWAYS ask binding type before calculating. If the customer already said which one, skip the question.
 - If they don't know, ask how many pages first, then recommend:
   - Under 40 pages -> saddle-stitch (stapled)
-  - 40-60 pages -> ask: "That could be stapled or glue bound (perfect binding). Stapled is cheaper, glue bound looks more like a real book. Which do you prefer?"
-  - 60+ pages -> suggest perfect bound or spiral. Saddle-stitch is still possible but will be bulky.
+  - 40-140 pages -> ask: "That could be stapled or glue bound (perfect binding). Stapled is cheaper, glue bound looks more like a real book. Which do you prefer?"
+  - Over 140 pages -> suggest perfect binding or spiral. "That's too many pages for stapling -- I'd recommend perfect binding (like a paperback) or spiral. Which sounds better?"
 - If they say "perfect binding" or "spiral", use that even if you'd normally suggest otherwise.
 
 OUT OF RANGE -- always suggest an alternative, never leave the customer stuck:
-- High page count saddle-stitch (over ~60 pages): The calculator handles it, but mention it'll be thick and may not lay flat. Suggest perfect bound or spiral as alternatives.
+- Saddle-stitch over ~140 pages plus cover: "That's too thick to staple. I'd recommend perfect binding (flat spine, like a paperback) or spiral. Which sounds better?"
 - Too few pages for perfect binding (under 40): "Perfect binding needs at least 40 pages. For fewer pages, a stapled booklet works great and is cheaper. Want to try that?"
 - Too many sheets for spiral (over 290 sheets / ~580 pages double-sided): "That's a big book! We might need to split it into two volumes. Want me to price that?"
 - Customer wants a size/paper combo that doesn't exist: "That paper doesn't come in that size. The closest we have is [alternative]. Want me to price that instead?"
@@ -354,7 +354,7 @@ const tools = {
   calculate_booklet: tool({
     description:
       `Calculate saddle-stitched (stapled) booklet cost. Auto-handles: page rounding to multiple of 4, subtracting cover pages, picking cheapest parent sheet.
-Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, multiple of 4 (auto-rounded). No hard max but bulky past ~60 pages.`,
+Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~140 pages plus cover, multiple of 4 (auto-rounded). Over 140 pages suggest perfect binding.`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of booklets"),
       pagesPerBook: z.number().describe("TOTAL page count including cover (multiple of 4, min 8). Tool auto-rounds."),
