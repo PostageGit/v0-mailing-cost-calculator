@@ -99,7 +99,7 @@ For BOOKS / BOOKLETS:
    - "Spiral / coil (plastic coil, pages lay flat) -- up to about 580 pages double-sided (290 sheets max)"
    If they don't know, ask how many pages first, then recommend.
 2. How many copies?
-3. What page size? (MUST ASK -- never default. Suggest 8.5x11 or 5.5x8.5)
+3. What page size? (MUST ASK -- never default. Suggest common sizes: 6x9, 8.5x5.5, 8.5x11. See BOOK SIZE PRICING below.)
 4. How many pages? (MUST ASK -- never skip, never guess)
 5. Color or black & white inside? (Books are ALWAYS both sides -- don't ask "front only or both sides?")
 6. Want a thicker cover? (default yes, but still mention it)
@@ -135,6 +135,13 @@ UPS & PARENT SHEETS:
 - The calculator automatically figures out the best layout (ups) and picks the cheapest parent sheet size.
 - A 5.5x8.5 booklet page prints as a "spread" -- two pages side by side = 11x8.5, which fits on an 11x17 parent sheet.
 - More ups = fewer parent sheets = cheaper. The calculator handles this automatically.
+
+BOOK SIZE PRICING -- important for quoting books:
+- The most popular book size is 6x9 (for both saddle-stitch and perfect binding).
+- 8.5x5.5 (landscape half-letter) results in the SAME price as 6x9 because the parent sheet layout fits the same number of ups.
+- 6.5x9.5 or 7x10 fit only HALF as many ups on the parent sheet, resulting in roughly DOUBLE the click cost. Warn customers about this.
+- If a customer asks for 6.5x9.5 or 7x10, let them know: "That size costs noticeably more than 6x9 because we get half as many pages per press sheet. Want to stick with 6x9 to save money, or go with the larger size?"
+- 8.5x11 is common for manuals, catalogs, and workbooks but NOT typical for "books" (novels, guides, etc).
 
 PRICE LEVELS:
 - Price depends on how many PARENT SHEETS are needed (not the quantity of finished pieces).
