@@ -103,6 +103,7 @@ For BOOKS / BOOKLETS:
 4. How many pages? (MUST ASK -- never skip, never guess)
 5. Color or black & white inside? (Books are ALWAYS both sides -- don't ask "front only or both sides?")
 6. Cover? For perfect binding, always a separate cover (suggest 12pt or 10pt Gloss). For saddle-stitch, ask: "Do you want a separate heavier cover (like 10pt or 12pt Gloss) or self-cover (same paper as inside)?"
+7. Bleed? Ask: "Does the design go to the edge of the page (full bleed) or have a white border?" Default: inside pages NO bleed, covers YES bleed.
 -> Then calculate. Remember: insideSides is always a both-sides code (4/4, D/S, or 1/1). Never single-sided for books.
 
 For PADS:
@@ -142,6 +143,14 @@ UPS & PARENT SHEETS:
 - The calculator automatically figures out the best layout (ups) and picks the cheapest parent sheet size.
 - A 5.5x8.5 booklet page prints as a "spread" -- two pages side by side = 11x8.5, which fits on an 11x17 parent sheet.
 - More ups = fewer parent sheets = cheaper. The calculator handles this automatically.
+
+BLEED -- important for accurate pricing:
+- "Bleed" means the design extends to the very edge of the page (no white border). It affects parent-sheet layout and pricing.
+- INSIDE PAGES of books: usually NO bleed (insideBleed: false). Text-based books, manuals, workbooks rarely bleed.
+- COVERS: usually YES bleed (coverBleed: true). Most covers have full-bleed designs.
+- FLAT PRINTS: postcards, business cards, door hangers = YES bleed. Text-heavy flyers/letters = usually NO bleed.
+- If the customer doesn't specify, ask: "Does your design go all the way to the edge of the page (full bleed) or does it have a white border?"
+- Bleed changes the price because it affects how many pages fit on a parent press sheet (fewer ups with bleed = more sheets = higher cost).
 
 BOOK SIZE PRICING -- important for quoting books:
 - The most popular book size is 6x9 (for both saddle-stitch and perfect binding).
@@ -380,9 +389,11 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       coverPaper: z.string().nullable().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. Default "4/4". ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
+      insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
+      coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
       if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
@@ -390,8 +401,8 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       const result = calculateBooklet({
         bookQty, pagesPerBook: insidePages, pageWidth, pageHeight, separateCover,
         coverPaper: coverPaper || "80 Gloss", coverSides: coverSides || "4/4",
-        coverBleed: true, coverSheetSize: "cheapest",
-        insidePaper, insideSides, insideBleed: false, insideSheetSize: "cheapest",
+        coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
+        insidePaper, insideSides, insideBleed, insideSheetSize: "cheapest",
         laminationType: separateCover ? laminationType : "none",
         customLevel: "auto", isBroker, printingMarkupPct: 10,
       })
@@ -420,7 +431,8 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pageHeight: z.number().describe("FINISHED page height (e.g. 11)"),
       insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
-      insideBleed: z.boolean().describe("Inside pages bleed. Default false."),
+      insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
+      coverBleed: z.boolean().describe("Covers bleed to edge? Default true if printed covers."),
       useFrontCover: z.boolean().describe("Printed front cover (cardstock). Default true."),
       useBackCover: z.boolean().describe("Printed back cover (cardstock). Default true."),
       frontPaper: z.string().nullable().describe(`Front cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
@@ -429,14 +441,14 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       blackVinyl: z.boolean().describe("Black vinyl back ($0.50/book). Default false."),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, useFrontCover, useBackCover, frontPaper, backPaper, clearPlastic, blackVinyl, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, backPaper, clearPlastic, blackVinyl, isBroker }) => {
       const result = calculateSpiral({
         bookQty, pagesPerBook, pageWidth, pageHeight,
         inside: { paperName: insidePaper, sides: insideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
         useFrontCover,
-        front: { paperName: frontPaper || "80 Gloss", sides: "4/4", hasBleed: false, sheetSize: "cheapest" },
+        front: { paperName: frontPaper || "80 Gloss", sides: "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
         useBackCover,
-        back: { paperName: backPaper || "80 Gloss", sides: "4/4", hasBleed: false, sheetSize: "cheapest" },
+        back: { paperName: backPaper || "80 Gloss", sides: "4/4", hasBleed: useBackCover ? coverBleed : false, sheetSize: "cheapest" },
         clearPlastic, blackVinyl, customLevel: "auto", isBroker,
       })
       if ("error" in result) return { error: result.error }
@@ -465,14 +477,16 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Cover sides. Default "4/4". ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
+      insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
+      coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
       if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you said ${pagesPerBook}). Suggest stapled booklet instead.` }
       const result = calculatePerfect({
         bookQty, pagesPerBook, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: insideSides, hasBleed: false, sheetSize: "cheapest" },
-        cover: { paperName: coverPaper || "80 Gloss", sides: coverSides || "4/4", hasBleed: true, sheetSize: "cheapest" },
+        inside: { paperName: insidePaper, sides: insideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
+        cover: { paperName: coverPaper || "80 Gloss", sides: coverSides || "4/4", hasBleed: coverBleed, sheetSize: "cheapest" },
         laminationType, customLevel: "auto", isBroker,
       })
       if ("error" in result) return { error: result.error }
