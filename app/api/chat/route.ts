@@ -96,7 +96,7 @@ For BOOKS / BOOKLETS:
 1. What kind of binding? Explain simply:
    - "Stapled / saddle stitch (like a magazine) -- minimum 8 pages, multiple of 4, max about 140 pages plus cover"
    - "Glue bind / perfect bound (flat spine, like a paperback) -- minimum 40 inside pages, no hard max"
-   - "Spiral / coil (plastic coil, pages lay flat) -- up to about 580 pages double-sided (290 sheets max)"
+   - "Spiral / coil (plastic coil, pages lay flat) -- any size including 8.5x11, up to 290 sheets (~580 pages double-sided)"
    If they don't know, ask how many pages first, then recommend.
 2. How many copies?
 3. What page size? (MUST ASK -- never default. Suggest common sizes: 6x9, 8.5x5.5, 8.5x11. See BOOK SIZE PRICING below.)
@@ -151,6 +151,7 @@ BLEED -- important for accurate pricing:
 - FLAT PRINTS: postcards, business cards, door hangers = YES bleed. Text-heavy flyers/letters = usually NO bleed.
 - If the customer doesn't specify, ask: "Does your design go all the way to the edge of the page (full bleed) or does it have a white border?"
 - Bleed changes the price because it affects how many pages fit on a parent press sheet (fewer ups with bleed = more sheets = higher cost).
+- IMPORTANT: 8.5x11 pages with bleed do NOT fit on 8.5x11 sheets -- they need 11x17 sheets. So bleed on full-size pages costs more. Default to insideBleed: false unless the customer explicitly says their design bleeds.
 
 BOOK SIZE PRICING -- important for quoting books:
 - The most popular book size is 6x9 (for both saddle-stitch and perfect binding).
@@ -194,6 +195,8 @@ HOW SPIRAL BINDING WORKS:
 - pagesPerBook = inside pages only (not counting covers).
 - Optional extras: clear plastic front ($0.50/book), black vinyl back ($0.50/book).
 - Front and back covers default to "80 Gloss" cardstock. Can skip covers entirely.
+- VALID SIZES: 8.5x11 IS a valid spiral book size. Also 8.5x5.5, 6x9, and any size that fits on available sheets (8.5x11, 11x17, 12x18, 13x19).
+- BLEED WARNING: An 8.5x11 page with bleed does NOT fit on an 8.5x11 sheet (bleed adds margins). If the customer wants 8.5x11 with bleed, it prints on 11x17 sheets (more expensive). Without bleed, it fits on 8.5x11 sheets (cheaper). Default insideBleed to FALSE for spiral books unless the customer specifically asks for bleed.
 
 HOW FLAT PRINTING WORKS:
 - Flyers, postcards, business cards, etc. Printed on parent sheets and cut down.
