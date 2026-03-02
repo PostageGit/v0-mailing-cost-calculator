@@ -273,6 +273,7 @@ function AppContent() {
           <Menu className="h-5 w-5" />
         </button>
         <span className="text-sm font-semibold text-foreground">Postage Plus</span>
+        <a href="/api/audit" target="_blank" rel="noopener noreferrer" className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">AUDIT</a>
         <button onClick={() => setShowSettings(true)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Settings">
           <Settings className="h-4 w-4" />
         </button>
@@ -294,6 +295,7 @@ function AppContent() {
           {/* Logo + collapse */}
           <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
             {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
+            {sidebarOpen && <a href="/api/audit" target="_blank" rel="noopener noreferrer" className="text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full font-bold ml-1 hover:bg-red-600">AUDIT</a>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>

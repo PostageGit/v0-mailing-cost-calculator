@@ -69,11 +69,11 @@ SIDES CODES FOR BOOKS:
 - INSIDE PAGES always print both sides. NEVER use single-side codes (4/0, 1/0, S/S) for inside pages.
   - Color inside -> insideSides: "4/4". BW inside -> insideSides: "D/S". RBW inside -> insideSides: "1/1".
   - The tool auto-corrects inside sides if you accidentally pass a single-sided code.
-- SADDLE-STITCH (FOLD & STAPLE) COVER: CAN be one-sided OR both-sided.
-  - Color front only -> coverSides: "4/0". Color both sides -> coverSides: "4/4".
+- SADDLE-STITCH (FOLD & STAPLE) COVER: CAN be one-sided OR both-sided. RESPECT what the customer says.
+  - If they say "4/0" or "front only" or "one side" -> coverSides: "4/0". Do NOT override to 4/4.
+  - If they say "4/4" or "both sides" -> coverSides: "4/4".
   - BW front only -> coverSides: "S/S". BW both sides -> coverSides: "D/S".
-  - Ask the customer: "Do you want printing on the inside of the cover too, or just the outside?"
-  - Default to "4/4" if they don't specify.
+  - ONLY default to "4/4" if the customer says NOTHING about cover sides. If they specify ANY sides code, USE IT exactly as given.
 - PERFECT BINDING COVER: ALWAYS both-sided (4/4, D/S, 1/1). The spine wraps around so both sides always print.
 - Don't ask "front only or both sides?" for INSIDE pages. It's always both sides.
 
@@ -227,8 +227,8 @@ HOW FLAT PRINTING WORKS:
 THINGS YOU CAN DEFAULT (don't need to ask):
 - Paper: 80lb Text Gloss for flyers/booklet insides. 12pt Gloss for postcards/business cards. 20lb Offset for pads/copies.
 - Cover: 80 Gloss (cardstock) for booklet/perfect covers. Separate cover = yes.
-- Sides for books (booklet/perfect/spiral): ALWAYS both sides. Color: "4/4". BW: "D/S". Never use single-side for book insides.
-- Cover sides: "4/4" (color both sides) by default.
+- Sides for book INSIDES: ALWAYS both sides. Color: "4/4". BW: "D/S". Never use single-side for book insides.
+- Cover sides: ONLY default to "4/4" if the customer said NOTHING about cover sides. If they specify a sides code (like "4/0"), USE IT.
 - Bleed: true for postcards/business cards, false for everything else.
 - Lamination: none unless they ask for it.
 - Spiral extras: no clear plastic, no black vinyl unless asked.
@@ -412,7 +412,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
       separateCover: z.boolean().describe("Use thicker cover stock? Default true."),
       coverPaper: z.string().nullable().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
-      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. Default "4/4". ${SIDES_DESC}`),
+      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. USE EXACTLY what the customer specified (e.g. if they say "4/0", pass "4/0"). Only default to "4/4" if they said NOTHING about cover sides. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
       coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
@@ -426,7 +426,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       const sidesWarning = correctedInsideSides !== insideSides
         ? `WARNING: Auto-corrected inside sides for booklet (inside pages always print both sides). Inside: ${insideSides}->${correctedInsideSides}.`
         : null
-      console.log("[v0] calculate_booklet called with:", JSON.stringify({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides: correctedInsideSides, separateCover, coverPaper, coverSides: finalCoverSides, laminationType, insideBleed, coverBleed, isBroker }))
+
       if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
       const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
       const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
@@ -439,12 +439,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         laminationType: separateCover ? laminationType : "none",
         customLevel: "auto", isBroker, printingMarkupPct: 0,
       })
-      console.log("[v0] booklet result:", JSON.stringify({
-        valid: result.isValid, total: result.grandTotal, error: result.error,
-        insideLevel: result.insideResult?.level, insideAutoLevel: result.insideResult?.autoLevel, insideSheets: result.insideResult?.sheets,
-        coverLevel: result.coverResult?.level, coverAutoLevel: result.coverResult?.autoLevel, coverSheets: result.coverResult?.sheets,
-        printing: result.totalPrintingCost, binding: result.totalBindingPrice, lamination: result.totalLaminationCost,
-      }))
+
       if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
       return {
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
@@ -480,28 +475,39 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       useFrontCover: z.boolean().describe("Printed front cover (cardstock). Default true."),
       useBackCover: z.boolean().describe("Printed back cover (cardstock). Default true."),
       frontPaper: z.string().nullable().describe(`Front cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      frontSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Front cover sides. Spiral covers CAN be one-sided (4/0) or both-sided (4/4). Default "4/4". ${SIDES_DESC}`),
       backPaper: z.string().nullable().describe(`Back cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      backSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Back cover sides. Spiral covers CAN be one-sided (4/0) or both-sided (4/4). Default "4/4". ${SIDES_DESC}`),
       clearPlastic: z.boolean().describe("Clear plastic front ($0.50/book). Default false."),
       blackVinyl: z.boolean().describe("Black vinyl back ($0.50/book). Default false."),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, backPaper, clearPlastic, blackVinyl, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, frontSides, backPaper, backSides, clearPlastic, blackVinyl, isBroker }) => {
+      // AUTO-CORRECT inside sides for spiral (inside pages always both sides)
+      const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
+      const correctedInsideSides = singleToBoth[insideSides] || insideSides
       const result = calculateSpiral({
         bookQty, pagesPerBook, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: insideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
+        inside: { paperName: insidePaper, sides: correctedInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
         useFrontCover,
-        front: { paperName: frontPaper || "80 Gloss", sides: "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
+        front: { paperName: frontPaper || "80 Gloss", sides: frontSides || "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
         useBackCover,
-        back: { paperName: backPaper || "80 Gloss", sides: "4/4", hasBleed: useBackCover ? coverBleed : false, sheetSize: "cheapest" },
+        back: { paperName: backPaper || "80 Gloss", sides: backSides || "4/4", hasBleed: useBackCover ? coverBleed : false, sheetSize: "cheapest" },
         clearPlastic, blackVinyl, customLevel: "auto", isBroker,
       })
       if ("error" in result) return { error: result.error }
       return {
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
-        qty: bookQty, pages: pagesPerBook, size: `${pageWidth}x${pageHeight}`,
-        insidePaper, frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
-        backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
-        clearPlastic, blackVinyl, binding: "Spiral (coil)", broker: isBroker,
+        exactSpecs: {
+          qty: bookQty, size: `${pageWidth}x${pageHeight}`, insidePages: pagesPerBook,
+          insidePaper, insideSides: correctedInsideSides, insideBleed,
+          frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
+          frontSides: useFrontCover ? (frontSides || "4/4") : "N/A",
+          backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
+          backSides: useBackCover ? (backSides || "4/4") : "N/A",
+          coverBleed, clearPlastic, blackVinyl,
+          binding: "Spiral (coil)", broker: isBroker,
+        },
         costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice) },
       }
     },
