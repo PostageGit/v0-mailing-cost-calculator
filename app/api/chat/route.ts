@@ -69,11 +69,11 @@ SIDES CODES FOR BOOKS:
 - INSIDE PAGES always print both sides. NEVER use single-side codes (4/0, 1/0, S/S) for inside pages.
   - Color inside -> insideSides: "4/4". BW inside -> insideSides: "D/S". RBW inside -> insideSides: "1/1".
   - The tool auto-corrects inside sides if you accidentally pass a single-sided code.
-- SADDLE-STITCH (FOLD & STAPLE) COVER: CAN be one-sided OR both-sided.
-  - Color front only -> coverSides: "4/0". Color both sides -> coverSides: "4/4".
+- SADDLE-STITCH (FOLD & STAPLE) COVER: CAN be one-sided OR both-sided. RESPECT what the customer says.
+  - If they say "4/0" or "front only" or "one side" -> coverSides: "4/0". Do NOT override to 4/4.
+  - If they say "4/4" or "both sides" -> coverSides: "4/4".
   - BW front only -> coverSides: "S/S". BW both sides -> coverSides: "D/S".
-  - Ask the customer: "Do you want printing on the inside of the cover too, or just the outside?"
-  - Default to "4/4" if they don't specify.
+  - ONLY default to "4/4" if the customer says NOTHING about cover sides. If they specify ANY sides code, USE IT exactly as given.
 - PERFECT BINDING COVER: ALWAYS both-sided (4/4, D/S, 1/1). The spine wraps around so both sides always print.
 - Don't ask "front only or both sides?" for INSIDE pages. It's always both sides.
 
@@ -412,7 +412,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
       separateCover: z.boolean().describe("Use thicker cover stock? Default true."),
       coverPaper: z.string().nullable().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
-      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. Default "4/4". ${SIDES_DESC}`),
+      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. USE EXACTLY what the customer specified (e.g. if they say "4/0", pass "4/0"). Only default to "4/4" if they said NOTHING about cover sides. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
       coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
