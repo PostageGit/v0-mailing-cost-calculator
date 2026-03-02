@@ -18,25 +18,16 @@ function getMessageText(msg: UIMessage): string {
 const transport = new DefaultChatTransport({ api: "/api/chat" })
 
 export function ChatBubble() {
-  console.log("[v0] ChatBubble rendering")
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
 
 
-  const { messages, sendMessage, status, setMessages, error } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     transport,
-    onError: (err) => {
-      console.error("[v0] useChat error:", err)
-    },
   })
 
   const isLoading = status === "streaming" || status === "submitted"
-
-  // Log status changes for debugging
-  useEffect(() => {
-    console.log("[v0] Chat status:", status, "messages:", messages.length, "error:", error?.message)
-  }, [status, messages.length, error])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -170,14 +161,6 @@ export function ChatBubble() {
               )
             })}
 
-            {error && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-red-100 px-3.5 py-2.5 text-[13px] leading-relaxed text-red-700">
-                  Something went wrong. Please try again. ({error.message})
-                </div>
-              </div>
-            )}
-
             {isLoading && messages.length > 0 && !getMessageText(messages[messages.length - 1]) && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-muted px-4 py-3">
@@ -241,8 +224,8 @@ function ChatText({ text }: { text: string }) {
 }
 
 function FormatLine({ line }: { line: string }) {
-  // Bold **text**, format $amounts, and detect URLs (especially PDF links)
-  const parts = line.split(/(\*\*[^*]+\*\*|\$[\d,.]+|https?:\/\/[^\s)]+)/g)
+  // Bold **text** and format $amounts
+  const parts = line.split(/(\*\*[^*]+\*\*|\$[\d,.]+)/g)
   return (
     <>
       {parts.map((part, i) => {
@@ -258,19 +241,6 @@ function FormatLine({ line }: { line: string }) {
             <span key={i} className="font-semibold tabular-nums">
               {part}
             </span>
-          )
-        }
-        if (/^https?:\/\//.test(part)) {
-          return (
-            <a
-              key={i}
-              href={part}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:opacity-70"
-            >
-              {part}
-            </a>
           )
         }
         return <span key={i}>{part}</span>
