@@ -145,12 +145,13 @@ export function CalcPriceCard({
               </button>
             )}
           </div>
-          {/* Level bars with default marker */}
+          {/* Level bars with price anchored to default bar */}
           <div className="mt-2.5 relative">
             <div className="flex gap-1">
               {Array.from({ length: level.maxLevel }, (_, i) => i + 1).map((lvl) => {
                 const isActive = lvl <= level.level
                 const isDefault = lvl === level.defaultLevel
+                const isCurrent = lvl === level.level
                 let barColor = "bg-border hover:bg-muted-foreground/30"
                 if (isActive) {
                   if (level.level < level.defaultLevel) barColor = "bg-emerald-500"
@@ -173,14 +174,18 @@ export function CalcPriceCard({
                     {isDefault && (
                       <span className="text-[8px] font-black text-muted-foreground leading-none select-none">DEF</span>
                     )}
+                    {isCurrent && (
+                      <span className={`text-[9px] font-bold leading-none select-none whitespace-nowrap ${
+                        level.level === level.defaultLevel ? "text-muted-foreground" : level.level < level.defaultLevel ? "text-emerald-600" : "text-red-500"
+                      }`}>
+                        ${level.pricePerSheet.toFixed(level.level >= 7 ? 4 : 3)}
+                      </span>
+                    )}
                   </div>
                 )
               })}
             </div>
           </div>
-          <p className="text-xs font-medium text-muted-foreground mt-2">
-            ${level.pricePerSheet.toFixed(level.level >= 7 ? 4 : 3)} / sheet
-          </p>
         </div>
       )}
 
