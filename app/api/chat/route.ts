@@ -553,15 +553,23 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
 }
 
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  try {
+    const { messages } = await req.json()
 
-  const result = streamText({
-    model: "anthropic/claude-sonnet-4",
-    system: SYSTEM_PROMPT,
-    messages: await convertToModelMessages(messages),
-    tools,
-    stopWhen: stepCountIs(10),
-  })
+    const result = streamText({
+      model: "anthropic/claude-sonnet-4",
+      system: SYSTEM_PROMPT,
+      messages: await convertToModelMessages(messages),
+      tools,
+      stopWhen: stepCountIs(10),
+    })
 
-  return result.toUIMessageStreamResponse()
+    return result.toUIMessageStreamResponse()
+  } catch (e: unknown) {
+    console.error("[v0] Chat route error:", e)
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Chat failed" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    )
+  }
 }
