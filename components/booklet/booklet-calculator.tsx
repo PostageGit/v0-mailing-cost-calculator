@@ -11,7 +11,9 @@ import { calculateBooklet } from "@/lib/booklet-pricing"
 import type { BookletInputs, BookletCalcResult } from "@/lib/booklet-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
-import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink } from "lucide-react"
+import { useGlobalChat } from "@/lib/chat-context"
+import { bookletSpecsToChat } from "@/lib/specs-to-chat"
+import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 const EMPTY_INPUTS: BookletInputs = {
@@ -37,6 +39,7 @@ const EMPTY_INPUTS: BookletInputs = {
 export function BookletCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
+  const { sendToChat } = useGlobalChat()
 
   // Booklet pieces from planner -- includes OHP so users can fill out full specs
   const bookletPieces = mailing.pieces.filter(
@@ -342,15 +345,27 @@ export function BookletCalculator() {
                 </div>
               </div>
 
-              {/* Add to Quote -- full width below results */}
-              <Button
-                onClick={handleAddToQuote}
-                className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
-                size="lg"
-              >
-                <Plus className="h-4 w-4" />
-                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-              </Button>
+              {/* Add to Quote + Compare with Chat */}
+              <div className="flex gap-2 mt-4">
+                <Button
+                  onClick={handleAddToQuote}
+                  className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                  size="lg"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
+                </Button>
+                <Button
+                  onClick={() => sendToChat(bookletSpecsToChat(inputs))}
+                  variant="outline"
+                  className="gap-1.5 rounded-full border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                  size="lg"
+                  title="Send these exact specs to the chat AI for a price comparison"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Chat Check
+                </Button>
+              </div>
             </div>
           )}
         </div>

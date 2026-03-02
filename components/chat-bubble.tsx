@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat, type UIMessage } from "@ai-sdk/react"
 import { MessageCircle, X, Send, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useGlobalChat } from "@/lib/chat-context"
 
 function getMessageText(msg: UIMessage): string {
   if (!msg.parts || !Array.isArray(msg.parts)) return ""
@@ -19,11 +20,23 @@ export function ChatBubble() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
 
+  const { registerChat } = useGlobalChat()
+
   const { messages, sendMessage, status, setMessages } = useChat({
     api: "/api/chat",
   })
 
   const isLoading = status === "streaming" || status === "submitted"
+
+  // Register send function globally so calculators can trigger chat
+  const sendRef = useRef(sendMessage)
+  sendRef.current = sendMessage
+  useEffect(() => {
+    registerChat(
+      (msg: string) => sendRef.current({ text: msg }),
+      () => setOpen(true)
+    )
+  }, [registerChat])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

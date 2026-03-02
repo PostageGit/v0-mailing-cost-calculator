@@ -9,6 +9,9 @@ import { PaperStatsRow } from "@/components/calc-price-card"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useGlobalChat } from "@/lib/chat-context"
+import { flatSpecsToChat } from "@/lib/specs-to-chat"
+import { MessageCircle } from "lucide-react"
 import {
   PAPER_OPTIONS,
   parseSheetSize,
@@ -61,6 +64,7 @@ const EMPTY_INPUTS: PrintingInputs = {
 export function PrintingCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
+  const { sendToChat } = useGlobalChat()
 
   // Flat pieces from planner -- includes OHP so users can fill out full specs
   const flatPieces = mailing.pieces.filter(
@@ -593,15 +597,31 @@ export function PrintingCalculator() {
                 </div>
               </div>
 
-              {/* Add to Quote -- full width below results */}
+              {/* Add to Quote + Compare with Chat */}
+              <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleAddToQuote}
-                className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
+                className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                 size="lg"
               >
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
               </Button>
+              <Button
+                onClick={() => sendToChat(flatSpecsToChat({
+                  qty: inputs.qty, width: inputs.width, height: inputs.height,
+                  paper: inputs.paperName, sides: inputs.sides,
+                  hasBleed: inputs.hasBleed, isBroker: inputs.isBroker,
+                }))}
+                variant="outline"
+                className="gap-1.5 rounded-full border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                size="lg"
+                title="Send these exact specs to the chat AI for a price comparison"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Chat Check
+              </Button>
+              </div>
             </div>
           )}
         </div>
