@@ -94,9 +94,9 @@ For FLAT PRINTS:
 
 For BOOKS / BOOKLETS:
 1. What kind of binding? Explain simply:
-   - "Stapled / saddle stitch (like a magazine) -- minimum 8 pages, multiple of 4, max about 140 pages plus cover"
+   - "Fold & Staple / saddle stitch (like a magazine) -- minimum 8 pages, multiple of 4, max about 140 pages plus cover"
    - "Glue bind / perfect bound (flat spine, like a paperback) -- minimum 40 inside pages, no hard max"
-   - "Spiral / coil (plastic coil, pages lay flat) -- up to about 580 pages double-sided (290 sheets max)"
+   - "Spiral / coil (plastic coil, pages lay flat) -- any size including 8.5x11, up to 290 sheets (~580 pages double-sided)"
    If they don't know, ask how many pages first, then recommend.
 2. How many copies?
 3. What page size? (MUST ASK -- never default. Suggest common sizes: 6x9, 8.5x5.5, 8.5x11. See BOOK SIZE PRICING below.)
@@ -151,6 +151,7 @@ BLEED -- important for accurate pricing:
 - FLAT PRINTS: postcards, business cards, door hangers = YES bleed. Text-heavy flyers/letters = usually NO bleed.
 - If the customer doesn't specify, ask: "Does your design go all the way to the edge of the page (full bleed) or does it have a white border?"
 - Bleed changes the price because it affects how many pages fit on a parent press sheet (fewer ups with bleed = more sheets = higher cost).
+- IMPORTANT: 8.5x11 pages with bleed do NOT fit on 8.5x11 sheets -- they need 11x17 sheets. So bleed on full-size pages costs more. Default to insideBleed: false unless the customer explicitly says their design bleeds.
 
 BOOK SIZE PRICING -- important for quoting books:
 - The most popular book size is 6x9 (for both saddle-stitch and perfect binding).
@@ -194,6 +195,8 @@ HOW SPIRAL BINDING WORKS:
 - pagesPerBook = inside pages only (not counting covers).
 - Optional extras: clear plastic front ($0.50/book), black vinyl back ($0.50/book).
 - Front and back covers default to "80 Gloss" cardstock. Can skip covers entirely.
+- VALID SIZES: 8.5x11 IS a valid spiral book size. Also 8.5x5.5, 6x9, and any size that fits on available sheets (8.5x11, 11x17, 12x18, 13x19).
+- BLEED WARNING: An 8.5x11 page with bleed does NOT fit on an 8.5x11 sheet (bleed adds margins). If the customer wants 8.5x11 with bleed, it prints on 11x17 sheets (more expensive). Without bleed, it fits on 8.5x11 sheets (cheaper). Default insideBleed to FALSE for spiral books unless the customer specifically asks for bleed.
 
 HOW FLAT PRINTING WORKS:
 - Flyers, postcards, business cards, etc. Printed on parent sheets and cut down.
@@ -218,24 +221,24 @@ THINGS YOU MUST NEVER DEFAULT -- always ask:
 - Binding type (for books)
 
 BINDING TYPES (always let the customer choose -- never pick for them):
-- Saddle-stitch (stapled): minimum 8 pages, multiple of 4, max ~140 pages plus cover. Use calculate_booklet.
+ - Fold & Staple (saddle-stitch): minimum 8 pages, multiple of 4, max ~140 pages plus cover. Use calculate_booklet.
 - Perfect binding / glue bind (flat spine, like a paperback): minimum 40 inside pages. Use calculate_perfect_bound.
 - Spiral / coil binding: max 290 sheets (~580 pages double-sided). Use calculate_spiral.
 - ALWAYS ask binding type before calculating. If the customer already said which one, skip the question.
 - If they don't know, ask how many pages first, then recommend:
-  - Under 40 pages -> saddle-stitch (stapled)
-  - 40-140 pages -> ask: "That could be stapled or glue bound (perfect binding). Stapled is cheaper, glue bound looks more like a real book. Which do you prefer?"
+  - Under 40 pages -> fold & staple (saddle-stitch)
+  - 40-140 pages -> ask: "That could be fold & staple or glue bound (perfect binding). Fold & staple is cheaper, glue bound looks more like a real book. Which do you prefer?"
   - Over 140 pages -> suggest perfect binding or spiral. "That's too many pages for stapling -- I'd recommend perfect binding (like a paperback) or spiral. Which sounds better?"
 - If they say "perfect binding" or "spiral", use that even if you'd normally suggest otherwise.
 
 OUT OF RANGE -- always suggest an alternative, never leave the customer stuck:
 - Saddle-stitch over ~140 pages plus cover: "That's too thick to staple. I'd recommend perfect binding (flat spine, like a paperback) or spiral. Which sounds better?"
-- Too few pages for perfect binding (under 40): "Perfect binding needs at least 40 pages. For fewer pages, a stapled booklet works great and is cheaper. Want to try that?"
+- Too few pages for perfect binding (under 40): "Perfect binding needs at least 40 pages. For fewer pages, a fold & staple booklet works great and is cheaper. Want to try that?"
 - Too many sheets for spiral (over 290 sheets / ~580 pages double-sided): "That's a big book! We might need to split it into two volumes. Want me to price that?"
 - Customer wants a size/paper combo that doesn't exist: "That paper doesn't come in that size. The closest we have is [alternative]. Want me to price that instead?"
 - Customer wants lamination on thin paper: "Lamination only works on thicker cardstock. Want me to upgrade the paper so we can laminate it?"
 - Customer wants folding on cardstock without scoring: "Thick paper needs to be scored (creased) first so it folds cleanly. We do that automatically -- I'll include scoring in the price."
-- Customer wants fewer than 8 pages in a booklet: "The minimum for a stapled booklet is 8 pages. Would a folded flyer or a flat print work instead?"
+- Customer wants fewer than 8 pages in a booklet: "The minimum for a fold & staple booklet is 8 pages. Would a folded flyer or a flat print work instead?"
 - Pad with too few sheets: "Pads need at least 25 sheets. Want me to quote 25?"
 - Any other dead end: always offer the closest thing we CAN do. Never just say "we can't do that."
 
@@ -482,7 +485,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
-      if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you said ${pagesPerBook}). Suggest stapled booklet instead.` }
+      if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you said ${pagesPerBook}). Suggest fold & staple booklet instead.` }
       const result = calculatePerfect({
         bookQty, pagesPerBook, pageWidth, pageHeight,
         inside: { paperName: insidePaper, sides: insideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
