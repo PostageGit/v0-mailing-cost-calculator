@@ -84,8 +84,8 @@ export const PAPER_OPTIONS: PaperOption[] = [
   { name: "100lb Text Gloss", isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19", "Short 11x17", "Short 12x18"] },
 ]
 
-// Cover sides options -- perfect bound cover always prints both sides (spine wraps)
-export const COVER_SIDES = ["4/4", "1/1", "D/S"] as const
+// Cover sides options -- covers CAN be one-sided (4/0 = color outside only, very common) or both-sided
+export const COVER_SIDES = ["4/4", "4/0", "1/1", "1/0", "D/S", "S/S"] as const
 // Inside sides options -- single-sided (S/S, 4/0, 1/0) = double the pages (blank backs)
 export const INSIDE_SIDES = ["4/4", "4/0", "1/1", "1/0", "D/S", "S/S"] as const
 
@@ -103,7 +103,7 @@ export function defaultPerfectInputs(): PerfectInputs {
     pageWidth: 0,
     pageHeight: 0,
     cover: { paperName: "80 Gloss", sheetSize: "cheapest", sides: "4/4", hasBleed: false },
-    inside: { paperName: "20lb Offset", sheetSize: "cheapest", sides: "S/S", hasBleed: false },
+    inside: { paperName: "20lb Offset", sheetSize: "cheapest", sides: "D/S", hasBleed: false },
     laminationType: "none",
     isBroker: false,
     customLevel: "auto",
