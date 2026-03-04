@@ -88,8 +88,8 @@ SIDES CODES FOR BOOK INSIDES -- DEPENDS ON BINDING TYPE:
   - If they say "4/4" or "both sides" -> coverSides: "4/4".
   - BW front only -> coverSides: "S/S". BW both sides -> coverSides: "D/S".
   - ONLY default to "4/4" if the customer says NOTHING about cover sides. If they specify ANY sides code, USE IT exactly as given.
-- PERFECT BINDING COVER: ALWAYS both-sided (4/4, D/S, 1/1). The spine wraps around so both sides always print.
-- Don't ask "front only or both sides?" for INSIDE pages. It's always both sides.
+- PERFECT BINDING COVER: CAN be one-sided (4/0 = color outside only, very common) or both-sided (4/4). Not every cover has printing on the inside. RESPECT what the customer says. Default "4/4" only if they don't specify.
+- Don't ask "front only or both sides?" for saddle-stitch INSIDE pages -- they're folded signatures so always both sides. For spiral/perfect/padding insides, S/S is valid (doubles paper).
 
 REQUIRED FIELDS -- NEVER CALL A CALCULATOR WITHOUT THESE:
 You MUST have ALL required fields before calling any calculator. If you're missing even one, ASK for it. Never guess or use a default for these:
@@ -383,6 +383,8 @@ const tools = {
         enabled: laminationEnabled,
         type: (laminationType || "Gloss") as LaminationInputs["type"],
         sides: (laminationSides || "S/S") as LaminationInputs["sides"],
+        markupPct: 225,
+        brokerDiscountPct: 30,
       }
       const inputs: PrintingInputs = {
         qty, width, height, paperName, sidesValue, hasBleed,
@@ -548,7 +550,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`S/S is rare for perfect binding but valid -- DOUBLES page count automatically. Default D/S. Warn customer it doubles paper cost. ${SIDES_DESC}`),
       coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
-      coverSides: z.enum(["D/S", "4/4", "1/1"]).describe(`Perfect bound cover MUST be both-sided (spine wraps around). Default "4/4". ${SIDES_DESC}`),
+      coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Perfect bound cover CAN be one-sided (4/0 = color front only, common) or both-sided (4/4). USE what the customer says. Default "4/4" only if they say nothing. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
       coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
@@ -559,7 +561,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
       const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
       const calcInsideSides = singleToBoth[insideSides] || insideSides
-      const correctedCoverSides = singleToBoth[coverSides || "4/4"] || coverSides || "4/4"
+      const finalCoverSides = coverSides || "4/4"  // Covers CAN be one-sided (4/0). Respect customer's choice.
       const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
       const ssNote = isSingleSidedInside
         ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs). Double the paper.`
@@ -568,7 +570,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       const result = calculatePerfect({
         bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
         inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
-        cover: { paperName: coverPaper || "80 Gloss", sides: correctedCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
+        cover: { paperName: coverPaper || "80 Gloss", sides: finalCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
         laminationType, customLevel: "auto", isBroker,
       })
       if ("error" in result) return { error: result.error }
@@ -580,7 +582,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           contentPages: pagesPerBook, physicalPages: effectivePages,
           insidePaper, insideSides: insideSides, insideBleed,
           ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
-          coverPaper: coverPaper || "80 Gloss", coverSides: correctedCoverSides, coverBleed,
+          coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides, coverBleed,
           lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
         },
         costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
