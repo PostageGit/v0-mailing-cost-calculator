@@ -383,6 +383,8 @@ const tools = {
         enabled: laminationEnabled,
         type: (laminationType || "Gloss") as LaminationInputs["type"],
         sides: (laminationSides || "S/S") as LaminationInputs["sides"],
+        markupPct: 225,
+        brokerDiscountPct: 30,
       }
       const inputs: PrintingInputs = {
         qty, width, height, paperName, sidesValue, hasBleed,
