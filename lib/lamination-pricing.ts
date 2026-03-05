@@ -147,9 +147,11 @@ export function calculateLamination(
   if (isBroker) {
     effectiveMarkup *= (1 - lam.brokerDiscountPct / 100)
   }
-  const markupAmount = baseTotal * (effectiveMarkup / 100)
+  // 225% markup means selling price = base * 2.25 (NOT base + base*2.25)
+  const total_before_min = baseTotal * (effectiveMarkup / 100)
+  const markupAmount = total_before_min - baseTotal
 
-  let total = baseTotal + markupAmount
+  let total = total_before_min
 
   // Minimum order
   let isMinimumApplied = false
