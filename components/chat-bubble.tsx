@@ -286,7 +286,6 @@ export function ChatBubble() {
               // Extract attachment URLs from user messages
               const attachmentRegex = /\[Attached file: (.+?) \((Image|PDF), .+?\) - (https?:\/\/[^\]]+)\]/g
               const attachments: { name: string; type: string; url: string }[] = []
-              let match
               const cleanText = isUser ? text.replace(attachmentRegex, () => {
                 // We already ran the regex above so re-run to collect
                 return ""
@@ -294,8 +293,8 @@ export function ChatBubble() {
 
               // Re-run to actually collect attachments
               if (isUser) {
-                let m
                 const re = /\[Attached file: (.+?) \((Image|PDF), .+?\) - (https?:\/\/[^\]]+)\]/g
+                let m: RegExpExecArray | null
                 while ((m = re.exec(text)) !== null) {
                   attachments.push({ name: m[1], type: m[2], url: m[3] })
                 }
