@@ -47,6 +47,7 @@ Lamination options: "Gloss", "Matte", or none
 
 Defaults if not specified: 8.5x11, 80 Gloss inside, 12pt Gloss cover, 4/4 both sides`
 
+// All tool parameters are FLAT (no nested z.object) to ensure Anthropic API compatibility
 const brokerTools = {
   calculate_perfect_binding: tool({
     description: "Calculate price for a perfect binding job with broker pricing.",
@@ -142,7 +143,7 @@ const brokerTools = {
         if (error) throw error
         return { quoteNumber: `CQ-${data.ref_number}`, success: true }
       } catch (err) {
-        return { error: `Failed to save quote: ${err instanceof Error ? err.message : "Unknown error"}` }
+        return { error: `Failed to save: ${err instanceof Error ? err.message : "Unknown"}` }
       }
     },
   }),
@@ -151,6 +152,7 @@ const brokerTools = {
 export async function POST(req: Request) {
   try {
     const { messages: rawMessages, brokerId, brokerName, brokerCompany } = await req.json()
+    console.log("[v0] BROKER ROUTE V2 - messages:", rawMessages?.length, "broker:", brokerName)
 
     if (!brokerId || !brokerName || !brokerCompany) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
@@ -162,7 +164,6 @@ export async function POST(req: Request) {
 
     const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use when calling save_broker_quote):**\nbrokerId: "${brokerId}"\nbrokerName: "${brokerName}"\nbrokerCompany: "${brokerCompany}"`
 
-    // Use streamText + convertToModelMessages (same pattern as main chat which works)
     const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),
       system: systemWithBroker,
@@ -171,7 +172,6 @@ export async function POST(req: Request) {
       maxSteps: 5,
     })
 
-    // Collect the full streamed response into a single text string
     let fullText = ""
     const reader = result.textStream.getReader()
     while (true) {
@@ -180,9 +180,10 @@ export async function POST(req: Request) {
       if (value) fullText += value
     }
 
+    console.log("[v0] BROKER ROUTE V2 - response length:", fullText.length)
     return Response.json({ response: fullText })
   } catch (err) {
-    console.error("[v0] Broker chat error:", err)
+    console.error("[v0] BROKER ROUTE V2 ERROR:", err)
     return Response.json({ error: "Chat failed" }, { status: 500 })
   }
 }
