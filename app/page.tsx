@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Calculator, MessageSquare, LogOut, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Landing page for brokers -- shows two options: Postage Quotes (calculator) or Chat Quotes
+// Landing page for brokers -- shows two options: Printing Quotes (calculator) or Chat Quotes
 function BrokerLanding() {
   const router = useRouter()
   const { user, logout } = useAuth()
@@ -42,8 +42,8 @@ function BrokerLanding() {
               )}
             >
               <Calculator className="h-10 w-10 text-foreground" />
-              <span className="text-base font-semibold text-foreground">Postage Quotes</span>
-              <span className="text-xs text-muted-foreground text-center">Full calculator for mailing jobs</span>
+              <span className="text-base font-semibold text-foreground">Printing Quotes</span>
+              <span className="text-xs text-muted-foreground text-center">Full calculator for printing jobs</span>
             </button>
           )}
 
