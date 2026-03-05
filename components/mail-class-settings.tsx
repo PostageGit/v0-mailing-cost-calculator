@@ -125,7 +125,7 @@ type SettingsTab =
   | "pricing" | "paper-weights" | "finishings" | "finishing-calcs"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
   | "items" | "supplies" | "steps"
-  | "fields" | "terms" | "team" | "system" | "chat-quotes"
+  | "fields" | "terms" | "team" | "system"
 
 interface SettingsNavGroup {
   label: string
@@ -167,7 +167,6 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "terms", label: "Payment Terms", icon: <CreditCard className="h-4 w-4" />, description: "Net terms, due dates" },
       { id: "team", label: "Team", icon: <Users className="h-4 w-4" />, description: "Team members and roles" },
       { id: "system", label: "System Health", icon: <Activity className="h-4 w-4" />, description: "Database, storage, diagnostics" },
-      { id: "chat-quotes", label: "Chat Quotes", icon: <MessageSquare className="h-4 w-4" />, description: "Quotes saved from the AI chat assistant" },
     ],
   },
 ]
@@ -196,7 +195,6 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   terms: () => <PaymentTermsTab />,
   team: () => <TeamTab />,
   system: () => <SystemDashboardTab />,
-  "chat-quotes": () => <ChatQuotesTab />,
 }
 
 // ---------- main panel ----------
@@ -1781,8 +1779,8 @@ const LEVEL_LABELS = [
 
 type PricingSection = "click" | "flat" | "booklet" | "markups"
 
-// ---------- Chat Quotes Tab ----------
-function ChatQuotesTab() {
+function __PLACEHOLDER_REMOVE() {
+  void 0 // placeholder -- entire function will be removed
   interface ChatQuote {
     id: string; ref_number: number; customer_name: string; project_name: string;
     product_type: string; total: number; per_unit: number;
