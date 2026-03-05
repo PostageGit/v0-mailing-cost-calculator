@@ -1,5 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
-import { streamText, tool, convertToModelMessages } from "ai"
+import { streamText, tool } from "ai"
 import { z } from "zod"
 import { createClient } from "@supabase/supabase-js"
 import { calculatePerfect } from "@/lib/perfect-pricing"
@@ -154,11 +154,23 @@ const brokerTools = {
 export async function POST(req: Request) {
   try {
     const { messages: rawMessages, brokerId, brokerName, brokerCompany } = await req.json()
-    console.log("[v0] BROKER QUOTE V4 - messages:", rawMessages?.length, "broker:", brokerName)
+    console.log("[v0] BROKER QUOTE V5 hit - messages:", rawMessages?.length, "broker:", brokerName)
 
     if (!brokerId || !brokerName || !brokerCompany) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
     }
+
+    // Convert messages to simple { role, content } format that streamText expects
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages = rawMessages.map((msg: any) => {
+      let content = ""
+      if (typeof msg.content === "string") {
+        content = msg.content
+      } else if (Array.isArray(msg.parts)) {
+        content = msg.parts.filter((p: { type: string }) => p.type === "text").map((p: { text: string }) => p.text).join("\n")
+      }
+      return { role: msg.role as "user" | "assistant", content }
+    })
 
     const anthropic = createAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -166,10 +178,12 @@ export async function POST(req: Request) {
 
     const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use when calling save_broker_quote):**\nbrokerId: "${brokerId}"\nbrokerName: "${brokerName}"\nbrokerCompany: "${brokerCompany}"`
 
+    console.log("[v0] BROKER QUOTE V5 - about to call streamText with", messages.length, "messages")
+
     const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),
       system: systemWithBroker,
-      messages: await convertToModelMessages(rawMessages),
+      messages,
       tools: brokerTools,
       maxSteps: 5,
     })
@@ -182,7 +196,7 @@ export async function POST(req: Request) {
       if (value) fullText += value
     }
 
-    console.log("[v0] BROKER QUOTE V4 - response length:", fullText.length)
+    console.log("[v0] BROKER QUOTE V5 - response length:", fullText.length)
     return Response.json({ response: fullText })
   } catch (err) {
     console.error("[v0] BROKER QUOTE V4 ERROR:", err)
