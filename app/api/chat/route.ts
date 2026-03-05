@@ -405,37 +405,44 @@ const tools = {
       scoreFoldType: z.enum(["foldInHalf", "foldIn3", "foldIn4", "gateFold", ""]).nullable().describe("Fold type. Empty=no fold."),
     }),
     execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, scoreFoldOperation, scoreFoldType }) => {
-      const lamination: LaminationInputs = {
-        enabled: laminationEnabled,
-        type: (laminationType || "Gloss") as LaminationInputs["type"],
-        sides: (laminationSides || "S/S") as LaminationInputs["sides"],
-        markupPct: 225,
-        brokerDiscountPct: 30,
-      }
-      const inputs: PrintingInputs = {
-        qty, width, height, paperName, sidesValue, hasBleed,
-        addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker, lamination,
-        scoreFoldOperation: (scoreFoldOperation || "") as PrintingInputs["scoreFoldOperation"],
-        scoreFoldType: (scoreFoldType || "") as PrintingInputs["scoreFoldType"],
-      }
-      const options = calculateAllSheetOptions(inputs)
-      if (!options.length) {
-        return { error: `Could not calculate for ${paperName} at ${width}x${height}. Check paper name and size.` }
-      }
-      const best = options[0]
-      const fullResult = buildFullResult(inputs, best.result)
-      const parts: Record<string, string> = { printing: fmt(fullResult.printingCostPlus10) }
-      if (fullResult.laminationCost && fullResult.laminationCost.cost > 0) parts.lamination = fmt(fullResult.laminationCost.cost)
-      if (fullResult.cuttingCost > 0) parts.cutting = fmt(fullResult.cuttingCost)
-      if (fullResult.scoreFoldCost && fullResult.scoreFoldCost.cost > 0) {
-        parts.scoreFold = `${fmt(fullResult.scoreFoldCost.cost)} (${fullResult.scoreFoldCost.operation} - ${fullResult.scoreFoldCost.foldType})`
-      }
-      return {
-        total: fmt(fullResult.grandTotal), perUnit: fmt(fullResult.grandTotal / qty),
-        qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
-        bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
-        lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
-        scoreFold: scoreFoldOperation ? `${scoreFoldOperation} - ${scoreFoldType}` : "none",
+      try {
+        console.log("[v0] calculate_printing called:", { qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, scoreFoldOperation, scoreFoldType })
+        const lamination: LaminationInputs = {
+          enabled: laminationEnabled,
+          type: (laminationType || "Gloss") as LaminationInputs["type"],
+          sides: (laminationSides || "S/S") as LaminationInputs["sides"],
+          markupPct: 225,
+          brokerDiscountPct: 30,
+        }
+        const inputs: PrintingInputs = {
+          qty, width, height, paperName, sidesValue, hasBleed,
+          addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker, lamination,
+          scoreFoldOperation: (scoreFoldOperation || "") as PrintingInputs["scoreFoldOperation"],
+          scoreFoldType: (scoreFoldType || "") as PrintingInputs["scoreFoldType"],
+        }
+        const options = calculateAllSheetOptions(inputs)
+        if (!options.length) {
+          return { error: `Could not calculate for ${paperName} at ${width}x${height}. Check paper name and size.` }
+        }
+        const best = options[0]
+        const fullResult = buildFullResult(inputs, best.result)
+        const parts: Record<string, string> = { printing: fmt(fullResult.printingCostPlus10) }
+        if (fullResult.laminationCost && fullResult.laminationCost.cost > 0) parts.lamination = fmt(fullResult.laminationCost.cost)
+        if (fullResult.cuttingCost > 0) parts.cutting = fmt(fullResult.cuttingCost)
+        if (fullResult.scoreFoldCost && fullResult.scoreFoldCost.cost > 0) {
+          parts.scoreFold = `${fmt(fullResult.scoreFoldCost.cost)} (${fullResult.scoreFoldCost.operation} - ${fullResult.scoreFoldCost.foldType})`
+        }
+        console.log("[v0] calculate_printing result:", { total: fullResult.grandTotal, qty })
+        return {
+          total: fmt(fullResult.grandTotal), perUnit: fmt(fullResult.grandTotal / qty),
+          qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
+          bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
+          lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
+          scoreFold: scoreFoldOperation ? `${scoreFoldOperation} - ${scoreFoldType}` : "none",
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_printing error:", e)
+        return { error: `Calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),
@@ -461,43 +468,50 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
-      const finalCoverSides = coverSides || "4/4"
+      try {
+        console.log("[v0] calculate_booklet called:", { bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides })
+        const finalCoverSides = coverSides || "4/4"
 
-      // SADDLE-STITCH = folded signatures. Inside pages ALWAYS both-sided. Auto-correct if wrong.
-      const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-      const correctedInsideSides = singleToBoth[insideSides] || insideSides
-      const sidesWarning = correctedInsideSides !== insideSides
-        ? `Note: Saddle-stitch uses folded signatures so inside pages always print both sides. Changed ${insideSides} to ${correctedInsideSides}.`
-        : null
+        // SADDLE-STITCH = folded signatures. Inside pages ALWAYS both-sided. Auto-correct if wrong.
+        const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
+        const correctedInsideSides = singleToBoth[insideSides] || insideSides
+        const sidesWarning = correctedInsideSides !== insideSides
+          ? `Note: Saddle-stitch uses folded signatures so inside pages always print both sides. Changed ${insideSides} to ${correctedInsideSides}.`
+          : null
 
-      if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
-      const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
-      const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
-      const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
-      const result = calculateBooklet({
-        bookQty, pagesPerBook: insidePages, pageWidth, pageHeight, separateCover,
-        coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides,
-        coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
-        insidePaper, insideSides: correctedInsideSides, insideBleed, insideSheetSize: "cheapest",
-        laminationType: separateCover ? laminationType : "none",
-        customLevel: "auto", isBroker, printingMarkupPct: 0,
-      })
+        if (pagesPerBook < 8) return { error: "Saddle-stitch needs at least 8 pages. Suggest a folded flyer or flat print instead." }
+        const adjustedPages = Math.ceil(pagesPerBook / 4) * 4
+        const pagesNote = adjustedPages !== pagesPerBook ? `Rounded up from ${pagesPerBook} to ${adjustedPages} pages (must be multiple of 4).` : null
+        const insidePages = separateCover ? adjustedPages - 4 : adjustedPages
+        const result = calculateBooklet({
+          bookQty, pagesPerBook: insidePages, pageWidth, pageHeight, separateCover,
+          coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides,
+          coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
+          insidePaper, insideSides: correctedInsideSides, insideBleed, insideSheetSize: "cheapest",
+          laminationType: separateCover ? laminationType : "none",
+          customLevel: "auto", isBroker, printingMarkupPct: 0,
+        })
 
-      if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
-      return {
-        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
-        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
-        exactSpecs: {
-          qty: bookQty, size: `${pageWidth}x${pageHeight}`, totalPages: adjustedPages, insidePages,
-          insidePaper, insideSides: correctedInsideSides, insideBleed,
-          coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Self-cover",
-          coverSides: separateCover ? finalCoverSides : "N/A", coverBleed,
-          lamination: separateCover ? laminationType : "none",
-          binding: "Fold & Staple (saddle-stitch)", broker: isBroker,
-        },
-        costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
-        ...(pagesNote ? { note: pagesNote } : {}),
-        ...(sidesWarning ? { sidesWarning } : {}),
+        if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
+        console.log("[v0] calculate_booklet result:", { total: result.grandTotal })
+        return {
+          _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
+          total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+          exactSpecs: {
+            qty: bookQty, size: `${pageWidth}x${pageHeight}`, totalPages: adjustedPages, insidePages,
+            insidePaper, insideSides: correctedInsideSides, insideBleed,
+            coverPaper: separateCover ? (coverPaper || "80 Gloss") : "Self-cover",
+            coverSides: separateCover ? finalCoverSides : "N/A", coverBleed,
+            lamination: separateCover ? laminationType : "none",
+            binding: "Fold & Staple (saddle-stitch)", broker: isBroker,
+          },
+          costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
+          ...(pagesNote ? { note: pagesNote } : {}),
+          ...(sidesWarning ? { sidesWarning } : {}),
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_booklet error:", e)
+        return { error: `Booklet calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),
@@ -526,40 +540,46 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, frontSides, backPaper, backSides, clearPlastic, blackVinyl, isBroker }) => {
-      // Single-sided insides = double the pages
-      const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
-      const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-      const calcInsideSides = singleToBoth[insideSides] || insideSides
-      const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
-      const ssNote = isSingleSidedInside
-        ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs).`
-        : null
-      const result = calculateSpiral({
-        bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
-        useFrontCover,
-        front: { paperName: frontPaper || "80 Gloss", sides: frontSides || "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
-        useBackCover,
-        back: { paperName: backPaper || "80 Gloss", sides: backSides || "4/4", hasBleed: useBackCover ? coverBleed : false, sheetSize: "cheapest" },
-        clearPlastic, blackVinyl, customLevel: "auto", isBroker,
-      })
-      if ("error" in result) return { error: result.error }
-      return {
-        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
-        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
-        exactSpecs: {
-          qty: bookQty, size: `${pageWidth}x${pageHeight}`,
-          contentPages: pagesPerBook, physicalPages: effectivePages,
-          insidePaper, insideSides: insideSides, insideBleed,
-          ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
-          frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
-          frontSides: useFrontCover ? (frontSides || "4/4") : "N/A",
-          backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
-          backSides: useBackCover ? (backSides || "4/4") : "N/A",
-          coverBleed, clearPlastic, blackVinyl,
-          binding: "Spiral (coil)", broker: isBroker,
-        },
-        costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice) },
+      try {
+        console.log("[v0] calculate_spiral called:", { bookQty, pagesPerBook, pageWidth, pageHeight })
+        // Single-sided insides = double the pages
+        const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
+        const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
+        const calcInsideSides = singleToBoth[insideSides] || insideSides
+        const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
+        const ssNote = isSingleSidedInside
+          ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs).`
+          : null
+        const result = calculateSpiral({
+          bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
+          inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
+          useFrontCover,
+          front: { paperName: frontPaper || "80 Gloss", sides: frontSides || "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
+          useBackCover,
+          back: { paperName: backPaper || "80 Gloss", sides: backSides || "4/4", hasBleed: useBackCover ? coverBleed : false, sheetSize: "cheapest" },
+          clearPlastic, blackVinyl, customLevel: "auto", isBroker,
+        })
+        if ("error" in result) return { error: result.error }
+        return {
+          _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
+          total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+          exactSpecs: {
+            qty: bookQty, size: `${pageWidth}x${pageHeight}`,
+            contentPages: pagesPerBook, physicalPages: effectivePages,
+            insidePaper, insideSides: insideSides, insideBleed,
+            ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
+            frontCover: useFrontCover ? (frontPaper || "80 Gloss") : "none",
+            frontSides: useFrontCover ? (frontSides || "4/4") : "N/A",
+            backCover: useBackCover ? (backPaper || "80 Gloss") : "none",
+            backSides: useBackCover ? (backSides || "4/4") : "N/A",
+            coverBleed, clearPlastic, blackVinyl,
+            binding: "Spiral (coil)", broker: isBroker,
+          },
+          costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice) },
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_spiral error:", e)
+        return { error: `Spiral calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),
@@ -583,35 +603,40 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
-      // Single-sided insides = double the pages (each content page uses a full leaf, blank on back)
-      const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
-      const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
-      const calcInsideSides = singleToBoth[insideSides] || insideSides
-      const finalCoverSides = coverSides || "4/4"  // Covers CAN be one-sided (4/0). Respect customer's choice.
-      const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
-      const ssNote = isSingleSidedInside
-        ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs). Double the paper.`
-        : null
-      if (effectivePages < 40) return { error: `Perfect binding needs at least 40 inside pages (you have ${effectivePages}${isSingleSidedInside ? ` physical pages from ${pagesPerBook} content pages single-sided` : ""}). Suggest fold & staple booklet instead.` }
-      const result = calculatePerfect({
-        bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
-        cover: { paperName: coverPaper || "80 Gloss", sides: finalCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
-        laminationType, customLevel: "auto", isBroker,
-      })
-      if ("error" in result) return { error: result.error }
-      return {
-        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
-        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
-        exactSpecs: {
-          qty: bookQty, size: `${pageWidth}x${pageHeight}`,
-          contentPages: pagesPerBook, physicalPages: effectivePages,
-          insidePaper, insideSides: insideSides, insideBleed,
-          ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
-          coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides, coverBleed,
-          lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
-        },
-        costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
+      try {
+        console.log("[v0] calculate_perfect called:", { bookQty, pagesPerBook, pageWidth, pageHeight })
+        const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
+        const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
+        const calcInsideSides = singleToBoth[insideSides] || insideSides
+        const finalCoverSides = coverSides || "4/4"
+        const effectivePages = isSingleSidedInside ? pagesPerBook * 2 : pagesPerBook
+        const ssNote = isSingleSidedInside
+          ? `Single-sided inside (${insideSides}): ${pagesPerBook} content pages use ${effectivePages} physical pages (blank backs). Double the paper.`
+          : null
+        if (effectivePages < 40) return { error: `Perfect binding needs at least 40 inside pages (you have ${effectivePages}${isSingleSidedInside ? ` physical pages from ${pagesPerBook} content pages single-sided` : ""}). Suggest fold & staple booklet instead.` }
+        const result = calculatePerfect({
+          bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
+          inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
+          cover: { paperName: coverPaper || "80 Gloss", sides: finalCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
+          laminationType, customLevel: "auto", isBroker,
+        })
+        if ("error" in result) return { error: result.error }
+        return {
+          _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
+          total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+          exactSpecs: {
+            qty: bookQty, size: `${pageWidth}x${pageHeight}`,
+            contentPages: pagesPerBook, physicalPages: effectivePages,
+            insidePaper, insideSides: insideSides, insideBleed,
+            ...(isSingleSidedInside ? { singleSidedNote: ssNote } : {}),
+            coverPaper: coverPaper || "80 Gloss", coverSides: finalCoverSides, coverBleed,
+            lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
+          },
+          costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_perfect error:", e)
+        return { error: `Perfect binding calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),
@@ -631,21 +656,27 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ padQty, pagesPerPad, pageWidth, pageHeight, insidePaper, insideSides, hasBleed, useChipBoard, isBroker }) => {
-      const result = calculatePad({
-        padQty, pagesPerPad, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: insideSides, hasBleed, sheetSize: "cheapest" },
-        useChipBoard, customLevel: "auto", isBroker,
-      })
-      if ("error" in result) return { error: result.error }
-      return {
-        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
-        total: fmt(result.grandTotal), perUnit: fmt(result.pricePerPad),
-        exactSpecs: {
-          qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
-          paper: insidePaper, sides: insideSides, bleed: hasBleed,
-          chipBoard: useChipBoard, broker: isBroker,
-        },
-        costBreakdown: { printing: fmt(result.totalPrintingCost), padding: fmt(result.totalPaddingCost), setup: fmt(result.setupCharge) },
+      try {
+        console.log("[v0] calculate_pad called:", { padQty, pagesPerPad, pageWidth, pageHeight })
+        const result = calculatePad({
+          padQty, pagesPerPad, pageWidth, pageHeight,
+          inside: { paperName: insidePaper, sides: insideSides, hasBleed, sheetSize: "cheapest" },
+          useChipBoard, customLevel: "auto", isBroker,
+        })
+        if ("error" in result) return { error: result.error }
+        return {
+          _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
+          total: fmt(result.grandTotal), perUnit: fmt(result.pricePerPad),
+          exactSpecs: {
+            qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
+            paper: insidePaper, sides: insideSides, bleed: hasBleed,
+            chipBoard: useChipBoard, broker: isBroker,
+          },
+          costBreakdown: { printing: fmt(result.totalPrintingCost), padding: fmt(result.totalPaddingCost), setup: fmt(result.setupCharge) },
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_pad error:", e)
+        return { error: `Pad calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),
@@ -662,14 +693,20 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
     execute: async ({ amount, itemName, inkType, printType, hasBleed, isBroker }) => {
-      const result = calculateEnvelope(
-        { amount, itemName, inkType, printType: printType as never, hasBleed, customerType: isBroker ? "Broker" : "Regular", customEnvCost: 0, customPrintCost: 0 },
-        DEFAULT_ENVELOPE_SETTINGS
-      )
-      if ("error" in result) return { error: result.error }
-      return {
-        total: fmt(result.price), perUnit: fmt(result.pricePerUnit),
-        qty: result.quantity, envelope: itemName, inkType, printType, bleed: hasBleed, broker: isBroker,
+      try {
+        console.log("[v0] calculate_envelope called:", { amount, itemName, inkType, printType })
+        const result = calculateEnvelope(
+          { amount, itemName, inkType, printType: printType as never, hasBleed, customerType: isBroker ? "Broker" : "Regular", customEnvCost: 0, customPrintCost: 0 },
+          DEFAULT_ENVELOPE_SETTINGS
+        )
+        if ("error" in result) return { error: result.error }
+        return {
+          total: fmt(result.price), perUnit: fmt(result.pricePerUnit),
+          qty: result.quantity, envelope: itemName, inkType, printType, bleed: hasBleed, broker: isBroker,
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_envelope error:", e)
+        return { error: `Envelope calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),

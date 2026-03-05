@@ -37,11 +37,24 @@ export function ChatBubble() {
 
   const { registerChat } = useGlobalChat()
 
+  const [chatError, setChatError] = useState<string | null>(null)
+
   const { messages, sendMessage, status, setMessages } = useChat({
     api: "/api/chat",
+    onError: (error) => {
+      console.error("[v0] Chat error:", error)
+      setChatError("Something went wrong calculating. Please try again.")
+    },
   })
 
   const isLoading = status === "streaming" || status === "submitted"
+
+  // Clear error when new messages come in
+  useEffect(() => {
+    if (status === "ready" && chatError && messages.length > 0) {
+      // Keep error visible until user sends another message
+    }
+  }, [status, chatError, messages.length])
 
   // Register send function globally so calculators can trigger chat
   const sendRef = useRef(sendMessage)
@@ -92,6 +105,7 @@ export function ChatBubble() {
       text = text ? `${text}\n\n${fileList}` : fileList
     }
 
+    setChatError(null)
     sendMessage({ text })
     setInput("")
     setPendingFiles([])
@@ -304,12 +318,26 @@ export function ChatBubble() {
               )
             })}
 
-            {isLoading && messages.length > 0 && !getMessageText(messages[messages.length - 1]) && (
+            {isLoading && messages.length > 0 && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-muted px-4 py-3">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40 [animation-delay:0ms]" />
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40 [animation-delay:150ms]" />
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/40 [animation-delay:300ms]" />
+                </div>
+              </div>
+            )}
+
+            {chatError && !isLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-destructive/10 border border-destructive/20 px-3.5 py-2.5 text-[13px] leading-relaxed text-destructive">
+                  {chatError}
+                  <button
+                    onClick={() => setChatError(null)}
+                    className="ml-2 underline underline-offset-2 text-destructive/70 hover:text-destructive"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               </div>
             )}
