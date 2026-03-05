@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat, type UIMessage } from "@ai-sdk/react"
-import { MessageCircle, X, Send, RotateCcw, Paperclip, FileText, ImageIcon, Loader2 } from "lucide-react"
+import { MessageCircle, X, Send, RotateCcw, Paperclip, FileText, ImageIcon, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGlobalChat } from "@/lib/chat-context"
 
@@ -38,23 +38,44 @@ export function ChatBubble() {
   const { registerChat } = useGlobalChat()
 
   const [chatError, setChatError] = useState<string | null>(null)
+  const [lastUserText, setLastUserText] = useState<string>("")
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { messages, sendMessage, status, setMessages } = useChat({
     api: "/api/chat",
     onError: (error) => {
       console.error("[v0] Chat error:", error)
-      setChatError("Something went wrong calculating. Please try again.")
+      setChatError("stuck")
     },
   })
 
   const isLoading = status === "streaming" || status === "submitted"
 
-  // Clear error when new messages come in
+  // Timeout detection: if loading for 20s with no streaming text, show recovery message
   useEffect(() => {
-    if (status === "ready" && chatError && messages.length > 0) {
-      // Keep error visible until user sends another message
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
     }
-  }, [status, chatError, messages.length])
+
+    if (isLoading) {
+      timeoutRef.current = setTimeout(() => {
+        // Only trigger if still loading (no response came through)
+        setChatError("stuck")
+      }, 20000)
+    }
+
+    // If we got a response, clear any error
+    if (status === "ready" || status === "streaming") {
+      if (status === "streaming") {
+        setChatError(null)
+      }
+    }
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [isLoading, status])
 
   // Register send function globally so calculators can trigger chat
   const sendRef = useRef(sendMessage)
@@ -106,10 +127,17 @@ export function ChatBubble() {
     }
 
     setChatError(null)
+    setLastUserText(text)
     sendMessage({ text })
     setInput("")
     setPendingFiles([])
   }
+
+  const handleRetry = useCallback(() => {
+    if (!lastUserText) return
+    setChatError(null)
+    sendMessage({ text: lastUserText })
+  }, [lastUserText, sendMessage])
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -328,16 +356,31 @@ export function ChatBubble() {
               </div>
             )}
 
-            {chatError && !isLoading && (
+            {chatError === "stuck" && (
               <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-destructive/10 border border-destructive/20 px-3.5 py-2.5 text-[13px] leading-relaxed text-destructive">
-                  {chatError}
-                  <button
-                    onClick={() => setChatError(null)}
-                    className="ml-2 underline underline-offset-2 text-destructive/70 hover:text-destructive"
-                  >
-                    Dismiss
-                  </button>
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  <p className="font-medium mb-1">Looks like I got a little stuck!</p>
+                  <p className="text-amber-800 dark:text-amber-300 mb-3">
+                    No worries -- this can happen when crunching numbers. You can try again or rephrase your request.
+                  </p>
+                  <div className="flex gap-2">
+                    {lastUserText && (
+                      <button
+                        onClick={handleRetry}
+                        disabled={isLoading}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-50 dark:bg-amber-200 dark:text-amber-900 dark:hover:bg-amber-300"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Try again
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setChatError(null)}
+                      className="inline-flex items-center rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
