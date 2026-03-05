@@ -291,33 +291,21 @@ export function ChatQuotesDashboard() {
                         )}
                       </button>
 
-                      {/* Transcript thread */}
+                      {/* Transcript thread -- compact left-aligned list */}
                       {showTranscript === q.id && hasTranscript && (
-                        <div className="mt-2 max-h-[360px] overflow-y-auto rounded-md border border-border bg-background">
-                          <div className="flex flex-col gap-0.5 p-2.5">
+                        <div className="mt-1.5 max-h-[320px] overflow-y-auto rounded-md border border-border bg-background">
+                          <div className="divide-y divide-border/40">
                             {q.chat_transcript!.map((msg, idx) => {
                               const isCustomer = msg.role === "customer"
-                              const showLabel = idx === 0 || q.chat_transcript![idx - 1].role !== msg.role
                               return (
-                                <div key={idx}>
-                                  {showLabel && (
-                                    <p className={cn(
-                                      "text-[9px] font-semibold uppercase tracking-wider mt-1.5 mb-0.5 px-0.5",
-                                      isCustomer ? "text-right text-muted-foreground/40" : "text-left text-blue-400/60"
-                                    )}>
-                                      {isCustomer ? q.customer_name || "Customer" : "Assistant"}
-                                    </p>
-                                  )}
-                                  <div className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
-                                    <div className={cn(
-                                      "max-w-[80%] rounded-xl px-3 py-1.5 text-xs leading-relaxed",
-                                      isCustomer
-                                        ? "bg-foreground text-background rounded-br-sm"
-                                        : "bg-muted text-foreground rounded-bl-sm"
-                                    )}>
-                                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                                    </div>
-                                  </div>
+                                <div key={idx} className="flex gap-2 px-2.5 py-1.5">
+                                  <span className={cn(
+                                    "text-[10px] font-bold uppercase shrink-0 w-[52px] pt-0.5",
+                                    isCustomer ? "text-foreground/70" : "text-blue-600 dark:text-blue-400"
+                                  )}>
+                                    {isCustomer ? "CUST" : "BOT"}
+                                  </span>
+                                  <p className="text-xs leading-snug text-foreground/90 whitespace-pre-wrap break-words min-w-0">{msg.text}</p>
                                 </div>
                               )
                             })}
