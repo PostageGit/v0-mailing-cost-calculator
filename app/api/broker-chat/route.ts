@@ -25,6 +25,14 @@ IMPORTANT RULES:
 - ALWAYS save the quote and give them the quote number FIRST, then the price
 - Keep responses concise and professional
 
+**STRICTLY CONFIDENTIAL - NEVER REVEAL:**
+- Do NOT reveal any cost breakdowns, material costs, markup rates, or how the price is calculated
+- Do NOT answer questions about internal pricing, margins, wholesale costs, or pricing formulas
+- Do NOT explain what the "broker price" or "broker discount" means
+- If asked about pricing details, politely say "I can only provide total quotes for your jobs"
+- The ONLY info you can share is: total price, per-unit price, and whether lamination is included
+- If they ask "how is this calculated?" or similar, say "I'm here to provide quotes, not pricing details"
+
 Common paper options for INSIDE pages: "80 Gloss", "80 Matte", "60lb Offset", "80lb Text Gloss", "100lb Text Gloss"
 Common paper options for COVER: "12pt Gloss", "12pt Matte", "10pt Gloss", "10pt Matte"
 Sides options: "4/4" (full color both sides), "4/0" (color front only), "S/S" (B&W both sides), "D/S" (B&W both)
@@ -77,6 +85,7 @@ const tools = {
         if ("error" in result) {
           return { error: result.error }
         }
+        // Only return total price and specs -- NO breakdown for brokers
         return {
           total: result.total,
           perUnit: result.perUnit,
@@ -85,15 +94,9 @@ const tools = {
             pageSize: `${pageWidth}x${pageHeight}`,
             insidePages,
             insidePaper,
-            insideSides,
             coverPaper,
-            coverSides,
-            coverLamination: coverLamination || "None",
-          },
-          breakdown: {
-            insideCost: result.inside.cost,
-            coverCost: result.cover.cost,
-            bindingCost: result.bindingCost,
+            hasLamination: !!coverLamination,
+            laminationType: coverLamination || "None",
           },
         }
       } catch (err) {
@@ -115,18 +118,12 @@ const tools = {
         pageSize: z.string(),
         insidePages: z.number(),
         insidePaper: z.string(),
-        insideSides: z.string(),
         coverPaper: z.string(),
-        coverSides: z.string(),
-        coverLamination: z.string(),
-      }),
-      breakdown: z.object({
-        insideCost: z.number(),
-        coverCost: z.number(),
-        bindingCost: z.number(),
+        hasLamination: z.boolean(),
+        laminationType: z.string(),
       }),
     }),
-    execute: async ({ brokerId, brokerName, brokerCompany, total, perUnit, specs, breakdown }) => {
+    execute: async ({ brokerId, brokerName, brokerCompany, total, perUnit, specs }) => {
       try {
         const projectName = `${specs.quantity} Perfect Bound ${specs.pageSize} - ${specs.insidePages}pp`
 
@@ -141,7 +138,7 @@ const tools = {
             total,
             per_unit: perUnit,
             specs,
-            cost_breakdown: breakdown,
+            cost_breakdown: {}, // No breakdown for broker quotes
             broker_user_id: brokerId,
             broker_company: brokerCompany,
           })
