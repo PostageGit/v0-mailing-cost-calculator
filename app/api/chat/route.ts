@@ -372,7 +372,7 @@ SAVING QUOTES & REFERENCE NUMBERS:
 - After EVERY price calculation, offer: "Would you like me to save this quote so you can reference it later?"
 - If they say yes, ask for their name (just the name, nothing else).
 - Then call save_chat_quote with their name, a short project description, the total, and the full exactSpecs from the calculator.
-- Give them the reference number (e.g. "Your reference number is #5003. You can come back anytime and give me this number to pull it up.")
+- Give them the reference code with the CQ- prefix (e.g. "Your reference number is CQ-5003. You can come back anytime and give me this code to pull it up."). ALWAYS include the CQ- prefix.
 - If a customer gives a reference number, use lookup_quote to retrieve it and show them their saved quote details.
 - NEVER save a quote without asking for the customer's name first.`
 
@@ -729,9 +729,10 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
           .single()
 
         if (error) return { error: `Failed to save quote: ${error.message}` }
+        const refCode = `CQ-${data.ref_number}`
         return {
-          _instruction: "Tell the customer their quote has been saved and give them the reference number. Tell them they can come back anytime and give you this number to pull it up.",
-          refNumber: data.ref_number,
+          _instruction: `Tell the customer their quote has been saved. Their reference number is ${refCode}. Always show the FULL code including the CQ- prefix. Tell them they can come back anytime and give you this code to pull it up.`,
+          referenceNumber: refCode,
           customerName,
           projectName,
           total: `$${total.toFixed(2)}`,
@@ -743,10 +744,10 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
   }),
 
   lookup_quote: tool({
-    description: `Look up a previously saved chat quote by its reference number.
-Call this when a customer provides a reference number to retrieve their quote.`,
+    description: `Look up a previously saved chat quote by its reference code (e.g. CQ-5001).
+Call this when a customer provides a reference code/number. Strip the "CQ-" prefix and pass just the number.`,
     inputSchema: z.object({
-      refNumber: z.number().describe("The quote reference number (e.g. 5001, 5002, etc.)"),
+      refNumber: z.number().describe("The numeric part of the reference code (e.g. if customer says CQ-5001, pass 5001)"),
     }),
     execute: async ({ refNumber }) => {
       try {
@@ -760,10 +761,11 @@ Call this when a customer provides a reference number to retrieve their quote.`,
           .eq("ref_number", refNumber)
           .single()
 
-        if (error || !data) return { error: `Quote #${refNumber} not found.` }
+        const refCode = `CQ-${refNumber}`
+        if (error || !data) return { error: `Quote ${refCode} not found. Make sure you have the correct reference number.` }
         return {
-          _instruction: "Show the customer their saved quote details clearly. Include all specs and pricing. If they want to adjust specs or get a new price, help them.",
-          refNumber: data.ref_number,
+          _instruction: `Show the customer their saved quote details clearly. Always refer to it as ${refCode}. Include all specs and pricing. If they want to adjust specs or get a new price, help them.`,
+          referenceNumber: refCode,
           customerName: data.customer_name,
           projectName: data.project_name,
           productType: data.product_type,
