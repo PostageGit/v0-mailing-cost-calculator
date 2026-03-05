@@ -837,21 +837,38 @@ Call this when a customer provides a reference code/number. Strip the "CQ-" pref
   }),
 }
 
-// Extract a clean transcript from the raw messages for storage
-function buildTranscript(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }>) {
+// Extract a clean transcript from the raw messages for storage.
+// AI SDK useChat sends messages as { role, content?, parts? } where:
+//   - content can be a string OR an array of { type, text } parts
+//   - parts is the AI SDK v6 format: [{ type: "text", text: "..." }, ...]
+// We handle ALL possible shapes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildTranscript(messages: any[]) {
   const transcript: Array<{ role: "customer" | "assistant"; text: string; ts: string }> = []
   const now = new Date().toISOString()
   for (const msg of messages) {
     if (msg.role !== "user" && msg.role !== "assistant") continue
     let text = ""
-    if (typeof msg.content === "string") {
+
+    // 1. Try msg.content (string)
+    if (typeof msg.content === "string" && msg.content.trim()) {
       text = msg.content
-    } else if (Array.isArray(msg.content)) {
+    }
+    // 2. Try msg.content (array of parts)
+    else if (Array.isArray(msg.content)) {
       text = msg.content
-        .filter((p) => p.type === "text" && p.text)
-        .map((p) => p.text)
+        .filter((p: { type?: string; text?: string }) => p.type === "text" && p.text)
+        .map((p: { text: string }) => p.text)
         .join("\n")
     }
+    // 3. Try msg.parts (AI SDK v6 useChat format)
+    if (!text.trim() && Array.isArray(msg.parts)) {
+      text = msg.parts
+        .filter((p: { type?: string; text?: string }) => p.type === "text" && p.text)
+        .map((p: { text: string }) => p.text)
+        .join("\n")
+    }
+
     if (!text.trim()) continue
     // Strip attachment metadata tags from user messages
     text = text.replace(/\[Attached file:.*?\]/g, "").trim()
@@ -862,6 +879,7 @@ function buildTranscript(messages: Array<{ role: string; content?: string | Arra
       ts: now,
     })
   }
+  console.log("[v0] buildTranscript: input msgs:", messages.length, "output:", transcript.length)
   return transcript
 }
 
@@ -871,6 +889,10 @@ let _currentMessages: Array<{ role: string; content?: string | Array<{ type: str
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json()
+    console.log("[v0] RAW messages count:", messages.length)
+    console.log("[v0] RAW message keys sample:", messages.length > 0 ? Object.keys(messages[0]) : "empty")
+    console.log("[v0] RAW first msg:", JSON.stringify(messages[0])?.slice(0, 500))
+    console.log("[v0] RAW last msg:", JSON.stringify(messages[messages.length - 1])?.slice(0, 500))
     _currentMessages = messages
 
     const anthropic = createAnthropic({
