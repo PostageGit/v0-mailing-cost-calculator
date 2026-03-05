@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
-import { ChatBubble } from '@/components/chat-bubble'
+import { ConditionalChatBubble } from '@/components/conditional-chat-bubble'
 import { ChatProvider } from '@/lib/chat-context'
 import { AuthProvider } from '@/lib/auth-context'
 
@@ -35,7 +35,7 @@ export default function RootLayout({
         <AuthProvider>
           <ChatProvider>
             {children}
-            <ChatBubble />
+            <ConditionalChatBubble />
           </ChatProvider>
         </AuthProvider>
       </body>
