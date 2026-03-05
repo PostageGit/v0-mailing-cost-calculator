@@ -2,7 +2,7 @@ import { createAnthropic } from "@ai-sdk/anthropic"
 import { generateText, tool } from "ai"
 import { z } from "zod"
 import { createClient } from "@supabase/supabase-js"
-import { calculatePerfectJob } from "@/lib/perfect-pricing"
+import { calculatePerfect } from "@/lib/perfect-pricing"
 import type { PerfectInputs, PerfectPartInputs } from "@/lib/perfect-types"
 
 const supabase = createClient(
@@ -73,7 +73,7 @@ const tools = {
           inside: insidePart,
           cover: coverPart,
         }
-        const result = calculatePerfectJob(inputs)
+        const result = calculatePerfect(inputs)
         if ("error" in result) {
           return { error: result.error }
         }
