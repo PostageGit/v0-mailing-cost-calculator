@@ -871,6 +871,10 @@ let _currentMessages: Array<{ role: string; content?: string | Array<{ type: str
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json()
+    console.log("[v0] RAW messages count:", messages.length)
+    console.log("[v0] RAW message keys sample:", messages.length > 0 ? Object.keys(messages[0]) : "empty")
+    console.log("[v0] RAW first msg:", JSON.stringify(messages[0])?.slice(0, 500))
+    console.log("[v0] RAW last msg:", JSON.stringify(messages[messages.length - 1])?.slice(0, 500))
     _currentMessages = messages
 
     const anthropic = createAnthropic({
