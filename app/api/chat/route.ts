@@ -762,6 +762,9 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
         const transcript = buildTranscript(_currentMessages)
+        console.log("[v0] _currentMessages count:", _currentMessages.length)
+        console.log("[v0] transcript count:", transcript.length)
+        console.log("[v0] transcript preview:", JSON.stringify(transcript.slice(0, 2)))
 
         const { data, error } = await supabase
           .from("chat_quotes")

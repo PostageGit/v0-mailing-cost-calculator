@@ -273,6 +273,79 @@ export function ChatQuotesDashboard() {
                 {/* Expanded details */}
                 {isExpanded && (
                   <div className="border-t border-border bg-muted/5">
+                    {/* Chat Transcript -- TOP of expanded view */}
+                    <div className="px-4 sm:px-5 py-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowTranscript(showTranscript === q.id ? null : q.id)
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between rounded-lg px-4 py-3.5 text-left transition-colors",
+                          q.chat_transcript && q.chat_transcript.length > 0
+                            ? "bg-blue-50 hover:bg-blue-100 border border-blue-200 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:border-blue-800"
+                            : "bg-muted/30 border border-dashed border-border/50 cursor-default"
+                        )}
+                        disabled={!q.chat_transcript || q.chat_transcript.length === 0}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <MessageSquare className={cn(
+                            "h-5 w-5",
+                            q.chat_transcript && q.chat_transcript.length > 0
+                              ? "text-blue-600 dark:text-blue-400"
+                              : "text-muted-foreground/40"
+                          )} />
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            q.chat_transcript && q.chat_transcript.length > 0
+                              ? "text-blue-900 dark:text-blue-300"
+                              : "text-muted-foreground/50"
+                          )}>
+                            {q.chat_transcript && q.chat_transcript.length > 0
+                              ? `View Conversation (${q.chat_transcript.length} messages)`
+                              : "No conversation recorded"}
+                          </span>
+                        </div>
+                        {q.chat_transcript && q.chat_transcript.length > 0 && (
+                          showTranscript === q.id
+                            ? <ChevronUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            : <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        )}
+                      </button>
+
+                      {showTranscript === q.id && q.chat_transcript && q.chat_transcript.length > 0 && (
+                        <div className="mt-3 max-h-[500px] overflow-y-auto rounded-xl border border-border bg-background shadow-inner">
+                          <div className="flex flex-col gap-1 p-4">
+                            {q.chat_transcript.map((msg, idx) => {
+                              const isCustomer = msg.role === "customer"
+                              return (
+                                <div key={idx} className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
+                                  <div className="flex flex-col max-w-[80%]">
+                                    {(idx === 0 || q.chat_transcript![idx - 1].role !== msg.role) && (
+                                      <span className={cn(
+                                        "text-[10px] font-medium uppercase tracking-wider mb-1 px-1",
+                                        isCustomer ? "text-right text-muted-foreground/50" : "text-left text-blue-500/60"
+                                      )}>
+                                        {isCustomer ? q.customer_name || "Customer" : "Assistant"}
+                                      </span>
+                                    )}
+                                    <div className={cn(
+                                      "rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+                                      isCustomer
+                                        ? "bg-foreground text-background rounded-br-md"
+                                        : "bg-muted text-foreground rounded-bl-md"
+                                    )}>
+                                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Specs section */}
                     <div className="px-4 sm:px-5 py-4">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Job Specifications</h4>
@@ -355,77 +428,6 @@ export function ChatQuotesDashboard() {
                         </div>
                       </div>
                     )}
-
-                    {/* Chat Transcript Toggle */}
-                    <div className="px-4 sm:px-5 py-3 border-t border-border">
-                      <button
-                        onClick={() => setShowTranscript(showTranscript === q.id ? null : q.id)}
-                        className={cn(
-                          "w-full flex items-center justify-between rounded-lg px-4 py-3 text-left transition-colors",
-                          q.chat_transcript && q.chat_transcript.length > 0
-                            ? "bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-950/50"
-                            : "bg-muted/30 cursor-default"
-                        )}
-                        disabled={!q.chat_transcript || q.chat_transcript.length === 0}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <MessageSquare className={cn(
-                            "h-4 w-4",
-                            q.chat_transcript && q.chat_transcript.length > 0
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-muted-foreground/40"
-                          )} />
-                          <span className={cn(
-                            "text-sm font-medium",
-                            q.chat_transcript && q.chat_transcript.length > 0
-                              ? "text-blue-900 dark:text-blue-300"
-                              : "text-muted-foreground/50"
-                          )}>
-                            {q.chat_transcript && q.chat_transcript.length > 0
-                              ? `View Conversation (${q.chat_transcript.length} messages)`
-                              : "No conversation recorded"}
-                          </span>
-                        </div>
-                        {q.chat_transcript && q.chat_transcript.length > 0 && (
-                          showTranscript === q.id
-                            ? <ChevronUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            : <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        )}
-                      </button>
-
-                      {showTranscript === q.id && q.chat_transcript && q.chat_transcript.length > 0 && (
-                        <div className="mt-3 max-h-[500px] overflow-y-auto rounded-xl border border-border bg-background shadow-inner">
-                          <div className="flex flex-col gap-1 p-4">
-                            {q.chat_transcript.map((msg, idx) => {
-                              const isCustomer = msg.role === "customer"
-                              return (
-                                <div key={idx} className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
-                                  <div className="flex flex-col max-w-[80%]">
-                                    {/* Role label */}
-                                    {(idx === 0 || q.chat_transcript![idx - 1].role !== msg.role) && (
-                                      <span className={cn(
-                                        "text-[10px] font-medium uppercase tracking-wider mb-1 px-1",
-                                        isCustomer ? "text-right text-muted-foreground/50" : "text-left text-blue-500/60"
-                                      )}>
-                                        {isCustomer ? q.customer_name || "Customer" : "Assistant"}
-                                      </span>
-                                    )}
-                                    <div className={cn(
-                                      "rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
-                                      isCustomer
-                                        ? "bg-foreground text-background rounded-br-md"
-                                        : "bg-muted text-foreground rounded-bl-md"
-                                    )}>
-                                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
 
                     {/* Customer contact info */}
                     <div className="px-4 sm:px-5 py-4 border-t border-border">
