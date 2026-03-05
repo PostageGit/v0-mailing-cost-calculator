@@ -117,6 +117,7 @@ For FLAT PRINTS:
 3. Color or black & white?
 4. Front only or front and back?
 5. Regular paper or thick cardstock?
+6. Does it have bleed? (design prints to the edge with no white border). Postcards, business cards, door hangers = almost always YES. Text-heavy flyers/letters = usually NO. If unsure, ASK.
 -> Then calculate.
 
 For BOOKS / BOOKLETS:
@@ -146,6 +147,7 @@ For ENVELOPES:
 1. How many?
 2. What size/type envelope? (list common ones: #10, 6x9, 9x12)
 3. Color or black & white?
+4. Does it have bleed? (full coverage printing to the edge). Most envelopes are NO bleed (just a logo/return address). Full-color printed envelopes = YES bleed.
 -> Then calculate.
 
 PAPER KNOWLEDGE -- understand this so you can guide customers:
