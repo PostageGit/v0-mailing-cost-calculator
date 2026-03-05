@@ -138,7 +138,8 @@ For PADS:
 2. What size? (MUST ASK) -- Pads can be ANY size that fits on a parent sheet (up to 12x18). Common sizes: 8.5x11, 5.5x8.5, 4.25x5.5, 4x6, 3.5x5. NEVER tell the customer a size is "too large" unless it literally exceeds 12x18.
 3. How many sheets per pad?
 4. Color or black & white?
-5. Chipboard backing? (default yes)
+5. Does it have bleed? (design prints to the edge -- adds ~0.25" per side, meaning fewer fit per parent sheet = higher cost). Default no bleed.
+6. Chipboard backing? (default yes)
 -> Then calculate. Do NOT invent size restrictions or equipment limitations that don't exist.
 
 For ENVELOPES:
@@ -607,20 +608,25 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pageHeight: z.number().describe("FINISHED height in inches"),
       insidePaper: z.string().describe(`Paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
+      hasBleed: z.boolean().describe("Does the design bleed to the edge? Bleed adds ~0.25in per side so fewer pieces fit per parent sheet. Default false."),
       useChipBoard: z.boolean().describe("Include chipboard backing"),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ padQty, pagesPerPad, pageWidth, pageHeight, insidePaper, insideSides, useChipBoard, isBroker }) => {
+    execute: async ({ padQty, pagesPerPad, pageWidth, pageHeight, insidePaper, insideSides, hasBleed, useChipBoard, isBroker }) => {
       const result = calculatePad({
         padQty, pagesPerPad, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: insideSides, hasBleed: false, sheetSize: "cheapest" },
+        inside: { paperName: insidePaper, sides: insideSides, hasBleed, sheetSize: "cheapest" },
         useChipBoard, customLevel: "auto", isBroker,
       })
       if ("error" in result) return { error: result.error }
       return {
+        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerPad),
-        qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
-        paper: insidePaper, chipBoard: useChipBoard, broker: isBroker,
+        exactSpecs: {
+          qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
+          paper: insidePaper, sides: insideSides, bleed: hasBleed,
+          chipBoard: useChipBoard, broker: isBroker,
+        },
         costBreakdown: { printing: fmt(result.totalPrintingCost), padding: fmt(result.totalPaddingCost), setup: fmt(result.setupCharge) },
       }
     },
