@@ -75,7 +75,7 @@ export const DEFAULT_MARKUPS: Record<string, Record<number, number>> = {
  * Cost model:
  *   baseCost  = setupCost + sheets * runtimeCostPerSheet + sheets * rollCostPerSheet + rollChangeFee
  *   sheets    = max(quantity, minSheets) * (1 + wastePercent)
- *   sell      = baseCost * (1 + markupPercent/100)  [broker gets brokerDiscountPercent off]
+  *   sell      = baseCost * (markupPercent/100)  [broker gets brokerDiscountPercent off]
  *   final     = max(sell, minimumJobPrice)
  */
 export interface FinishingOption {
@@ -610,9 +610,10 @@ export function calculateFinishingCost(
   const sheetsWithWaste = sheets * (1 + finishing.wastePercent)
   const totalBaseCost = finishing.setupCost + sheetsWithWaste * runtimeCostPerSheet + sheetsWithWaste * finishing.rollCostPerSheet + finishing.rollChangeFee
 
+  // 225% markup means selling price = base * 2.25 (NOT base + base*2.25)
   let effectiveMarkup = finishing.markupPercent
   if (isBroker) effectiveMarkup *= (1 - finishing.brokerDiscountPercent / 100)
-  const totalWithMarkup = totalBaseCost * (1 + effectiveMarkup / 100)
+  const totalWithMarkup = totalBaseCost * (effectiveMarkup / 100)
   return Math.max(totalWithMarkup, finishing.minimumJobPrice)
 }
 
