@@ -2,6 +2,8 @@
 import type { PerfectInputs, PerfectPartInputs, PerfectPartResult, PerfectCalcResult, PaperOption } from "./perfect-types"
 import { PAPER_OPTIONS } from "./perfect-types"
 import { SPECIALTY_SHEET_SIZES } from "./printing-pricing"
+import { getActiveConfig } from "./pricing-config"
+import { getLaminationPrice } from "./booklet-pricing"
 
 // ─── Constants ───────────────────────────────────────────
 const BLEED_MARGIN = 0.25
@@ -145,7 +147,8 @@ function calculatePart(
 
   const rule = SIDES_RULES[part.sides]
   if (!rule) return { error: `Printing rule for '${part.sides}' not found.` }
-  const clickData = CLICK_COSTS[rule.clickType]
+  const cfg = getActiveConfig()
+  const clickData = cfg.clickCosts[rule.clickType] || CLICK_COSTS[rule.clickType]
 
   const calcForSize = (sizeStr: string) => {
     const sheet = parseSheetSize(sizeStr)
@@ -153,7 +156,7 @@ function calculatePart(
     if (layout.maxUps === 0) return null
 
     const totalSheets = Math.ceil(bookQty / layout.maxUps) * sheetsPerPart
-    const paperCost = PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
+    const paperCost = cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
@@ -223,34 +226,9 @@ function getBindingPrice(
 }
 
 // ─── Lamination Price ────────────────────────────────────
-export function getLaminationPrice(
-  type: string, coverPaper: string, qty: number, isBroker: boolean
-): number {
-  if (type === "none") return 0
-  const cap = type.charAt(0).toUpperCase() + type.slice(1)
-
-  const runtimeCosts: Record<string, Record<string, number>> = {
-    "80Cover":   { Silk: 0.1333, default: 0.0667 },
-    "Cardstock": { Silk: 0.05,   default: 0.025 },
-  }
-  const rollCosts: Record<string, number> = { Gloss: 0.1058, Matte: 0.1045, Silk: 0.1009, Leather: 0.1045 }
-  const rollChangeFees: Record<string, number> = { Gloss: 0, Matte: 10, Silk: 10, Leather: 10 }
-  const wastePcts: Record<string, number> = { Gloss: 0.05, Matte: 0.05, Silk: 0.10, Leather: 0.05 }
-  const minSheets: Record<string, number> = { Gloss: 5, Matte: 5, Silk: 10, Leather: 5 }
-  const setupCost = 10
-  const baseMarkup = 225
-  const brokerDiscount = 30
-  const minimumJobPrice = 45
-
-  const cat = coverPaper.toLowerCase().includes("80") ? "80Cover" : "Cardstock"
-  const runtime = runtimeCosts[cat][cap] ?? runtimeCosts[cat].default
-  const sheets = Math.max(qty, minSheets[cap] ?? 5)
-  const withWaste = sheets * (1 + (wastePcts[cap] ?? 0.05))
-  const total = setupCost + withWaste * runtime + withWaste * (rollCosts[cap] ?? 0) + (rollChangeFees[cap] ?? 0)
-  let effectiveMarkup = baseMarkup
-  if (isBroker) effectiveMarkup *= (1 - brokerDiscount / 100)
-  return Math.max(total + total * (effectiveMarkup / 100), minimumJobPrice)
-}
+// Uses the shared config-based lamination from booklet-pricing (same engine, reads from settings)
+// getLaminationPrice is imported from booklet-pricing and re-exported for any external consumers
+export { getLaminationPrice } from "./booklet-pricing"
 
 // ─── Main Calculate ──────────────────────────────────────
 export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { error: string } {
