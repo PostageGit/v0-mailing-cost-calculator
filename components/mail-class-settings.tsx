@@ -207,20 +207,22 @@ export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
       {/* Top bar */}
       <header className="flex items-center h-14 px-4 lg:px-6 border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* Mobile nav toggle */}
+          {/* Mobile nav toggle -- shows current section name so it's clear it's tappable */}
           <button
             onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            className="lg:hidden p-2 rounded-lg hover:bg-secondary min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="lg:hidden flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary min-h-[44px] border border-border"
             aria-label="Toggle settings navigation"
           >
-            <Settings className="h-5 w-5 text-muted-foreground" />
+            <Settings className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-sm font-medium text-foreground truncate">{activeItem?.label || "Settings"}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           </button>
           <div className="hidden lg:flex items-center justify-center h-9 w-9 rounded-lg bg-foreground">
             <Settings className="h-4 w-4 text-background" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 hidden lg:block">
             <h1 className="text-base font-bold text-foreground truncate">Settings</h1>
-            <p className="text-xs text-muted-foreground truncate hidden sm:block">
+            <p className="text-xs text-muted-foreground truncate">
               {activeItem?.description || "Configure your system"}
             </p>
           </div>
