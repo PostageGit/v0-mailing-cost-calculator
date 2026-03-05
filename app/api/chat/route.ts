@@ -1,4 +1,5 @@
 import { streamText, tool, convertToModelMessages, stepCountIs } from "ai"
+import { createAnthropic } from "@ai-sdk/anthropic"
 import { z } from "zod"
 import {
   calculateAllSheetOptions,
@@ -760,6 +761,8 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
+        const transcript = buildTranscript(_currentMessages)
+
         const { data, error } = await supabase
           .from("chat_quotes")
           .insert({
@@ -772,6 +775,7 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
             per_unit: perUnit ?? 0,
             specs,
             cost_breakdown: costBreakdown ?? {},
+            chat_transcript: transcript,
           })
           .select("ref_number")
           .single()
@@ -830,12 +834,48 @@ Call this when a customer provides a reference code/number. Strip the "CQ-" pref
   }),
 }
 
+// Extract a clean transcript from the raw messages for storage
+function buildTranscript(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }>) {
+  const transcript: Array<{ role: "customer" | "assistant"; text: string; ts: string }> = []
+  const now = new Date().toISOString()
+  for (const msg of messages) {
+    if (msg.role !== "user" && msg.role !== "assistant") continue
+    let text = ""
+    if (typeof msg.content === "string") {
+      text = msg.content
+    } else if (Array.isArray(msg.content)) {
+      text = msg.content
+        .filter((p) => p.type === "text" && p.text)
+        .map((p) => p.text)
+        .join("\n")
+    }
+    if (!text.trim()) continue
+    // Strip attachment metadata tags from user messages
+    text = text.replace(/\[Attached file:.*?\]/g, "").trim()
+    if (!text) continue
+    transcript.push({
+      role: msg.role === "user" ? "customer" : "assistant",
+      text,
+      ts: now,
+    })
+  }
+  return transcript
+}
+
+// Store the raw messages so save_chat_quote can access them
+let _currentMessages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> = []
+
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json()
+    _currentMessages = messages
+
+    const anthropic = createAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
 
     const result = streamText({
-      model: "anthropic/claude-sonnet-4",
+      model: anthropic("claude-sonnet-4-20250514"),
       system: SYSTEM_PROMPT,
       messages: await convertToModelMessages(messages),
       tools,
