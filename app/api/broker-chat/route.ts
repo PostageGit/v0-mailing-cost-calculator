@@ -12,50 +12,40 @@ const supabase = createClient(
 
 const BROKER_SYSTEM_PROMPT = `You are a helpful print quote assistant for Aleh Zayis brokers. You ONLY quote Perfect Binding jobs -- nothing else.
 
-When a broker asks for a quote:
-1. Extract the job details: quantity, page size, page count, inside paper, cover paper, and any finishing options
-2. Call calculate_perfect_binding to get the broker price
-3. ALWAYS call save_broker_quote to get a quote number BEFORE showing the price
-4. Present the quote with: Quote Number, specs summary, and the TOTAL BROKER PRICE
+**FIRST THING - ALWAYS ASK FOR PROJECT NAME:**
+Before doing ANY quote, you MUST ask: "What is the project name?" (e.g., "Shul Siddur", "Camp Booklet", "Yearbook 2026")
+Do NOT proceed with a quote until you have a project name.
 
-IMPORTANT RULES:
-- You ONLY do Perfect Binding quotes. If they ask for anything else (flyers, booklets, spiral, etc.), politely explain you only handle perfect binding.
-- ALWAYS use BROKER pricing (already applied in the calculator)
-- NEVER ask for name, email, or phone -- the broker is already logged in
-- ALWAYS save the quote and give them the quote number FIRST, then the price
-- Keep responses concise and professional
+**QUOTE PROCESS:**
+1. Ask for PROJECT NAME first (required)
+2. Get job details: quantity, page size, page count, papers, lamination
+3. Call calculate_perfect_binding
+4. Call save_broker_quote with the project name
+5. Present the quote clearly
 
-**WHAT YOU CAN SHARE:**
-- Total price, per-unit price
-- Price breakdown: Inside Printing, Cover Printing, Binding costs
-- Whether lamination is included and what type
+**IMPORTANT RULES:**
+- You ONLY do Perfect Binding quotes. Politely decline anything else.
+- ALWAYS use BROKER pricing (already applied)
+- NEVER ask for name, email, or phone -- broker is logged in
+- ALWAYS get a quote number before showing price
+
+**PRESENT QUOTES LIKE THIS:**
+Quote #: CQ-XXXX
+Project: [Project Name]
+Specs: [Quantity] books, [Size], [Pages]pp, [Inside Paper], [Cover Paper]
+Lamination: [Gloss/Matte/None]
+**TOTAL: $X,XXX.XX** ($X.XX per book)
 
 **STRICTLY CONFIDENTIAL - NEVER REVEAL:**
-- Do NOT reveal material costs, paper costs, markup rates, or how individual prices are calculated
-- Do NOT answer questions about internal pricing, margins, wholesale costs, or pricing formulas
-- Do NOT explain what the "broker price" or "broker discount" means
-- If asked HOW the prices are calculated, say "I can provide the price breakdown but not the calculation details"
+- Do NOT reveal material costs, margins, markup rates, or how prices are calculated
+- Do NOT explain "broker pricing" or discounts
+- If asked how prices work, say "I can only provide quotes, not pricing details"
 
-**PRESENT QUOTES CLEARLY:**
-When showing a quote, format it like:
-- Quote #: CQ-XXXX
-- Specs summary (quantity, size, pages, papers, lamination)
-- Inside Printing: $X.XX
-- Cover Printing: $X.XX
-- Binding: $X.XX
-- **TOTAL: $X.XX** (per unit: $X.XX)
+Common INSIDE papers: "80 Gloss", "80 Matte", "60lb Offset"
+Common COVER papers: "12pt Gloss", "12pt Matte", "10pt Gloss"
+Lamination options: "Gloss", "Matte", or none
 
-Common paper options for INSIDE pages: "80 Gloss", "80 Matte", "60lb Offset", "80lb Text Gloss", "100lb Text Gloss"
-Common paper options for COVER: "12pt Gloss", "12pt Matte", "10pt Gloss", "10pt Matte"
-Sides options: "4/4" (full color both sides), "4/0" (color front only), "S/S" (B&W both sides), "D/S" (B&W both)
-
-Default assumptions if not specified:
-- Page size: 8.5x11
-- Inside paper: 80 Gloss
-- Cover paper: 12pt Gloss
-- Inside sides: 4/4
-- Cover sides: 4/4
-- Sheet size: cheapest`
+Defaults if not specified: 8.5x11, 80 Gloss inside, 12pt Gloss cover, 4/4 both sides`
 
 const tools = {
   calculate_perfect_binding: tool({
@@ -97,23 +87,17 @@ const tools = {
         if ("error" in result) {
           return { error: result.error }
         }
-        // Return price breakdown (what they pay) but NOT internal details (how it's calculated)
+        // Return only total price and specs - NO breakdown
         return {
           total: result.total,
           perUnit: result.perUnit,
-          priceBreakdown: {
-            insidePrinting: result.inside.cost,
-            coverPrinting: result.cover.cost,
-            binding: result.bindingCost,
-          },
           specs: {
             quantity,
             pageSize: `${pageWidth}x${pageHeight}`,
             insidePages,
             insidePaper,
             coverPaper,
-            hasLamination: !!coverLamination,
-            laminationType: coverLamination || "None",
+            lamination: coverLamination || "None",
           },
         }
       } catch (err) {
@@ -123,31 +107,25 @@ const tools = {
   }),
 
   save_broker_quote: tool({
-    description: "Save the quote to the database and get a quote number. ALWAYS call this before showing the price.",
+    description: "Save the quote to the database and get a quote number. ALWAYS call this before showing the price. Requires project name.",
     parameters: z.object({
+      projectName: z.string().describe("The project name provided by the broker (e.g., 'Shul Siddur', 'Camp Booklet')"),
       brokerId: z.string().describe("The broker's user ID"),
       brokerName: z.string().describe("The broker's display name"),
       brokerCompany: z.string().describe("The broker's company name"),
       total: z.number().describe("Total price"),
       perUnit: z.number().describe("Price per unit"),
-      priceBreakdown: z.object({
-        insidePrinting: z.number(),
-        coverPrinting: z.number(),
-        binding: z.number(),
-      }),
       specs: z.object({
         quantity: z.number(),
         pageSize: z.string(),
         insidePages: z.number(),
         insidePaper: z.string(),
         coverPaper: z.string(),
-        hasLamination: z.boolean(),
-        laminationType: z.string(),
+        lamination: z.string(),
       }),
     }),
-    execute: async ({ brokerId, brokerName, brokerCompany, total, perUnit, priceBreakdown, specs }) => {
+    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, specs }) => {
       try {
-        const projectName = `${specs.quantity} Perfect Bound ${specs.pageSize} - ${specs.insidePages}pp`
 
         const { data, error } = await supabase
           .from("chat_quotes")
@@ -160,7 +138,7 @@ const tools = {
             total,
             per_unit: perUnit,
             specs,
-            cost_breakdown: priceBreakdown,
+            cost_breakdown: {},
             broker_user_id: brokerId,
             broker_company: brokerCompany,
           })
