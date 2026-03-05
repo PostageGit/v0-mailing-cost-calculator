@@ -1,3 +1,7 @@
+// Broker Chat Route V3 - forced reload
+export const dynamic = "force-dynamic"
+export const maxDuration = 60
+
 import { createAnthropic } from "@ai-sdk/anthropic"
 import { streamText, tool, convertToModelMessages } from "ai"
 import { z } from "zod"
