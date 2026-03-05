@@ -25,12 +25,12 @@ interface ChatQuote {
 }
 
 const PRODUCT_COLORS: Record<string, string> = {
-  flat: "bg-blue-500/15 text-blue-700",
-  booklet: "bg-green-500/15 text-green-700",
-  perfect: "bg-purple-500/15 text-purple-700",
-  spiral: "bg-orange-500/15 text-orange-700",
-  pad: "bg-yellow-500/15 text-yellow-700",
-  envelope: "bg-pink-500/15 text-pink-700",
+  flat: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+  booklet: "bg-green-500/15 text-green-700 dark:text-green-400",
+  perfect: "bg-purple-500/15 text-purple-700 dark:text-purple-400",
+  spiral: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
+  pad: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
+  envelope: "bg-pink-500/15 text-pink-700 dark:text-pink-400",
 }
 
 const formatKey = (key: string) =>
@@ -99,241 +99,221 @@ export function ChatQuotesDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-6 px-4 sm:px-6 py-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Chat Quotes</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Quotes saved by customers from the AI chat assistant
-        </p>
-      </div>
-
-      {/* Search & refresh */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, project, CQ-number, or product type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-11 pl-10 text-sm"
-          />
+    <div className="flex flex-col gap-3 px-3 sm:px-5 py-4">
+      {/* Header + Search row */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-lg font-bold text-foreground">Chat Quotes</h1>
+        <div className="flex items-center gap-2 flex-1 max-w-md min-w-[200px]">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search name, project, CQ-#..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={loadQuotes}>
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
         </div>
-        <Button variant="outline" size="sm" className="h-11 px-4 min-w-[44px]" onClick={loadQuotes}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
       </div>
 
-      {/* Active / Archived tabs */}
-      <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 w-fit">
-        <button
-          onClick={() => setViewFilter("active")}
-          className={cn(
-            "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-            viewFilter === "active"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          Active
-          {activeQuotes.length > 0 && (
+      {/* Stats bar + tabs -- single compact row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5">
+          <button
+            onClick={() => setViewFilter("active")}
+            className={cn(
+              "flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors",
+              viewFilter === "active"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Active
             <span className={cn(
-              "text-xs font-bold rounded-full px-2 py-0.5 min-w-[24px] text-center",
+              "text-[10px] font-bold rounded-full px-1.5 py-px min-w-[18px] text-center",
               viewFilter === "active" ? "bg-foreground text-background" : "bg-muted-foreground/20 text-muted-foreground"
             )}>
               {activeQuotes.length}
             </span>
-          )}
-        </button>
-        <button
-          onClick={() => setViewFilter("archived")}
-          className={cn(
-            "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-            viewFilter === "archived"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Archive className="h-3.5 w-3.5" />
-          Archived
-          {archivedQuotes.length > 0 && (
-            <span className={cn(
-              "text-xs font-bold rounded-full px-2 py-0.5 min-w-[24px] text-center",
-              viewFilter === "archived" ? "bg-foreground text-background" : "bg-muted-foreground/20 text-muted-foreground"
-            )}>
-              {archivedQuotes.length}
-            </span>
-          )}
-        </button>
-      </div>
+          </button>
+          <button
+            onClick={() => setViewFilter("archived")}
+            className={cn(
+              "flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors",
+              viewFilter === "archived"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Archive className="h-3 w-3" />
+            Archived
+            {archivedQuotes.length > 0 && (
+              <span className={cn(
+                "text-[10px] font-bold rounded-full px-1.5 py-px min-w-[18px] text-center",
+                viewFilter === "archived" ? "bg-foreground text-background" : "bg-muted-foreground/20 text-muted-foreground"
+              )}>
+                {archivedQuotes.length}
+              </span>
+            )}
+          </button>
+        </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-border p-4">
-          <p className="text-xs text-muted-foreground">{viewFilter === "archived" ? "Archived" : "Active"} Quotes</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{visibleQuotes.length}</p>
-        </div>
-        <div className="rounded-xl border border-border p-4">
-          <p className="text-xs text-muted-foreground">Total Value</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {"$"}{visibleQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border p-4">
-          <p className="text-xs text-muted-foreground">This Month</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {visibleQuotes.filter((q) => {
-              const d = new Date(q.created_at)
-              const now = new Date()
-              return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-            }).length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border p-4">
-          <p className="text-xs text-muted-foreground">Avg Quote</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {"$"}{visibleQuotes.length > 0
-              ? (visibleQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0) / visibleQuotes.length).toFixed(2)
-              : "0.00"}
-          </p>
+        <div className="h-4 w-px bg-border hidden sm:block" />
+
+        {/* Inline stats */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span>
+            <span className="font-semibold text-foreground">{visibleQuotes.length}</span> quotes
+          </span>
+          <span>
+            {"$"}<span className="font-semibold text-foreground">
+              {visibleQuotes.reduce((s, q) => s + Number(q.total || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span> total
+          </span>
+          <span className="hidden sm:inline">
+            {"$"}<span className="font-semibold text-foreground">
+              {visibleQuotes.length > 0
+                ? (visibleQuotes.reduce((s, q) => s + Number(q.total || 0), 0) / visibleQuotes.length).toFixed(2)
+                : "0.00"}
+            </span> avg
+          </span>
         </div>
       </div>
 
       {/* Quote list */}
       {filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {searchTerm ? "No quotes match your search." : "No chat quotes saved yet. Quotes will appear here when customers save them from the chat."}
+        <div className="text-center py-10">
+          <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground">
+            {searchTerm ? "No quotes match your search." : "No chat quotes yet."}
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
           {filtered.map((q) => {
             const isExpanded = expandedId === q.id
             const specs = q.specs || {}
             const breakdown = q.cost_breakdown || {}
             const productColor = PRODUCT_COLORS[q.product_type] || "bg-muted text-muted-foreground"
+            const hasTranscript = q.chat_transcript && q.chat_transcript.length > 0
+
             return (
-              <div key={q.id} className="rounded-xl border border-border overflow-hidden">
-                {/* Header row */}
+              <div key={q.id} className={cn(
+                "rounded-lg border overflow-hidden transition-colors",
+                isExpanded ? "border-border" : "border-border/60 hover:border-border"
+              )}>
+                {/* Header row -- compact */}
                 <button
                   className={cn(
-                    "w-full flex items-center justify-between px-4 sm:px-5 py-4 text-left transition-colors min-h-[64px]",
-                    isExpanded ? "bg-muted/40" : "hover:bg-muted/20"
+                    "w-full flex items-center justify-between px-3 py-2.5 text-left transition-colors",
+                    isExpanded ? "bg-muted/30" : "hover:bg-muted/10"
                   )}
-                  onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                  onClick={() => {
+                    setExpandedId(isExpanded ? null : q.id)
+                    if (isExpanded) setShowTranscript(null)
+                  }}
                 >
-                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="flex items-center justify-center h-11 min-w-[60px] rounded-lg bg-foreground shrink-0 px-2">
-                      <span className="text-xs font-bold text-background">{formatChatQuoteRef(q.ref_number)}</span>
-                    </div>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="flex items-center justify-center h-7 min-w-[52px] rounded bg-foreground px-1.5 shrink-0">
+                      <span className="text-[10px] font-bold text-background">{formatChatQuoteRef(q.ref_number)}</span>
+                    </span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground truncate">{q.project_name}</p>
-                        <span className={cn("text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0", productColor)}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">{q.project_name}</span>
+                        <span className={cn("text-[9px] font-bold uppercase px-1.5 py-px rounded-full", productColor)}>
                           {q.product_type}
                         </span>
+                        {hasTranscript && (
+                          <MessageSquare className="h-3 w-3 text-blue-500 shrink-0" />
+                        )}
+                        {q.attachments?.length > 0 && (
+                          <span className="flex items-center gap-0.5 text-muted-foreground">
+                            <Paperclip className="h-2.5 w-2.5" />
+                            <span className="text-[10px]">{q.attachments.length}</span>
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-[11px] text-muted-foreground truncate">
                         {q.customer_name || "No name"}
                         {q.customer_phone && <> &middot; {q.customer_phone}</>}
-                        {" "}&middot; {new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {" "}&middot; {new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         {" "}{new Date(q.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    {q.chat_transcript && q.chat_transcript.length > 0 && (
-                      <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400" title="Has conversation">
-                        <MessageSquare className="h-3 w-3" />
-                      </span>
-                    )}
-                    {(q.attachments?.length > 0) && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Paperclip className="h-3 w-3" />
-                        {q.attachments.length}
-                      </span>
-                    )}
-                    <span className="text-base font-bold text-foreground">${Number(q.total).toFixed(2)}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-bold text-foreground">{"$"}{Number(q.total).toFixed(2)}</span>
                     {isExpanded
-                      ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                      : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                      : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                     }
                   </div>
                 </button>
 
-                {/* Expanded details */}
+                {/* Expanded details -- compact */}
                 {isExpanded && (
-                  <div className="border-t border-border bg-muted/5">
-                    {/* Chat Transcript -- TOP of expanded view */}
-                    <div className="px-4 sm:px-5 py-3">
+                  <div className="border-t border-border">
+                    {/* Conversation button */}
+                    <div className="px-3 pt-2.5 pb-1.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowTranscript(showTranscript === q.id ? null : q.id)
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between rounded-lg px-4 py-3.5 text-left transition-colors",
-                          q.chat_transcript && q.chat_transcript.length > 0
+                          "w-full flex items-center justify-between rounded-md px-3 py-2 text-left transition-colors text-xs",
+                          hasTranscript
                             ? "bg-blue-50 hover:bg-blue-100 border border-blue-200 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:border-blue-800"
-                            : "bg-muted/30 border border-dashed border-border/50 cursor-default"
+                            : "bg-muted/20 border border-dashed border-border/40 cursor-default"
                         )}
-                        disabled={!q.chat_transcript || q.chat_transcript.length === 0}
+                        disabled={!hasTranscript}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <MessageSquare className={cn(
-                            "h-5 w-5",
-                            q.chat_transcript && q.chat_transcript.length > 0
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-muted-foreground/40"
-                          )} />
-                          <span className={cn(
-                            "text-sm font-semibold",
-                            q.chat_transcript && q.chat_transcript.length > 0
-                              ? "text-blue-900 dark:text-blue-300"
-                              : "text-muted-foreground/50"
-                          )}>
-                            {q.chat_transcript && q.chat_transcript.length > 0
-                              ? `View Conversation (${q.chat_transcript.length} messages)`
-                              : "No conversation recorded"}
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className={cn("h-3.5 w-3.5", hasTranscript ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground/30")} />
+                          <span className={cn("font-medium", hasTranscript ? "text-blue-800 dark:text-blue-300" : "text-muted-foreground/40")}>
+                            {hasTranscript ? `Conversation (${q.chat_transcript!.length} msgs)` : "No conversation"}
                           </span>
                         </div>
-                        {q.chat_transcript && q.chat_transcript.length > 0 && (
+                        {hasTranscript && (
                           showTranscript === q.id
-                            ? <ChevronUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                            : <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            ? <ChevronUp className="h-3 w-3 text-blue-500" />
+                            : <ChevronDown className="h-3 w-3 text-blue-500" />
                         )}
                       </button>
 
-                      {showTranscript === q.id && q.chat_transcript && q.chat_transcript.length > 0 && (
-                        <div className="mt-3 max-h-[500px] overflow-y-auto rounded-xl border border-border bg-background shadow-inner">
-                          <div className="flex flex-col gap-1 p-4">
-                            {q.chat_transcript.map((msg, idx) => {
+                      {/* Transcript thread */}
+                      {showTranscript === q.id && hasTranscript && (
+                        <div className="mt-2 max-h-[360px] overflow-y-auto rounded-md border border-border bg-background">
+                          <div className="flex flex-col gap-0.5 p-2.5">
+                            {q.chat_transcript!.map((msg, idx) => {
                               const isCustomer = msg.role === "customer"
+                              const showLabel = idx === 0 || q.chat_transcript![idx - 1].role !== msg.role
                               return (
-                                <div key={idx} className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
-                                  <div className="flex flex-col max-w-[80%]">
-                                    {(idx === 0 || q.chat_transcript![idx - 1].role !== msg.role) && (
-                                      <span className={cn(
-                                        "text-[10px] font-medium uppercase tracking-wider mb-1 px-1",
-                                        isCustomer ? "text-right text-muted-foreground/50" : "text-left text-blue-500/60"
-                                      )}>
-                                        {isCustomer ? q.customer_name || "Customer" : "Assistant"}
-                                      </span>
-                                    )}
+                                <div key={idx}>
+                                  {showLabel && (
+                                    <p className={cn(
+                                      "text-[9px] font-semibold uppercase tracking-wider mt-1.5 mb-0.5 px-0.5",
+                                      isCustomer ? "text-right text-muted-foreground/40" : "text-left text-blue-400/60"
+                                    )}>
+                                      {isCustomer ? q.customer_name || "Customer" : "Assistant"}
+                                    </p>
+                                  )}
+                                  <div className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
                                     <div className={cn(
-                                      "rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed",
+                                      "max-w-[80%] rounded-xl px-3 py-1.5 text-xs leading-relaxed",
                                       isCustomer
-                                        ? "bg-foreground text-background rounded-br-md"
-                                        : "bg-muted text-foreground rounded-bl-md"
+                                        ? "bg-foreground text-background rounded-br-sm"
+                                        : "bg-muted text-foreground rounded-bl-sm"
                                     )}>
                                       <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                                     </div>
@@ -346,157 +326,111 @@ export function ChatQuotesDashboard() {
                       )}
                     </div>
 
-                    {/* Specs section */}
-                    <div className="px-4 sm:px-5 py-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Job Specifications</h4>
-                      {Object.keys(specs).length > 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
-                          {Object.entries(specs).map(([key, value]) => (
-                            <div key={key}>
-                              <p className="text-[11px] text-muted-foreground">{formatKey(key)}</p>
-                              <p className="text-sm font-medium text-foreground">
-                                {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
-                              </p>
-                            </div>
-                          ))}
+                    {/* Specs + breakdown side by side on wider screens */}
+                    <div className="px-3 py-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {/* Specs */}
+                      <div>
+                        <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">Specs</h4>
+                        {Object.keys(specs).length > 0 ? (
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                            {Object.entries(specs).map(([key, value]) => (
+                              <div key={key} className="flex items-baseline gap-1 min-w-0">
+                                <span className="text-[10px] text-muted-foreground shrink-0">{formatKey(key)}:</span>
+                                <span className="text-[11px] font-medium text-foreground truncate">
+                                  {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground/40">None</p>
+                        )}
+                      </div>
+
+                      {/* Breakdown */}
+                      {Object.keys(breakdown).length > 0 && (
+                        <div>
+                          <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">Breakdown</h4>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                            {Object.entries(breakdown).map(([key, value]) => (
+                              <div key={key} className="flex items-baseline gap-1 min-w-0">
+                                <span className="text-[10px] text-muted-foreground shrink-0">{formatKey(key)}:</span>
+                                <span className="text-[11px] font-semibold text-foreground truncate">{String(value)}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No specs recorded.</p>
                       )}
                     </div>
 
-                    {/* Cost breakdown section */}
-                    {Object.keys(breakdown).length > 0 && (
-                      <div className="px-4 sm:px-5 py-4 border-t border-border">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Cost Breakdown</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
-                          {Object.entries(breakdown).map(([key, value]) => (
-                            <div key={key}>
-                              <p className="text-[11px] text-muted-foreground">{formatKey(key)}</p>
-                              <p className="text-sm font-bold text-foreground">{String(value)}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Attachments section */}
+                    {/* Attachments -- inline compact */}
                     {q.attachments?.length > 0 && (
-                      <div className="px-4 sm:px-5 py-4 border-t border-border">
-                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">
+                      <div className="px-3 pb-2">
+                        <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">
                           Attachments ({q.attachments.length})
                         </h4>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           {q.attachments.map((att, idx) => {
-                            const isPdf = att.type === "application/pdf"
                             const isImage = att.type?.startsWith("image/")
                             return (
-                              <div key={idx} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                                {/* Thumbnail for images */}
+                              <a
+                                key={idx}
+                                href={att.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 hover:bg-muted/30 transition-colors group"
+                              >
                                 {isImage ? (
-                                  <div className="h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted">
-                                    <img
-                                      src={att.url}
-                                      alt={att.filename}
-                                      className="h-full w-full object-cover"
-                                      crossOrigin="anonymous"
-                                    />
-                                  </div>
+                                  <ImageIcon className="h-3 w-3 text-muted-foreground group-hover:text-foreground" />
                                 ) : (
-                                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-500/10">
-                                    <FileText className="h-5 w-5 text-red-600" />
-                                  </div>
+                                  <FileText className="h-3 w-3 text-red-500" />
                                 )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-medium text-foreground truncate">{att.filename}</p>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    {isPdf ? "PDF" : "Image"} &middot; {att.size ? `${(att.size / 1024).toFixed(0)}KB` : ""}
-                                  </p>
-                                </div>
-                                <a
-                                  href={att.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                  aria-label={`Open ${att.filename}`}
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </a>
-                              </div>
+                                <span className="text-[10px] font-medium text-foreground truncate max-w-[120px]">{att.filename}</span>
+                                <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/40 group-hover:text-muted-foreground" />
+                              </a>
                             )
                           })}
                         </div>
                       </div>
                     )}
 
-                    {/* Customer contact info */}
-                    <div className="px-4 sm:px-5 py-4 border-t border-border">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Customer Info</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
-                        <div>
-                          <p className="text-[11px] text-muted-foreground">Name</p>
-                          <p className="text-sm font-semibold text-foreground">{q.customer_name || "N/A"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-muted-foreground">Email</p>
-                          <p className="text-sm font-semibold text-foreground">
-                            {q.customer_email ? (
-                              <a href={`mailto:${q.customer_email}`} className="underline underline-offset-2">{q.customer_email}</a>
-                            ) : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-muted-foreground">Phone</p>
-                          <p className="text-sm font-semibold text-foreground">
-                            {q.customer_phone ? (
-                              <a href={`tel:${q.customer_phone}`} className="underline underline-offset-2">{q.customer_phone}</a>
-                            ) : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-muted-foreground">Date & Time</p>
-                          <p className="text-sm font-semibold text-foreground">
-                            {new Date(q.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-                            {" "}at {new Date(q.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Summary footer */}
-                    <div className="px-4 sm:px-5 py-4 border-t border-border bg-muted/20 flex items-center justify-between flex-wrap gap-3">
-                      <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
-                        {q.per_unit > 0 && (
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Per Unit</p>
-                            <p className="text-sm font-semibold text-foreground">{"$"}{Number(q.per_unit).toFixed(4)}</p>
-                          </div>
+                    {/* Footer: contact + actions */}
+                    <div className="px-3 py-2 border-t border-border bg-muted/10 flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+                        <span className="font-medium text-foreground">{q.customer_name || "N/A"}</span>
+                        {q.customer_email && (
+                          <a href={`mailto:${q.customer_email}`} className="hover:text-foreground underline underline-offset-2">{q.customer_email}</a>
                         )}
+                        {q.customer_phone && (
+                          <a href={`tel:${q.customer_phone}`} className="hover:text-foreground underline underline-offset-2">{q.customer_phone}</a>
+                        )}
+                        {q.per_unit > 0 && (
+                          <span>{"$"}{Number(q.per_unit).toFixed(4)}/ea</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           className={cn(
-                            "h-9 gap-2 text-xs",
+                            "h-7 gap-1.5 text-[10px] px-2.5",
                             q.archived
-                              ? "border-green-300 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
-                              : "border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                              ? "border-green-300 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400"
+                              : "border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400"
                           )}
                           disabled={archiving === q.id}
                           onClick={() => toggleArchive(q.id, !q.archived)}
                         >
                           {archiving === q.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           ) : q.archived ? (
-                            <ArchiveRestore className="h-3.5 w-3.5" />
+                            <ArchiveRestore className="h-3 w-3" />
                           ) : (
-                            <Archive className="h-3.5 w-3.5" />
+                            <Archive className="h-3 w-3" />
                           )}
                           {q.archived ? "Restore" : "Archive"}
                         </Button>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
-                        <p className="text-xl font-bold text-foreground">{"$"}{Number(q.total).toFixed(2)}</p>
+                        <span className="text-sm font-bold text-foreground">{"$"}{Number(q.total).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
