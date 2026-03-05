@@ -1857,99 +1857,97 @@ function PricingSettingsTab() {
     setDirty(true)
   }
 
-  const sections: { key: PricingSection; label: string }[] = [
-    { key: "click", label: "Click Costs" },
-    { key: "flat", label: "Flat Paper Prices" },
-    { key: "booklet", label: "Booklet Paper Prices" },
-    { key: "markups", label: "Markup Levels" },
+  const sections: { key: PricingSection; label: string; description: string }[] = [
+    { key: "click", label: "Click Costs", description: "Toner/ink and machine wear cost per impression" },
+    { key: "flat", label: "Flat Paper Prices", description: "Paper cost per 1,000 sheets for flat printing (flyers, postcards, etc.)" },
+    { key: "booklet", label: "Book Paper Prices", description: "Paper cost per 1,000 sheets for saddle-stitch, perfect, and spiral binding" },
+    { key: "markups", label: "Markup Levels", description: "Printing markup multipliers by quantity level" },
   ]
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">Pricing Configuration</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Edit click costs, paper prices, and markup levels. Changes apply to both Flat and Saddle Stitch calculators.
-        </p>
-      </div>
-
+    <div className="flex flex-col gap-6">
       {/* Section picker */}
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         {sections.map((s) => (
-          <Button
+          <button
             key={s.key}
-            variant={section === s.key ? "secondary" : "ghost"}
-            size="sm"
-            className="text-xs h-7"
             onClick={() => { setSection(s.key); setDirty(false) }}
+            className={cn(
+              "px-4 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px]",
+              section === s.key
+                ? "bg-foreground text-background"
+                : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+            )}
           >
             {s.label}
-          </Button>
+          </button>
         ))}
       </div>
 
+      {/* Section description */}
+      <p className="text-sm text-muted-foreground">
+        {sections.find((s) => s.key === section)?.description}
+      </p>
+
       {/* Save / Reset bar */}
-      <div className="flex items-center gap-2">
-        <Button size="sm" className="h-7 text-xs gap-1" onClick={saveSection} disabled={saving}>
-          <Save className="h-3 w-3" />
+      <div className="flex items-center gap-3">
+        <Button size="sm" className="h-10 text-sm gap-2 px-5" onClick={saveSection} disabled={saving}>
+          <Save className="h-4 w-4" />
           {saving ? "Saving..." : "Save Changes"}
         </Button>
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSection}>
+        <Button variant="outline" size="sm" className="h-10 text-sm px-4" onClick={resetSection}>
           Reset to Defaults
         </Button>
-        {dirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved changes</span>}
+        {dirty && <span className="text-xs text-amber-500 font-medium ml-2">Unsaved changes</span>}
       </div>
 
       <Separator />
 
       {/* Click Costs */}
       {section === "click" && (
-        <div className="flex flex-col gap-3">
-          <p className="text-xs text-muted-foreground">
-            Cost per click for B&W and Color printing. "Regular" is the toner/ink cost, "Machine" is the machine wear cost.
-          </p>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left font-medium text-muted-foreground px-3 py-2">Type</th>
-                  <th className="text-right font-medium text-muted-foreground px-3 py-2">Regular</th>
-                  <th className="text-right font-medium text-muted-foreground px-3 py-2">Machine</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(clickCosts).map(([type, costs]) => (
-                  <tr key={type} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2 font-medium text-foreground">{type}</td>
-                    <td className="px-3 py-1.5 text-right">
-                      <Input
-                        type="number"
-                        step="0.0001"
-                        value={costs.regular}
-                        onChange={(e) => {
-                          setClickCosts((p) => ({ ...p, [type]: { ...p[type], regular: parseFloat(e.target.value) || 0 } }))
-                          setDirty(true)
-                        }}
-                        className="h-7 text-xs w-24 ml-auto text-right"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5 text-right">
-                      <Input
-                        type="number"
-                        step="0.0001"
-                        value={costs.machine}
-                        onChange={(e) => {
-                          setClickCosts((p) => ({ ...p, [type]: { ...p[type], machine: parseFloat(e.target.value) || 0 } }))
-                          setDirty(true)
-                        }}
-                        className="h-7 text-xs w-24 ml-auto text-right"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="flex flex-col gap-4">
+          {Object.entries(clickCosts).map(([type, costs]) => (
+            <div key={type} className="rounded-xl border border-border p-5">
+              <h4 className="text-sm font-bold text-foreground mb-4">{type} Clicks</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Regular (toner/ink)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={costs.regular}
+                      onChange={(e) => {
+                        setClickCosts((p) => ({ ...p, [type]: { ...p[type], regular: parseFloat(e.target.value) || 0 } }))
+                        setDirty(true)
+                      }}
+                      className="h-11 text-sm pl-7 text-right"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Machine (wear)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={costs.machine}
+                      onChange={(e) => {
+                        setClickCosts((p) => ({ ...p, [type]: { ...p[type], machine: parseFloat(e.target.value) || 0 } }))
+                        setDirty(true)
+                      }}
+                      className="h-11 text-sm pl-7 text-right"
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Total per click: <span className="font-semibold text-foreground">${(costs.regular + costs.machine).toFixed(4)}</span>
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
@@ -1958,7 +1956,7 @@ function PricingSettingsTab() {
         <PaperPriceEditor
           prices={flatPrices}
           onChange={(updated) => { setFlatPrices(updated); setDirty(true) }}
-          label="Flat Printing"
+          usedBy="Flat printing (flyers, postcards, business cards, etc.)"
         />
       )}
 
@@ -1967,115 +1965,118 @@ function PricingSettingsTab() {
         <PaperPriceEditor
           prices={bookletPrices}
           onChange={(updated) => { setBookletPrices(updated); setDirty(true) }}
-          label="Saddle Stitch / Booklet"
+          usedBy="Saddle-stitch, perfect binding, and spiral binding"
         />
       )}
 
       {/* Markup Levels */}
       {section === "markups" && (
-        <div className="flex flex-col gap-3">
-          <p className="text-xs text-muted-foreground">
-            Markup multipliers per quantity level. These apply to both Flat and Saddle Stitch calculators.
-          </p>
-          <div className="rounded-lg border border-border overflow-hidden overflow-x-auto">
-            <table className="w-full text-xs min-w-[600px]">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left font-medium text-muted-foreground px-3 py-2 sticky left-0 bg-muted/50">Category</th>
-                  {LEVEL_LABELS.map((l) => (
-                    <th key={l.level} className="text-center font-medium text-muted-foreground px-1.5 py-2 whitespace-nowrap">
-                      {l.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(markups).map(([category, levels]) => (
-                  <tr key={category} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2 font-medium text-foreground whitespace-nowrap sticky left-0 bg-card">{category}</td>
-                    {LEVEL_LABELS.map((l) => (
-                      <td key={l.level} className="px-1 py-1">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={levels[l.level] ?? 0}
-                          onChange={(e) => {
-                            setMarkups((p) => {
-                              const updated = structuredClone(p)
-                              updated[category][l.level] = parseFloat(e.target.value) || 0
-                              return updated
-                            })
-                            setDirty(true)
-                          }}
-                          className="h-6 text-[10px] w-14 text-center px-1"
-                        />
-                      </td>
-                    ))}
-                  </tr>
+        <div className="flex flex-col gap-4">
+          {Object.entries(markups).map(([category, levels]) => (
+            <div key={category} className="rounded-xl border border-border p-5">
+              <h4 className="text-sm font-bold text-foreground mb-4">{category} Markup</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {LEVEL_LABELS.map((l) => (
+                  <div key={l.level}>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">{l.label}</label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={levels[l.level] ?? 0}
+                        onChange={(e) => {
+                          setMarkups((p) => {
+                            const updated = structuredClone(p)
+                            updated[category][l.level] = parseFloat(e.target.value) || 0
+                            return updated
+                          })
+                          setDirty(true)
+                        }}
+                        className="h-10 text-sm text-right pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">x</span>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-// Reusable paper price editor for flat and booklet
+// Reusable paper price editor -- shows prices per 1,000 sheets
 function PaperPriceEditor({
   prices,
   onChange,
-  label,
+  usedBy,
 }: {
   prices: Record<string, Record<string, number>>
   onChange: (updated: Record<string, Record<string, number>>) => void
-  label: string
+  usedBy: string
 }) {
   const [expandedPaper, setExpandedPaper] = useState<string | null>(null)
-
-  // Collect all unique sizes across all papers
-  const allSizes = Array.from(
-    new Set(Object.values(prices).flatMap((sizes) => Object.keys(sizes)))
-  ).sort()
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground">
-        Per-sheet paper costs for {label}. Click a paper type to expand and edit prices per size.
+        Used by: {usedBy}. Prices shown are <span className="font-semibold text-foreground">per 1,000 sheets</span>.
       </p>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         {Object.entries(prices).map(([paper, sizes]) => {
           const isExpanded = expandedPaper === paper
+          const sizeCount = Object.keys(sizes).length
+          // Show the cheapest price per 1000 as a preview
+          const cheapest = Math.min(...Object.values(sizes)) * 1000
           return (
-            <div key={paper} className="rounded-lg border border-border">
+            <div key={paper} className="rounded-xl border border-border overflow-hidden">
               <button
-                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                className={cn(
+                  "w-full flex items-center justify-between px-5 py-4 text-left transition-colors min-h-[56px]",
+                  isExpanded ? "bg-muted/40" : "hover:bg-muted/20"
+                )}
                 onClick={() => setExpandedPaper(isExpanded ? null : paper)}
               >
-                <span className="text-xs font-medium text-foreground">{paper}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">{Object.keys(sizes).length} sizes</span>
-                  {isExpanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-foreground">{paper}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {sizeCount} size{sizeCount !== 1 ? "s" : ""} &middot; from ${cheapest.toFixed(2)}/1K
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {isExpanded
+                    ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  }
                 </div>
               </button>
               {isExpanded && (
-                <div className="px-3 pb-2 border-t border-border pt-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {Object.entries(sizes).map(([size, price]) => (
-                      <div key={size} className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">{size}</span>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          value={price}
-                          onChange={(e) => {
-                            const updated = structuredClone(prices)
-                            updated[paper][size] = parseFloat(e.target.value) || 0
-                            onChange(updated)
-                          }}
-                          className="h-6 text-[10px] w-20 text-right px-1.5"
-                        />
+                <div className="px-5 pb-5 pt-3 border-t border-border bg-muted/10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Object.entries(sizes).map(([size, pricePerSheet]) => (
+                      <div key={size}>
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{size}</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={Math.round(pricePerSheet * 1000 * 100) / 100}
+                            onChange={(e) => {
+                              const per1000 = parseFloat(e.target.value) || 0
+                              const updated = structuredClone(prices)
+                              updated[paper][size] = per1000 / 1000
+                              onChange(updated)
+                            }}
+                            className="h-11 text-sm pl-7 pr-14 text-right"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">/1K</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          ${pricePerSheet.toFixed(4)} per sheet
+                        </p>
                       </div>
                     ))}
                   </div>
