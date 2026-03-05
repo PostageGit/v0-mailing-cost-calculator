@@ -72,7 +72,9 @@ function getMarkup(level: number, sidesValue: string, isCardstock: boolean): num
   let cat: string
   if (rule.clickType === "BW") cat = "BW"
   else cat = isCardstock ? "Color Card" : "Color Paper"
-  return MARKUP_PERCENTAGES[cat]?.[level] ?? 1
+  // Read from config first (editable in settings), fall back to local defaults
+  const markups = getActiveConfig().markups
+  return markups[cat]?.[level] || MARKUP_PERCENTAGES[cat]?.[level] || 1
 }
 
 function parseSheetSize(s: string): { w: number; h: number } {

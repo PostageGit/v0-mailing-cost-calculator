@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import React, { useState, useCallback } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
@@ -117,162 +117,237 @@ export function perUnitLabel(pu: string): string {
 const SWR_KEY = "/api/mail-class-settings"
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
+// ---------- nav config ----------
+type SettingsTab =
+  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs"
+  | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
+  | "items" | "supplies" | "steps"
+  | "fields" | "terms" | "team" | "system"
+
+interface SettingsNavGroup {
+  label: string
+  items: { id: SettingsTab; label: string; icon: React.ReactNode; description: string }[]
+}
+
+const SETTINGS_NAV: SettingsNavGroup[] = [
+  {
+    label: "Pricing Engine",
+    items: [
+      { id: "pricing", label: "Click & Paper Costs", icon: <DollarSign className="h-4 w-4" />, description: "Click costs, paper prices, markup levels" },
+      { id: "paper-weights", label: "Paper Weights", icon: <Scale className="h-4 w-4" />, description: "Weight per 1,000 sheets, thickness" },
+      { id: "finishings", label: "Finishings", icon: <Wrench className="h-4 w-4" />, description: "Score, fold, lamination options" },
+      { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { id: "labor", label: "Labor Rates", icon: <Wrench className="h-4 w-4" />, description: "Mail class labor costs" },
+      { id: "departments", label: "Departments", icon: <Palette className="h-4 w-4" />, description: "Color-coded department tags" },
+      { id: "envelopes", label: "Envelopes", icon: <Mail className="h-4 w-4" />, description: "Envelope pricing, ink-jet, laser" },
+      { id: "addressing", label: "Addressing & Tabbing", icon: <Mail className="h-4 w-4" />, description: "Addressing brackets, tabbing rates" },
+      { id: "sort-mix", label: "Sort Mix", icon: <Mail className="h-4 w-4" />, description: "USPS sort level mix ratios" },
+    ],
+  },
+  {
+    label: "Catalog",
+    items: [
+      { id: "items", label: "Item Database", icon: <Package className="h-4 w-4" />, description: "Reusable items catalog" },
+      { id: "supplies", label: "Suppliers & Supplies", icon: <Boxes className="h-4 w-4" />, description: "Vendors, costs, list rentals" },
+      { id: "steps", label: "Job Steps", icon: <ListPlus className="h-4 w-4" />, description: "Workflow step configuration" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { id: "fields", label: "Custom Fields", icon: <ListPlus className="h-4 w-4" />, description: "Customer & contact fields" },
+      { id: "terms", label: "Payment Terms", icon: <CreditCard className="h-4 w-4" />, description: "Net terms, due dates" },
+      { id: "team", label: "Team", icon: <Users className="h-4 w-4" />, description: "Team members and roles" },
+      { id: "system", label: "System Health", icon: <Activity className="h-4 w-4" />, description: "Database, storage, diagnostics" },
+    ],
+  },
+]
+
+const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
+  pricing: () => <PricingSettingsTab />,
+  "paper-weights": () => <PaperWeightsSettingsTab />,
+  finishings: () => <FinishingsSettingsTab />,
+  "finishing-calcs": () => <FinishingCalculatorsSettingsTab />,
+  labor: () => <LaborRatesTab />,
+  departments: () => <DepartmentsTab />,
+  envelopes: () => <EnvelopeSettingsTab />,
+  addressing: () => (
+    <>
+      <AddressingBracketsSettings />
+      <div className="mt-8 border-t border-border pt-8">
+        <TabbingBracketsSettings />
+      </div>
+    </>
+  ),
+  "sort-mix": () => <SortMixTab />,
+  items: () => <ItemsSettingsTab />,
+  supplies: () => <SuppliersSettings />,
+  steps: () => <JobStepsTab />,
+  fields: () => <CustomFieldsTab />,
+  terms: () => <PaymentTermsTab />,
+  team: () => <TeamTab />,
+  system: () => <SystemDashboardTab />,
+}
+
 // ---------- main panel ----------
 export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>("pricing")
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Find the active item metadata for the header
+  const activeItem = SETTINGS_NAV.flatMap((g) => g.items).find((i) => i.id === activeTab)
+
   return (
-    <div
-      className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-start justify-center p-4 pt-[6vh] overflow-y-auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <Card className="w-full max-w-3xl border-border shadow-lg">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-muted">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Settings</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5 text-pretty">
-                  Labor rates, departments, custom fields, payment terms, and system health.
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Top bar */}
+      <header className="flex items-center h-14 px-4 lg:px-6 border-b border-border bg-card shrink-0">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Mobile nav toggle */}
+          <button
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            className="lg:hidden p-2 rounded-lg hover:bg-secondary min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Toggle settings navigation"
+          >
+            <Settings className="h-5 w-5 text-muted-foreground" />
+          </button>
+          <div className="hidden lg:flex items-center justify-center h-9 w-9 rounded-lg bg-foreground">
+            <Settings className="h-4 w-4 text-background" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-base font-bold text-foreground truncate">Settings</h1>
+            <p className="text-xs text-muted-foreground truncate hidden sm:block">
+              {activeItem?.description || "Configure your system"}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onClose}
+          className="gap-2 h-9 text-sm shrink-0 min-w-[44px]"
+        >
+          <X className="h-4 w-4" />
+          <span className="hidden sm:inline">Close</span>
+        </Button>
+      </header>
+
+      <div className="flex flex-1 min-h-0">
+        {/* Mobile nav overlay */}
+        {mobileNavOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+
+        {/* Left sidebar nav */}
+        <aside className={cn(
+          "bg-card border-r border-border flex flex-col shrink-0 overflow-y-auto",
+          // Desktop: always visible
+          "hidden lg:flex w-64",
+        )}>
+          <nav className="flex-1 px-3 py-4 flex flex-col gap-5">
+            {SETTINGS_NAV.map((group) => (
+              <div key={group.label}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
+                  {group.label}
                 </p>
+                <div className="flex flex-col gap-0.5">
+                  {group.items.map((item) => {
+                    const active = activeTab === item.id
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left min-h-[44px]",
+                          active
+                            ? "bg-foreground text-background font-semibold"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        )}
+                      >
+                        <span className={cn("shrink-0", active ? "text-background" : "text-muted-foreground")}>
+                          {item.icon}
+                        </span>
+                        <span className="text-sm truncate">{item.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Mobile sidebar overlay panel */}
+        {mobileNavOpen && (
+          <aside className="fixed left-0 top-14 bottom-0 w-72 bg-card border-r border-border z-50 flex flex-col lg:hidden animate-in slide-in-from-left-2 duration-200 overflow-y-auto">
+            <nav className="flex-1 px-3 py-4 flex flex-col gap-5">
+              {SETTINGS_NAV.map((group) => (
+                <div key={group.label}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
+                    {group.label}
+                  </p>
+                  <div className="flex flex-col gap-0.5">
+                    {group.items.map((item) => {
+                      const active = activeTab === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => { setActiveTab(item.id); setMobileNavOpen(false) }}
+                          className={cn(
+                            "flex items-start gap-3 px-3 py-3 rounded-lg transition-all text-left min-h-[44px]",
+                            active
+                              ? "bg-foreground text-background font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          )}
+                        >
+                          <span className={cn("shrink-0 mt-0.5", active ? "text-background" : "text-muted-foreground")}>
+                            {item.icon}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-sm block truncate">{item.label}</span>
+                            <span className={cn(
+                              "text-[11px] block truncate mt-0.5",
+                              active ? "text-background/70" : "text-muted-foreground/70"
+                            )}>
+                              {item.description}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </aside>
+        )}
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-4 lg:px-8 py-6 lg:py-8">
+            {/* Content header */}
+            <div className="mb-6 lg:mb-8">
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-muted-foreground">{activeItem?.icon}</span>
+                <h2 className="text-lg lg:text-xl font-bold text-foreground">{activeItem?.label}</h2>
+              </div>
+              <p className="text-sm text-muted-foreground ml-7">
+                {activeItem?.description}
+              </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              aria-label="Close settings"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
 
-        <CardContent className="max-h-[75vh] overflow-y-auto">
-          <Tabs defaultValue="labor" className="w-full">
-            <TabsList className="mb-4 bg-muted/60 h-auto p-1 w-fit flex flex-wrap gap-0.5">
-              <TabsTrigger value="labor" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Wrench className="h-3.5 w-3.5" />
-                Labor Rates
-              </TabsTrigger>
-              <TabsTrigger value="departments" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Palette className="h-3.5 w-3.5" />
-                Departments
-              </TabsTrigger>
-              <TabsTrigger value="fields" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <ListPlus className="h-3.5 w-3.5" />
-                Custom Fields
-              </TabsTrigger>
-              <TabsTrigger value="terms" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <CreditCard className="h-3.5 w-3.5" />
-                Payment Terms
-              </TabsTrigger>
-              <TabsTrigger value="items" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Package className="h-3.5 w-3.5" />
-                Items
-              </TabsTrigger>
-              <TabsTrigger value="finishings" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Wrench className="h-3.5 w-3.5" />
-                Finishings
-              </TabsTrigger>
-              <TabsTrigger value="finishing-calcs" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Calculator className="h-3.5 w-3.5" />
-                Finishing Calcs
-              </TabsTrigger>
-              <TabsTrigger value="pricing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <DollarSign className="h-3.5 w-3.5" />
-                Pricing
-              </TabsTrigger>
-              <TabsTrigger value="paper-weights" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Scale className="h-3.5 w-3.5" />
-                Paper Weights
-              </TabsTrigger>
-              <TabsTrigger value="envelopes" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Mail className="h-3.5 w-3.5" />
-                Envelopes
-              </TabsTrigger>
-              <TabsTrigger value="addressing" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-              Addressing
-            </TabsTrigger>
-            <TabsTrigger value="steps" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <ListPlus className="h-3.5 w-3.5" />
-                Job Steps
-              </TabsTrigger>
-              <TabsTrigger value="supplies" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Boxes className="h-3.5 w-3.5" />
-                Supplies
-              </TabsTrigger>
-              <TabsTrigger value="sort-mix" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Mail className="h-3.5 w-3.5" />
-                Sort Mix
-              </TabsTrigger>
-              <TabsTrigger value="system" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Activity className="h-3.5 w-3.5" />
-                System
-              </TabsTrigger>
-              <TabsTrigger value="team" className="gap-1.5 px-3 text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Users className="h-3.5 w-3.5" />
-                Team
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="labor">
-              <LaborRatesTab />
-            </TabsContent>
-            <TabsContent value="departments">
-              <DepartmentsTab />
-            </TabsContent>
-            <TabsContent value="fields">
-              <CustomFieldsTab />
-            </TabsContent>
-            <TabsContent value="terms">
-              <PaymentTermsTab />
-            </TabsContent>
-            <TabsContent value="items">
-              <ItemsSettingsTab />
-            </TabsContent>
-            <TabsContent value="finishings">
-              <FinishingsSettingsTab />
-            </TabsContent>
-            <TabsContent value="finishing-calcs">
-              <FinishingCalculatorsSettingsTab />
-            </TabsContent>
-            <TabsContent value="pricing">
-              <PricingSettingsTab />
-            </TabsContent>
-            <TabsContent value="paper-weights">
-              <PaperWeightsSettingsTab />
-            </TabsContent>
-            <TabsContent value="envelopes">
-              <EnvelopeSettingsTab />
-            </TabsContent>
-            <TabsContent value="addressing">
-          <AddressingBracketsSettings />
-          <div className="mt-6 border-t border-border pt-6">
-            <TabbingBracketsSettings />
+            {/* Tab content */}
+            {SETTINGS_CONTENT[activeTab]?.()}
           </div>
-        </TabsContent>
-        <TabsContent value="steps">
-              <JobStepsTab />
-            </TabsContent>
-            <TabsContent value="system">
-              <SystemDashboardTab />
-            </TabsContent>
-  <TabsContent value="supplies">
-  <SuppliersSettings />
-  </TabsContent>
-  <TabsContent value="team">
-  <TeamTab />
-  </TabsContent>
-  <TabsContent value="sort-mix">
-  <SortMixTab />
-  </TabsContent>
-  </Tabs>
-        </CardContent>
-      </Card>
+        </main>
+      </div>
     </div>
   )
 }
