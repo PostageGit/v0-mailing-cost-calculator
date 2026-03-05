@@ -1,9 +1,12 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
-import { generateText, tool } from "ai"
+import { streamText, tool } from "ai"
 import { z } from "zod"
 import { createClient } from "@supabase/supabase-js"
 import { calculatePerfect } from "@/lib/perfect-pricing"
 import type { PerfectInputs, PerfectPartInputs } from "@/lib/perfect-types"
+
+export const dynamic = "force-dynamic"
+export const maxDuration = 60
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,19 +50,19 @@ Lamination options: "Gloss", "Matte", or none
 
 Defaults if not specified: 8.5x11, 80 Gloss inside, 12pt Gloss cover, 4/4 both sides`
 
-const tools = {
+const brokerTools = {
   calculate_perfect_binding: tool({
-    description: "Calculate price for a perfect binding job. Returns broker pricing.",
-    parameters: z.object({
+    description: "Calculate price for a perfect binding job with broker pricing.",
+    inputSchema: z.object({
       quantity: z.number().describe("Number of books"),
-      pageWidth: z.number().describe("Page width in inches (e.g., 8.5)"),
-      pageHeight: z.number().describe("Page height in inches (e.g., 11)"),
-      insidePages: z.number().describe("Number of inside pages (must be even)"),
-      insidePaper: z.string().describe("Inside paper stock (e.g., '80 Gloss', '80 Matte')"),
-      insideSides: z.string().describe("Inside print mode (e.g., '4/4', 'S/S')"),
-      coverPaper: z.string().describe("Cover paper stock (e.g., '12pt Gloss')"),
-      coverSides: z.string().describe("Cover print mode (e.g., '4/4', '4/0')"),
-      coverLamination: z.string().optional().describe("Cover lamination: 'Gloss' or 'Matte' or none"),
+      pageWidth: z.number().describe("Page width in inches"),
+      pageHeight: z.number().describe("Page height in inches"),
+      insidePages: z.number().describe("Number of inside pages, must be even"),
+      insidePaper: z.string().describe("Inside paper stock name"),
+      insideSides: z.string().describe("Inside print sides"),
+      coverPaper: z.string().describe("Cover paper stock name"),
+      coverSides: z.string().describe("Cover print sides"),
+      coverLamination: z.string().describe("Cover lamination: Gloss, Matte, or none"),
     }),
     execute: async ({ quantity, pageWidth, pageHeight, insidePages, insidePaper, insideSides, coverPaper, coverSides, coverLamination }) => {
       try {
@@ -72,14 +75,14 @@ const tools = {
           paper: coverPaper,
           sides: coverSides,
           sheetSize: "cheapest",
-          lamination: coverLamination || undefined,
+          lamination: coverLamination === "none" ? undefined : coverLamination || undefined,
         }
         const inputs: PerfectInputs = {
           quantity,
           pageWidth,
           pageHeight,
           insidePages,
-          useBrokerPricing: true, // BROKER PRICING
+          useBrokerPricing: true,
           inside: insidePart,
           cover: coverPart,
         }
@@ -87,18 +90,15 @@ const tools = {
         if ("error" in result) {
           return { error: result.error }
         }
-        // Return only total price and specs - NO breakdown
         return {
           total: result.total,
           perUnit: result.perUnit,
-          specs: {
-            quantity,
-            pageSize: `${pageWidth}x${pageHeight}`,
-            insidePages,
-            insidePaper,
-            coverPaper,
-            lamination: coverLamination || "None",
-          },
+          quantity,
+          pageSize: `${pageWidth}x${pageHeight}`,
+          insidePages,
+          insidePaper,
+          coverPaper,
+          lamination: coverLamination === "none" ? "None" : (coverLamination || "None"),
         }
       } catch (err) {
         return { error: `Calculator error: ${err instanceof Error ? err.message : "Unknown error"}` }
@@ -107,26 +107,23 @@ const tools = {
   }),
 
   save_broker_quote: tool({
-    description: "Save the quote to the database and get a quote number. ALWAYS call this before showing the price. Requires project name.",
-    parameters: z.object({
-      projectName: z.string().describe("The project name provided by the broker (e.g., 'Shul Siddur', 'Camp Booklet')"),
-      brokerId: z.string().describe("The broker's user ID"),
-      brokerName: z.string().describe("The broker's display name"),
-      brokerCompany: z.string().describe("The broker's company name"),
+    description: "Save the quote and get a quote number. ALWAYS call before showing the price.",
+    inputSchema: z.object({
+      projectName: z.string().describe("Project name from the broker"),
+      brokerId: z.string().describe("Broker user ID"),
+      brokerName: z.string().describe("Broker display name"),
+      brokerCompany: z.string().describe("Broker company name"),
       total: z.number().describe("Total price"),
-      perUnit: z.number().describe("Price per unit"),
-      specs: z.object({
-        quantity: z.number(),
-        pageSize: z.string(),
-        insidePages: z.number(),
-        insidePaper: z.string(),
-        coverPaper: z.string(),
-        lamination: z.string(),
-      }),
+      perUnit: z.number().describe("Per unit price"),
+      quantity: z.number().describe("Number of books"),
+      pageSize: z.string().describe("Page size"),
+      insidePages: z.number().describe("Number of inside pages"),
+      insidePaper: z.string().describe("Inside paper stock"),
+      coverPaper: z.string().describe("Cover paper stock"),
+      lamination: z.string().describe("Lamination type or None"),
     }),
-    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, specs }) => {
+    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, quantity, pageSize, insidePages, insidePaper, coverPaper, lamination }) => {
       try {
-
         const { data, error } = await supabase
           .from("chat_quotes")
           .insert({
@@ -137,7 +134,7 @@ const tools = {
             product_type: "perfect",
             total,
             per_unit: perUnit,
-            specs,
+            specs: { quantity, pageSize, insidePages, insidePaper, coverPaper, lamination },
             cost_breakdown: {},
             broker_user_id: brokerId,
             broker_company: brokerCompany,
@@ -146,59 +143,63 @@ const tools = {
           .single()
 
         if (error) throw error
-
         return { quoteNumber: `CQ-${data.ref_number}`, success: true }
       } catch (err) {
-        return { error: `Failed to save quote: ${err instanceof Error ? err.message : "Unknown error"}` }
+        return { error: `Failed to save: ${err instanceof Error ? err.message : "Unknown"}` }
       }
     },
   }),
 }
 
-// Store broker context for tool execution
-let _brokerContext: { brokerId: string; brokerName: string; brokerCompany: string } | null = null
-
 export async function POST(req: Request) {
   try {
-    const { messages, brokerId, brokerName, brokerCompany } = await req.json()
+    const { messages: rawMessages, brokerId, brokerName, brokerCompany } = await req.json()
+    console.log("[v0] BROKER QUOTE V5 hit - messages:", rawMessages?.length, "broker:", brokerName)
 
     if (!brokerId || !brokerName || !brokerCompany) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
     }
 
-    _brokerContext = { brokerId, brokerName, brokerCompany }
+    // Convert messages to simple { role, content } format that streamText expects
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages = rawMessages.map((msg: any) => {
+      let content = ""
+      if (typeof msg.content === "string") {
+        content = msg.content
+      } else if (Array.isArray(msg.parts)) {
+        content = msg.parts.filter((p: { type: string }) => p.type === "text").map((p: { text: string }) => p.text).join("\n")
+      }
+      return { role: msg.role as "user" | "assistant", content }
+    })
 
     const anthropic = createAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
-    // Inject broker context into save tool calls
-    const modifiedTools = {
-      calculate_perfect_binding: tools.calculate_perfect_binding,
-      save_broker_quote: tool({
-        ...tools.save_broker_quote,
-        execute: async (params: Parameters<typeof tools.save_broker_quote.execute>[0]) => {
-          return tools.save_broker_quote.execute({
-            ...params,
-            brokerId: _brokerContext!.brokerId,
-            brokerName: _brokerContext!.brokerName,
-            brokerCompany: _brokerContext!.brokerCompany,
-          })
-        },
-      }),
-    }
+    const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use when calling save_broker_quote):**\nbrokerId: "${brokerId}"\nbrokerName: "${brokerName}"\nbrokerCompany: "${brokerCompany}"`
 
-    const result = await generateText({
+    console.log("[v0] BROKER QUOTE V5 - about to call streamText with", messages.length, "messages")
+
+    const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),
-      system: BROKER_SYSTEM_PROMPT,
+      system: systemWithBroker,
       messages,
-      tools: modifiedTools,
+      tools: brokerTools,
       maxSteps: 5,
     })
 
-    return Response.json({ response: result.text })
+    let fullText = ""
+    const reader = result.textStream.getReader()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) fullText += value
+    }
+
+    console.log("[v0] BROKER QUOTE V5 - response length:", fullText.length)
+    return Response.json({ response: fullText })
   } catch (err) {
-    console.error("[v0] Broker chat error:", err)
+    console.error("[v0] BROKER QUOTE V4 ERROR:", err)
     return Response.json({ error: "Chat failed" }, { status: 500 })
   }
 }

@@ -1,5 +1,5 @@
 "use client"
-
+// Broker Chat Page V3
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -45,7 +45,7 @@ export default function BrokerChatPage() {
     setIsLoading(true)
 
     try {
-      const res = await fetch("/api/broker-chat", {
+      const res = await fetch("/api/broker-quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
