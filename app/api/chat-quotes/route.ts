@@ -9,9 +9,8 @@ export async function GET() {
     )
 
     const { data, error } = await supabase
-      .from("quotes")
-      .select("id, quote_number, project_name, contact_name, total, created_at, chat_specs, status")
-      .eq("source", "chat")
+      .from("chat_quotes")
+      .select("id, ref_number, customer_name, project_name, product_type, total, per_unit, specs, cost_breakdown, notes, created_at")
       .order("created_at", { ascending: false })
 
     if (error) {

@@ -372,7 +372,7 @@ SAVING QUOTES & REFERENCE NUMBERS:
 - After EVERY price calculation, offer: "Would you like me to save this quote so you can reference it later?"
 - If they say yes, ask for their name (just the name, nothing else).
 - Then call save_chat_quote with their name, a short project description, the total, and the full exactSpecs from the calculator.
-- Give them the quote number (e.g. "Your reference number is #1045. You can come back anytime and give me this number to pull it up.")
+- Give them the reference number (e.g. "Your reference number is #5003. You can come back anytime and give me this number to pull it up.")
 - If a customer gives a reference number, use lookup_quote to retrieve it and show them their saved quote details.
 - NEVER save a quote without asking for the customer's name first.`
 
@@ -697,38 +697,41 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
   save_chat_quote: tool({
     description: `Save the current quote to the database and return a reference number.
 Call this AFTER a price has been calculated AND the customer says they want to save it or get a reference number.
-You MUST ask the customer for their name before calling this tool.`,
+You MUST ask the customer for their name before calling this tool.
+Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and every field from the calculator result.`,
     inputSchema: z.object({
       customerName: z.string().describe("Customer's name (REQUIRED -- ask before calling)"),
       projectName: z.string().describe("Short project description, e.g. '500 Tri-fold Brochures'"),
       total: z.number().describe("The total price from the calculator"),
-      specs: z.record(z.unknown()).describe("The full exactSpecs object from the calculator result"),
+      perUnit: z.number().optional().describe("Per-unit or per-piece price if available"),
+      specs: z.record(z.unknown()).describe("The FULL exactSpecs object from the calculator result -- include EVERY field"),
+      costBreakdown: z.record(z.unknown()).optional().describe("The full costBreakdown object from the calculator (printing, lamination, padding, setup, etc.)"),
       productType: z.string().describe("flat, booklet, perfect, spiral, pad, or envelope"),
     }),
-    execute: async ({ customerName, projectName, total, specs, productType }) => {
+    execute: async ({ customerName, projectName, total, perUnit, specs, costBreakdown, productType }) => {
       try {
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
         const { data, error } = await supabase
-          .from("quotes")
+          .from("chat_quotes")
           .insert({
+            customer_name: customerName,
             project_name: projectName,
-            contact_name: customerName,
+            product_type: productType,
             total,
-            status: "draft",
-            source: "chat",
-            chat_specs: { ...specs, productType },
-            items: [{ name: projectName, total, specs: { ...specs, productType } }],
+            per_unit: perUnit ?? 0,
+            specs,
+            cost_breakdown: costBreakdown ?? {},
           })
-          .select("quote_number")
+          .select("ref_number")
           .single()
 
         if (error) return { error: `Failed to save quote: ${error.message}` }
         return {
-          _instruction: "Tell the customer their quote has been saved and give them the reference number. Tell them they can come back anytime and look it up by this number.",
-          quoteNumber: data.quote_number,
+          _instruction: "Tell the customer their quote has been saved and give them the reference number. Tell them they can come back anytime and give you this number to pull it up.",
+          refNumber: data.ref_number,
           customerName,
           projectName,
           total: `$${total.toFixed(2)}`,
@@ -740,34 +743,35 @@ You MUST ask the customer for their name before calling this tool.`,
   }),
 
   lookup_quote: tool({
-    description: `Look up a previously saved quote by its reference number (quote number).
+    description: `Look up a previously saved chat quote by its reference number.
 Call this when a customer provides a reference number to retrieve their quote.`,
     inputSchema: z.object({
-      quoteNumber: z.number().describe("The quote reference number (e.g. 1001, 1002, etc.)"),
+      refNumber: z.number().describe("The quote reference number (e.g. 5001, 5002, etc.)"),
     }),
-    execute: async ({ quoteNumber }) => {
+    execute: async ({ refNumber }) => {
       try {
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
         const { data, error } = await supabase
-          .from("quotes")
-          .select("quote_number, project_name, contact_name, total, status, created_at, chat_specs, items, source")
-          .eq("quote_number", quoteNumber)
+          .from("chat_quotes")
+          .select("*")
+          .eq("ref_number", refNumber)
           .single()
 
-        if (error || !data) return { error: `Quote #${quoteNumber} not found.` }
+        if (error || !data) return { error: `Quote #${refNumber} not found.` }
         return {
-          _instruction: "Show the customer their saved quote details clearly. If they want to adjust specs or reorder, help them.",
-          quoteNumber: data.quote_number,
-          customerName: data.contact_name,
+          _instruction: "Show the customer their saved quote details clearly. Include all specs and pricing. If they want to adjust specs or get a new price, help them.",
+          refNumber: data.ref_number,
+          customerName: data.customer_name,
           projectName: data.project_name,
+          productType: data.product_type,
           total: `$${Number(data.total).toFixed(2)}`,
+          perUnit: data.per_unit ? `$${Number(data.per_unit).toFixed(4)}` : null,
           savedOn: new Date(data.created_at).toLocaleDateString(),
-          source: data.source,
-          specs: data.chat_specs || {},
-          items: data.items,
+          specs: data.specs,
+          costBreakdown: data.cost_breakdown,
         }
       } catch (e: unknown) {
         return { error: `Lookup failed: ${e instanceof Error ? e.message : "Unknown error"}` }

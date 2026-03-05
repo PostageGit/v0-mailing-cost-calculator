@@ -1783,10 +1783,13 @@ type PricingSection = "click" | "flat" | "booklet" | "markups"
 
 // ---------- Chat Quotes Tab ----------
 function ChatQuotesTab() {
-  const [quotes, setQuotes] = useState<Array<{
-    id: string; quote_number: number; project_name: string; contact_name: string;
-    total: number; created_at: string; chat_specs: Record<string, unknown>; status: string;
-  }>>([])
+  interface ChatQuote {
+    id: string; ref_number: number; customer_name: string; project_name: string;
+    product_type: string; total: number; per_unit: number;
+    specs: Record<string, unknown>; cost_breakdown: Record<string, unknown>;
+    notes: string; created_at: string;
+  }
+  const [quotes, setQuotes] = useState<ChatQuote[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -1809,11 +1812,25 @@ function ChatQuotesTab() {
     const term = searchTerm.toLowerCase()
     if (!term) return true
     return (
-      q.contact_name?.toLowerCase().includes(term) ||
+      q.customer_name?.toLowerCase().includes(term) ||
       q.project_name?.toLowerCase().includes(term) ||
-      String(q.quote_number).includes(term)
+      q.product_type?.toLowerCase().includes(term) ||
+      String(q.ref_number).includes(term)
     )
   })
+
+  const PRODUCT_COLORS: Record<string, string> = {
+    flat: "bg-blue-500/15 text-blue-700",
+    booklet: "bg-green-500/15 text-green-700",
+    perfect: "bg-purple-500/15 text-purple-700",
+    spiral: "bg-orange-500/15 text-orange-700",
+    pad: "bg-yellow-500/15 text-yellow-700",
+    envelope: "bg-pink-500/15 text-pink-700",
+  }
+
+  // Helper to format spec keys nicely
+  const formatKey = (key: string) =>
+    key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()).trim()
 
   if (loading) {
     return (
@@ -1830,7 +1847,7 @@ function ChatQuotesTab() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, project, or quote #..."
+            placeholder="Search by name, project, ref #, or product type..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="h-11 pl-10 text-sm"
@@ -1842,18 +1859,18 @@ function ChatQuotesTab() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border border-border p-4">
-          <p className="text-xs text-muted-foreground">Total Chat Quotes</p>
+          <p className="text-xs text-muted-foreground">Total Quotes</p>
           <p className="text-2xl font-bold text-foreground mt-1">{quotes.length}</p>
         </div>
         <div className="rounded-xl border border-border p-4">
           <p className="text-xs text-muted-foreground">Total Value</p>
           <p className="text-2xl font-bold text-foreground mt-1">
-            ${quotes.reduce((sum, q) => sum + Number(q.total || 0), 0).toFixed(2)}
+            ${quotes.reduce((sum, q) => sum + Number(q.total || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
-        <div className="rounded-xl border border-border p-4 col-span-2 sm:col-span-1">
+        <div className="rounded-xl border border-border p-4">
           <p className="text-xs text-muted-foreground">This Month</p>
           <p className="text-2xl font-bold text-foreground mt-1">
             {quotes.filter((q) => {
@@ -1861,6 +1878,14 @@ function ChatQuotesTab() {
               const now = new Date()
               return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
             }).length}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-xs text-muted-foreground">Avg Quote</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            ${quotes.length > 0
+              ? (quotes.reduce((sum, q) => sum + Number(q.total || 0), 0) / quotes.length).toFixed(2)
+              : "0.00"}
           </p>
         </div>
       </div>
@@ -1874,52 +1899,110 @@ function ChatQuotesTab() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {filtered.map((q) => {
             const isExpanded = expandedId === q.id
-            const specs = q.chat_specs || {}
+            const specs = q.specs || {}
+            const breakdown = q.cost_breakdown || {}
+            const productColor = PRODUCT_COLORS[q.product_type] || "bg-muted text-muted-foreground"
             return (
               <div key={q.id} className="rounded-xl border border-border overflow-hidden">
+                {/* Header row */}
                 <button
                   className={cn(
-                    "w-full flex items-center justify-between px-5 py-4 text-left transition-colors min-h-[56px]",
+                    "w-full flex items-center justify-between px-5 py-4 text-left transition-colors min-h-[64px]",
                     isExpanded ? "bg-muted/40" : "hover:bg-muted/20"
                   )}
                   onClick={() => setExpandedId(isExpanded ? null : q.id)}
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-secondary shrink-0">
-                      <span className="text-sm font-bold text-foreground">#{q.quote_number}</span>
+                    <div className="flex items-center justify-center h-11 w-14 rounded-lg bg-foreground shrink-0">
+                      <span className="text-xs font-bold text-background">#{q.ref_number}</span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{q.project_name}</p>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="text-sm font-semibold text-foreground truncate">{q.project_name}</p>
+                        <span className={cn("text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shrink-0", productColor)}>
+                          {q.product_type}
+                        </span>
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {q.contact_name || "No name"} &middot; {new Date(q.created_at).toLocaleDateString()}
+                        {q.customer_name || "No name"} &middot; {new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {q.per_unit > 0 && <> &middot; ${Number(q.per_unit).toFixed(4)}/ea</>}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-bold text-foreground">${Number(q.total).toFixed(2)}</span>
+                    <span className="text-base font-bold text-foreground">${Number(q.total).toFixed(2)}</span>
                     {isExpanded
                       ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
                       : <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     }
                   </div>
                 </button>
+
+                {/* Expanded details */}
                 {isExpanded && (
-                  <div className="px-5 pb-5 pt-3 border-t border-border bg-muted/10">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3">Quote Specs</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {Object.entries(specs).map(([key, value]) => (
-                        <div key={key}>
-                          <p className="text-[11px] text-muted-foreground capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</p>
-                          <p className="text-sm font-medium text-foreground">{String(value)}</p>
+                  <div className="border-t border-border bg-muted/5">
+                    {/* Specs section */}
+                    <div className="px-5 py-4">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Job Specifications</h4>
+                      {Object.keys(specs).length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+                          {Object.entries(specs).map(([key, value]) => (
+                            <div key={key}>
+                              <p className="text-[11px] text-muted-foreground">{formatKey(key)}</p>
+                              <p className="text-sm font-medium text-foreground">
+                                {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No specs recorded.</p>
+                      )}
                     </div>
-                    {Object.keys(specs).length === 0 && (
-                      <p className="text-xs text-muted-foreground">No specs recorded for this quote.</p>
+
+                    {/* Cost breakdown section */}
+                    {Object.keys(breakdown).length > 0 && (
+                      <div className="px-5 py-4 border-t border-border">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Cost Breakdown</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+                          {Object.entries(breakdown).map(([key, value]) => (
+                            <div key={key}>
+                              <p className="text-[11px] text-muted-foreground">{formatKey(key)}</p>
+                              <p className="text-sm font-bold text-foreground">{String(value)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
+
+                    {/* Summary footer */}
+                    <div className="px-5 py-4 border-t border-border bg-muted/20 flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Customer</p>
+                          <p className="text-sm font-semibold text-foreground">{q.customer_name || "N/A"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Date</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {new Date(q.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                        </div>
+                        {q.per_unit > 0 && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Per Unit</p>
+                            <p className="text-sm font-semibold text-foreground">${Number(q.per_unit).toFixed(4)}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
+                        <p className="text-xl font-bold text-foreground">${Number(q.total).toFixed(2)}</p>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
