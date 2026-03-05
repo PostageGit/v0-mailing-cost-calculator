@@ -2317,7 +2317,7 @@ function PaperPriceEditor({
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">/1K</span>
             </div>
             <span className="text-[10px] text-muted-foreground whitespace-nowrap w-[72px] text-right">
-              ${pricePerSheet.toFixed(4)}/sh
+              {"$"}{pricePerSheet.toFixed(4)}/sh
             </span>
           </div>
         ) : (
@@ -2356,7 +2356,7 @@ function PaperPriceEditor({
                   <span className="text-sm font-semibold text-foreground">{paper}</span>
                   <span className="text-xs text-muted-foreground">
                     {activeCount} of {totalPossible} sizes active
-                    {activeCount > 0 && <> &middot; from ${cheapest.toFixed(2)}/1K</>}
+                    {activeCount > 0 && <> &middot; from {"$"}{cheapest.toFixed(2)}/1K</>}
                     {hasShortSizes && <> &middot; <span className="text-amber-600 dark:text-amber-400 font-medium">has Short</span></>}
                   </span>
                 </div>
