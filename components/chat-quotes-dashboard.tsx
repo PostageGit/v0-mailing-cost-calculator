@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   Search, RefreshCw, Loader2, MessageSquare, ChevronUp, ChevronDown,
-  FileText, ImageIcon, ExternalLink, Paperclip,
+  FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore,
 } from "lucide-react"
+
+interface TranscriptMessage {
+  role: "customer" | "assistant"
+  text: string
+  ts: string
+}
 
 interface ChatQuote {
   id: string; ref_number: number; customer_name: string;
@@ -15,7 +21,7 @@ interface ChatQuote {
   project_name: string; product_type: string; total: number; per_unit: number;
   specs: Record<string, unknown>; cost_breakdown: Record<string, unknown>;
   attachments: Array<{ url: string; filename: string; size: number; type: string }>;
-  notes: string; created_at: string;
+  notes: string; archived: boolean; chat_transcript: TranscriptMessage[] | null; created_at: string;
 }
 
 const PRODUCT_COLORS: Record<string, string> = {
@@ -39,6 +45,8 @@ export function ChatQuotesDashboard() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [viewFilter, setViewFilter] = useState<"active" | "archived">("active")
+  const [archiving, setArchiving] = useState<string | null>(null)
 
   const loadQuotes = useCallback(async () => {
     setLoading(true)
@@ -54,7 +62,27 @@ export function ChatQuotesDashboard() {
 
   useState(() => { loadQuotes() })
 
-  const filtered = quotes.filter((q) => {
+  const toggleArchive = useCallback(async (id: string, archived: boolean) => {
+    setArchiving(id)
+    try {
+      const res = await fetch("/api/chat-quotes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, archived }),
+      })
+      if (res.ok) {
+        setQuotes((prev) => prev.map((q) => q.id === id ? { ...q, archived } : q))
+        setExpandedId(null)
+      }
+    } catch { /* ignore */ }
+    setArchiving(null)
+  }, [])
+
+  const activeQuotes = quotes.filter((q) => !q.archived)
+  const archivedQuotes = quotes.filter((q) => q.archived)
+  const visibleQuotes = viewFilter === "active" ? activeQuotes : archivedQuotes
+
+  const filtered = visibleQuotes.filter((q) => {
     const term = searchTerm.toLowerCase()
     if (!term) return true
     return (
@@ -102,22 +130,65 @@ export function ChatQuotesDashboard() {
         </Button>
       </div>
 
+      {/* Active / Archived tabs */}
+      <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 w-fit">
+        <button
+          onClick={() => setViewFilter("active")}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            viewFilter === "active"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Active
+          {activeQuotes.length > 0 && (
+            <span className={cn(
+              "text-xs font-bold rounded-full px-2 py-0.5 min-w-[24px] text-center",
+              viewFilter === "active" ? "bg-foreground text-background" : "bg-muted-foreground/20 text-muted-foreground"
+            )}>
+              {activeQuotes.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setViewFilter("archived")}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            viewFilter === "archived"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Archive className="h-3.5 w-3.5" />
+          Archived
+          {archivedQuotes.length > 0 && (
+            <span className={cn(
+              "text-xs font-bold rounded-full px-2 py-0.5 min-w-[24px] text-center",
+              viewFilter === "archived" ? "bg-foreground text-background" : "bg-muted-foreground/20 text-muted-foreground"
+            )}>
+              {archivedQuotes.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border border-border p-4">
-          <p className="text-xs text-muted-foreground">Total Quotes</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{quotes.length}</p>
+          <p className="text-xs text-muted-foreground">{viewFilter === "archived" ? "Archived" : "Active"} Quotes</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{visibleQuotes.length}</p>
         </div>
         <div className="rounded-xl border border-border p-4">
           <p className="text-xs text-muted-foreground">Total Value</p>
           <p className="text-2xl font-bold text-foreground mt-1">
-            ${quotes.reduce((sum, q) => sum + Number(q.total || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {"$"}{visibleQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
         <div className="rounded-xl border border-border p-4">
           <p className="text-xs text-muted-foreground">This Month</p>
           <p className="text-2xl font-bold text-foreground mt-1">
-            {quotes.filter((q) => {
+            {visibleQuotes.filter((q) => {
               const d = new Date(q.created_at)
               const now = new Date()
               return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -127,8 +198,8 @@ export function ChatQuotesDashboard() {
         <div className="rounded-xl border border-border p-4">
           <p className="text-xs text-muted-foreground">Avg Quote</p>
           <p className="text-2xl font-bold text-foreground mt-1">
-            ${quotes.length > 0
-              ? (quotes.reduce((sum, q) => sum + Number(q.total || 0), 0) / quotes.length).toFixed(2)
+            {"$"}{visibleQuotes.length > 0
+              ? (visibleQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0) / visibleQuotes.length).toFixed(2)
               : "0.00"}
           </p>
         </div>
@@ -279,6 +350,34 @@ export function ChatQuotesDashboard() {
                       </div>
                     )}
 
+                    {/* Chat Transcript */}
+                    {q.chat_transcript && q.chat_transcript.length > 0 && (
+                      <div className="px-4 sm:px-5 py-4 border-t border-border">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">
+                          Chat Conversation ({q.chat_transcript.length} messages)
+                        </h4>
+                        <div className="max-h-[400px] overflow-y-auto rounded-lg border border-border bg-background">
+                          <div className="flex flex-col gap-0.5 p-3">
+                            {q.chat_transcript.map((msg, idx) => {
+                              const isCustomer = msg.role === "customer"
+                              return (
+                                <div key={idx} className={cn("flex", isCustomer ? "justify-end" : "justify-start")}>
+                                  <div className={cn(
+                                    "max-w-[80%] rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed",
+                                    isCustomer
+                                      ? "bg-foreground text-background rounded-br-md"
+                                      : "bg-muted text-foreground rounded-bl-md"
+                                  )}>
+                                    <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Customer contact info */}
                     <div className="px-4 sm:px-5 py-4 border-t border-border">
                       <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">Customer Info</h4>
@@ -319,13 +418,34 @@ export function ChatQuotesDashboard() {
                         {q.per_unit > 0 && (
                           <div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Per Unit</p>
-                            <p className="text-sm font-semibold text-foreground">${Number(q.per_unit).toFixed(4)}</p>
+                            <p className="text-sm font-semibold text-foreground">{"$"}{Number(q.per_unit).toFixed(4)}</p>
                           </div>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "h-9 gap-2 text-xs",
+                            q.archived
+                              ? "border-green-300 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                              : "border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                          )}
+                          disabled={archiving === q.id}
+                          onClick={() => toggleArchive(q.id, !q.archived)}
+                        >
+                          {archiving === q.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : q.archived ? (
+                            <ArchiveRestore className="h-3.5 w-3.5" />
+                          ) : (
+                            <Archive className="h-3.5 w-3.5" />
+                          )}
+                          {q.archived ? "Restore" : "Archive"}
+                        </Button>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
-                        <p className="text-xl font-bold text-foreground">${Number(q.total).toFixed(2)}</p>
+                        <p className="text-xl font-bold text-foreground">{"$"}{Number(q.total).toFixed(2)}</p>
                       </div>
                     </div>
                   </div>
