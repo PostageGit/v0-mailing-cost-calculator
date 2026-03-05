@@ -155,9 +155,6 @@ const tools = {
   }),
 }
 
-// Store broker context for tool execution
-let _brokerContext: { brokerId: string; brokerName: string; brokerCompany: string } | null = null
-
 export async function POST(req: Request) {
   try {
     const { messages, brokerId, brokerName, brokerCompany } = await req.json()
@@ -166,33 +163,21 @@ export async function POST(req: Request) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
     }
 
-    _brokerContext = { brokerId, brokerName, brokerCompany }
-
     const anthropic = createAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
-    // Inject broker context into save tool calls
-    const modifiedTools = {
-      calculate_perfect_binding: tools.calculate_perfect_binding,
-      save_broker_quote: tool({
-        ...tools.save_broker_quote,
-        execute: async (params: Parameters<typeof tools.save_broker_quote.execute>[0]) => {
-          return tools.save_broker_quote.execute({
-            ...params,
-            brokerId: _brokerContext!.brokerId,
-            brokerName: _brokerContext!.brokerName,
-            brokerCompany: _brokerContext!.brokerCompany,
-          })
-        },
-      }),
-    }
+    // Inject broker identity into system prompt so AI can pass it to save tool
+    const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use these values when calling save_broker_quote):**
+- brokerId: "${brokerId}"
+- brokerName: "${brokerName}"
+- brokerCompany: "${brokerCompany}"`
 
     const result = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
-      system: BROKER_SYSTEM_PROMPT,
+      system: systemWithBroker,
       messages,
-      tools: modifiedTools,
+      tools,
       maxSteps: 5,
     })
 
