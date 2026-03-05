@@ -47,19 +47,19 @@ Lamination options: "Gloss", "Matte", or none
 
 Defaults if not specified: 8.5x11, 80 Gloss inside, 12pt Gloss cover, 4/4 both sides`
 
-const tools = {
+const brokerTools = {
   calculate_perfect_binding: tool({
-    description: "Calculate price for a perfect binding job. Returns broker pricing.",
+    description: "Calculate price for a perfect binding job with broker pricing.",
     parameters: z.object({
       quantity: z.number().describe("Number of books"),
-      pageWidth: z.number().describe("Page width in inches (e.g., 8.5)"),
-      pageHeight: z.number().describe("Page height in inches (e.g., 11)"),
-      insidePages: z.number().describe("Number of inside pages (must be even)"),
-      insidePaper: z.string().describe("Inside paper stock (e.g., '80 Gloss', '80 Matte')"),
-      insideSides: z.string().describe("Inside print mode (e.g., '4/4', 'S/S')"),
-      coverPaper: z.string().describe("Cover paper stock (e.g., '12pt Gloss')"),
-      coverSides: z.string().describe("Cover print mode (e.g., '4/4', '4/0')"),
-      coverLamination: z.string().optional().describe("Cover lamination: 'Gloss' or 'Matte' or none"),
+      pageWidth: z.number().describe("Page width in inches"),
+      pageHeight: z.number().describe("Page height in inches"),
+      insidePages: z.number().describe("Number of inside pages, must be even"),
+      insidePaper: z.string().describe("Inside paper stock name"),
+      insideSides: z.string().describe("Inside print sides"),
+      coverPaper: z.string().describe("Cover paper stock name"),
+      coverSides: z.string().describe("Cover print sides"),
+      coverLamination: z.string().describe("Cover lamination: Gloss, Matte, or none"),
     }),
     execute: async ({ quantity, pageWidth, pageHeight, insidePages, insidePaper, insideSides, coverPaper, coverSides, coverLamination }) => {
       try {
@@ -72,14 +72,14 @@ const tools = {
           paper: coverPaper,
           sides: coverSides,
           sheetSize: "cheapest",
-          lamination: coverLamination || undefined,
+          lamination: coverLamination === "none" ? undefined : coverLamination || undefined,
         }
         const inputs: PerfectInputs = {
           quantity,
           pageWidth,
           pageHeight,
           insidePages,
-          useBrokerPricing: true, // BROKER PRICING
+          useBrokerPricing: true,
           inside: insidePart,
           cover: coverPart,
         }
@@ -87,18 +87,15 @@ const tools = {
         if ("error" in result) {
           return { error: result.error }
         }
-        // Return only total price and specs - NO breakdown
         return {
           total: result.total,
           perUnit: result.perUnit,
-          specs: {
-            quantity,
-            pageSize: `${pageWidth}x${pageHeight}`,
-            insidePages,
-            insidePaper,
-            coverPaper,
-            lamination: coverLamination || "None",
-          },
+          quantity,
+          pageSize: `${pageWidth}x${pageHeight}`,
+          insidePages,
+          insidePaper,
+          coverPaper,
+          lamination: coverLamination === "none" ? "None" : (coverLamination || "None"),
         }
       } catch (err) {
         return { error: `Calculator error: ${err instanceof Error ? err.message : "Unknown error"}` }
@@ -107,32 +104,23 @@ const tools = {
   }),
 
   save_broker_quote: tool({
-    description: "Save the quote to the database and get a quote number. ALWAYS call this before showing the price. Requires project name.",
+    description: "Save the quote and get a quote number. ALWAYS call before showing the price.",
     parameters: z.object({
-      projectName: z.string().describe("The project name provided by the broker (e.g., 'Shul Siddur', 'Camp Booklet')"),
-      brokerId: z.string().describe("The broker's user ID"),
-      brokerName: z.string().describe("The broker's display name"),
-      brokerCompany: z.string().describe("The broker's company name"),
+      projectName: z.string().describe("Project name from the broker"),
+      brokerId: z.string().describe("Broker user ID"),
+      brokerName: z.string().describe("Broker display name"),
+      brokerCompany: z.string().describe("Broker company name"),
       total: z.number().describe("Total price"),
-      perUnit: z.number().describe("Price per unit"),
-      specQuantity: z.number().describe("Number of books"),
-      specPageSize: z.string().describe("Page size e.g. 8.5x11"),
-      specInsidePages: z.number().describe("Number of inside pages"),
-      specInsidePaper: z.string().describe("Inside paper stock"),
-      specCoverPaper: z.string().describe("Cover paper stock"),
-      specLamination: z.string().describe("Lamination type or None"),
+      perUnit: z.number().describe("Per unit price"),
+      quantity: z.number().describe("Number of books"),
+      pageSize: z.string().describe("Page size"),
+      insidePages: z.number().describe("Number of inside pages"),
+      insidePaper: z.string().describe("Inside paper stock"),
+      coverPaper: z.string().describe("Cover paper stock"),
+      lamination: z.string().describe("Lamination type or None"),
     }),
-    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, specQuantity, specPageSize, specInsidePages, specInsidePaper, specCoverPaper, specLamination }) => {
-      const specs = {
-        quantity: specQuantity,
-        pageSize: specPageSize,
-        insidePages: specInsidePages,
-        insidePaper: specInsidePaper,
-        coverPaper: specCoverPaper,
-        lamination: specLamination,
-      }
+    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, quantity, pageSize, insidePages, insidePaper, coverPaper, lamination }) => {
       try {
-
         const { data, error } = await supabase
           .from("chat_quotes")
           .insert({
@@ -143,7 +131,7 @@ const tools = {
             product_type: "perfect",
             total,
             per_unit: perUnit,
-            specs,
+            specs: { quantity, pageSize, insidePages, insidePaper, coverPaper, lamination },
             cost_breakdown: {},
             broker_user_id: brokerId,
             broker_company: brokerCompany,
@@ -152,7 +140,6 @@ const tools = {
           .single()
 
         if (error) throw error
-
         return { quoteNumber: `CQ-${data.ref_number}`, success: true }
       } catch (err) {
         return { error: `Failed to save quote: ${err instanceof Error ? err.message : "Unknown error"}` }
@@ -169,9 +156,9 @@ export async function POST(req: Request) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
     }
 
-    // Convert client messages (parts format) to generateText format (content string)
+    // Convert client messages to simple { role, content } format
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const messages = rawMessages.map((msg: any) => {
+    const messages: Array<{ role: "user" | "assistant"; content: string }> = rawMessages.map((msg: any) => {
       let content = ""
       if (typeof msg.content === "string") {
         content = msg.content
@@ -193,17 +180,13 @@ export async function POST(req: Request) {
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
-    // Inject broker identity into system prompt so AI can pass it to save tool
-    const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use these values when calling save_broker_quote):**
-- brokerId: "${brokerId}"
-- brokerName: "${brokerName}"
-- brokerCompany: "${brokerCompany}"`
+    const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use when calling save_broker_quote):**\nbrokerId: "${brokerId}"\nbrokerName: "${brokerName}"\nbrokerCompany: "${brokerCompany}"`
 
     const result = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
       system: systemWithBroker,
       messages,
-      tools,
+      tools: brokerTools,
       maxSteps: 5,
     })
 
