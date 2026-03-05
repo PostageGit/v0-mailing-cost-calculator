@@ -115,16 +115,22 @@ const tools = {
       brokerCompany: z.string().describe("The broker's company name"),
       total: z.number().describe("Total price"),
       perUnit: z.number().describe("Price per unit"),
-      specs: z.object({
-        quantity: z.number(),
-        pageSize: z.string(),
-        insidePages: z.number(),
-        insidePaper: z.string(),
-        coverPaper: z.string(),
-        lamination: z.string(),
-      }),
+      specQuantity: z.number().describe("Number of books"),
+      specPageSize: z.string().describe("Page size e.g. 8.5x11"),
+      specInsidePages: z.number().describe("Number of inside pages"),
+      specInsidePaper: z.string().describe("Inside paper stock"),
+      specCoverPaper: z.string().describe("Cover paper stock"),
+      specLamination: z.string().describe("Lamination type or None"),
     }),
-    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, specs }) => {
+    execute: async ({ projectName, brokerId, brokerName, brokerCompany, total, perUnit, specQuantity, specPageSize, specInsidePages, specInsidePaper, specCoverPaper, specLamination }) => {
+      const specs = {
+        quantity: specQuantity,
+        pageSize: specPageSize,
+        insidePages: specInsidePages,
+        insidePaper: specInsidePaper,
+        coverPaper: specCoverPaper,
+        lamination: specLamination,
+      }
       try {
 
         const { data, error } = await supabase
@@ -157,11 +163,31 @@ const tools = {
 
 export async function POST(req: Request) {
   try {
-    const { messages, brokerId, brokerName, brokerCompany } = await req.json()
+    const { messages: rawMessages, brokerId, brokerName, brokerCompany } = await req.json()
 
     if (!brokerId || !brokerName || !brokerCompany) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
     }
+
+    // Convert client messages (parts format) to generateText format (content string)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages = rawMessages.map((msg: any) => {
+      let content = ""
+      if (typeof msg.content === "string") {
+        content = msg.content
+      } else if (Array.isArray(msg.parts)) {
+        content = msg.parts
+          .filter((p: { type: string }) => p.type === "text")
+          .map((p: { text: string }) => p.text)
+          .join("\n")
+      } else if (Array.isArray(msg.content)) {
+        content = msg.content
+          .filter((p: { type: string }) => p.type === "text")
+          .map((p: { text: string }) => p.text)
+          .join("\n")
+      }
+      return { role: msg.role as "user" | "assistant", content }
+    })
 
     const anthropic = createAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
