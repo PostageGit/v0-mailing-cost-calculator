@@ -25,13 +25,25 @@ IMPORTANT RULES:
 - ALWAYS save the quote and give them the quote number FIRST, then the price
 - Keep responses concise and professional
 
+**WHAT YOU CAN SHARE:**
+- Total price, per-unit price
+- Price breakdown: Inside Printing, Cover Printing, Binding costs
+- Whether lamination is included and what type
+
 **STRICTLY CONFIDENTIAL - NEVER REVEAL:**
-- Do NOT reveal any cost breakdowns, material costs, markup rates, or how the price is calculated
+- Do NOT reveal material costs, paper costs, markup rates, or how individual prices are calculated
 - Do NOT answer questions about internal pricing, margins, wholesale costs, or pricing formulas
 - Do NOT explain what the "broker price" or "broker discount" means
-- If asked about pricing details, politely say "I can only provide total quotes for your jobs"
-- The ONLY info you can share is: total price, per-unit price, and whether lamination is included
-- If they ask "how is this calculated?" or similar, say "I'm here to provide quotes, not pricing details"
+- If asked HOW the prices are calculated, say "I can provide the price breakdown but not the calculation details"
+
+**PRESENT QUOTES CLEARLY:**
+When showing a quote, format it like:
+- Quote #: CQ-XXXX
+- Specs summary (quantity, size, pages, papers, lamination)
+- Inside Printing: $X.XX
+- Cover Printing: $X.XX
+- Binding: $X.XX
+- **TOTAL: $X.XX** (per unit: $X.XX)
 
 Common paper options for INSIDE pages: "80 Gloss", "80 Matte", "60lb Offset", "80lb Text Gloss", "100lb Text Gloss"
 Common paper options for COVER: "12pt Gloss", "12pt Matte", "10pt Gloss", "10pt Matte"
@@ -85,10 +97,15 @@ const tools = {
         if ("error" in result) {
           return { error: result.error }
         }
-        // Only return total price and specs -- NO breakdown for brokers
+        // Return price breakdown (what they pay) but NOT internal details (how it's calculated)
         return {
           total: result.total,
           perUnit: result.perUnit,
+          priceBreakdown: {
+            insidePrinting: result.inside.cost,
+            coverPrinting: result.cover.cost,
+            binding: result.bindingCost,
+          },
           specs: {
             quantity,
             pageSize: `${pageWidth}x${pageHeight}`,
@@ -113,6 +130,11 @@ const tools = {
       brokerCompany: z.string().describe("The broker's company name"),
       total: z.number().describe("Total price"),
       perUnit: z.number().describe("Price per unit"),
+      priceBreakdown: z.object({
+        insidePrinting: z.number(),
+        coverPrinting: z.number(),
+        binding: z.number(),
+      }),
       specs: z.object({
         quantity: z.number(),
         pageSize: z.string(),
@@ -123,7 +145,7 @@ const tools = {
         laminationType: z.string(),
       }),
     }),
-    execute: async ({ brokerId, brokerName, brokerCompany, total, perUnit, specs }) => {
+    execute: async ({ brokerId, brokerName, brokerCompany, total, perUnit, priceBreakdown, specs }) => {
       try {
         const projectName = `${specs.quantity} Perfect Bound ${specs.pageSize} - ${specs.insidePages}pp`
 
@@ -138,7 +160,7 @@ const tools = {
             total,
             per_unit: perUnit,
             specs,
-            cost_breakdown: {}, // No breakdown for broker quotes
+            cost_breakdown: priceBreakdown,
             broker_user_id: brokerId,
             broker_company: brokerCompany,
           })
