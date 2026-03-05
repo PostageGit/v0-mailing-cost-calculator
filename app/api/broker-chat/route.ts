@@ -1,5 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
-import { generateText, tool } from "ai"
+import { streamText, tool, convertToModelMessages } from "ai"
 import { z } from "zod"
 import { createClient } from "@supabase/supabase-js"
 import { calculatePerfect } from "@/lib/perfect-pricing"
@@ -156,41 +156,31 @@ export async function POST(req: Request) {
       return Response.json({ error: "Broker context required" }, { status: 400 })
     }
 
-    // Convert client messages to simple { role, content } format
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const messages: Array<{ role: "user" | "assistant"; content: string }> = rawMessages.map((msg: any) => {
-      let content = ""
-      if (typeof msg.content === "string") {
-        content = msg.content
-      } else if (Array.isArray(msg.parts)) {
-        content = msg.parts
-          .filter((p: { type: string }) => p.type === "text")
-          .map((p: { text: string }) => p.text)
-          .join("\n")
-      } else if (Array.isArray(msg.content)) {
-        content = msg.content
-          .filter((p: { type: string }) => p.type === "text")
-          .map((p: { text: string }) => p.text)
-          .join("\n")
-      }
-      return { role: msg.role as "user" | "assistant", content }
-    })
-
     const anthropic = createAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
     const systemWithBroker = BROKER_SYSTEM_PROMPT + `\n\n**BROKER CONTEXT (use when calling save_broker_quote):**\nbrokerId: "${brokerId}"\nbrokerName: "${brokerName}"\nbrokerCompany: "${brokerCompany}"`
 
-    const result = await generateText({
+    // Use streamText + convertToModelMessages (same pattern as main chat which works)
+    const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),
       system: systemWithBroker,
-      messages,
+      messages: await convertToModelMessages(rawMessages),
       tools: brokerTools,
       maxSteps: 5,
     })
 
-    return Response.json({ response: result.text })
+    // Collect the full streamed response into a single text string
+    let fullText = ""
+    const reader = result.textStream.getReader()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) fullText += value
+    }
+
+    return Response.json({ response: fullText })
   } catch (err) {
     console.error("[v0] Broker chat error:", err)
     return Response.json({ error: "Chat failed" }, { status: 500 })
