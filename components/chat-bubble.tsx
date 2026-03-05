@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useChat, type UIMessage } from "@ai-sdk/react"
-import { MessageCircle, X, Send, RotateCcw } from "lucide-react"
+import { MessageCircle, X, Send, RotateCcw, Paperclip, FileText, ImageIcon, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGlobalChat } from "@/lib/chat-context"
 
@@ -14,10 +14,25 @@ function getMessageText(msg: UIMessage): string {
     .join("")
 }
 
+interface UploadedFile {
+  url: string
+  filename: string
+  size: number
+  type: string
+}
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024 // 25MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"]
+
 export function ChatBubble() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState("")
   const scrollRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [pendingFiles, setPendingFiles] = useState<UploadedFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  // Track all files uploaded during this chat session (to save with quote)
+  const [sessionFiles, setSessionFiles] = useState<UploadedFile[]>([])
 
 
   const { registerChat } = useGlobalChat()
@@ -38,6 +53,25 @@ export function ChatBubble() {
     )
   }, [registerChat])
 
+  // Auto-attach session files when a quote is saved (detect CQ- reference in AI messages)
+  const attachedRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (sessionFiles.length === 0) return
+    const lastMsg = messages[messages.length - 1]
+    if (!lastMsg || lastMsg.role !== "assistant") return
+    const text = getMessageText(lastMsg)
+    const cqMatch = text.match(/CQ-(\d+)/)
+    if (cqMatch && !attachedRef.current.has(cqMatch[1])) {
+      attachedRef.current.add(cqMatch[1])
+      const refNum = parseInt(cqMatch[1], 10)
+      fetch("/api/chat-quotes/attach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refNumber: refNum, attachments: sessionFiles }),
+      }).catch(() => { /* silent fail -- quote is saved, files are bonus */ })
+    }
+  }, [messages, sessionFiles])
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -47,13 +81,67 @@ export function ChatBubble() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
-    sendMessage({ text: input.trim() })
+    if ((!input.trim() && pendingFiles.length === 0) || isLoading) return
+
+    // Build message text -- if files are attached, add their info
+    let text = input.trim()
+    if (pendingFiles.length > 0) {
+      const fileList = pendingFiles
+        .map((f) => `[Attached file: ${f.filename} (${f.type === "application/pdf" ? "PDF" : "Image"}, ${(f.size / 1024).toFixed(0)}KB) - ${f.url}]`)
+        .join("\n")
+      text = text ? `${text}\n\n${fileList}` : fileList
+    }
+
+    sendMessage({ text })
     setInput("")
+    setPendingFiles([])
   }
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`${file.name} is too large. Max 25MB.`)
+        continue
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        alert(`${file.name} is not a supported file type. Only images and PDFs.`)
+        continue
+      }
+
+      setUploading(true)
+      try {
+        const formData = new FormData()
+        formData.append("file", file)
+        const res = await fetch("/api/chat-upload", { method: "POST", body: formData })
+        if (!res.ok) {
+          const err = await res.json()
+          alert(err.error || "Upload failed")
+          continue
+        }
+        const data: UploadedFile = await res.json()
+        setPendingFiles((prev) => [...prev, data])
+        setSessionFiles((prev) => [...prev, data])
+      } catch {
+        alert("Upload failed. Please try again.")
+      } finally {
+        setUploading(false)
+      }
+    }
+    // Reset the input so the same file can be re-selected
+    e.target.value = ""
+  }, [])
+
+  const removePendingFile = useCallback((url: string) => {
+    setPendingFiles((prev) => prev.filter((f) => f.url !== url))
+  }, [])
 
   const handleReset = () => {
     setMessages([])
+    setPendingFiles([])
+    setSessionFiles([])
   }
 
   return (
@@ -152,6 +240,28 @@ export function ChatBubble() {
               const text = getMessageText(msg)
               if (!text) return null
               const isUser = msg.role === "user"
+
+              // Extract attachment URLs from user messages
+              const attachmentRegex = /\[Attached file: (.+?) \((Image|PDF), .+?\) - (https?:\/\/[^\]]+)\]/g
+              const attachments: { name: string; type: string; url: string }[] = []
+              let match
+              const cleanText = isUser ? text.replace(attachmentRegex, () => {
+                // We already ran the regex above so re-run to collect
+                return ""
+              }).trim() : text
+
+              // Re-run to actually collect attachments
+              if (isUser) {
+                let m
+                const re = /\[Attached file: (.+?) \((Image|PDF), .+?\) - (https?:\/\/[^\]]+)\]/g
+                while ((m = re.exec(text)) !== null) {
+                  attachments.push({ name: m[1], type: m[2], url: m[3] })
+                }
+              }
+
+              const displayText = isUser ? cleanText : text
+              if (!displayText && attachments.length === 0) return null
+
               return (
                 <div
                   key={msg.id}
@@ -164,7 +274,31 @@ export function ChatBubble() {
                         : "rounded-bl-md bg-muted text-foreground"
                     }`}
                   >
-                    <ChatText text={text} />
+                    {displayText && <ChatText text={displayText} />}
+                    {attachments.length > 0 && (
+                      <div className={`flex flex-col gap-1.5 ${displayText ? "mt-2" : ""}`}>
+                        {attachments.map((att) => (
+                          <a
+                            key={att.url}
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] transition-colors ${
+                              isUser
+                                ? "bg-background/15 text-background hover:bg-background/25"
+                                : "bg-muted text-foreground hover:bg-muted/80"
+                            }`}
+                          >
+                            {att.type === "PDF" ? (
+                              <FileText className="h-3.5 w-3.5 shrink-0" />
+                            ) : (
+                              <ImageIcon className="h-3.5 w-3.5 shrink-0" />
+                            )}
+                            <span className="truncate">{att.name}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -181,11 +315,56 @@ export function ChatBubble() {
             )}
           </div>
 
+          {/* Pending file previews */}
+          {pendingFiles.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto border-t border-border px-3 pt-2 pb-0">
+              {pendingFiles.map((f) => (
+                <div key={f.url} className="relative group flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2 py-1.5 shrink-0 max-w-[180px]">
+                  {f.type === "application/pdf" ? (
+                    <FileText className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                  ) : (
+                    <ImageIcon className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  )}
+                  <span className="text-[11px] text-foreground truncate">{f.filename}</span>
+                  <button
+                    onClick={() => removePendingFile(f.url)}
+                    className="ml-auto shrink-0 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Remove ${f.filename}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Input */}
           <form
             onSubmit={handleSubmit}
             className="flex items-center gap-2 border-t border-border px-3 py-3"
           >
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || isLoading}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+              aria-label="Attach file"
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
+            </button>
             <input
               type="text"
               value={input}
@@ -197,7 +376,7 @@ export function ChatBubble() {
             <Button
               type="submit"
               size="icon"
-              disabled={!input.trim() || isLoading}
+              disabled={(!input.trim() && pendingFiles.length === 0) || isLoading}
               className="h-9 w-9 shrink-0 rounded-lg bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40"
             >
               <Send className="h-4 w-4" />

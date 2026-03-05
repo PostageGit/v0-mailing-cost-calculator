@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   Search, RefreshCw, Loader2, MessageSquare, ChevronUp, ChevronDown,
+  FileText, ImageIcon, ExternalLink, Paperclip,
 } from "lucide-react"
 
 interface ChatQuote {
@@ -13,6 +14,7 @@ interface ChatQuote {
   customer_email: string; customer_phone: string;
   project_name: string; product_type: string; total: number; per_unit: number;
   specs: Record<string, unknown>; cost_breakdown: Record<string, unknown>;
+  attachments: Array<{ url: string; filename: string; size: number; type: string }>;
   notes: string; created_at: string;
 }
 
@@ -177,6 +179,12 @@ export function ChatQuotesDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
+                    {(q.attachments?.length > 0) && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Paperclip className="h-3 w-3" />
+                        {q.attachments.length}
+                      </span>
+                    )}
                     <span className="text-base font-bold text-foreground">${Number(q.total).toFixed(2)}</span>
                     {isExpanded
                       ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -218,6 +226,55 @@ export function ChatQuotesDashboard() {
                               <p className="text-sm font-bold text-foreground">{String(value)}</p>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Attachments section */}
+                    {q.attachments?.length > 0 && (
+                      <div className="px-4 sm:px-5 py-4 border-t border-border">
+                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-3">
+                          Attachments ({q.attachments.length})
+                        </h4>
+                        <div className="flex flex-col gap-2">
+                          {q.attachments.map((att, idx) => {
+                            const isPdf = att.type === "application/pdf"
+                            const isImage = att.type?.startsWith("image/")
+                            return (
+                              <div key={idx} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                                {/* Thumbnail for images */}
+                                {isImage ? (
+                                  <div className="h-12 w-12 shrink-0 rounded-md overflow-hidden bg-muted">
+                                    <img
+                                      src={att.url}
+                                      alt={att.filename}
+                                      className="h-full w-full object-cover"
+                                      crossOrigin="anonymous"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-red-500/10">
+                                    <FileText className="h-5 w-5 text-red-600" />
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-foreground truncate">{att.filename}</p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {isPdf ? "PDF" : "Image"} &middot; {att.size ? `${(att.size / 1024).toFixed(0)}KB` : ""}
+                                  </p>
+                                </div>
+                                <a
+                                  href={att.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                  aria-label={`Open ${att.filename}`}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
