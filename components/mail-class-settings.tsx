@@ -82,6 +82,9 @@ import {
   Mail,
   Boxes,
   Scale,
+  MessageSquare,
+  Eye,
+  Clock,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -122,7 +125,7 @@ type SettingsTab =
   | "pricing" | "paper-weights" | "finishings" | "finishing-calcs"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
   | "items" | "supplies" | "steps"
-  | "fields" | "terms" | "team" | "system"
+  | "fields" | "terms" | "team" | "system" | "chat-quotes"
 
 interface SettingsNavGroup {
   label: string
@@ -164,6 +167,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "terms", label: "Payment Terms", icon: <CreditCard className="h-4 w-4" />, description: "Net terms, due dates" },
       { id: "team", label: "Team", icon: <Users className="h-4 w-4" />, description: "Team members and roles" },
       { id: "system", label: "System Health", icon: <Activity className="h-4 w-4" />, description: "Database, storage, diagnostics" },
+      { id: "chat-quotes", label: "Chat Quotes", icon: <MessageSquare className="h-4 w-4" />, description: "Quotes saved from the AI chat assistant" },
     ],
   },
 ]
@@ -192,6 +196,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   terms: () => <PaymentTermsTab />,
   team: () => <TeamTab />,
   system: () => <SystemDashboardTab />,
+  "chat-quotes": () => <ChatQuotesTab />,
 }
 
 // ---------- main panel ----------
@@ -1775,6 +1780,156 @@ const LEVEL_LABELS = [
 ]
 
 type PricingSection = "click" | "flat" | "booklet" | "markups"
+
+// ---------- Chat Quotes Tab ----------
+function ChatQuotesTab() {
+  const [quotes, setQuotes] = useState<Array<{
+    id: string; quote_number: number; project_name: string; contact_name: string;
+    total: number; created_at: string; chat_specs: Record<string, unknown>; status: string;
+  }>>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const loadQuotes = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/chat-quotes")
+      if (res.ok) {
+        const data = await res.json()
+        setQuotes(data)
+      }
+    } catch { /* ignore */ }
+    setLoading(false)
+  }, [])
+
+  useState(() => { loadQuotes() })
+
+  const filtered = quotes.filter((q) => {
+    const term = searchTerm.toLowerCase()
+    if (!term) return true
+    return (
+      q.contact_name?.toLowerCase().includes(term) ||
+      q.project_name?.toLowerCase().includes(term) ||
+      String(q.quote_number).includes(term)
+    )
+  })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Search & refresh */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, project, or quote #..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-11 pl-10 text-sm"
+          />
+        </div>
+        <Button variant="outline" size="sm" className="h-11 px-4" onClick={loadQuotes}>
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-xs text-muted-foreground">Total Chat Quotes</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{quotes.length}</p>
+        </div>
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-xs text-muted-foreground">Total Value</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            ${quotes.reduce((sum, q) => sum + Number(q.total || 0), 0).toFixed(2)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border p-4 col-span-2 sm:col-span-1">
+          <p className="text-xs text-muted-foreground">This Month</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            {quotes.filter((q) => {
+              const d = new Date(q.created_at)
+              const now = new Date()
+              return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+            }).length}
+          </p>
+        </div>
+      </div>
+
+      {/* Quote list */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {searchTerm ? "No quotes match your search." : "No chat quotes saved yet. Quotes will appear here when customers save them from the chat."}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filtered.map((q) => {
+            const isExpanded = expandedId === q.id
+            const specs = q.chat_specs || {}
+            return (
+              <div key={q.id} className="rounded-xl border border-border overflow-hidden">
+                <button
+                  className={cn(
+                    "w-full flex items-center justify-between px-5 py-4 text-left transition-colors min-h-[56px]",
+                    isExpanded ? "bg-muted/40" : "hover:bg-muted/20"
+                  )}
+                  onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-secondary shrink-0">
+                      <span className="text-sm font-bold text-foreground">#{q.quote_number}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{q.project_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {q.contact_name || "No name"} &middot; {new Date(q.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-bold text-foreground">${Number(q.total).toFixed(2)}</span>
+                    {isExpanded
+                      ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="px-5 pb-5 pt-3 border-t border-border bg-muted/10">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3">Quote Specs</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {Object.entries(specs).map(([key, value]) => (
+                        <div key={key}>
+                          <p className="text-[11px] text-muted-foreground capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</p>
+                          <p className="text-sm font-medium text-foreground">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {Object.keys(specs).length === 0 && (
+                      <p className="text-xs text-muted-foreground">No specs recorded for this quote.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function PricingSettingsTab() {
   const { data: settings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)

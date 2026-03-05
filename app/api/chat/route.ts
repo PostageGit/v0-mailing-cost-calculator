@@ -12,6 +12,7 @@ import { calculatePad } from "@/lib/pad-pricing"
 import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
+import { createClient } from "@supabase/supabase-js"
 
 // Build paper name lists at module level so the AI can use them
 const FLAT_PAPER_NAMES = PAPER_OPTIONS.map((p) => p.name)
@@ -49,6 +50,12 @@ CONFIRM BEFORE CALCULATING -- THIS IS MANDATORY:
 - If the customer corrects something, update and confirm again.
 - NEVER assume, guess, or "improve" a spec the customer gave you. If they said 4/0, use 4/0. If they said S/S, ask "just to confirm, S/S is single-sided BW -- books need both sides on the inside, did you mean D/S?"
 - The ONLY exception: if the customer says "just give me a quick price" or "skip confirmation", you can calculate directly.
+
+CRITICAL -- DO NOT INVENT RESTRICTIONS:
+- NEVER tell the customer a size, paper, or product is "not available" or "too large" unless the calculator tool actually returns an error.
+- NEVER make up equipment limitations, size limits, or paper restrictions that are not in this prompt.
+- If you're unsure whether something is possible, TRY the calculator first. Only report limitations if the tool returns an actual error.
+- You are a pricing assistant, not a production expert. Let the calculator decide what's possible.
 
 ONE JOB AT A TIME:
 - Only quote one product at a time. Finish the current quote before starting another.
@@ -111,6 +118,7 @@ For FLAT PRINTS:
 3. Color or black & white?
 4. Front only or front and back?
 5. Regular paper or thick cardstock?
+6. Does it have bleed? (design prints to the edge with no white border). Postcards, business cards, door hangers = almost always YES. Text-heavy flyers/letters = usually NO. If unsure, ASK.
 -> Then calculate.
 
 For BOOKS / BOOKLETS:
@@ -129,15 +137,18 @@ For BOOKS / BOOKLETS:
 
 For PADS:
 1. How many pads?
-2. What size? (MUST ASK)
+2. What size? (MUST ASK) -- Pads can be ANY size that fits on a parent sheet (up to 12x18). Common sizes: 8.5x11, 5.5x8.5, 4.25x5.5, 4x6, 3.5x5. NEVER tell the customer a size is "too large" unless it literally exceeds 12x18.
 3. How many sheets per pad?
 4. Color or black & white?
--> Then calculate.
+5. Does it have bleed? (design prints to the edge -- adds ~0.25" per side, meaning fewer fit per parent sheet = higher cost). Default no bleed.
+6. Chipboard backing? (default yes)
+-> Then calculate. Do NOT invent size restrictions or equipment limitations that don't exist.
 
 For ENVELOPES:
 1. How many?
 2. What size/type envelope? (list common ones: #10, 6x9, 9x12)
 3. Color or black & white?
+4. Does it have bleed? (full coverage printing to the edge). Most envelopes are NO bleed (just a logo/return address). Full-color printed envelopes = YES bleed.
 -> Then calculate.
 
 PAPER KNOWLEDGE -- understand this so you can guide customers:
@@ -355,7 +366,15 @@ FOLDING & SCORING (for flat printing only):
 - If a customer wants folding on cardstock, tell them it needs to be scored first (we do that automatically).
 - Not all paper/size/fold combos are available. If the calculator returns an error, explain and suggest alternatives.
 
-ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square 9x9, Square 6x6. InkJet or Laser.`
+ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square 9x9, Square 6x6. InkJet or Laser.
+
+SAVING QUOTES & REFERENCE NUMBERS:
+- After EVERY price calculation, offer: "Would you like me to save this quote so you can reference it later?"
+- If they say yes, ask for their name (just the name, nothing else).
+- Then call save_chat_quote with their name, a short project description, the total, and the full exactSpecs from the calculator.
+- Give them the quote number (e.g. "Your reference number is #1045. You can come back anytime and give me this number to pull it up.")
+- If a customer gives a reference number, use lookup_quote to retrieve it and show them their saved quote details.
+- NEVER save a quote without asking for the customer's name first.`
 
 const SIDES_DESC = "4/4=color both sides, 4/0=color front only, 1/1=RBW(rich BW on color press, more expensive) both sides, 1/0=RBW front only, S/S=regular BW front only (cheapest), D/S=regular BW both sides (cheapest)"
 
@@ -600,20 +619,25 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pageHeight: z.number().describe("FINISHED height in inches"),
       insidePaper: z.string().describe(`Paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
+      hasBleed: z.boolean().describe("Does the design bleed to the edge? Bleed adds ~0.25in per side so fewer pieces fit per parent sheet. Default false."),
       useChipBoard: z.boolean().describe("Include chipboard backing"),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ padQty, pagesPerPad, pageWidth, pageHeight, insidePaper, insideSides, useChipBoard, isBroker }) => {
+    execute: async ({ padQty, pagesPerPad, pageWidth, pageHeight, insidePaper, insideSides, hasBleed, useChipBoard, isBroker }) => {
       const result = calculatePad({
         padQty, pagesPerPad, pageWidth, pageHeight,
-        inside: { paperName: insidePaper, sides: insideSides, hasBleed: false, sheetSize: "cheapest" },
+        inside: { paperName: insidePaper, sides: insideSides, hasBleed, sheetSize: "cheapest" },
         useChipBoard, customLevel: "auto", isBroker,
       })
       if ("error" in result) return { error: result.error }
       return {
+        _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
         total: fmt(result.grandTotal), perUnit: fmt(result.pricePerPad),
-        qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
-        paper: insidePaper, chipBoard: useChipBoard, broker: isBroker,
+        exactSpecs: {
+          qty: padQty, pagesPerPad, size: `${pageWidth}x${pageHeight}`,
+          paper: insidePaper, sides: insideSides, bleed: hasBleed,
+          chipBoard: useChipBoard, broker: isBroker,
+        },
         costBreakdown: { printing: fmt(result.totalPrintingCost), padding: fmt(result.totalPaddingCost), setup: fmt(result.setupCharge) },
       }
     },
@@ -666,6 +690,88 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
     inputSchema: z.object({}),
     execute: async () => {
       return DEFAULT_ENVELOPE_SETTINGS.items.map((item) => ({ name: item.name, canBleed: item.bleed }))
+    },
+  }),
+
+  // ─── Quote Save & Lookup ──────────────────────────────
+  save_chat_quote: tool({
+    description: `Save the current quote to the database and return a reference number.
+Call this AFTER a price has been calculated AND the customer says they want to save it or get a reference number.
+You MUST ask the customer for their name before calling this tool.`,
+    inputSchema: z.object({
+      customerName: z.string().describe("Customer's name (REQUIRED -- ask before calling)"),
+      projectName: z.string().describe("Short project description, e.g. '500 Tri-fold Brochures'"),
+      total: z.number().describe("The total price from the calculator"),
+      specs: z.record(z.unknown()).describe("The full exactSpecs object from the calculator result"),
+      productType: z.string().describe("flat, booklet, perfect, spiral, pad, or envelope"),
+    }),
+    execute: async ({ customerName, projectName, total, specs, productType }) => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const { data, error } = await supabase
+          .from("quotes")
+          .insert({
+            project_name: projectName,
+            contact_name: customerName,
+            total,
+            status: "draft",
+            source: "chat",
+            chat_specs: { ...specs, productType },
+            items: [{ name: projectName, total, specs: { ...specs, productType } }],
+          })
+          .select("quote_number")
+          .single()
+
+        if (error) return { error: `Failed to save quote: ${error.message}` }
+        return {
+          _instruction: "Tell the customer their quote has been saved and give them the reference number. Tell them they can come back anytime and look it up by this number.",
+          quoteNumber: data.quote_number,
+          customerName,
+          projectName,
+          total: `$${total.toFixed(2)}`,
+        }
+      } catch (e: unknown) {
+        return { error: `Failed to save: ${e instanceof Error ? e.message : "Unknown error"}` }
+      }
+    },
+  }),
+
+  lookup_quote: tool({
+    description: `Look up a previously saved quote by its reference number (quote number).
+Call this when a customer provides a reference number to retrieve their quote.`,
+    inputSchema: z.object({
+      quoteNumber: z.number().describe("The quote reference number (e.g. 1001, 1002, etc.)"),
+    }),
+    execute: async ({ quoteNumber }) => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const { data, error } = await supabase
+          .from("quotes")
+          .select("quote_number, project_name, contact_name, total, status, created_at, chat_specs, items, source")
+          .eq("quote_number", quoteNumber)
+          .single()
+
+        if (error || !data) return { error: `Quote #${quoteNumber} not found.` }
+        return {
+          _instruction: "Show the customer their saved quote details clearly. If they want to adjust specs or reorder, help them.",
+          quoteNumber: data.quote_number,
+          customerName: data.contact_name,
+          projectName: data.project_name,
+          total: `$${Number(data.total).toFixed(2)}`,
+          savedOn: new Date(data.created_at).toLocaleDateString(),
+          source: data.source,
+          specs: data.chat_specs || {},
+          items: data.items,
+        }
+      } catch (e: unknown) {
+        return { error: `Lookup failed: ${e instanceof Error ? e.message : "Unknown error"}` }
+      }
     },
   }),
 }
