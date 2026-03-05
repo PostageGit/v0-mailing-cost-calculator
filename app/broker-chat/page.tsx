@@ -45,7 +45,7 @@ export default function BrokerChatPage() {
     setIsLoading(true)
 
     try {
-      const res = await fetch("/api/broker-chat", {
+      const res = await fetch("/api/broker-quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
