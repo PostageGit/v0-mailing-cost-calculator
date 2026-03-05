@@ -10,7 +10,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("chat_quotes")
-      .select("id, ref_number, customer_name, project_name, product_type, total, per_unit, specs, cost_breakdown, notes, created_at")
+      .select("id, ref_number, customer_name, customer_email, customer_phone, project_name, product_type, total, per_unit, specs, cost_breakdown, attachments, notes, created_at")
       .order("created_at", { ascending: false })
 
     if (error) {

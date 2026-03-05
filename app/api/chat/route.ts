@@ -370,11 +370,11 @@ ENVELOPES: #6, #9, #10 (window or no window), 6x9, 6x9.5, 9x12, A-2, A-7, Square
 
 SAVING QUOTES & REFERENCE NUMBERS:
 - After EVERY price calculation, offer: "Would you like me to save this quote so you can reference it later?"
-- If they say yes, ask for their name (just the name, nothing else).
-- Then call save_chat_quote with their name, a short project description, the total, and the full exactSpecs from the calculator.
+- If they say yes, ask for their name, email address, and phone number. All three are REQUIRED -- do not save without all three.
+- Then call save_chat_quote with their name, email, phone, a short project description, the total, and the full exactSpecs from the calculator.
 - Give them the reference code with the CQ- prefix (e.g. "Your reference number is CQ-5003. You can come back anytime and give me this code to pull it up."). ALWAYS include the CQ- prefix.
 - If a customer gives a reference number, use lookup_quote to retrieve it and show them their saved quote details.
-- NEVER save a quote without asking for the customer's name first.`
+- NEVER save a quote without getting the customer's name, email, AND phone number first. All three are required.`
 
 const SIDES_DESC = "4/4=color both sides, 4/0=color front only, 1/1=RBW(rich BW on color press, more expensive) both sides, 1/0=RBW front only, S/S=regular BW front only (cheapest), D/S=regular BW both sides (cheapest)"
 
@@ -697,10 +697,12 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
   save_chat_quote: tool({
     description: `Save the current quote to the database and return a reference number.
 Call this AFTER a price has been calculated AND the customer says they want to save it or get a reference number.
-You MUST ask the customer for their name before calling this tool.
+You MUST ask the customer for their name, email, and phone number before calling this tool. All three are REQUIRED.
 Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and every field from the calculator result.`,
     inputSchema: z.object({
-      customerName: z.string().describe("Customer's name (REQUIRED -- ask before calling)"),
+      customerName: z.string().describe("Customer's name (REQUIRED)"),
+      customerEmail: z.string().describe("Customer's email address (REQUIRED)"),
+      customerPhone: z.string().describe("Customer's phone number (REQUIRED)"),
       projectName: z.string().describe("Short project description, e.g. '500 Tri-fold Brochures'"),
       total: z.number().describe("The total price from the calculator"),
       perUnit: z.number().optional().describe("Per-unit or per-piece price if available"),
@@ -708,7 +710,7 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
       costBreakdown: z.record(z.unknown()).optional().describe("The full costBreakdown object from the calculator (printing, lamination, padding, setup, etc.)"),
       productType: z.string().describe("flat, booklet, perfect, spiral, pad, or envelope"),
     }),
-    execute: async ({ customerName, projectName, total, perUnit, specs, costBreakdown, productType }) => {
+    execute: async ({ customerName, customerEmail, customerPhone, projectName, total, perUnit, specs, costBreakdown, productType }) => {
       try {
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -718,6 +720,8 @@ Include ALL details: the full exactSpecs, the costBreakdown, perUnit price, and 
           .from("chat_quotes")
           .insert({
             customer_name: customerName,
+            customer_email: customerEmail,
+            customer_phone: customerPhone,
             project_name: projectName,
             product_type: productType,
             total,
