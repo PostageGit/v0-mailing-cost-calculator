@@ -17,8 +17,8 @@ const PAPER_PRICES: Record<string, Record<string, number>> = {
   "10pt Offset":      { "8.5x11": 0.0578, "11x17": 0.1130, "12x18": 0.1130, "13x19": 0.1130 },
   "10pt Gloss":       { "11x17": 0.1321, "12x18": 0.1321, "13x19": 0.1321 },
   "10pt Matte":       { "11x17": 0.1272, "12x18": 0.1272, "13x19": 0.1272 },
-  "12pt Gloss":       { "11x17": 0.1490, "12x18": 0.1490, "13x19": 0.1490 },
-  "12pt Matte":       { "11x17": 0.1601, "12x18": 0.1601, "13x19": 0.1601 },
+  "12pt Gloss":       { "11x17": 0.1490, "12x18": 0.1490, "13x19": 0.1490, "13x26": 0.4470 },
+  "12pt Matte":       { "11x17": 0.1601, "12x18": 0.1601, "13x19": 0.1601, "13x26": 0.4803 },
   "20lb Offset":      { "8.5x11": 0.0092, "11x17": 0.0174, "12x18": 0.0293, "12.5x19": 0.0270, "Short 11x17": 0.0184 },
   "60lb Offset":      { "8.5x11": 0.015, "11x17": 0.0295, "12x18": 0.0346, "12.5x19": 0.0320, "Short 12x18": 0.0360, "Short 12.5x19": 0.0410 },
   "80lb Text Gloss":  { "8.5x11": 0.025, "11x17": 0.0490, "12x18": 0.0490, "13x19": 0.0615, "Short 11x17": 0.0523, "Short 12x18": 0.0523 },
@@ -183,9 +183,12 @@ function calculatePart(
   if (part.sheetSize === "cheapest") {
     let best: ReturnType<typeof calcForSize> = null
     let minCost = Infinity
-    // Exclude specialty/large-format sizes from auto "cheapest" pick
-    const standardSizes = paperData.availableSizes.filter((s) => !SPECIALTY_SHEET_SIZES.has(s))
-    for (const sz of standardSizes) {
+    // For covers, allow specialty sizes (e.g. 13x26) since large cover spreads need them.
+    // For insides, exclude specialty sizes from auto "cheapest" pick.
+    const sizesToTry = partName === "cover"
+      ? paperData.availableSizes
+      : paperData.availableSizes.filter((s) => !SPECIALTY_SHEET_SIZES.has(s))
+    for (const sz of sizesToTry) {
       const r = calcForSize(sz)
       if (r && r.cost < minCost) { minCost = r.cost; best = r }
     }
