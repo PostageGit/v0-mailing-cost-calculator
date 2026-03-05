@@ -2245,7 +2245,9 @@ function PricingSettingsTab() {
   )
 }
 
-// Reusable paper price editor -- shows prices per 1,000 sheets
+// Reusable paper price editor -- shows ALL possible sizes per paper, split into
+// Regular and Short sections.  Active sizes have a price and editable input.
+// Inactive sizes are grayed out with a toggle to activate + set a price.
 function PaperPriceEditor({
   prices,
   onChange,
@@ -2257,17 +2259,90 @@ function PaperPriceEditor({
 }) {
   const [expandedPaper, setExpandedPaper] = useState<string | null>(null)
 
+  const ALL_REGULAR: string[] = ["8.5x11", "11x17", "12x18", "12.5x19", "13x19", "13x26"]
+  const ALL_SHORT: string[] = ["Short 11x17", "Short 12x18", "Short 12.5x19"]
+
+  const toggleSize = (paper: string, size: string, active: boolean) => {
+    const updated = structuredClone(prices)
+    if (active) {
+      // Activate with a default price of 0
+      if (!updated[paper]) updated[paper] = {}
+      updated[paper][size] = 0
+    } else {
+      // Deactivate -- remove the size
+      delete updated[paper][size]
+    }
+    onChange(updated)
+  }
+
+  const updatePrice = (paper: string, size: string, per1000: number) => {
+    const updated = structuredClone(prices)
+    updated[paper][size] = per1000 / 1000
+    onChange(updated)
+  }
+
+  /** Render a single size row (active or inactive) */
+  const renderSizeRow = (paper: string, size: string) => {
+    const isActive = prices[paper]?.[size] !== undefined
+    const pricePerSheet = prices[paper]?.[size] ?? 0
+
+    return (
+      <div key={size} className={cn(
+        "flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+        isActive ? "border-border bg-background" : "border-dashed border-border/50 bg-muted/20"
+      )}>
+        <Switch
+          checked={isActive}
+          onCheckedChange={(checked) => toggleSize(paper, size, checked)}
+          className="shrink-0 scale-[0.85]"
+          aria-label={`Toggle ${size} for ${paper}`}
+        />
+        <span className={cn(
+          "text-xs font-medium min-w-[80px] shrink-0",
+          isActive ? "text-foreground" : "text-muted-foreground/60"
+        )}>
+          {size}
+        </span>
+        {isActive ? (
+          <div className="flex items-center gap-2 flex-1 justify-end">
+            <div className="relative max-w-[140px] w-full">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+              <Input
+                type="number"
+                step="0.01"
+                value={Math.round(pricePerSheet * 1000 * 100) / 100}
+                onChange={(e) => updatePrice(paper, size, parseFloat(e.target.value) || 0)}
+                className="h-8 text-xs pl-6 pr-10 text-right"
+              />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">/1K</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap w-[72px] text-right">
+              ${pricePerSheet.toFixed(4)}/sh
+            </span>
+          </div>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/40 italic ml-auto">Inactive</span>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground">
         Used by: {usedBy}. Prices shown are <span className="font-semibold text-foreground">per 1,000 sheets</span>.
+        Toggle inactive sizes on when that paper size becomes available.
       </p>
       <div className="flex flex-col gap-2">
-        {Object.entries(prices).map(([paper, sizes]) => {
+        {Object.keys(prices).map((paper) => {
+          const sizes = prices[paper] || {}
           const isExpanded = expandedPaper === paper
-          const sizeCount = Object.keys(sizes).length
-          // Show the cheapest price per 1000 as a preview
-          const cheapest = Math.min(...Object.values(sizes)) * 1000
+          const activeSizes = Object.keys(sizes)
+          const totalPossible = ALL_REGULAR.length + ALL_SHORT.length
+          const activeCount = activeSizes.length
+          const cheapest = activeCount > 0 ? Math.min(...Object.values(sizes)) * 1000 : 0
+          const hasShortSizes = ALL_SHORT.some((s) => sizes[s] !== undefined)
+
           return (
             <div key={paper} className="rounded-xl border border-border overflow-hidden">
               <button
@@ -2280,7 +2355,9 @@ function PaperPriceEditor({
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold text-foreground">{paper}</span>
                   <span className="text-xs text-muted-foreground">
-                    {sizeCount} size{sizeCount !== 1 ? "s" : ""} &middot; from ${cheapest.toFixed(2)}/1K
+                    {activeCount} of {totalPossible} sizes active
+                    {activeCount > 0 && <> &middot; from ${cheapest.toFixed(2)}/1K</>}
+                    {hasShortSizes && <> &middot; <span className="text-amber-600 dark:text-amber-400 font-medium">has Short</span></>}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -2292,31 +2369,24 @@ function PaperPriceEditor({
               </button>
               {isExpanded && (
                 <div className="px-5 pb-5 pt-3 border-t border-border bg-muted/10">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Object.entries(sizes).map(([size, pricePerSheet]) => (
-                      <div key={size}>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{size}</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={Math.round(pricePerSheet * 1000 * 100) / 100}
-                            onChange={(e) => {
-                              const per1000 = parseFloat(e.target.value) || 0
-                              const updated = structuredClone(prices)
-                              updated[paper][size] = per1000 / 1000
-                              onChange(updated)
-                            }}
-                            className="h-11 text-sm pl-7 pr-14 text-right"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">/1K</span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          ${pricePerSheet.toFixed(4)} per sheet
-                        </p>
-                      </div>
-                    ))}
+                  {/* Regular Sizes */}
+                  <div className="mb-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">
+                      Regular Sizes
+                    </h4>
+                    <div className="flex flex-col gap-1.5">
+                      {ALL_REGULAR.map((size) => renderSizeRow(paper, size))}
+                    </div>
+                  </div>
+
+                  {/* Short Sheets */}
+                  <div>
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">
+                      Short Sheets
+                    </h4>
+                    <div className="flex flex-col gap-1.5">
+                      {ALL_SHORT.map((size) => renderSizeRow(paper, size))}
+                    </div>
                   </div>
                 </div>
               )}

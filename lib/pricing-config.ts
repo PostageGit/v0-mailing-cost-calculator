@@ -23,6 +23,14 @@ export const DEFAULT_CLICK_COSTS: Record<string, ClickCostEntry> = {
   Color: { regular: 0.049, machine: 0.0087 },
 }
 
+// ==================== SHEET SIZE DEFINITIONS ====================
+
+/** All regular (non-short) sheet sizes in display order */
+export const ALL_REGULAR_SIZES = ["8.5x11", "11x17", "12x18", "12.5x19", "13x19", "13x26"] as const
+
+/** All "Short" sheet sizes in display order */
+export const ALL_SHORT_SIZES = ["Short 11x17", "Short 12x18", "Short 12.5x19"] as const
+
 // ==================== FLAT PAPER PRICES ====================
 
 export const DEFAULT_PAPER_PRICES: Record<string, Record<string, number>> = {
