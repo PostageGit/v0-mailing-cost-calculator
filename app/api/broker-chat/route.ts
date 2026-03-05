@@ -50,7 +50,7 @@ Defaults if not specified: 8.5x11, 80 Gloss inside, 12pt Gloss cover, 4/4 both s
 const brokerTools = {
   calculate_perfect_binding: tool({
     description: "Calculate price for a perfect binding job with broker pricing.",
-    parameters: z.object({
+    inputSchema: z.object({
       quantity: z.number().describe("Number of books"),
       pageWidth: z.number().describe("Page width in inches"),
       pageHeight: z.number().describe("Page height in inches"),
@@ -105,7 +105,7 @@ const brokerTools = {
 
   save_broker_quote: tool({
     description: "Save the quote and get a quote number. ALWAYS call before showing the price.",
-    parameters: z.object({
+    inputSchema: z.object({
       projectName: z.string().describe("Project name from the broker"),
       brokerId: z.string().describe("Broker user ID"),
       brokerName: z.string().describe("Broker display name"),
