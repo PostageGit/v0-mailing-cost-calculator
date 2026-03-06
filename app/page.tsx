@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
@@ -775,11 +775,13 @@ function MobileBar({ onGoToExport }: { onGoToExport?: () => void }) {
 
 export default function Page() {
   return (
-    <QuoteProvider>
-      <MailingProvider>
-        <AppContent />
-      </MailingProvider>
-    </QuoteProvider>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <QuoteProvider>
+        <MailingProvider>
+          <AppContent />
+        </MailingProvider>
+      </QuoteProvider>
+    </Suspense>
   )
 }
 
