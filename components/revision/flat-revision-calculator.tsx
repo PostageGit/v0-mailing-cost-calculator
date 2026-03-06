@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Save, Loader2, AlertTriangle } from "lucide-react"
+import { Save, Loader2, AlertTriangle, Plus, X, List } from "lucide-react"
 import {
   calculateAllSheetOptions,
   buildFullResult,
@@ -40,10 +40,18 @@ function getDefaultInputs(): PrintingInputs {
   }
 }
 
+// Multi-quantity result type
+interface MultiQtyResult {
+  qty: number
+  result: FullPrintingResult
+  inputs: PrintingInputs
+}
+
 interface FlatRevisionCalculatorProps {
   initialSpecs: Record<string, unknown>
   originalTotal: number
   onSave: (result: FullPrintingResult, inputs: PrintingInputs) => void
+  onSaveMultiple?: (results: MultiQtyResult[]) => void
   saving?: boolean
 }
 
@@ -51,6 +59,7 @@ export function FlatRevisionCalculator({
   initialSpecs,
   originalTotal,
   onSave,
+  onSaveMultiple,
   saving = false,
 }: FlatRevisionCalculatorProps) {
   // Map initial specs to inputs
@@ -59,6 +68,11 @@ export function FlatRevisionCalculator({
   const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
   const [selectedSheetIndex, setSelectedSheetIndex] = useState(0)
   const [warnings, setWarnings] = useState<string[]>([])
+  
+  // Multi-quantity mode
+  const [multiQtyMode, setMultiQtyMode] = useState(false)
+  const [additionalQtys, setAdditionalQtys] = useState<number[]>([])
+  const [multiResults, setMultiResults] = useState<MultiQtyResult[]>([])
 
   // Get available sides for selected paper
   const availableSides = useMemo(
@@ -103,6 +117,55 @@ export function FlatRevisionCalculator({
       setWarnings([`Calculation error: ${err instanceof Error ? err.message : "Unknown error"}`])
     }
   }, [inputs, selectedSheetIndex])
+
+  // Calculate multi-quantity results when in multi-qty mode
+  useEffect(() => {
+    if (!multiQtyMode || !inputs.width || !inputs.height || !inputs.paperName || !inputs.sidesValue) {
+      setMultiResults([])
+      return
+    }
+
+    const allQtys = [inputs.qty, ...additionalQtys].filter(q => q > 0)
+    const results: MultiQtyResult[] = []
+
+    for (const qty of allQtys) {
+      try {
+        const qtyInputs = { ...inputs, qty }
+        const options = calculateAllSheetOptions(qtyInputs)
+        if (options.length > 0) {
+          // Use cheapest option for each qty
+          const bestOption = options.reduce((best, opt) => 
+            opt.result.perPiece < best.result.perPiece ? opt : best
+          , options[0])
+          const fullResult = buildFullResult(qtyInputs, bestOption.result, [], null, null)
+          results.push({ qty, result: fullResult, inputs: qtyInputs })
+        }
+      } catch {
+        // Skip quantities that error
+      }
+    }
+
+    // Sort by quantity ascending
+    results.sort((a, b) => a.qty - b.qty)
+    setMultiResults(results)
+  }, [multiQtyMode, inputs, additionalQtys])
+
+  // Add a new quantity field
+  function addQuantity() {
+    setAdditionalQtys([...additionalQtys, 0])
+  }
+
+  // Remove a quantity field
+  function removeQuantity(index: number) {
+    setAdditionalQtys(additionalQtys.filter((_, i) => i !== index))
+  }
+
+  // Update an additional quantity
+  function updateAdditionalQty(index: number, value: number) {
+    const newQtys = [...additionalQtys]
+    newQtys[index] = value
+    setAdditionalQtys(newQtys)
+  }
 
   // Handle paper change - update sides if needed
   function handlePaperChange(paperName: string) {
@@ -170,9 +233,23 @@ export function FlatRevisionCalculator({
 
       {/* Form */}
       <div className="grid grid-cols-3 gap-3">
-        {/* Quantity */}
+        {/* Quantity with multi-qty toggle */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+            <button
+              type="button"
+              onClick={() => setMultiQtyMode(!multiQtyMode)}
+              className={`text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${
+                multiQtyMode 
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="h-3 w-3" />
+              Multi
+            </button>
+          </div>
           <Input
             type="number"
             min={1}
@@ -285,6 +362,78 @@ export function FlatRevisionCalculator({
           <span className="text-sm">Broker pricing</span>
         </label>
       </div>
+
+      {/* Additional quantities (multi-qty mode) */}
+      {multiQtyMode && (
+        <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Additional Quantities</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={addQuantity}
+              className="h-6 text-xs gap-1 text-blue-700 dark:text-blue-300"
+            >
+              <Plus className="h-3 w-3" /> Add Qty
+            </Button>
+          </div>
+          {additionalQtys.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {additionalQtys.map((qty, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={qty || ""}
+                    onChange={(e) => updateAdditionalQty(i, parseInt(e.target.value) || 0)}
+                    className="h-7 w-24 text-sm"
+                    placeholder="Qty"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeQuantity(i)}
+                    className="p-1 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Multi-qty results table */}
+          {multiResults.length > 1 && (
+            <div className="mt-3 border-t border-blue-200 dark:border-blue-800 pt-3">
+              <p className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 mb-2 uppercase">Price Comparison</p>
+              <div className="space-y-1">
+                {multiResults.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-white dark:bg-background/50 rounded px-2 py-1.5">
+                    <span className="font-medium">{r.qty.toLocaleString()} qty</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground text-xs">${r.result.result.perPiece.toFixed(4)}/ea</span>
+                      <span className="font-bold">${r.result.grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {onSaveMultiple && multiResults.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onSaveMultiple(multiResults)}
+                  disabled={saving}
+                  className="w-full mt-2 text-xs gap-1 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+                >
+                  <Save className="h-3 w-3" />
+                  Save All {multiResults.length} Options as Revisions
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Lamination */}
       <div className="rounded-lg border border-border p-3 space-y-3">
