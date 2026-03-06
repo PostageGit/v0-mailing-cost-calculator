@@ -503,6 +503,34 @@ export function sortMixKey(service: string, shape: string, mailType: string): st
   return `${service}_${shape}_${mailType}`
 }
 
+// ==================== SADDLE STITCH (FOLD & STAPLE) BINDING CONFIG ====================
+
+export interface SaddleStitchRateEntry {
+  rate: number   // per-book rate
+  setup: number  // setup fee
+}
+
+export interface SaddleStitchConfig {
+  /** Rates by size category -> thickness -> cover type */
+  rates: Record<string, Record<string, Record<string, SaddleStitchRateEntry>>>
+  /** Broker discount percentage (0.30 = 30% off) */
+  brokerDiscountPercent: number
+}
+
+export const DEFAULT_SADDLE_STITCH_CONFIG: SaddleStitchConfig = {
+  rates: {
+    handheld: {
+      thin:  { self: { rate: 0.18, setup: 45 }, with: { rate: 0.23, setup: 60 } },
+      thick: { self: { rate: 0.34, setup: 55 }, with: { rate: 0.44, setup: 70 } },
+    },
+    pocket: {
+      thin:  { self: { rate: 0.38, setup: 60 }, with: { rate: 0.43, setup: 75 } },
+      thick: { self: { rate: 0.54, setup: 65 }, with: { rate: 0.64, setup: 80 } },
+    },
+  },
+  brokerDiscountPercent: 30, // Default 30% off for brokers
+}
+
 // ==================== RUNTIME CONFIG ====================
 
 export interface PricingConfig {
@@ -518,6 +546,7 @@ export interface PricingConfig {
   paperWeightConfig: PaperWeightConfig
   envelopeWeightConfig: EnvelopeWeightConfig
   sortLevelMix: SortLevelMixConfig
+  saddleStitchConfig: SaddleStitchConfig
 }
 
 export type { EnvelopeSettings }
@@ -536,6 +565,7 @@ let _activeConfig: PricingConfig = {
   paperWeightConfig: structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
   envelopeWeightConfig: structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
   sortLevelMix: structuredClone(DEFAULT_SORT_LEVEL_MIX),
+  saddleStitchConfig: structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
 }
 
 export function getActiveConfig(): PricingConfig {

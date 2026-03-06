@@ -51,19 +51,13 @@ const ADD_CATEGORIES: CategoryItem[] = [
     ],
   },
   {
-    id: "book_staple", label: "Book -- Fold & Staple", description: "Saddle-stitched booklet",
+    id: "booklet", label: "Booklet", description: "All binding types",
     icon: "BKL", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-    type: "booklet",
-  },
-  {
-    id: "book_spiral", label: "Book -- Spiral", description: "Wire or coil bound",
-    icon: "SPR", color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
-    type: "spiral_book",
-  },
-  {
-    id: "book_perfect", label: "Book -- Perfect Bound", description: "Glue-bound soft cover",
-    icon: "PB", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
-    type: "perfect_bound",
+    subItems: [
+      { type: "booklet",      label: "Fold & Staple",  description: "Saddle-stitched booklet" },
+      { type: "spiral_book",  label: "Spiral Bound",   description: "Wire or coil binding" },
+      { type: "perfect_bound", label: "Perfect Bound", description: "Glue-bound soft cover" },
+    ],
   },
   {
     id: "pad", label: "Pad", description: "Stacked sheets with chip board backing",
@@ -95,6 +89,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   )
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [showBookletPicker, setShowBookletPicker] = useState(false)
   const [continueAttempted, setContinueAttempted] = useState(false)
   const [showAddContact, setShowAddContact] = useState(false)
   const [newContactName, setNewContactName] = useState("")
@@ -304,7 +299,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
 
       {/* ═══════════════════════════════════════════════════════
           MAIL PIECES -- the heart of the planner
-         ═══════════════════════════════════════════════════════ */}
+         ════════════════════════════��══════════════════════════ */}
       <div className="rounded-2xl border border-border bg-card p-5 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
@@ -416,7 +411,6 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
               {[
                 { type: "envelope" as PieceType, label: "Envelope", icon: "ENV" },
                 { type: "postcard" as PieceType, label: "Postcard", icon: "PC" },
-                { type: "booklet" as PieceType, label: "Booklet", icon: "BKL" },
                 { type: "self_mailer" as PieceType, label: "Self-Mailer", icon: "SM" },
               ].map((item) => (
                 <button
@@ -428,6 +422,46 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                   {item.label}
                 </button>
               ))}
+              {/* Booklet with sub-menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowBookletPicker(!showBookletPicker)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:shadow-md hover:-translate-y-0.5",
+                    showBookletPicker
+                      ? "border-violet-400 bg-violet-50 text-violet-900 dark:bg-violet-950/40 dark:text-violet-200 dark:border-violet-700"
+                      : "border-border bg-card text-foreground hover:border-foreground/20"
+                  )}
+                >
+                  <span className="text-[10px] font-bold text-muted-foreground">BKL</span>
+                  Booklet
+                  <ChevronDown className={cn("h-3 w-3 transition-transform", showBookletPicker && "rotate-180")} />
+                </button>
+                {showBookletPicker && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowBookletPicker(false)} />
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-40 bg-card rounded-xl border border-border shadow-xl p-1 min-w-[180px]">
+                      {[
+                        { type: "booklet" as PieceType, label: "Fold & Staple", desc: "Saddle-stitched", icon: "F&S", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
+                        { type: "spiral_book" as PieceType, label: "Spiral Bound", desc: "Wire or coil", icon: "SPR", color: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" },
+                        { type: "perfect_bound" as PieceType, label: "Perfect Bound", desc: "Glue-bound", icon: "PB", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
+                      ].map((b) => (
+                        <button
+                          key={b.type}
+                          onClick={() => { m.addPiece(b.type); setShowBookletPicker(false) }}
+                          className="w-full flex items-center gap-2.5 text-left px-3 py-2 rounded-lg hover:bg-secondary/80 transition-colors"
+                        >
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${b.color}`}>{b.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[13px] font-medium text-foreground block">{b.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{b.desc}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() => setShowAddMenu(true)}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-card transition-all"
@@ -930,7 +964,7 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
         </div>
       )}
 
-      {/* ─── Workflow Preview ─── */}
+      {/* ─���─ Workflow Preview ─── */}
       {m.pieces.length > 0 && (
         <div className="rounded-2xl border border-border bg-card px-5 py-4 mb-6">
           <div className="flex items-center gap-2 mb-3">
