@@ -51,6 +51,115 @@ export function formatChatQuoteRef(refNumber: number, revisionNumber?: number) {
   return revisionNumber && revisionNumber > 0 ? `${base}-R${revisionNumber}` : base
 }
 
+// Generate a brief summary of what changed between original and revision
+function getChangeSummary(original: ChatQuote, revision: ChatQuote): string {
+  const changes: string[] = []
+  const origSpecs = original.specs || {}
+  const revSpecs = revision.specs || {}
+
+  // Price change
+  const priceDiff = revision.total - original.total
+  if (Math.abs(priceDiff) >= 1) {
+    const sign = priceDiff > 0 ? "+" : ""
+    changes.push(`${sign}$${priceDiff.toFixed(0)}`)
+  }
+
+  // Quantity change
+  const origQty = origSpecs.quantity || origSpecs.qty || origSpecs.Quantity
+  const revQty = revSpecs.quantity || revSpecs.qty || revSpecs.Quantity
+  if (origQty && revQty && origQty !== revQty) {
+    changes.push(`Qty: ${origQty}→${revQty}`)
+  }
+
+  // Size change
+  const origSize = origSpecs.size || origSpecs.Size
+  const revSize = revSpecs.size || revSpecs.Size
+  if (origSize && revSize && origSize !== revSize) {
+    changes.push(`Size: ${origSize}→${revSize}`)
+  }
+
+  // Paper change
+  const origPaper = origSpecs.paper || origSpecs.Paper || origSpecs.coverPaper
+  const revPaper = revSpecs.paper || revSpecs.Paper || revSpecs.coverPaper
+  if (origPaper && revPaper && origPaper !== revPaper) {
+    changes.push(`Paper changed`)
+  }
+
+  // Lamination change
+  const origLam = origSpecs.lamination || origSpecs.Lamination || origSpecs.coverLamination
+  const revLam = revSpecs.lamination || revSpecs.Lamination || revSpecs.coverLamination
+  const origHasLam = origLam && origLam !== "none" && origLam !== "None"
+  const revHasLam = revLam && revLam !== "none" && revLam !== "None"
+  if (!origHasLam && revHasLam) {
+    changes.push("+Lamination")
+  } else if (origHasLam && !revHasLam) {
+    changes.push("-Lamination")
+  } else if (origLam && revLam && origLam !== revLam) {
+    changes.push("Lam changed")
+  }
+
+  // Pages change (for booklets/perfect)
+  const origPages = origSpecs.pages || origSpecs.contentPages || origSpecs.insidePages
+  const revPages = revSpecs.pages || revSpecs.contentPages || revSpecs.insidePages
+  if (origPages && revPages && origPages !== revPages) {
+    changes.push(`Pages: ${origPages}→${revPages}`)
+  }
+
+  // Sides change
+  const origSides = origSpecs.sides || origSpecs.Sides || origSpecs.coverSides
+  const revSides = revSpecs.sides || revSpecs.Sides || revSpecs.coverSides
+  if (origSides && revSides && origSides !== revSides) {
+    changes.push(`Sides: ${origSides}→${revSides}`)
+  }
+
+  // Return up to 3 most important changes
+  return changes.slice(0, 3).join(", ") || "Minor adjustments"
+}
+
+// Generate a condensed description of quote specs
+function getQuoteDescription(q: ChatQuote): string {
+  const specs = q.specs || {}
+  const parts: string[] = []
+
+  // Quantity
+  const qty = specs.quantity || specs.qty || specs.Quantity || specs.Qty
+  if (qty) parts.push(`${qty} qty`)
+
+  // Size
+  const size = specs.size || specs.Size || specs.pageSize
+  if (size) parts.push(size)
+
+  // Paper
+  const paper = specs.paper || specs.Paper || specs.coverPaper
+  if (paper) {
+    // Shorten paper name if too long
+    const shortPaper = String(paper).length > 15 ? String(paper).slice(0, 12) + "..." : paper
+    parts.push(String(shortPaper))
+  }
+
+  // Sides
+  const sides = specs.sides || specs.Sides || specs.coverSides
+  if (sides) parts.push(sides)
+
+  // Pages (for booklets/perfect)
+  const pages = specs.pages || specs.contentPages || specs.insidePages || specs.physicalPages
+  if (pages) parts.push(`${pages}pg`)
+
+  // Lamination
+  const lam = specs.lamination || specs.Lamination || specs.coverLamination
+  if (lam && lam !== "none" && lam !== "None" && lam !== "no") {
+    parts.push("Lam")
+  }
+
+  // Bleed
+  const bleed = specs.bleed || specs.Bleed || specs.coverBleed
+  if (bleed === true || bleed === "Yes" || bleed === "yes") {
+    parts.push("Bleed")
+  }
+
+  return parts.join(" · ") || "No specs"
+}
+
 export function ChatQuotesDashboard() {
   const [quotes, setQuotes] = useState<ChatQuote[]>([])
   const [loading, setLoading] = useState(true)
@@ -294,7 +403,7 @@ export function ChatQuotesDashboard() {
                     )}>
                       <span className="text-[10px] font-bold text-white">{formatChatQuoteRef(q.ref_number, q.revision_number)}</span>
                     </span>
-                    {q.revision_number && q.revision_number > 0 && (
+                    {q.revision_number != null && q.revision_number > 0 && (
                       <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400">
                         Rev by {q.revised_by || "Manual"}
                       </span>
@@ -325,7 +434,10 @@ export function ChatQuotesDashboard() {
                         {q.customer_name || "No name"}
                         {q.customer_phone && <> &middot; {q.customer_phone}</>}
                         {" "}&middot; {new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        {" "}{new Date(q.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                      {/* Condensed spec description */}
+                      <p className="text-[10px] text-muted-foreground/80 truncate max-w-[350px]">
+                        {getQuoteDescription(q)}
                       </p>
                     </div>
                   </div>
@@ -422,40 +534,50 @@ export function ChatQuotesDashboard() {
 
                         {showRevisions && (
                           <div className="mt-2 space-y-1.5">
-                            {group.revisions.map((rev) => (
-                              <div
-                                key={rev.id}
-                                className="flex items-center justify-between rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 px-3 py-2"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded">
-                                    {formatChatQuoteRef(rev.ref_number, rev.revision_number)}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Clock className="h-2.5 w-2.5" />
-                                    {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                    {" "}{new Date(rev.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground">
-                                    by {rev.revised_by || "Manual"}
-                                  </span>
+                            {group.revisions.map((rev) => {
+                              const changeSummary = getChangeSummary(group.original, rev)
+                              const revDescription = getQuoteDescription(rev)
+                              return (
+                                <div
+                                  key={rev.id}
+                                  className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 px-3 py-2"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded">
+                                        {formatChatQuoteRef(rev.ref_number, rev.revision_number)}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <Clock className="h-2.5 w-2.5" />
+                                        {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-foreground">${Number(rev.total).toFixed(2)}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setRevisionQuote(rev)
+                                        }}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  {/* Revision full specs */}
+                                  <p className="mt-1 text-[10px] text-muted-foreground truncate">
+                                    {revDescription}
+                                  </p>
+                                  {/* What changed from original */}
+                                  <p className="mt-0.5 text-[10px] text-blue-700 dark:text-blue-300 font-medium">
+                                    Changed: {changeSummary}
+                                  </p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-foreground">${Number(rev.total).toFixed(2)}</span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setRevisionQuote(rev)
-                                    }}
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                              )
+                            })}
                           </div>
                         )}
                       </div>

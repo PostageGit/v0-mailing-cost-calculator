@@ -62,6 +62,64 @@ export function ChatQuoteRevisionPanel({
   const isPerfect = productType === "perfect"
   const isBooklet = productType === "booklet" || productType === "saddle"
 
+  // Handle saving multiple flat revisions at once (multi-qty mode)
+  const handleSaveMultipleFlat = useCallback(
+    async (results: Array<{ qty: number; result: FullPrintingResult; inputs: PrintingInputs }>) => {
+      if (!quote || results.length === 0) return
+
+      setSaving(true)
+      try {
+        // Save each quantity option as a separate revision
+        for (const { result, inputs } of results) {
+          const response = await fetch("/api/chat-quotes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              parentQuoteId: quote.parent_quote_id || quote.id,
+              projectName: quote.project_name,
+              productType: "FLAT",
+              total: result.grandTotal,
+              perUnit: result.result.perPiece,
+              specs: {
+                quantity: inputs.qty,
+                width: inputs.width,
+                height: inputs.height,
+                paper: inputs.paperName,
+                sides: inputs.sidesValue,
+                bleed: inputs.hasBleed,
+                lamination: inputs.lamination?.enabled
+                  ? `${inputs.lamination.type} (${inputs.lamination.sides})`
+                  : "none",
+                isBroker: inputs.isBroker,
+              },
+              costBreakdown: {
+                printing: result.printingCost,
+                lamination: result.laminationCost?.cost || 0,
+                scoreFold: result.scoreFoldCost?.cost || 0,
+                cutting: result.cuttingCost || 0,
+              },
+              revisedBy: "Multi-Qty",
+            }),
+          })
+
+          if (!response.ok) {
+            const err = await response.json()
+            throw new Error(err.error || "Failed to save revision")
+          }
+        }
+
+        onRevisionSaved()
+        onOpenChange(false)
+      } catch (e) {
+        console.error("[v0] Failed to save multi-qty revisions:", e)
+        alert(e instanceof Error ? e.message : "Failed to save revisions")
+      } finally {
+        setSaving(false)
+      }
+    },
+    [quote, onRevisionSaved, onOpenChange]
+  )
+
   // Handle saving a flat revision
   const handleSaveFlat = useCallback(
     async (result: FullPrintingResult, inputs: PrintingInputs) => {
@@ -110,6 +168,50 @@ export function ChatQuoteRevisionPanel({
       } catch (e) {
         console.error("[v0] Failed to save flat revision:", e)
         alert(e instanceof Error ? e.message : "Failed to save revision")
+      } finally {
+        setSaving(false)
+      }
+    },
+    [quote, onRevisionSaved, onOpenChange]
+  )
+
+  // Handle saving multiple perfect revisions (multi-qty)
+  const handleSaveMultiplePerfect = useCallback(
+    async (results: Array<{ qty: number; result: PerfectCalcResult; inputs: PerfectInputs }>) => {
+      if (!quote || results.length === 0) return
+      setSaving(true)
+      try {
+        for (const { result, inputs } of results) {
+          const response = await fetch("/api/chat-quotes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              parentQuoteId: quote.parent_quote_id || quote.id,
+              projectName: quote.project_name,
+              productType: "PERFECT",
+              total: result.grandTotal,
+              perUnit: result.perBook,
+              specs: {
+                quantity: inputs.bookQty,
+                pagesPerBook: inputs.pagesPerBook,
+                width: inputs.pageWidth,
+                height: inputs.pageHeight,
+                coverPaper: inputs.cover.paperName,
+                coverSides: inputs.cover.sides,
+                insidePaper: inputs.inside.paperName,
+                insideSides: inputs.inside.sides,
+                lamination: inputs.laminationType,
+                isBroker: inputs.isBroker,
+              },
+              revisedBy: "Multi-Qty",
+            }),
+          })
+          if (!response.ok) throw new Error("Failed to save revision")
+        }
+        onRevisionSaved()
+        onOpenChange(false)
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Failed to save revisions")
       } finally {
         setSaving(false)
       }
@@ -175,6 +277,51 @@ export function ChatQuoteRevisionPanel({
     [quote, onRevisionSaved, onOpenChange]
   )
 
+  // Handle saving multiple booklet revisions (multi-qty)
+  const handleSaveMultipleBooklet = useCallback(
+    async (results: Array<{ qty: number; result: BookletCalcResult; inputs: BookletInputs }>) => {
+      if (!quote || results.length === 0) return
+      setSaving(true)
+      try {
+        for (const { result, inputs } of results) {
+          const response = await fetch("/api/chat-quotes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              parentQuoteId: quote.parent_quote_id || quote.id,
+              projectName: quote.project_name,
+              productType: "BOOKLET",
+              total: result.grandTotal,
+              perUnit: result.perBooklet,
+              specs: {
+                quantity: inputs.bookQty,
+                pagesPerBook: inputs.pagesPerBook,
+                width: inputs.pageWidth,
+                height: inputs.pageHeight,
+                separateCover: inputs.separateCover,
+                coverPaper: inputs.coverPaper,
+                coverSides: inputs.coverSides,
+                insidePaper: inputs.insidePaper,
+                insideSides: inputs.insideSides,
+                lamination: inputs.laminationType,
+                isBroker: inputs.isBroker,
+              },
+              revisedBy: "Multi-Qty",
+            }),
+          })
+          if (!response.ok) throw new Error("Failed to save revision")
+        }
+        onRevisionSaved()
+        onOpenChange(false)
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Failed to save revisions")
+      } finally {
+        setSaving(false)
+      }
+    },
+    [quote, onRevisionSaved, onOpenChange]
+  )
+
   // Handle saving a booklet revision
   const handleSaveBooklet = useCallback(
     async (result: BookletCalcResult, inputs: BookletInputs) => {
@@ -190,7 +337,7 @@ export function ChatQuoteRevisionPanel({
             projectName: quote.project_name,
             productType: "BOOKLET",
             total: result.grandTotal,
-            perUnit: result.pricePerBook,
+            perUnit: result.perBooklet,
             specs: {
               quantity: inputs.bookQty,
               pagesPerBook: inputs.pagesPerBook,
@@ -261,12 +408,13 @@ export function ChatQuoteRevisionPanel({
 
         {/* Product-specific calculator */}
         {isFlat && (
-          <FlatRevisionCalculator
-            initialSpecs={quote.specs || {}}
-            originalTotal={quote.total}
-            onSave={handleSaveFlat}
-            saving={saving}
-          />
+<FlatRevisionCalculator
+  initialSpecs={quote.specs || {}}
+  originalTotal={quote.total}
+  onSave={handleSaveFlat}
+  onSaveMultiple={handleSaveMultipleFlat}
+  saving={saving}
+  />
         )}
 
         {isPerfect && (
@@ -274,6 +422,7 @@ export function ChatQuoteRevisionPanel({
             initialSpecs={quote.specs || {}}
             originalTotal={quote.total}
             onSave={handleSavePerfect}
+            onSaveMultiple={handleSaveMultiplePerfect}
             saving={saving}
           />
         )}
@@ -283,6 +432,7 @@ export function ChatQuoteRevisionPanel({
             initialSpecs={quote.specs || {}}
             originalTotal={quote.total}
             onSave={handleSaveBooklet}
+            onSaveMultiple={handleSaveMultipleBooklet}
             saving={saving}
           />
         )}
