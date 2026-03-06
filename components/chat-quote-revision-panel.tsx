@@ -20,7 +20,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Save, ArrowRight } from "lucide-react"
-import { calculatePrinting, PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
+import { calculatePrintingCost, PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
 import { formatCurrency } from "@/lib/pricing"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 import { LAMINATION_DEFAULTS } from "@/lib/lamination-pricing"
@@ -79,7 +79,7 @@ export function ChatQuoteRevisionPanel({
   useEffect(() => {
     if (inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue) {
       try {
-        const calcResult = calculatePrinting(inputs)
+        const calcResult = calculatePrintingCost(inputs)
         setResult(calcResult)
       } catch {
         setResult(null)
