@@ -1,14 +1,21 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   Search, RefreshCw, Loader2, MessageSquare, ChevronUp, ChevronDown,
   FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore, Pencil,
+  GitBranch, Clock,
 } from "lucide-react"
 import { ChatQuoteRevisionPanel } from "@/components/chat-quote-revision-panel"
+
+// Grouped quote type - original with nested revisions
+interface GroupedQuote {
+  original: ChatQuote
+  revisions: ChatQuote[]
+}
 
 
 interface TranscriptMessage {
@@ -88,19 +95,66 @@ export function ChatQuotesDashboard() {
   const archivedQuotes = quotes.filter((q) => q.archived)
   const visibleQuotes = viewFilter === "active" ? activeQuotes : archivedQuotes
 
-  const filtered = visibleQuotes.filter((q) => {
-    const term = searchTerm.toLowerCase()
-    if (!term) return true
-    return (
-      q.customer_name?.toLowerCase().includes(term) ||
-      q.customer_email?.toLowerCase().includes(term) ||
-      q.customer_phone?.includes(term) ||
-      q.project_name?.toLowerCase().includes(term) ||
-      q.product_type?.toLowerCase().includes(term) ||
-      String(q.ref_number).includes(term) ||
-      formatChatQuoteRef(q.ref_number).toLowerCase().includes(term)
+  // Group quotes: originals with their revisions nested
+  const groupedQuotes = useMemo(() => {
+    const groups: Map<string, GroupedQuote> = new Map()
+    const revisions: ChatQuote[] = []
+
+    // First pass: identify originals (no parent) and collect revisions
+    visibleQuotes.forEach((q) => {
+      if (!q.parent_quote_id) {
+        // This is an original quote
+        groups.set(q.id, { original: q, revisions: [] })
+      } else {
+        // This is a revision
+        revisions.push(q)
+      }
+    })
+
+    // Second pass: attach revisions to their parents
+    revisions.forEach((rev) => {
+      const parent = groups.get(rev.parent_quote_id!)
+      if (parent) {
+        parent.revisions.push(rev)
+      } else {
+        // Parent not in current view (maybe archived?) - show as standalone
+        groups.set(rev.id, { original: rev, revisions: [] })
+      }
+    })
+
+    // Sort revisions by revision number
+    groups.forEach((group) => {
+      group.revisions.sort((a, b) => (a.revision_number || 0) - (b.revision_number || 0))
+    })
+
+    // Return as array sorted by most recent first
+    return Array.from(groups.values()).sort(
+      (a, b) => new Date(b.original.created_at).getTime() - new Date(a.original.created_at).getTime()
     )
-  })
+  }, [visibleQuotes])
+
+  // Filter groups by search term (matches original or any revision)
+  const filteredGroups = useMemo(() => {
+    const term = searchTerm.toLowerCase()
+    if (!term) return groupedQuotes
+
+    return groupedQuotes.filter((group) => {
+      const matchesQuote = (q: ChatQuote) =>
+        q.customer_name?.toLowerCase().includes(term) ||
+        q.customer_email?.toLowerCase().includes(term) ||
+        q.customer_phone?.includes(term) ||
+        q.project_name?.toLowerCase().includes(term) ||
+        q.product_type?.toLowerCase().includes(term) ||
+        String(q.ref_number).includes(term) ||
+        formatChatQuoteRef(q.ref_number, q.revision_number).toLowerCase().includes(term)
+
+      // Match original or any revision
+      return matchesQuote(group.original) || group.revisions.some(matchesQuote)
+    })
+  }, [groupedQuotes, searchTerm])
+
+  // Track which groups have expanded revision history
+  const [expandedRevisions, setExpandedRevisions] = useState<Set<string>>(new Set())
 
   if (loading) {
     return (
@@ -196,7 +250,7 @@ export function ChatQuotesDashboard() {
       </div>
 
       {/* Quote list */}
-      {filtered.length === 0 ? (
+      {filteredGroups.length === 0 ? (
         <div className="text-center py-10">
           <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-xs text-muted-foreground">
@@ -205,12 +259,15 @@ export function ChatQuotesDashboard() {
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {filtered.map((q) => {
+          {filteredGroups.map((group) => {
+            const q = group.original
             const isExpanded = expandedId === q.id
             const specs = q.specs || {}
             const breakdown = q.cost_breakdown || {}
             const productColor = PRODUCT_COLORS[q.product_type] || "bg-muted text-muted-foreground"
             const hasTranscript = q.chat_transcript && q.chat_transcript.length > 0
+            const hasRevisions = group.revisions.length > 0
+            const showRevisions = expandedRevisions.has(q.id)
 
             return (
               <div key={q.id} className={cn(
@@ -255,6 +312,12 @@ export function ChatQuotesDashboard() {
                           <span className="flex items-center gap-0.5 text-muted-foreground">
                             <Paperclip className="h-2.5 w-2.5" />
                             <span className="text-[10px]">{q.attachments.length}</span>
+                          </span>
+                        )}
+                        {hasRevisions && (
+                          <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400">
+                            <GitBranch className="h-2.5 w-2.5" />
+                            <span className="text-[10px] font-medium">{group.revisions.length}</span>
                           </span>
                         )}
                       </div>
@@ -328,6 +391,75 @@ export function ChatQuotesDashboard() {
                         </div>
                       )}
                     </div>
+
+                    {/* Revision History Section */}
+                    {hasRevisions && (
+                      <div className="px-3 py-2.5 border-b border-border/40">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setExpandedRevisions((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(q.id)) next.delete(q.id)
+                              else next.add(q.id)
+                              return next
+                            })
+                          }}
+                          className="w-full flex items-center justify-between text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <GitBranch className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                            <span className="text-xs font-semibold text-foreground">
+                              Revision History ({group.revisions.length})
+                            </span>
+                          </div>
+                          {showRevisions ? (
+                            <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </button>
+
+                        {showRevisions && (
+                          <div className="mt-2 space-y-1.5">
+                            {group.revisions.map((rev) => (
+                              <div
+                                key={rev.id}
+                                className="flex items-center justify-between rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 px-3 py-2"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded">
+                                    {formatChatQuoteRef(rev.ref_number, rev.revision_number)}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                    {" "}{new Date(rev.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    by {rev.revised_by || "Manual"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-foreground">${Number(rev.total).toFixed(2)}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setRevisionQuote(rev)
+                                    }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Specs + breakdown -- single scannable block */}
                     <div className="px-3 py-2.5 bg-muted/20 border-y border-border/40">
