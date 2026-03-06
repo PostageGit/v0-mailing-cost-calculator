@@ -20,7 +20,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Save, ArrowRight } from "lucide-react"
-import { calculatePrintingCost, PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing" 
+import { calculatePrintingCost, calculateAllSheetOptions, buildFullResult, PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing" 
 import { formatCurrency } from "@/lib/pricing"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 import { LAMINATION_DEFAULTS } from "@/lib/lamination-pricing"
@@ -75,12 +75,27 @@ export function ChatQuoteRevisionPanel({
     }
   }, [quote, open])
 
-  // Calculate pricing whenever inputs change
+  // Calculate pricing whenever inputs change - use the full calculator flow
   useEffect(() => {
     if (inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue) {
       try {
-        const calcResult = calculatePrintingCost(inputs)
-        setResult(calcResult)
+        // Step 1: Get all valid sheet options for this paper/size combo
+        const sheetOptions = calculateAllSheetOptions(inputs)
+        
+        if (sheetOptions.length === 0) {
+          // No valid sheet options - piece too big for paper
+          setResult(null)
+          return
+        }
+        
+        // Step 2: Pick the best option (lowest price per piece)
+        const bestOption = sheetOptions.reduce((best, opt) => 
+          opt.result.perPiece < best.result.perPiece ? opt : best
+        , sheetOptions[0])
+        
+        // Step 3: Build the full result with the selected sheet
+        const fullResult = buildFullResult(inputs, bestOption.result, [], null, null)
+        setResult(fullResult)
       } catch {
         setResult(null)
       }
@@ -101,7 +116,7 @@ export function ChatQuoteRevisionPanel({
           parentQuoteId: quote.parent_quote_id || quote.id,
           projectName: quote.project_name,
           productType: quote.product_type,
-          total: result.result.grandTotal,
+          total: result.grandTotal,
           perUnit: result.result.perPiece,
           specs: {
             quantity: inputs.qty,
@@ -115,10 +130,10 @@ export function ChatQuoteRevisionPanel({
             isBroker: inputs.isBroker,
           },
           costBreakdown: {
-            printing: result.result.printingCost,
-            lamination: result.result.laminationCost || 0,
-            scoreFold: result.result.scoreFoldCost || 0,
-            addOn: result.result.addOnCharge || 0,
+            printing: result.printingCost,
+            lamination: result.laminationCost?.cost || 0,
+            scoreFold: result.scoreFoldCost?.cost || 0,
+            addOn: result.addOnCharge || 0,
           },
           revisedBy: "Manual",
         }),
@@ -142,7 +157,7 @@ export function ChatQuoteRevisionPanel({
   if (!quote) return null
 
   const originalRef = formatRef(quote.ref_number, quote.revision_number)
-  const priceDiff = result ? result.result.grandTotal - quote.total : 0
+  const priceDiff = result ? result.grandTotal - quote.total : 0
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -170,7 +185,7 @@ export function ChatQuoteRevisionPanel({
             <div className="text-center flex-1">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">New</p>
               <p className="text-lg font-bold text-foreground">
-                {result ? formatCurrency(result.result.grandTotal) : "—"}
+                {result ? formatCurrency(result.grandTotal) : "—"}
               </p>
             </div>
             {result && (
@@ -353,27 +368,27 @@ export function ChatQuoteRevisionPanel({
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Printing</span>
-                  <span className="font-medium">{formatCurrency(result.result.printingCost)}</span>
+                <span className="font-medium">{formatCurrency(result.printingCost)}</span>
+              </div>
+              {result.laminationCost && result.laminationCost.cost > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Lamination:</span>
+                  <span className="font-medium">{formatCurrency(result.laminationCost.cost)}</span>
                 </div>
-                {(result.result.laminationCost || 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Lamination</span>
-                    <span className="font-medium">{formatCurrency(result.result.laminationCost || 0)}</span>
-                  </div>
-                )}
-                {(result.result.scoreFoldCost || 0) > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Score/Fold</span>
-                    <span className="font-medium">{formatCurrency(result.result.scoreFoldCost || 0)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-1 border-t border-border">
-                  <span className="font-semibold">Total</span>
-                  <span className="font-bold">{formatCurrency(result.result.grandTotal)}</span>
+              )}
+              {result.scoreFoldCost && result.scoreFoldCost.cost > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Score/Fold:</span>
+                  <span className="font-medium">{formatCurrency(result.scoreFoldCost.cost)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Per piece</span>
-                  <span>{formatCurrency(result.result.perPiece)}</span>
+              )}
+              <div className="flex justify-between border-t pt-2 mt-2">
+                <span className="font-semibold">Total:</span>
+                <span className="font-bold">{formatCurrency(result.grandTotal)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Per piece:</span>
+                <span>{formatCurrency(result.result.perPiece)}</span>
                 </div>
               </div>
             </div>
