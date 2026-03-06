@@ -404,8 +404,8 @@ export function ChatQuotesDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Edit/Revise button - only for flat type quotes for now */}
-                        {q.product_type === "flat" && (
+                        {/* Edit/Revise button - shows for flat type quotes (case-insensitive) */}
+                        {(q.product_type?.toLowerCase() === "flat" || !q.product_type) && (
                           <Button
                             variant="outline"
                             size="sm"
