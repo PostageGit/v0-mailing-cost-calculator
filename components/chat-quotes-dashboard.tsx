@@ -68,8 +68,8 @@ export function ChatQuotesDashboard() {
     }
     sessionStorage.setItem("editChatQuote", JSON.stringify(editData))
     
-    // Navigate to calculator (it will detect and load the specs)
-    router.push("/calculator?editChatQuote=1")
+    // Navigate to main app (it will detect and load the specs)
+    router.push("/?editChatQuote=1")
   }, [router])
 
   const loadQuotes = useCallback(async () => {
