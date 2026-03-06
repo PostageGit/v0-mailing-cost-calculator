@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
-import { ConditionalChatBubble } from '@/components/conditional-chat-bubble'
+import { ChatBubble } from '@/components/chat-bubble'
 import { ChatProvider } from '@/lib/chat-context'
-import { AuthProvider } from '@/lib/auth-context'
 
 import './globals.css'
 
@@ -32,12 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body suppressHydrationWarning className={`${_inter.variable} ${_jetbrainsMono.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <ChatProvider>
-            {children}
-            <ConditionalChatBubble />
-          </ChatProvider>
-        </AuthProvider>
+        <ChatProvider>
+          {children}
+          <ChatBubble />
+        </ChatProvider>
       </body>
     </html>
   )
