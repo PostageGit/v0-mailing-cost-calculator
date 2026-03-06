@@ -416,56 +416,87 @@ function getDefaultInputs(): PrintingInputs {
 // Map chat quote specs to PrintingInputs
 function mapSpecsToInputs(specs: Record<string, unknown>): PrintingInputs {
   const inputs = getDefaultInputs()
+  
+  console.log("[v0] mapSpecsToInputs received specs:", JSON.stringify(specs, null, 2))
 
-  // Handle various spec formats from AI
-  if (specs.quantity) inputs.qty = Number(specs.quantity) || 0
-  if (specs.qty) inputs.qty = Number(specs.qty) || 0
+  // Handle various spec formats from AI - check multiple possible keys
+  // Quantity
+  const qtyVal = specs.quantity ?? specs.qty ?? specs.Quantity ?? specs.Qty
+  if (qtyVal) inputs.qty = Number(qtyVal) || 0
 
-  if (specs.width) inputs.width = Number(specs.width) || 0
-  if (specs.height) inputs.height = Number(specs.height) || 0
+  // Dimensions - direct or from size string
+  const widthVal = specs.width ?? specs.Width ?? specs.pageWidth
+  const heightVal = specs.height ?? specs.Height ?? specs.pageHeight
+  if (widthVal) inputs.width = Number(widthVal) || 0
+  if (heightVal) inputs.height = Number(heightVal) || 0
 
-  // Size might be "8.5x11" format
-  if (specs.size && typeof specs.size === "string") {
-    const parts = specs.size.toLowerCase().replace(/\s/g, "").split("x")
+  // Size might be "6x9" or "8.5x11" format
+  const sizeVal = specs.size ?? specs.Size ?? specs.pageSize
+  if (sizeVal && typeof sizeVal === "string" && (!inputs.width || !inputs.height)) {
+    const parts = sizeVal.toLowerCase().replace(/\s/g, "").split("x")
     if (parts.length === 2) {
-      inputs.width = parseFloat(parts[0]) || 0
-      inputs.height = parseFloat(parts[1]) || 0
+      inputs.width = parseFloat(parts[0]) || inputs.width
+      inputs.height = parseFloat(parts[1]) || inputs.height
     }
   }
 
-  // Paper - try to match to available options
-  if (specs.paper && typeof specs.paper === "string") {
-    const paperLower = specs.paper.toLowerCase()
-    const match = PAPER_OPTIONS.find(
-      (p) => p.name.toLowerCase().includes(paperLower) || paperLower.includes(p.name.toLowerCase())
-    )
-    if (match) inputs.paperName = match.name
+  // Paper - try multiple key names and fuzzy match to available options
+  const paperVal = specs.paper ?? specs.Paper ?? specs.paperStock ?? specs.coverPaper ?? specs.insidePaper
+  if (paperVal && typeof paperVal === "string") {
+    const paperLower = paperVal.toLowerCase()
+    // Try exact match first
+    let match = PAPER_OPTIONS.find((p) => p.name.toLowerCase() === paperLower)
+    // Then partial match
+    if (!match) {
+      match = PAPER_OPTIONS.find(
+        (p) => p.name.toLowerCase().includes(paperLower) || paperLower.includes(p.name.toLowerCase())
+      )
+    }
+    // Default to first paper if no match
+    if (match) {
+      inputs.paperName = match.name
+    } else if (PAPER_OPTIONS.length > 0) {
+      inputs.paperName = PAPER_OPTIONS[0].name
+    }
+  } else if (PAPER_OPTIONS.length > 0) {
+    // Default paper if none specified
+    inputs.paperName = PAPER_OPTIONS[0].name
   }
 
-  // Sides
-  if (specs.sides && typeof specs.sides === "string") {
-    inputs.sidesValue = specs.sides
+  // Sides - try multiple keys
+  const sidesVal = specs.sides ?? specs.Sides ?? specs.coverSides ?? specs.insideSides
+  if (sidesVal && typeof sidesVal === "string") {
+    inputs.sidesValue = sidesVal
+  } else {
+    // Default to 4/4 if available
+    const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
+    inputs.sidesValue = availableSides.includes("4/4") ? "4/4" : availableSides[0] || ""
   }
 
-  // Bleed
-  if (specs.bleed) {
-    inputs.hasBleed = specs.bleed === true || specs.bleed === "Yes" || specs.bleed === "yes"
+  // Bleed - handle various formats
+  const bleedVal = specs.bleed ?? specs.Bleed ?? specs.hasBleed ?? specs.coverBleed
+  if (bleedVal !== undefined) {
+    inputs.hasBleed = bleedVal === true || bleedVal === "Yes" || bleedVal === "yes" || bleedVal === "true"
   }
 
   // Broker
-  if (specs.isBroker || specs.broker) {
-    inputs.isBroker = specs.isBroker === true || specs.broker === true || specs.broker === "Yes"
+  const brokerVal = specs.isBroker ?? specs.broker ?? specs.Broker
+  if (brokerVal !== undefined) {
+    inputs.isBroker = brokerVal === true || brokerVal === "Yes" || brokerVal === "yes" || brokerVal === "No" ? false : !!brokerVal
   }
 
-  // Lamination
-  if (specs.lamination && typeof specs.lamination === "string" && specs.lamination !== "none") {
+  // Lamination - handle various formats
+  const lamVal = specs.lamination ?? specs.Lamination ?? specs.coverLamination
+  if (lamVal && typeof lamVal === "string" && lamVal.toLowerCase() !== "none" && lamVal.toLowerCase() !== "no") {
     inputs.lamination = {
       ...LAMINATION_DEFAULTS,
       enabled: true,
-      type: specs.lamination.includes("Matte") ? "Matte" : specs.lamination.includes("Silk") ? "Silk" : "Gloss",
-      sides: specs.lamination.includes("D/S") || specs.lamination.includes("Both") ? "D/S" : "S/S",
+      type: lamVal.toLowerCase().includes("matte") ? "Matte" : lamVal.toLowerCase().includes("silk") ? "Silk" : "Gloss",
+      sides: lamVal.toLowerCase().includes("d/s") || lamVal.toLowerCase().includes("both") || lamVal.toLowerCase().includes("double") ? "D/S" : "S/S",
     }
   }
 
+  console.log("[v0] mapSpecsToInputs output:", JSON.stringify(inputs, null, 2))
+  
   return inputs
 }
