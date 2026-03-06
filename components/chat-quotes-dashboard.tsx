@@ -403,7 +403,7 @@ export function ChatQuotesDashboard() {
                     )}>
                       <span className="text-[10px] font-bold text-white">{formatChatQuoteRef(q.ref_number, q.revision_number)}</span>
                     </span>
-                    {q.revision_number && q.revision_number > 0 && (
+                    {q.revision_number != null && q.revision_number > 0 && (
                       <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400">
                         Rev by {q.revised_by || "Manual"}
                       </span>
