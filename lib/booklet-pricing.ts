@@ -280,7 +280,66 @@ function emptyPartResult(name: string, error: string): PartCalcResult {
 
 // ==================== BINDING ====================
 
-function getSaddleStitchBindingPrice(quantity: number, sheetsPerBooklet: number, isBroker: boolean): number {
+// Saddle stitch rates by size category, thickness (page count), and cover type
+// Size categories: "handheld" (5x7 to 9x12), "pocket" (3x5 to 4.25x6)
+// Thickness: "thin" (8-48 pages), "thick" (52-100 pages)
+// Cover: "self" (no separate cover), "with" (separate cover stock)
+const SADDLE_STITCH_RATES: Record<string, Record<string, Record<string, { rate: number; setup: number }>>> = {
+  handheld: {
+    thin:  { self: { rate: 0.18, setup: 45 }, with: { rate: 0.23, setup: 60 } },
+    thick: { self: { rate: 0.34, setup: 55 }, with: { rate: 0.44, setup: 70 } },
+  },
+  pocket: {
+    thin:  { self: { rate: 0.38, setup: 60 }, with: { rate: 0.43, setup: 75 } },
+    thick: { self: { rate: 0.54, setup: 65 }, with: { rate: 0.64, setup: 80 } },
+  },
+}
+
+// Determine size category from page dimensions (width x height of single page)
+function getSizeCategory(pageWidth: number, pageHeight: number): "handheld" | "pocket" {
+  // Pocket: 3x5 to 4.25x6 → max dimension ~6
+  // Handheld: 5x7 to 9x12 → max dimension >6
+  const maxDim = Math.max(pageWidth, pageHeight)
+  return maxDim <= 6 ? "pocket" : "handheld"
+}
+
+// Determine thickness category from page count
+function getThicknessCategory(pageCount: number): "thin" | "thick" {
+  // Thin: 8-48 pages, Thick: 52-100 pages
+  return pageCount <= 48 ? "thin" : "thick"
+}
+
+export function getSaddleStitchBindingPrice(
+  quantity: number,
+  pageCount: number,
+  pageWidth: number,
+  pageHeight: number,
+  hasSeparateCover: boolean,
+  isBroker: boolean
+): number {
+  if (quantity <= 0 || isNaN(quantity)) return 0
+
+  const sizeCategory = getSizeCategory(pageWidth, pageHeight)
+  const thicknessCategory = getThicknessCategory(pageCount)
+  const coverType = hasSeparateCover ? "with" : "self"
+
+  const rateData = SADDLE_STITCH_RATES[sizeCategory]?.[thicknessCategory]?.[coverType]
+  if (!rateData) {
+    // Fallback to handheld thin self if lookup fails
+    return (0.18 * quantity + 45) / quantity
+  }
+
+  const { rate, setup } = rateData
+  const totalCost = setup + (rate * quantity)
+
+  // Apply broker discount (15% off)
+  const finalCost = isBroker ? totalCost * (1 - BROKER_DISCOUNT_RATE) : totalCost
+
+  return finalCost / quantity
+}
+
+// Legacy function signature for backward compatibility (used internally)
+function getSaddleStitchBindingPriceLegacy(quantity: number, sheetsPerBooklet: number, isBroker: boolean): number {
   if (quantity <= 0 || isNaN(quantity)) return 0
   const setupCost = 15.0
   const runCostPerBooklet = 0.10 + sheetsPerBooklet * 0.01
@@ -388,8 +447,8 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     }
   }
 
-  // Binding – broker applies percentage discount on finishing
-  const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, totalSheetsPerBooklet, isBroker)
+  // Binding – uses rates based on size category, page count, and cover type
+  const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, pagesPerBook, pageWidth, pageHeight, separateCover, isBroker)
   const totalBindingPrice = bindingPricePerBook * bookQty
 
   // Lamination – broker applies percentage discount on finishing
