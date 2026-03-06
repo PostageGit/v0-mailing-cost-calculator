@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Save, Loader2, AlertTriangle } from "lucide-react"
+import { Save, Loader2, AlertTriangle, Plus, X, List } from "lucide-react"
 import { calculatePerfect } from "@/lib/perfect-pricing"
 import {
   PAPER_OPTIONS,
@@ -30,10 +30,17 @@ const LAMINATION_OPTIONS = [
   { value: "silk", label: "Silk" },
 ] as const
 
+interface MultiQtyResult {
+  qty: number
+  result: PerfectCalcResult
+  inputs: PerfectInputs
+}
+
 interface PerfectRevisionCalculatorProps {
   initialSpecs: Record<string, unknown>
   originalTotal: number
   onSave: (result: PerfectCalcResult, inputs: PerfectInputs) => void
+  onSaveMultiple?: (results: MultiQtyResult[]) => void
   saving?: boolean
 }
 
@@ -41,11 +48,17 @@ export function PerfectRevisionCalculator({
   initialSpecs,
   originalTotal,
   onSave,
+  onSaveMultiple,
   saving = false,
 }: PerfectRevisionCalculatorProps) {
   const [inputs, setInputs] = useState<PerfectInputs>(() => mapSpecsToInputs(initialSpecs))
   const [result, setResult] = useState<PerfectCalcResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // Multi-quantity mode
+  const [multiQtyMode, setMultiQtyMode] = useState(false)
+  const [additionalQtys, setAdditionalQtys] = useState<number[]>([])
+  const [multiResults, setMultiResults] = useState<MultiQtyResult[]>([])
 
   // Calculate whenever inputs change
   useEffect(() => {
@@ -81,6 +94,40 @@ export function PerfectRevisionCalculator({
       setResult(null)
     }
   }, [inputs])
+
+  // Calculate multi-quantity results
+  useEffect(() => {
+    if (!multiQtyMode || !inputs.bookQty || !inputs.pagesPerBook || !inputs.pageWidth || !inputs.pageHeight) {
+      setMultiResults([])
+      return
+    }
+
+    const allQtys = [inputs.bookQty, ...additionalQtys].filter(q => q > 0)
+    const results: MultiQtyResult[] = []
+
+    for (const qty of allQtys) {
+      try {
+        const qtyInputs = { ...inputs, bookQty: qty }
+        const calcResult = calculatePerfect(qtyInputs)
+        if (!("error" in calcResult)) {
+          results.push({ qty, result: calcResult, inputs: qtyInputs })
+        }
+      } catch {
+        // Skip errors
+      }
+    }
+
+    results.sort((a, b) => a.qty - b.qty)
+    setMultiResults(results)
+  }, [multiQtyMode, inputs, additionalQtys])
+
+  function addQuantity() { setAdditionalQtys([...additionalQtys, 0]) }
+  function removeQuantity(index: number) { setAdditionalQtys(additionalQtys.filter((_, i) => i !== index)) }
+  function updateAdditionalQty(index: number, value: number) {
+    const newQtys = [...additionalQtys]
+    newQtys[index] = value
+    setAdditionalQtys(newQtys)
+  }
 
   // Get available sheet sizes for a paper
   function getSheetSizes(paperName: string): string[] {
@@ -130,7 +177,21 @@ export function PerfectRevisionCalculator({
       {/* Book specs */}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground">Book Quantity</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground">Book Quantity</label>
+            <button
+              type="button"
+              onClick={() => setMultiQtyMode(!multiQtyMode)}
+              className={`text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${
+                multiQtyMode 
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="h-3 w-3" />
+              Multi
+            </button>
+          </div>
           <Input
             type="number"
             min={1}
@@ -151,6 +212,49 @@ export function PerfectRevisionCalculator({
           />
         </div>
       </div>
+
+      {/* Multi-qty mode */}
+      {multiQtyMode && (
+        <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Additional Quantities</span>
+            <Button type="button" variant="ghost" size="sm" onClick={addQuantity} className="h-6 text-xs gap-1 text-blue-700 dark:text-blue-300">
+              <Plus className="h-3 w-3" /> Add Qty
+            </Button>
+          </div>
+          {additionalQtys.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {additionalQtys.map((qty, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <Input type="number" min={1} value={qty || ""} onChange={(e) => updateAdditionalQty(i, parseInt(e.target.value) || 0)} className="h-7 w-24 text-sm" placeholder="Qty" />
+                  <button type="button" onClick={() => removeQuantity(i)} className="p-1 text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          {multiResults.length > 1 && (
+            <div className="mt-3 border-t border-blue-200 dark:border-blue-800 pt-3">
+              <p className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 mb-2 uppercase">Price Comparison</p>
+              <div className="space-y-1">
+                {multiResults.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-white dark:bg-background/50 rounded px-2 py-1.5">
+                    <span className="font-medium">{r.qty.toLocaleString()} books</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-muted-foreground text-xs">${r.result.perBook.toFixed(2)}/ea</span>
+                      <span className="font-bold">${r.result.grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {onSaveMultiple && (
+                <Button type="button" variant="outline" size="sm" onClick={() => onSaveMultiple(multiResults)} disabled={saving} className="w-full mt-2 text-xs gap-1 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300">
+                  <Save className="h-3 w-3" /> Save All {multiResults.length} Options as Revisions
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
