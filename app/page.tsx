@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
@@ -94,22 +93,7 @@ const NAV_ITEMS: NavItem[] = [
 
 type JobPhase = "planner" | "pricing"
 
-// Chat quote editing data shape
-interface ChatQuoteEditData {
-  chatQuoteId: string
-  chatQuoteRef: string
-  productType: string
-  projectName: string
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  specs: Record<string, unknown>
-  originalTotal: number
-  isRevision: boolean
-}
-
 function AppContent() {
-  const searchParams = useSearchParams()
   const [section, setSection] = useState<Section>("quotes-board")
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [quoteView, setQuoteView] = useState<"board" | "list" | "sidebar">("board")
@@ -119,52 +103,10 @@ function AppContent() {
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
-  const [editingChatQuote, setEditingChatQuote] = useState<ChatQuoteEditData | null>(null)
-  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId, setProjectName, setContactName } = useQuote()
+  const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
   const celebration = useCelebration()
-
-  // Detect chat quote edit mode on mount
-  useEffect(() => {
-    if (searchParams?.get("editChatQuote") === "1") {
-      const stored = sessionStorage.getItem("editChatQuote")
-      if (stored) {
-        try {
-          const data: ChatQuoteEditData = JSON.parse(stored)
-          setEditingChatQuote(data)
-          sessionStorage.removeItem("editChatQuote")
-          
-          // Set up the quote context
-          newQuote()
-          setProjectName(`${data.projectName} (Revision of ${data.chatQuoteRef})`)
-          if (data.customerName) setContactName(data.customerName)
-          
-          // Navigate to the appropriate calculator step (case-insensitive match)
-          const productMap: Record<string, StepId> = {
-            flat: "printing",
-            booklet: "booklet",
-            perfect: "perfect",
-            spiral: "spiral",
-            pad: "pad",
-          }
-          const productLower = (data.productType || "").toLowerCase()
-          const targetStep = productMap[productLower] || "printing"
-          
-          console.log("[v0] Chat quote edit - productType:", data.productType, "-> step:", targetStep)
-          
-          setSection("job")
-          setJobPhase("pricing")
-          // Use setTimeout to ensure state updates happen in correct order after navigation
-          setTimeout(() => {
-            setCurrentStep(targetStep)
-          }, 100)
-        } catch (e) {
-          console.error("[v0] Failed to parse chat quote edit data:", e)
-        }
-      }
-    }
-  }, [searchParams, newQuote, setProjectName, setContactName])
 
   // Guard: suppress snapshot pushes right after a load to avoid overwriting
   // the DB snapshot with empty/stale mailing state before restoreState propagates
@@ -568,34 +510,6 @@ function AppContent() {
           {isJobView && jobPhase === "pricing" && (
             <StepErrorBoundary stepId="pricing-layout">
               <div className="flex-1 flex flex-col min-h-0">
-                {/* Chat Quote Revision Banner */}
-                {editingChatQuote && (
-                  <div className="shrink-0 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800 px-4 sm:px-6 py-2">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">REVISION</span>
-                        <span className="text-sm font-semibold text-blue-900 dark:text-blue-200">
-                          Editing {editingChatQuote.chatQuoteRef}
-                        </span>
-                        <span className="text-xs text-blue-700 dark:text-blue-400">
-                          Original: ${editingChatQuote.originalTotal.toFixed(2)}
-                        </span>
-                        {editingChatQuote.customerName && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400">
-                            | {editingChatQuote.customerName}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setEditingChatQuote(null)}
-                        className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline underline-offset-2"
-                      >
-                        Clear revision link
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Step Pills */}
                 <div className="shrink-0 bg-background border-b border-border/40">
                   <div className="px-4 sm:px-6 py-1.5">
@@ -781,13 +695,11 @@ function MobileBar({ onGoToExport }: { onGoToExport?: () => void }) {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
-      <QuoteProvider>
-        <MailingProvider>
-          <AppContent />
-        </MailingProvider>
-      </QuoteProvider>
-    </Suspense>
+    <QuoteProvider>
+      <MailingProvider>
+        <AppContent />
+      </MailingProvider>
+    </QuoteProvider>
   )
 }
 

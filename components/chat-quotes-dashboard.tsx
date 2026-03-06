@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   Search, RefreshCw, Loader2, MessageSquare, ChevronUp, ChevronDown,
-  FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore, Pencil,
+  FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+
 
 interface TranscriptMessage {
   role: "customer" | "assistant"
@@ -42,7 +42,6 @@ export function formatChatQuoteRef(refNumber: number) {
 }
 
 export function ChatQuotesDashboard() {
-  const router = useRouter()
   const [quotes, setQuotes] = useState<ChatQuote[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -50,27 +49,6 @@ export function ChatQuotesDashboard() {
   const [showTranscript, setShowTranscript] = useState<string | null>(null)
   const [viewFilter, setViewFilter] = useState<"active" | "archived">("active")
   const [archiving, setArchiving] = useState<string | null>(null)
-
-  // Edit quote in calculator - stores specs and navigates
-  const editInCalculator = useCallback((q: ChatQuote) => {
-    // Store the chat quote data for the calculator to pick up
-    const editData = {
-      chatQuoteId: q.id,
-      chatQuoteRef: formatChatQuoteRef(q.ref_number),
-      productType: q.product_type,
-      projectName: q.project_name,
-      customerName: q.customer_name,
-      customerEmail: q.customer_email,
-      customerPhone: q.customer_phone,
-      specs: q.specs,
-      originalTotal: q.total,
-      isRevision: true,
-    }
-    sessionStorage.setItem("editChatQuote", JSON.stringify(editData))
-    
-    // Navigate to main app (it will detect and load the specs)
-    router.push("/?editChatQuote=1")
-  }, [router])
 
   const loadQuotes = useCallback(async () => {
     setLoading(true)
@@ -412,16 +390,6 @@ export function ChatQuotesDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Edit in Calculator button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1.5 text-[10px] px-2.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
-                          onClick={() => editInCalculator(q)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                          Edit / Revise
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
