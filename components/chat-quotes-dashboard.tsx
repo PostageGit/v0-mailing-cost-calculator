@@ -314,39 +314,31 @@ export function ChatQuotesDashboard() {
                       )}
                     </div>
 
-                    {/* Specs + breakdown side by side on wider screens */}
-                    <div className="px-3 py-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      {/* Specs */}
-                      <div>
-                        <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">Specs</h4>
-                        {Object.keys(specs).length > 0 ? (
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                            {Object.entries(specs).map(([key, value]) => (
-                              <div key={key} className="flex items-baseline gap-1 min-w-0">
-                                <span className="text-[10px] text-muted-foreground shrink-0">{formatKey(key)}:</span>
-                                <span className="text-[11px] font-medium text-foreground truncate">
-                                  {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground/40">None</p>
-                        )}
-                      </div>
+                    {/* Specs + breakdown -- single scannable block */}
+                    <div className="px-3 py-2.5 bg-muted/20 border-y border-border/40">
+                      {/* All specs in one horizontal wrapped line */}
+                      {Object.keys(specs).length > 0 && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                          {Object.entries(specs).map(([key, value]) => (
+                            <span key={key} className="text-[11px]">
+                              <span className="font-semibold text-foreground">
+                                {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+                              </span>
+                              <span className="text-muted-foreground ml-1">{formatKey(key)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
-                      {/* Breakdown */}
+                      {/* Breakdown inline below specs */}
                       {Object.keys(breakdown).length > 0 && (
-                        <div>
-                          <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">Breakdown</h4>
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                            {Object.entries(breakdown).map(([key, value]) => (
-                              <div key={key} className="flex items-baseline gap-1 min-w-0">
-                                <span className="text-[10px] text-muted-foreground shrink-0">{formatKey(key)}:</span>
-                                <span className="text-[11px] font-semibold text-foreground truncate">{String(value)}</span>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pt-2 border-t border-border/30">
+                          {Object.entries(breakdown).map(([key, value]) => (
+                            <span key={key} className="text-[11px]">
+                              <span className="font-bold text-foreground">{String(value)}</span>
+                              <span className="text-muted-foreground ml-1">{formatKey(key)}</span>
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
