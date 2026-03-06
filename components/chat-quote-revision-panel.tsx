@@ -75,8 +75,17 @@ export function ChatQuoteRevisionPanel({
     }
   }, [quote, open])
 
-  // Calculate pricing whenever inputs change - use the full calculator flow
+  // Only flat quotes can use this calculator - perfect/booklet have different flows
+  const isFlatQuote = quote?.product_type?.toLowerCase() === "flat" || !quote?.product_type
+  const isUnsupportedType = quote?.product_type && !["flat"].includes(quote.product_type.toLowerCase())
+
+  // Calculate pricing whenever inputs change - use the full calculator flow (only for flat)
   useEffect(() => {
+    if (!isFlatQuote) {
+      setResult(null)
+      return
+    }
+    
     if (inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue) {
       try {
         // Step 1: Get all valid sheet options for this paper/size combo
@@ -102,7 +111,7 @@ export function ChatQuoteRevisionPanel({
     } else {
       setResult(null)
     }
-  }, [inputs])
+  }, [inputs, isFlatQuote])
 
   const handleSaveRevision = useCallback(async () => {
     if (!quote || !result) return
@@ -199,7 +208,21 @@ export function ChatQuoteRevisionPanel({
           </div>
         </div>
 
-        {/* Simplified Flat Printing Form */}
+        {/* Unsupported product type message */}
+        {isUnsupportedType && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/30 p-4 mb-4">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
+              {quote.product_type?.toUpperCase()} quotes cannot be revised in this panel yet
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Perfect-bound books and booklets have complex specs (cover paper, inside paper, binding, page counts) that require the full calculator. 
+              Please create a new quote using the main {quote.product_type} calculator instead.
+            </p>
+          </div>
+        )}
+
+        {/* Flat Printing Form - only shown for flat quotes */}
+        {!isUnsupportedType && (
         <div className="space-y-4">
           {/* Row 1: Qty, Width, Height */}
           <div className="grid grid-cols-3 gap-3">
@@ -394,20 +417,29 @@ export function ChatQuoteRevisionPanel({
             </div>
           )}
         </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 mt-6">
-          <Button
-            onClick={handleSaveRevision}
-            disabled={!result || saving}
-            className="flex-1 gap-2"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Revision
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
-            Cancel
-          </Button>
+          {!isUnsupportedType ? (
+            <>
+              <Button
+                onClick={handleSaveRevision}
+                disabled={!result || saving}
+                className="flex-1 gap-2"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Revision
+              </Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+              Close
+            </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>
