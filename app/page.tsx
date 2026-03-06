@@ -140,7 +140,7 @@ function AppContent() {
           setProjectName(`${data.projectName} (Revision of ${data.chatQuoteRef})`)
           if (data.customerName) setContactName(data.customerName)
           
-          // Navigate to the appropriate calculator step
+          // Navigate to the appropriate calculator step (case-insensitive match)
           const productMap: Record<string, StepId> = {
             flat: "printing",
             booklet: "booklet",
@@ -148,11 +148,17 @@ function AppContent() {
             spiral: "spiral",
             pad: "pad",
           }
-          const targetStep = productMap[data.productType] || "printing"
+          const productLower = (data.productType || "").toLowerCase()
+          const targetStep = productMap[productLower] || "printing"
+          
+          console.log("[v0] Chat quote edit - productType:", data.productType, "-> step:", targetStep)
           
           setSection("job")
           setJobPhase("pricing")
-          setCurrentStep(targetStep)
+          // Use setTimeout to ensure state updates happen in correct order after navigation
+          setTimeout(() => {
+            setCurrentStep(targetStep)
+          }, 100)
         } catch (e) {
           console.error("[v0] Failed to parse chat quote edit data:", e)
         }
