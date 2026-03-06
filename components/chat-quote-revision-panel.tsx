@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
 import {
   Sheet,
   SheetContent,
@@ -9,22 +9,14 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Save, ArrowRight } from "lucide-react"
-import { calculatePrintingCost, calculateAllSheetOptions, buildFullResult, PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing" 
-import { formatCurrency } from "@/lib/pricing"
+import { Loader2 } from "lucide-react"
+import { FlatRevisionCalculator } from "@/components/revision/flat-revision-calculator"
+import { PerfectRevisionCalculator } from "@/components/revision/perfect-revision-calculator"
+import { BookletRevisionCalculator } from "@/components/revision/booklet-revision-calculator"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
-import { LAMINATION_DEFAULTS } from "@/lib/lamination-pricing"
-import type { LaminationType, LaminationSides } from "@/lib/lamination-pricing"
+import type { PerfectInputs, PerfectCalcResult } from "@/lib/perfect-types"
+import type { BookletInputs, BookletCalcResult } from "@/lib/booklet-types"
 
 // Chat quote type from dashboard
 interface ChatQuote {
@@ -63,109 +55,202 @@ export function ChatQuoteRevisionPanel({
   onRevisionSaved,
 }: ChatQuoteRevisionPanelProps) {
   const [saving, setSaving] = useState(false)
-  const [result, setResult] = useState<FullPrintingResult | null>(null)
-  const [inputs, setInputs] = useState<PrintingInputs>(getDefaultInputs())
 
-  // Initialize inputs from quote specs when quote changes
-  useEffect(() => {
-    if (quote && open) {
-      const specs = quote.specs || {}
-      setInputs(mapSpecsToInputs(specs))
-      setResult(null)
-    }
-  }, [quote, open])
+  // Determine product type
+  const productType = quote?.product_type?.toLowerCase() || "flat"
+  const isFlat = productType === "flat" || !quote?.product_type
+  const isPerfect = productType === "perfect"
+  const isBooklet = productType === "booklet" || productType === "saddle"
 
-  // Calculate pricing whenever inputs change - use the full calculator flow
-  useEffect(() => {
-    if (inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue) {
+  // Handle saving a flat revision
+  const handleSaveFlat = useCallback(
+    async (result: FullPrintingResult, inputs: PrintingInputs) => {
+      if (!quote) return
+
+      setSaving(true)
       try {
-        // Step 1: Get all valid sheet options for this paper/size combo
-        const sheetOptions = calculateAllSheetOptions(inputs)
-        
-        if (sheetOptions.length === 0) {
-          // No valid sheet options - piece too big for paper
-          setResult(null)
-          return
+        const response = await fetch("/api/chat-quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parentQuoteId: quote.parent_quote_id || quote.id,
+            projectName: quote.project_name,
+            productType: "FLAT",
+            total: result.grandTotal,
+            perUnit: result.result.perPiece,
+            specs: {
+              quantity: inputs.qty,
+              width: inputs.width,
+              height: inputs.height,
+              paper: inputs.paperName,
+              sides: inputs.sidesValue,
+              bleed: inputs.hasBleed,
+              lamination: inputs.lamination?.enabled
+                ? `${inputs.lamination.type} (${inputs.lamination.sides})`
+                : "none",
+              isBroker: inputs.isBroker,
+            },
+            costBreakdown: {
+              printing: result.printingCost,
+              lamination: result.laminationCost?.cost || 0,
+              scoreFold: result.scoreFoldCost?.cost || 0,
+              cutting: result.cuttingCost || 0,
+            },
+            revisedBy: "Manual",
+          }),
+        })
+
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || "Failed to save revision")
         }
-        
-        // Step 2: Pick the best option (lowest price per piece)
-        const bestOption = sheetOptions.reduce((best, opt) => 
-          opt.result.perPiece < best.result.perPiece ? opt : best
-        , sheetOptions[0])
-        
-        // Step 3: Build the full result with the selected sheet
-        const fullResult = buildFullResult(inputs, bestOption.result, [], null, null)
-        setResult(fullResult)
-      } catch {
-        setResult(null)
+
+        onRevisionSaved()
+        onOpenChange(false)
+      } catch (e) {
+        console.error("[v0] Failed to save flat revision:", e)
+        alert(e instanceof Error ? e.message : "Failed to save revision")
+      } finally {
+        setSaving(false)
       }
-    } else {
-      setResult(null)
-    }
-  }, [inputs])
+    },
+    [quote, onRevisionSaved, onOpenChange]
+  )
 
-  const handleSaveRevision = useCallback(async () => {
-    if (!quote || !result) return
+  // Handle saving a perfect-bound revision
+  const handleSavePerfect = useCallback(
+    async (result: PerfectCalcResult, inputs: PerfectInputs) => {
+      if (!quote) return
 
-    setSaving(true)
-    try {
-      const response = await fetch("/api/chat-quotes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parentQuoteId: quote.parent_quote_id || quote.id,
-          projectName: quote.project_name,
-          productType: quote.product_type,
-          total: result.grandTotal,
-          perUnit: result.result.perPiece,
-          specs: {
-            quantity: inputs.qty,
-            width: inputs.width,
-            height: inputs.height,
-            paper: inputs.paperName,
-            sides: inputs.sidesValue,
-            bleed: inputs.hasBleed,
-            lamination: inputs.lamination?.enabled ? `${inputs.lamination.type} (${inputs.lamination.sides})` : "none",
-            scoreFold: inputs.scoreFold || "none",
-            isBroker: inputs.isBroker,
-          },
-          costBreakdown: {
-            printing: result.printingCost,
-            lamination: result.laminationCost?.cost || 0,
-            scoreFold: result.scoreFoldCost?.cost || 0,
-            addOn: result.addOnCharge || 0,
-          },
-          revisedBy: "Manual",
-        }),
-      })
+      setSaving(true)
+      try {
+        const response = await fetch("/api/chat-quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parentQuoteId: quote.parent_quote_id || quote.id,
+            projectName: quote.project_name,
+            productType: "PERFECT",
+            total: result.grandTotal,
+            perUnit: result.pricePerBook,
+            specs: {
+              quantity: inputs.bookQty,
+              pagesPerBook: inputs.pagesPerBook,
+              width: inputs.pageWidth,
+              height: inputs.pageHeight,
+              coverPaper: inputs.cover.paperName,
+              coverSides: inputs.cover.sides,
+              coverBleed: inputs.cover.hasBleed,
+              insidePaper: inputs.inside.paperName,
+              insideSides: inputs.inside.sides,
+              insideBleed: inputs.inside.hasBleed,
+              lamination: inputs.laminationType,
+              isBroker: inputs.isBroker,
+            },
+            costBreakdown: {
+              coverPrinting: result.coverResult.cost,
+              insidePrinting: result.insideResult.cost,
+              binding: result.totalBindingPrice,
+              lamination: result.totalLaminationCost,
+              brokerDiscount: result.brokerDiscountAmount,
+            },
+            revisedBy: "Manual",
+          }),
+        })
 
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || "Failed to save revision")
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || "Failed to save revision")
+        }
+
+        onRevisionSaved()
+        onOpenChange(false)
+      } catch (e) {
+        console.error("[v0] Failed to save perfect revision:", e)
+        alert(e instanceof Error ? e.message : "Failed to save revision")
+      } finally {
+        setSaving(false)
       }
+    },
+    [quote, onRevisionSaved, onOpenChange]
+  )
 
-      onRevisionSaved()
-      onOpenChange(false)
-    } catch (e) {
-      console.error("[v0] Failed to save revision:", e)
-      alert(e instanceof Error ? e.message : "Failed to save revision")
-    } finally {
-      setSaving(false)
-    }
-  }, [quote, result, inputs, onRevisionSaved, onOpenChange])
+  // Handle saving a booklet revision
+  const handleSaveBooklet = useCallback(
+    async (result: BookletCalcResult, inputs: BookletInputs) => {
+      if (!quote) return
+
+      setSaving(true)
+      try {
+        const response = await fetch("/api/chat-quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parentQuoteId: quote.parent_quote_id || quote.id,
+            projectName: quote.project_name,
+            productType: "BOOKLET",
+            total: result.grandTotal,
+            perUnit: result.pricePerBook,
+            specs: {
+              quantity: inputs.bookQty,
+              pagesPerBook: inputs.pagesPerBook,
+              width: inputs.pageWidth,
+              height: inputs.pageHeight,
+              separateCover: inputs.separateCover,
+              coverPaper: inputs.coverPaper,
+              coverSides: inputs.coverSides,
+              coverBleed: inputs.coverBleed,
+              insidePaper: inputs.insidePaper,
+              insideSides: inputs.insideSides,
+              insideBleed: inputs.insideBleed,
+              lamination: inputs.laminationType,
+              isBroker: inputs.isBroker,
+            },
+            costBreakdown: {
+              coverPrinting: result.coverResult?.cost || 0,
+              insidePrinting: result.insideResult.cost,
+              binding: result.totalBindingPrice,
+              lamination: result.totalLaminationCost,
+              brokerDiscount: result.brokerDiscountAmount,
+            },
+            revisedBy: "Manual",
+          }),
+        })
+
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || "Failed to save revision")
+        }
+
+        onRevisionSaved()
+        onOpenChange(false)
+      } catch (e) {
+        console.error("[v0] Failed to save booklet revision:", e)
+        alert(e instanceof Error ? e.message : "Failed to save revision")
+      } finally {
+        setSaving(false)
+      }
+    },
+    [quote, onRevisionSaved, onOpenChange]
+  )
 
   if (!quote) return null
 
   const originalRef = formatRef(quote.ref_number, quote.revision_number)
-  const priceDiff = result ? result.grandTotal - quote.total : 0
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader className="mb-4">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800"
+            >
               REVISION
+            </Badge>
+            <Badge variant="secondary" className="text-xs uppercase">
+              {productType}
             </Badge>
             <SheetTitle className="text-lg">{originalRef}</SheetTitle>
           </div>
@@ -174,344 +259,60 @@ export function ChatQuoteRevisionPanel({
           </SheetDescription>
         </SheetHeader>
 
-        {/* Original vs New Price Comparison */}
-        <div className="rounded-lg border border-border bg-muted/30 p-3 mb-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="text-center flex-1">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Original</p>
-              <p className="text-lg font-bold text-muted-foreground line-through">{formatCurrency(quote.total)}</p>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div className="text-center flex-1">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">New</p>
-              <p className="text-lg font-bold text-foreground">
-                {result ? formatCurrency(result.grandTotal) : "—"}
-              </p>
-            </div>
-            {result && (
-              <div className="text-center flex-1">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Change</p>
-                <p className={`text-lg font-bold ${priceDiff > 0 ? "text-red-600" : priceDiff < 0 ? "text-green-600" : "text-muted-foreground"}`}>
-                  {priceDiff > 0 ? "+" : ""}{formatCurrency(priceDiff)}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Product-specific calculator */}
+        {isFlat && (
+          <FlatRevisionCalculator
+            initialSpecs={quote.specs || {}}
+            originalTotal={quote.total}
+            onSave={handleSaveFlat}
+            saving={saving}
+          />
+        )}
 
-        {/* Simplified Flat Printing Form */}
-        <div className="space-y-4">
-          {/* Row 1: Qty, Width, Height */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Quantity</label>
-              <Input
-                type="number"
-                min={1}
-                value={inputs.qty || ""}
-                onChange={(e) => setInputs({ ...inputs, qty: parseInt(e.target.value) || 0 })}
-                className="h-9"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Width (in)</label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={inputs.width || ""}
-                onChange={(e) => setInputs({ ...inputs, width: parseFloat(e.target.value) || 0 })}
-                className="h-9"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Height (in)</label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={inputs.height || ""}
-                onChange={(e) => setInputs({ ...inputs, height: parseFloat(e.target.value) || 0 })}
-                className="h-9"
-              />
+        {isPerfect && (
+          <PerfectRevisionCalculator
+            initialSpecs={quote.specs || {}}
+            originalTotal={quote.total}
+            onSave={handleSavePerfect}
+            saving={saving}
+          />
+        )}
+
+        {isBooklet && (
+          <BookletRevisionCalculator
+            initialSpecs={quote.specs || {}}
+            originalTotal={quote.total}
+            onSave={handleSaveBooklet}
+            saving={saving}
+          />
+        )}
+
+        {/* Unknown product type message */}
+        {!isFlat && !isPerfect && !isBooklet && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
+              Unknown product type: {quote.product_type}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              This quote cannot be revised in this panel. Please create a new quote using the
+              appropriate calculator.
+            </p>
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="mt-4 w-full">
+              Close
+            </Button>
+          </div>
+        )}
+
+        {/* Loading overlay when saving */}
+        {saving && (
+          <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+            <div className="flex items-center gap-2 bg-card p-4 rounded-lg shadow-lg">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm font-medium">Saving revision...</span>
             </div>
           </div>
-
-          {/* Row 2: Paper, Sides */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Paper</label>
-              <Select
-                value={inputs.paperName}
-                onValueChange={(val) => {
-                  const newSides = getAvailableSides(val)
-                  // If current sides not available, default to first available or "4/4"
-                  const newSidesValue = newSides.includes(inputs.sidesValue) 
-                    ? inputs.sidesValue 
-                    : newSides.includes("4/4") ? "4/4" : newSides[0] || "4/4"
-                  setInputs({
-                    ...inputs,
-                    paperName: val,
-                    sidesValue: newSidesValue,
-                  })
-                }}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select paper" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAPER_OPTIONS.map((p) => (
-                    <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Sides</label>
-              <Select
-                value={inputs.sidesValue}
-                onValueChange={(val) => setInputs({ ...inputs, sidesValue: val })}
-                disabled={!inputs.paperName}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select sides" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(inputs.paperName ? getAvailableSides(inputs.paperName) : []).map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Row 3: Bleed, Broker */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="rev-bleed"
-                checked={inputs.hasBleed}
-                onCheckedChange={(c) => setInputs({ ...inputs, hasBleed: c === true })}
-              />
-              <label htmlFor="rev-bleed" className="text-sm cursor-pointer">Bleed</label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="rev-broker"
-                checked={inputs.isBroker}
-                onCheckedChange={(c) => setInputs({ ...inputs, isBroker: c === true })}
-              />
-              <label htmlFor="rev-broker" className="text-sm cursor-pointer">Broker pricing</label>
-            </div>
-          </div>
-
-          {/* Lamination */}
-          <div className="rounded-lg border border-border bg-muted/20 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Checkbox
-                id="rev-lam"
-                checked={inputs.lamination?.enabled}
-                onCheckedChange={(c) =>
-                  setInputs({
-                    ...inputs,
-                    lamination: { ...(inputs.lamination || LAMINATION_DEFAULTS), enabled: c === true },
-                  })
-                }
-              />
-              <label htmlFor="rev-lam" className="text-sm font-medium cursor-pointer">Lamination</label>
-            </div>
-            {inputs.lamination?.enabled && (
-              <div className="flex gap-3 pl-6">
-                <Select
-                  value={inputs.lamination.type}
-                  onValueChange={(v) =>
-                    setInputs({
-                      ...inputs,
-                      lamination: { ...inputs.lamination!, type: v as LaminationType },
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-8 w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["Gloss", "Matte", "Silk"].map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={inputs.lamination.sides}
-                  onValueChange={(v) =>
-                    setInputs({
-                      ...inputs,
-                      lamination: { ...inputs.lamination!, sides: v as LaminationSides },
-                    })
-                  }
-                >
-                  <SelectTrigger className="h-8 w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="S/S">Single</SelectItem>
-                    <SelectItem value="D/S">Both</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {/* Cost breakdown */}
-          {result && (
-            <div className="rounded-lg border border-border bg-card p-3">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Cost Breakdown</p>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Printing</span>
-                <span className="font-medium">{formatCurrency(result.printingCost)}</span>
-              </div>
-              {result.laminationCost && result.laminationCost.cost > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Lamination:</span>
-                  <span className="font-medium">{formatCurrency(result.laminationCost.cost)}</span>
-                </div>
-              )}
-              {result.scoreFoldCost && result.scoreFoldCost.cost > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Score/Fold:</span>
-                  <span className="font-medium">{formatCurrency(result.scoreFoldCost.cost)}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t pt-2 mt-2">
-                <span className="font-semibold">Total:</span>
-                <span className="font-bold">{formatCurrency(result.grandTotal)}</span>
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Per piece:</span>
-                <span>{formatCurrency(result.result.perPiece)}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 mt-6">
-          <Button
-            onClick={handleSaveRevision}
-            disabled={!result || saving}
-            className="flex-1 gap-2"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Revision
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
-            Cancel
-          </Button>
-        </div>
+        )}
       </SheetContent>
     </Sheet>
   )
-}
-
-// Default inputs
-function getDefaultInputs(): PrintingInputs {
-  return {
-    qty: 0,
-    width: 0,
-    height: 0,
-    paperName: "",
-    sidesValue: "",
-    hasBleed: false,
-    isBroker: false,
-    lamination: LAMINATION_DEFAULTS,
-    scoreFold: "none",
-    finishingCalcIds: [],
-    addOnCharge: 0,
-    addOnDescription: "",
-  }
-}
-
-// Map chat quote specs to PrintingInputs
-function mapSpecsToInputs(specs: Record<string, unknown>): PrintingInputs {
-  const inputs = getDefaultInputs()
-
-  // Handle various spec formats from AI - check multiple possible keys
-  // Quantity
-  const qtyVal = specs.quantity ?? specs.qty ?? specs.Quantity ?? specs.Qty
-  if (qtyVal) inputs.qty = Number(qtyVal) || 0
-
-  // Dimensions - direct or from size string
-  const widthVal = specs.width ?? specs.Width ?? specs.pageWidth
-  const heightVal = specs.height ?? specs.Height ?? specs.pageHeight
-  if (widthVal) inputs.width = Number(widthVal) || 0
-  if (heightVal) inputs.height = Number(heightVal) || 0
-
-  // Size might be "6x9" or "8.5x11" format
-  const sizeVal = specs.size ?? specs.Size ?? specs.pageSize
-  if (sizeVal && typeof sizeVal === "string" && (!inputs.width || !inputs.height)) {
-    const parts = sizeVal.toLowerCase().replace(/\s/g, "").split("x")
-    if (parts.length === 2) {
-      inputs.width = parseFloat(parts[0]) || inputs.width
-      inputs.height = parseFloat(parts[1]) || inputs.height
-    }
-  }
-
-  // Paper - try multiple key names and fuzzy match to available options
-  const paperVal = specs.paper ?? specs.Paper ?? specs.paperStock ?? specs.coverPaper ?? specs.insidePaper
-  if (paperVal && typeof paperVal === "string") {
-    const paperLower = paperVal.toLowerCase()
-    // Try exact match first
-    let match = PAPER_OPTIONS.find((p) => p.name.toLowerCase() === paperLower)
-    // Then partial match
-    if (!match) {
-      match = PAPER_OPTIONS.find(
-        (p) => p.name.toLowerCase().includes(paperLower) || paperLower.includes(p.name.toLowerCase())
-      )
-    }
-    // Default to first paper if no match
-    if (match) {
-      inputs.paperName = match.name
-    } else if (PAPER_OPTIONS.length > 0) {
-      inputs.paperName = PAPER_OPTIONS[0].name
-    }
-  } else if (PAPER_OPTIONS.length > 0) {
-    // Default paper if none specified
-    inputs.paperName = PAPER_OPTIONS[0].name
-  }
-
-  // Sides - try multiple keys
-  const sidesVal = specs.sides ?? specs.Sides ?? specs.coverSides ?? specs.insideSides
-  if (sidesVal && typeof sidesVal === "string") {
-    inputs.sidesValue = sidesVal
-  } else {
-    // Default to 4/4 if available
-    const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
-    inputs.sidesValue = availableSides.includes("4/4") ? "4/4" : availableSides[0] || ""
-  }
-
-  // Bleed - handle various formats
-  const bleedVal = specs.bleed ?? specs.Bleed ?? specs.hasBleed ?? specs.coverBleed
-  if (bleedVal !== undefined) {
-    inputs.hasBleed = bleedVal === true || bleedVal === "Yes" || bleedVal === "yes" || bleedVal === "true"
-  }
-
-  // Broker
-  const brokerVal = specs.isBroker ?? specs.broker ?? specs.Broker
-  if (brokerVal !== undefined) {
-    inputs.isBroker = brokerVal === true || brokerVal === "Yes" || brokerVal === "yes" || brokerVal === "No" ? false : !!brokerVal
-  }
-
-  // Lamination - handle various formats
-  const lamVal = specs.lamination ?? specs.Lamination ?? specs.coverLamination
-  if (lamVal && typeof lamVal === "string" && lamVal.toLowerCase() !== "none" && lamVal.toLowerCase() !== "no") {
-    inputs.lamination = {
-      ...LAMINATION_DEFAULTS,
-      enabled: true,
-      type: lamVal.toLowerCase().includes("matte") ? "Matte" : lamVal.toLowerCase().includes("silk") ? "Silk" : "Gloss",
-      sides: lamVal.toLowerCase().includes("d/s") || lamVal.toLowerCase().includes("both") || lamVal.toLowerCase().includes("double") ? "D/S" : "S/S",
-    }
-  }
-
-  return inputs
 }
