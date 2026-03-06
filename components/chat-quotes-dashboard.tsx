@@ -404,18 +404,16 @@ export function ChatQuotesDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Edit/Revise button - shows for flat type quotes (case-insensitive) */}
-                        {(q.product_type?.toLowerCase() === "flat" || !q.product_type) && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 gap-1.5 text-[10px] px-2.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
-                            onClick={() => setRevisionQuote(q)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                            Edit / Revise
-                          </Button>
-                        )}
+                        {/* Edit/Revise button - shows for all quote types */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1.5 text-[10px] px-2.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                          onClick={() => setRevisionQuote(q)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit / Revise
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
