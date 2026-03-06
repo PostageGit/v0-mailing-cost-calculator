@@ -8,7 +8,8 @@ import {
   Search, RefreshCw, Loader2, MessageSquare, ChevronUp, ChevronDown,
   FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore, Pencil,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { ChatQuoteRevisionPanel } from "@/components/chat-quote-revision-panel"
+
 
 interface TranscriptMessage {
   role: "customer" | "assistant"
@@ -23,6 +24,7 @@ interface ChatQuote {
   specs: Record<string, unknown>; cost_breakdown: Record<string, unknown>;
   attachments: Array<{ url: string; filename: string; size: number; type: string }>;
   notes: string; archived: boolean; chat_transcript: TranscriptMessage[] | null; created_at: string;
+  parent_quote_id?: string; revision_number?: number; revised_by?: string;
 }
 
 const PRODUCT_COLORS: Record<string, string> = {
@@ -37,12 +39,12 @@ const PRODUCT_COLORS: Record<string, string> = {
 const formatKey = (key: string) =>
   key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()).trim()
 
-export function formatChatQuoteRef(refNumber: number) {
-  return `CQ-${refNumber}`
+export function formatChatQuoteRef(refNumber: number, revisionNumber?: number) {
+  const base = `CQ-${refNumber}`
+  return revisionNumber && revisionNumber > 0 ? `${base}-R${revisionNumber}` : base
 }
 
 export function ChatQuotesDashboard() {
-  const router = useRouter()
   const [quotes, setQuotes] = useState<ChatQuote[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -50,27 +52,7 @@ export function ChatQuotesDashboard() {
   const [showTranscript, setShowTranscript] = useState<string | null>(null)
   const [viewFilter, setViewFilter] = useState<"active" | "archived">("active")
   const [archiving, setArchiving] = useState<string | null>(null)
-
-  // Edit quote in calculator - stores specs and navigates
-  const editInCalculator = useCallback((q: ChatQuote) => {
-    // Store the chat quote data for the calculator to pick up
-    const editData = {
-      chatQuoteId: q.id,
-      chatQuoteRef: formatChatQuoteRef(q.ref_number),
-      productType: q.product_type,
-      projectName: q.project_name,
-      customerName: q.customer_name,
-      customerEmail: q.customer_email,
-      customerPhone: q.customer_phone,
-      specs: q.specs,
-      originalTotal: q.total,
-      isRevision: true,
-    }
-    sessionStorage.setItem("editChatQuote", JSON.stringify(editData))
-    
-    // Navigate to main app (it will detect and load the specs)
-    router.push("/?editChatQuote=1")
-  }, [router])
+  const [revisionQuote, setRevisionQuote] = useState<ChatQuote | null>(null)
 
   const loadQuotes = useCallback(async () => {
     setLoading(true)
@@ -247,9 +229,19 @@ export function ChatQuotesDashboard() {
                   }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="flex items-center justify-center h-7 min-w-[52px] rounded bg-foreground px-1.5 shrink-0">
-                      <span className="text-[10px] font-bold text-background">{formatChatQuoteRef(q.ref_number)}</span>
+                    <span className={cn(
+                      "flex items-center justify-center h-7 min-w-[52px] rounded px-1.5 shrink-0",
+                      q.revision_number && q.revision_number > 0
+                        ? "bg-blue-600"
+                        : "bg-foreground"
+                    )}>
+                      <span className="text-[10px] font-bold text-white">{formatChatQuoteRef(q.ref_number, q.revision_number)}</span>
                     </span>
+                    {q.revision_number && q.revision_number > 0 && (
+                      <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400">
+                        Rev by {q.revised_by || "Manual"}
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">{q.project_name}</span>
@@ -412,16 +404,18 @@ export function ChatQuotesDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Edit in Calculator button */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1.5 text-[10px] px-2.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
-                          onClick={() => editInCalculator(q)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                          Edit / Revise
-                        </Button>
+                        {/* Edit/Revise button - only for flat type quotes for now */}
+                        {q.product_type === "flat" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1.5 text-[10px] px-2.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                            onClick={() => setRevisionQuote(q)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Edit / Revise
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -453,6 +447,17 @@ export function ChatQuotesDashboard() {
           })}
         </div>
       )}
+
+      {/* Revision Panel */}
+      <ChatQuoteRevisionPanel
+        quote={revisionQuote}
+        open={!!revisionQuote}
+        onOpenChange={(open) => !open && setRevisionQuote(null)}
+        onRevisionSaved={() => {
+          loadQuotes()
+          setRevisionQuote(null)
+        }}
+      />
     </div>
   )
 }
