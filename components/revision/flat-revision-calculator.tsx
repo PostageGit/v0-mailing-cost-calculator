@@ -411,8 +411,8 @@ export function FlatRevisionCalculator({
                   <div key={i} className="flex items-center justify-between text-sm bg-white dark:bg-background/50 rounded px-2 py-1.5">
                     <span className="font-medium">{r.qty.toLocaleString()} qty</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-muted-foreground text-xs">${r.result.result.perPiece.toFixed(4)}/ea</span>
-                      <span className="font-bold">${r.result.grandTotal.toFixed(2)}</span>
+                      <span className="text-muted-foreground text-xs">${(r.result.result?.perPiece ?? 0).toFixed(4)}/ea</span>
+                      <span className="font-bold">${(r.result.grandTotal ?? 0).toFixed(2)}</span>
                     </div>
                   </div>
                 ))}
