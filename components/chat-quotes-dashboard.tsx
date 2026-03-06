@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
   Search, RefreshCw, Loader2, MessageSquare, ChevronUp, ChevronDown,
-  FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore,
+  FileText, ImageIcon, ExternalLink, Paperclip, Archive, ArchiveRestore, Pencil,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface TranscriptMessage {
   role: "customer" | "assistant"
@@ -41,6 +42,7 @@ export function formatChatQuoteRef(refNumber: number) {
 }
 
 export function ChatQuotesDashboard() {
+  const router = useRouter()
   const [quotes, setQuotes] = useState<ChatQuote[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -48,6 +50,27 @@ export function ChatQuotesDashboard() {
   const [showTranscript, setShowTranscript] = useState<string | null>(null)
   const [viewFilter, setViewFilter] = useState<"active" | "archived">("active")
   const [archiving, setArchiving] = useState<string | null>(null)
+
+  // Edit quote in calculator - stores specs and navigates
+  const editInCalculator = useCallback((q: ChatQuote) => {
+    // Store the chat quote data for the calculator to pick up
+    const editData = {
+      chatQuoteId: q.id,
+      chatQuoteRef: formatChatQuoteRef(q.ref_number),
+      productType: q.product_type,
+      projectName: q.project_name,
+      customerName: q.customer_name,
+      customerEmail: q.customer_email,
+      customerPhone: q.customer_phone,
+      specs: q.specs,
+      originalTotal: q.total,
+      isRevision: true,
+    }
+    sessionStorage.setItem("editChatQuote", JSON.stringify(editData))
+    
+    // Navigate to calculator (it will detect and load the specs)
+    router.push("/calculator?editChatQuote=1")
+  }, [router])
 
   const loadQuotes = useCallback(async () => {
     setLoading(true)
@@ -314,39 +337,31 @@ export function ChatQuotesDashboard() {
                       )}
                     </div>
 
-                    {/* Specs + breakdown side by side on wider screens */}
-                    <div className="px-3 py-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      {/* Specs */}
-                      <div>
-                        <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">Specs</h4>
-                        {Object.keys(specs).length > 0 ? (
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                            {Object.entries(specs).map(([key, value]) => (
-                              <div key={key} className="flex items-baseline gap-1 min-w-0">
-                                <span className="text-[10px] text-muted-foreground shrink-0">{formatKey(key)}:</span>
-                                <span className="text-[11px] font-medium text-foreground truncate">
-                                  {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground/40">None</p>
-                        )}
-                      </div>
+                    {/* Specs + breakdown -- single scannable block */}
+                    <div className="px-3 py-2.5 bg-muted/20 border-y border-border/40">
+                      {/* All specs in one horizontal wrapped line */}
+                      {Object.keys(specs).length > 0 && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                          {Object.entries(specs).map(([key, value]) => (
+                            <span key={key} className="text-[11px]">
+                              <span className="font-semibold text-foreground">
+                                {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}
+                              </span>
+                              <span className="text-muted-foreground ml-1">{formatKey(key)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
-                      {/* Breakdown */}
+                      {/* Breakdown inline below specs */}
                       {Object.keys(breakdown).length > 0 && (
-                        <div>
-                          <h4 className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50 mb-1.5">Breakdown</h4>
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                            {Object.entries(breakdown).map(([key, value]) => (
-                              <div key={key} className="flex items-baseline gap-1 min-w-0">
-                                <span className="text-[10px] text-muted-foreground shrink-0">{formatKey(key)}:</span>
-                                <span className="text-[11px] font-semibold text-foreground truncate">{String(value)}</span>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pt-2 border-t border-border/30">
+                          {Object.entries(breakdown).map(([key, value]) => (
+                            <span key={key} className="text-[11px]">
+                              <span className="font-bold text-foreground">{String(value)}</span>
+                              <span className="text-muted-foreground ml-1">{formatKey(key)}</span>
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -397,6 +412,16 @@ export function ChatQuotesDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        {/* Edit in Calculator button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1.5 text-[10px] px-2.5 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                          onClick={() => editInCalculator(q)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Edit / Revise
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
