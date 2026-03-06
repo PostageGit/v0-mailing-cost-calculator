@@ -116,6 +116,50 @@ function getChangeSummary(original: ChatQuote, revision: ChatQuote): string {
   return changes.slice(0, 3).join(", ") || "Minor adjustments"
 }
 
+// Generate a condensed description of quote specs
+function getQuoteDescription(q: ChatQuote): string {
+  const specs = q.specs || {}
+  const parts: string[] = []
+
+  // Quantity
+  const qty = specs.quantity || specs.qty || specs.Quantity || specs.Qty
+  if (qty) parts.push(`${qty} qty`)
+
+  // Size
+  const size = specs.size || specs.Size || specs.pageSize
+  if (size) parts.push(size)
+
+  // Paper
+  const paper = specs.paper || specs.Paper || specs.coverPaper
+  if (paper) {
+    // Shorten paper name if too long
+    const shortPaper = String(paper).length > 15 ? String(paper).slice(0, 12) + "..." : paper
+    parts.push(String(shortPaper))
+  }
+
+  // Sides
+  const sides = specs.sides || specs.Sides || specs.coverSides
+  if (sides) parts.push(sides)
+
+  // Pages (for booklets/perfect)
+  const pages = specs.pages || specs.contentPages || specs.insidePages || specs.physicalPages
+  if (pages) parts.push(`${pages}pg`)
+
+  // Lamination
+  const lam = specs.lamination || specs.Lamination || specs.coverLamination
+  if (lam && lam !== "none" && lam !== "None" && lam !== "no") {
+    parts.push("Lam")
+  }
+
+  // Bleed
+  const bleed = specs.bleed || specs.Bleed || specs.coverBleed
+  if (bleed === true || bleed === "Yes" || bleed === "yes") {
+    parts.push("Bleed")
+  }
+
+  return parts.join(" · ") || "No specs"
+}
+
 export function ChatQuotesDashboard() {
   const [quotes, setQuotes] = useState<ChatQuote[]>([])
   const [loading, setLoading] = useState(true)
@@ -390,7 +434,10 @@ export function ChatQuotesDashboard() {
                         {q.customer_name || "No name"}
                         {q.customer_phone && <> &middot; {q.customer_phone}</>}
                         {" "}&middot; {new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        {" "}{new Date(q.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                      {/* Condensed spec description */}
+                      <p className="text-[10px] text-muted-foreground/80 truncate max-w-[350px]">
+                        {getQuoteDescription(q)}
                       </p>
                     </div>
                   </div>
@@ -489,6 +536,7 @@ export function ChatQuotesDashboard() {
                           <div className="mt-2 space-y-1.5">
                             {group.revisions.map((rev) => {
                               const changeSummary = getChangeSummary(group.original, rev)
+                              const revDescription = getQuoteDescription(rev)
                               return (
                                 <div
                                   key={rev.id}
@@ -519,10 +567,14 @@ export function ChatQuotesDashboard() {
                                       </Button>
                                     </div>
                                   </div>
-                                  {/* Change summary */}
-                                  <div className="mt-1 text-[10px] text-blue-700 dark:text-blue-300 font-medium">
-                                    {changeSummary}
-                                  </div>
+                                  {/* Revision full specs */}
+                                  <p className="mt-1 text-[10px] text-muted-foreground truncate">
+                                    {revDescription}
+                                  </p>
+                                  {/* What changed from original */}
+                                  <p className="mt-0.5 text-[10px] text-blue-700 dark:text-blue-300 font-medium">
+                                    Changed: {changeSummary}
+                                  </p>
                                 </div>
                               )
                             })}
