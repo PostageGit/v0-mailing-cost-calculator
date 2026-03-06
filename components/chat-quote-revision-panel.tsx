@@ -77,26 +77,14 @@ export function ChatQuoteRevisionPanel({
 
   // Calculate pricing whenever inputs change
   useEffect(() => {
-    console.log("[v0] Revision panel inputs changed:", {
-      qty: inputs.qty,
-      width: inputs.width,
-      height: inputs.height,
-      paperName: inputs.paperName,
-      sidesValue: inputs.sidesValue,
-      hasAllRequired: !!(inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue)
-    })
-    
     if (inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue) {
       try {
         const calcResult = calculatePrintingCost(inputs)
-        console.log("[v0] Calculation result:", calcResult?.result?.grandTotal)
         setResult(calcResult)
-      } catch (err) {
-        console.error("[v0] Calculation error:", err)
+      } catch {
         setResult(null)
       }
     } else {
-      console.log("[v0] Missing required inputs, skipping calculation")
       setResult(null)
     }
   }, [inputs])
@@ -242,10 +230,14 @@ export function ChatQuoteRevisionPanel({
                 value={inputs.paperName}
                 onValueChange={(val) => {
                   const newSides = getAvailableSides(val)
+                  // If current sides not available, default to first available or "4/4"
+                  const newSidesValue = newSides.includes(inputs.sidesValue) 
+                    ? inputs.sidesValue 
+                    : newSides.includes("4/4") ? "4/4" : newSides[0] || "4/4"
                   setInputs({
                     ...inputs,
                     paperName: val,
-                    sidesValue: newSides.includes(inputs.sidesValue) ? inputs.sidesValue : "",
+                    sidesValue: newSidesValue,
                   })
                 }}
               >
@@ -428,8 +420,6 @@ function getDefaultInputs(): PrintingInputs {
 // Map chat quote specs to PrintingInputs
 function mapSpecsToInputs(specs: Record<string, unknown>): PrintingInputs {
   const inputs = getDefaultInputs()
-  
-  console.log("[v0] mapSpecsToInputs received specs:", JSON.stringify(specs, null, 2))
 
   // Handle various spec formats from AI - check multiple possible keys
   // Quantity
@@ -508,7 +498,5 @@ function mapSpecsToInputs(specs: Record<string, unknown>): PrintingInputs {
     }
   }
 
-  console.log("[v0] mapSpecsToInputs output:", JSON.stringify(inputs, null, 2))
-  
   return inputs
 }
