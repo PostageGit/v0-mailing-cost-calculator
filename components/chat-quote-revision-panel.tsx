@@ -77,14 +77,26 @@ export function ChatQuoteRevisionPanel({
 
   // Calculate pricing whenever inputs change
   useEffect(() => {
+    console.log("[v0] Revision panel inputs changed:", {
+      qty: inputs.qty,
+      width: inputs.width,
+      height: inputs.height,
+      paperName: inputs.paperName,
+      sidesValue: inputs.sidesValue,
+      hasAllRequired: !!(inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue)
+    })
+    
     if (inputs.qty && inputs.width && inputs.height && inputs.paperName && inputs.sidesValue) {
       try {
         const calcResult = calculatePrintingCost(inputs)
+        console.log("[v0] Calculation result:", calcResult?.result?.grandTotal)
         setResult(calcResult)
-      } catch {
+      } catch (err) {
+        console.error("[v0] Calculation error:", err)
         setResult(null)
       }
     } else {
+      console.log("[v0] Missing required inputs, skipping calculation")
       setResult(null)
     }
   }, [inputs])
