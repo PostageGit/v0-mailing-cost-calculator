@@ -1,4 +1,4 @@
-// ─── Perfect Binding Pricing Engine ───────────────────────────────────────────
+// ─── Perfect Binding Pricing Engine ─────────────────────────────────────────────
 import type { PerfectInputs, PerfectPartInputs, PerfectPartResult, PerfectCalcResult, PaperOption } from "./perfect-types"
 import { PAPER_OPTIONS } from "./perfect-types"
 import { SPECIALTY_SHEET_SIZES } from "./printing-pricing"
