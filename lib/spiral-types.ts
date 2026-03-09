@@ -38,6 +38,11 @@ export interface SpiralPartResult {
   pricePerSheet: number
   levelName: string
   autoLevelName: string
+  // P/L cost breakdown
+  paperCostPerSheet: number
+  clickCostPerSheet: number
+  totalPaperCost: number
+  totalClickCost: number
 }
 
 export interface SpiralCalcResult {

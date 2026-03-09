@@ -69,6 +69,17 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
         <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
         <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
       </div>
+      {insideResult.totalPaperCost > 0 && (
+        <>
+          <SectionHeader label="Inside P/L Breakdown" />
+          <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
+            <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(insideResult.paperCostPerSheet, 4)} />
+            <DetailRow label="Click Cost/Sheet:" value={formatCurrency(insideResult.clickCostPerSheet, 4)} />
+            <DetailRow label="Total Paper Cost:" value={formatCurrency(insideResult.totalPaperCost)} />
+            <DetailRow label="Total Click Cost:" value={formatCurrency(insideResult.totalClickCost)} />
+          </div>
+        </>
+      )}
 
       {frontResult && (
         <>
@@ -81,6 +92,17 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
             <DetailRow label="Total Sheets:" value={frontResult.sheets.toLocaleString()} />
             <DetailRow label="Total Printing:" value={formatCurrency(frontResult.cost)} />
           </div>
+          {frontResult.totalPaperCost > 0 && (
+            <>
+              <SectionHeader label="Front Cover P/L Breakdown" />
+              <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
+                <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(frontResult.paperCostPerSheet, 4)} />
+                <DetailRow label="Click Cost/Sheet:" value={formatCurrency(frontResult.clickCostPerSheet, 4)} />
+                <DetailRow label="Total Paper Cost:" value={formatCurrency(frontResult.totalPaperCost)} />
+                <DetailRow label="Total Click Cost:" value={formatCurrency(frontResult.totalClickCost)} />
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -95,6 +117,17 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
             <DetailRow label="Total Sheets:" value={backResult.sheets.toLocaleString()} />
             <DetailRow label="Total Printing:" value={formatCurrency(backResult.cost)} />
           </div>
+          {backResult.totalPaperCost > 0 && (
+            <>
+              <SectionHeader label="Back Cover P/L Breakdown" />
+              <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
+                <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(backResult.paperCostPerSheet, 4)} />
+                <DetailRow label="Click Cost/Sheet:" value={formatCurrency(backResult.clickCostPerSheet, 4)} />
+                <DetailRow label="Total Paper Cost:" value={formatCurrency(backResult.totalPaperCost)} />
+                <DetailRow label="Total Click Cost:" value={formatCurrency(backResult.totalClickCost)} />
+              </div>
+            </>
+          )}
         </>
       )}
 
