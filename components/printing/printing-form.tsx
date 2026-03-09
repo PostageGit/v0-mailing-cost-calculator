@@ -269,16 +269,21 @@ export function PrintingForm({
                 Save Specs
               </Button>
             ) : (
-              <Button
-                type="submit"
-                className={`flex-1 font-semibold ${
-                  isEditing
-                    ? "bg-amber-500 hover:bg-amber-600 text-foreground"
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
-                }`}
-              >
-                {isEditing ? "Recalculate" : "Calculate"}
-              </Button>
+            <Button
+              type="button"
+              onClick={(e) => {
+                console.log("[v0] Calculate button CLICKED")
+                e.preventDefault()
+                handleSubmit(e as unknown as React.FormEvent)
+              }}
+              className={`flex-1 font-semibold ${
+                isEditing
+                  ? "bg-amber-500 hover:bg-amber-600 text-foreground"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              }`}
+            >
+              {isEditing ? "Recalculate" : "Calculate"}
+            </Button>
             )}
             <Button
               type="button"
