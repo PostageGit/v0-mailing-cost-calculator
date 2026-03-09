@@ -2217,18 +2217,18 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     globalMutate(colsUrl)
   }, [colsUrl])
 
-  if (isLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-  if (error) return <div className="flex items-center justify-center py-24 text-sm text-destructive">Failed to load. Check your database connection.</div>
-
   const cols = columns || []
   const archiveCount = archivedQuotes?.length || 0
   const voidedCount = voidedQuotes?.length || 0
   // Done = quotes in the last column (typically "Done" or "Completed")
   const doneColumnId = cols.length > 0 ? cols[cols.length - 1]?.id : null
-  const doneQuotes = useMemo(() => (quotes || []).filter((q) => q.column_id === doneColumnId), [quotes, doneColumnId])
+  const doneQuotes = (quotes || []).filter((q) => q.column_id === doneColumnId)
   const doneCount = doneQuotes.length
   const historyCount = archiveCount + voidedCount
   const label = isJob ? "Active Job" : "Quote"
+
+  if (isLoading) return <div className="flex items-center justify-center py-24"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (error) return <div className="flex items-center justify-center py-24 text-sm text-destructive">Failed to load. Check your database connection.</div>
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
