@@ -56,10 +56,11 @@ interface Quote {
   lights: Record<string, string> | null
   is_job?: boolean; converted_at?: string | null
   archived?: boolean; archived_at?: string | null
+  voided?: boolean; voided_at?: string | null; voided_reason?: string | null
   job_meta?: JobMeta
   sort_order?: number
   created_at: string; updated_at: string
-}
+  }
 
 const fetcher = async (url: string) => {
   const r = await fetch(url)
@@ -1959,9 +1960,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const { data: columns, isLoading: colsLoading } = useSWR<BoardColumn[]>(colsUrl, fetcher)
   const { data: quotes, error, isLoading: quotesLoading } = useSWR<Quote[]>(quotesUrl, fetcher, { refreshInterval: 10000 })
   const { data: archivedQuotes } = useSWR<Quote[]>(archivedUrl, fetcher)
+  const voidedUrl = `/api/quotes?voided=true${isJob ? "&is_job=true" : "&is_job=false"}`
+  const { data: voidedQuotes } = useSWR<Quote[]>(voidedUrl, fetcher)
 
   const [showSettings, setShowSettings] = useState(false)
-  const [showArchive, setShowArchive] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyTab, setHistoryTab] = useState<"archived" | "done" | "voided">("archived")
   const [detailQuote, setDetailQuote] = useState<Quote | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
@@ -2218,6 +2222,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
 
   const cols = columns || []
   const archiveCount = archivedQuotes?.length || 0
+  const voidedCount = voidedQuotes?.length || 0
+  // Done = quotes in the last column (typically "Done" or "Completed")
+  const doneColumnId = cols.length > 0 ? cols[cols.length - 1]?.id : null
+  const doneQuotes = useMemo(() => (quotes || []).filter((q) => q.column_id === doneColumnId), [quotes, doneColumnId])
+  const doneCount = doneQuotes.length
+  const historyCount = archiveCount + voidedCount
   const label = isJob ? "Active Job" : "Quote"
 
   return (
@@ -2257,9 +2267,11 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
-          <button onClick={() => setShowArchive(!showArchive)}
-            className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showArchive ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
-            <Archive className="h-3.5 w-3.5" />{archiveCount > 0 && <span className="tabular-nums">{archiveCount}</span>}
+          <button onClick={() => setShowHistory(!showHistory)}
+            className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showHistory ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
+            <Clock className="h-3.5 w-3.5" />
+            <span>History</span>
+            {historyCount > 0 && <span className="tabular-nums text-[10px] bg-secondary/80 px-1.5 py-0.5 rounded">{historyCount}</span>}
           </button>
           <button onClick={() => setShowSettings(!showSettings)}
             className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showSettings ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
@@ -2270,28 +2282,115 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
 
       {showSettings && <ColumnSettings columns={cols} onAdd={addColumn} onRename={renameColumn} onDelete={deleteColumn} onReorder={reorderColumns} onClose={() => setShowSettings(false)} />}
 
-      {/* Archive drawer */}
-      {showArchive && (
-        <div className="rounded-lg border border-border bg-secondary/20 p-2 mb-2 shrink-0 max-h-[200px] overflow-y-auto">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Archive className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-semibold text-foreground">Archived</span>
-            <span className="text-[9px] font-mono text-muted-foreground">{filteredArchived.length}</span>
+      {/* History panel with tabs: Archived, Done, Voided */}
+      {showHistory && (
+        <div className="rounded-xl border border-border bg-card p-3 mb-3 shrink-0">
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mb-3 border-b border-border pb-2">
+            <button
+              onClick={() => setHistoryTab("done")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                historyTab === "done" ? "bg-emerald-500 text-white" : "text-muted-foreground hover:bg-secondary"
+              )}
+            >
+              <Check className="h-3 w-3" />
+              Done
+              <span className="text-[10px] opacity-70">{doneCount}</span>
+            </button>
+            <button
+              onClick={() => setHistoryTab("archived")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                historyTab === "archived" ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary"
+              )}
+            >
+              <Archive className="h-3 w-3" />
+              Archived
+              <span className="text-[10px] opacity-70">{archiveCount}</span>
+            </button>
+            <button
+              onClick={() => setHistoryTab("voided")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                historyTab === "voided" ? "bg-amber-500 text-white" : "text-muted-foreground hover:bg-secondary"
+              )}
+            >
+              <Ban className="h-3 w-3" />
+              Voided
+              <span className="text-[10px] opacity-70">{voidedCount}</span>
+            </button>
+            <button
+              onClick={() => setShowHistory(false)}
+              className="ml-auto p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
-          {filteredArchived.length === 0 ? (
-            <p className="text-[9px] text-muted-foreground/50 py-3 text-center">No archived {label.toLowerCase()}s</p>
-          ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
-{filteredArchived.map((q) => (
-  <QuoteCard key={q.id} quote={q} columns={cols}
-  onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
-  onRestore={handleRestore} onPatch={handlePatch}
-  onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
-  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-  boardType={boardType} isArchived />
-              ))}
-            </div>
-          )}
+
+          {/* Content based on selected tab */}
+          <div className="max-h-[180px] overflow-y-auto">
+            {historyTab === "done" && (
+              doneQuotes.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No completed {label.toLowerCase()}s</p>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                  {doneQuotes.map((q) => (
+                    <QuoteCard key={q.id} quote={q} columns={cols}
+                      onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+                      onRestore={handleRestore} onPatch={handlePatch}
+                      onEdit={(id) => { const found = doneQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+                      onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                      boardType={boardType} />
+                  ))}
+                </div>
+              )
+            )}
+
+            {historyTab === "archived" && (
+              filteredArchived.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No archived {label.toLowerCase()}s</p>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                  {filteredArchived.map((q) => (
+                    <QuoteCard key={q.id} quote={q} columns={cols}
+                      onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+                      onRestore={handleRestore} onPatch={handlePatch}
+                      onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+                      onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                      boardType={boardType} isArchived />
+                  ))}
+                </div>
+              )
+            )}
+
+            {historyTab === "voided" && (
+              (voidedQuotes || []).length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">No voided {label.toLowerCase()}s</p>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                  {(voidedQuotes || []).map((q) => (
+                    <div key={q.id} className="relative">
+                      <div className="absolute inset-0 bg-amber-500/5 rounded-xl border border-amber-300/30 pointer-events-none z-10" />
+                      <div className="opacity-60">
+                        <QuoteCard quote={q} columns={cols}
+                          onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+                          onRestore={handleRestore} onPatch={handlePatch}
+                          onEdit={(id) => { const found = (voidedQuotes || []).find((x) => x.id === id); if (found) setDetailQuote(found) }}
+                          onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                          boardType={boardType} />
+                      </div>
+                      {q.voided_at && (
+                        <div className="absolute top-1 right-1 z-20 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
+                          VOID
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
         </div>
       )}
 
