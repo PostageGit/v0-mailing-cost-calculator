@@ -269,20 +269,21 @@ export function PrintingForm({
             Save Specs
           </Button>
         ) : (
-          <Button
+          <button
             type="button"
             onClick={() => {
               console.log("[v0] CALCULATE BUTTON CLICKED!")
+              alert("Calculate clicked!") // Visual confirmation
               handleCalculateClick()
             }}
-            className={`flex-1 font-semibold ${
+            className={`flex-1 font-semibold py-2 px-4 rounded-md ${
               isEditing
-                ? "bg-amber-500 hover:bg-amber-600 text-foreground"
-                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                ? "bg-amber-500 hover:bg-amber-600 text-black"
+                : "bg-black hover:bg-gray-800 text-white"
             }`}
           >
             {isEditing ? "Recalculate" : "Calculate"}
-          </Button>
+          </button>
         )}
         <Button
           type="button"
