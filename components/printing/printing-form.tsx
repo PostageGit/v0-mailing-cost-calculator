@@ -11,12 +11,9 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Save } from "lucide-react"
 import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
-import { getActiveConfig } from "@/lib/pricing-config"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
-
 
 import { FinishingAddOns } from "@/components/finishing-add-ons"
 import { FoldFinishSection } from "@/components/printing/fold-finish-section"
@@ -31,9 +28,7 @@ interface PrintingFormProps {
   onReset: () => void
   isEditing: boolean
   hasCalculated: boolean
-  /** Pass the current result so we can show real finishing prices */
   currentResult?: FullPrintingResult | null
-  /** When true, form is in OHP spec-builder mode (no cost calculation) */
   ohpMode?: boolean
 }
 
@@ -60,232 +55,239 @@ export function PrintingForm({
     })
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  // Direct click handler - bypass form submission entirely
+  function handleCalculateClick() {
     v.markAttempted()
     onCalculate()
   }
 
+  function handleResetClick() {
+    v.reset()
+    onReset()
+  }
+
   return (
-        <form onSubmit={handleSubmit}>
-          {/* Row 1: Qty, Width, Height */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-qty" className="text-sm font-medium text-foreground">
-                Quantity{v.req(!inputs.qty) && <span className="text-destructive text-xs ml-0.5">*</span>}
-              </label>
-              <Input
-                id="print-qty"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="e.g. 500..."
-                className={v.cls(!inputs.qty)}
-                value={inputs.qty || ""}
-                onChange={(e) =>
-                  onInputsChange({ ...inputs, qty: parseInt(e.target.value) || 0 })
-                }
-              />
-              {v.attempted && !inputs.qty && (
-                <p className="text-[10px] text-destructive font-medium">Enter quantity</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-width" className="text-sm font-medium text-foreground">
-                Width (in){v.req(!inputs.width) && <span className="text-destructive text-xs ml-0.5">*</span>}
-              </label>
-              <Input
-                id="print-width"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min={0}
-                autoComplete="off"
-                placeholder="e.g. 4..."
-                className={v.cls(!inputs.width)}
-                value={inputs.width || ""}
-                onChange={(e) =>
-                  onInputsChange({ ...inputs, width: parseFloat(e.target.value) || 0 })
-                }
-              />
-              {v.attempted && !inputs.width && (
-                <p className="text-[10px] text-destructive font-medium">Enter width</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-height" className="text-sm font-medium text-foreground">
-                Height (in){v.req(!inputs.height) && <span className="text-destructive text-xs ml-0.5">*</span>}
-              </label>
-              <Input
-                id="print-height"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min={0}
-                autoComplete="off"
-                placeholder="e.g. 6..."
-                className={v.cls(!inputs.height)}
-                value={inputs.height || ""}
-                onChange={(e) =>
-                  onInputsChange({ ...inputs, height: parseFloat(e.target.value) || 0 })
-                }
-              />
-              {v.attempted && !inputs.height && (
-                <p className="text-[10px] text-destructive font-medium">Enter height</p>
-              )}
-            </div>
-          </div>
-
-          {/* Row 2: Paper Type, Sides, Bleed */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-paper" className="text-sm font-medium text-foreground">
-                Paper Type{v.req(!inputs.paperName) && <span className="text-destructive text-xs ml-0.5">*</span>}
-              </label>
-              <Select value={inputs.paperName} onValueChange={handlePaperChange}>
-                <SelectTrigger id="print-paper" className={v.cls(!inputs.paperName)}>
-                  <SelectValue placeholder="Select Paper" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAPER_OPTIONS.map((paper) => (
-                    <SelectItem key={paper.name} value={paper.name}>
-                      {paper.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {v.attempted && !inputs.paperName && (
-                <p className="text-[10px] text-destructive font-medium">Select a paper type</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="print-sides" className="text-sm font-medium text-foreground">
-                Sides{v.req(!inputs.sidesValue) && <span className="text-destructive text-xs ml-0.5">*</span>}
-              </label>
-              <Select
-                value={inputs.sidesValue}
-                onValueChange={(val) => onInputsChange({ ...inputs, sidesValue: val })}
-                disabled={!inputs.paperName}
-              >
-                <SelectTrigger id="print-sides" className={v.cls(!inputs.sidesValue)}>
-                  <SelectValue placeholder="Select Sides" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSides.map((side) => (
-                    <SelectItem key={side} value={side}>
-                      {side}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {v.attempted && !inputs.sidesValue && (
-                <p className="text-[10px] text-destructive font-medium">Select sides</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="bleed-checkbox" className="text-sm font-medium text-foreground">Bleed</label>
-              <div className="flex items-center gap-2 h-9">
-                <Checkbox
-                  id="bleed-checkbox"
-                  checked={inputs.hasBleed}
-                  onCheckedChange={(checked) =>
-                    onInputsChange({ ...inputs, hasBleed: checked === true })
-                  }
-                />
-                <label htmlFor="bleed-checkbox" className="text-sm text-muted-foreground cursor-pointer">
-                  Add bleed margins
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Finishings Section */}
-          <FinishingsSection
-            inputs={inputs}
-            onInputsChange={onInputsChange}
-            currentResult={currentResult}
+    <div className="flex flex-col gap-4">
+      {/* Row 1: Qty, Width, Height */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="print-qty" className="text-sm font-medium text-foreground">
+            Quantity{v.req(!inputs.qty) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
+          <Input
+            id="print-qty"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="e.g. 500..."
+            className={v.cls(!inputs.qty)}
+            value={inputs.qty || ""}
+            onChange={(e) =>
+              onInputsChange({ ...inputs, qty: parseInt(e.target.value) || 0 })
+            }
           />
-
-          {/* Row 4: Add-on (in-house only) */}
-          {!ohpMode && <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="add-on-charge" className="text-sm font-medium text-foreground">
-                Add on ($)
-              </label>
-              <Input
-                id="add-on-charge"
-                type="number"
-                step="0.01"
-                min={0}
-                autoComplete="off"
-                placeholder="e.g. 10.00..."
-                value={inputs.addOnCharge || ""}
-                onChange={(e) =>
-                  onInputsChange({ ...inputs, addOnCharge: parseFloat(e.target.value) || 0 })
-                }
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="add-on-desc" className="text-sm font-medium text-foreground">
-                Add on Description
-              </label>
-              <Input
-                id="add-on-desc"
-                type="text"
-                placeholder="e.g. Graphic Design..."
-                value={inputs.addOnDescription}
-                onChange={(e) =>
-                  onInputsChange({ ...inputs, addOnDescription: e.target.value })
-                }
-              />
-            </div>
-          </div>}
-
-
-
-          {/* Validation summary */}
-          {v.attempted && (!inputs.qty || !inputs.width || !inputs.height || !inputs.paperName || !inputs.sidesValue) && (
-            <div className="mb-3 rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2">
-              <p className="text-[11px] text-destructive font-medium">
-                Please fill in the highlighted fields above to calculate pricing.
-              </p>
-            </div>
+          {v.attempted && !inputs.qty && (
+            <p className="text-[10px] text-destructive font-medium">Enter quantity</p>
           )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="print-width" className="text-sm font-medium text-foreground">
+            Width (in){v.req(!inputs.width) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
+          <Input
+            id="print-width"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min={0}
+            autoComplete="off"
+            placeholder="e.g. 4..."
+            className={v.cls(!inputs.width)}
+            value={inputs.width || ""}
+            onChange={(e) =>
+              onInputsChange({ ...inputs, width: parseFloat(e.target.value) || 0 })
+            }
+          />
+          {v.attempted && !inputs.width && (
+            <p className="text-[10px] text-destructive font-medium">Enter width</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="print-height" className="text-sm font-medium text-foreground">
+            Height (in){v.req(!inputs.height) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
+          <Input
+            id="print-height"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min={0}
+            autoComplete="off"
+            placeholder="e.g. 6..."
+            className={v.cls(!inputs.height)}
+            value={inputs.height || ""}
+            onChange={(e) =>
+              onInputsChange({ ...inputs, height: parseFloat(e.target.value) || 0 })
+            }
+          />
+          {v.attempted && !inputs.height && (
+            <p className="text-[10px] text-destructive font-medium">Enter height</p>
+          )}
+        </div>
+      </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            {ohpMode ? (
-              <Button
-                type="submit"
-                className="flex-1 font-semibold gap-2 bg-sky-600 hover:bg-sky-700 text-white"
-              >
-                <Save className="h-4 w-4" />
-                Save Specs
-              </Button>
-            ) : (
-            <Button
-              type="submit"
-              className={`flex-1 font-semibold ${
-                isEditing
-                  ? "bg-amber-500 hover:bg-amber-600 text-foreground"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              }`}
-            >
-              {isEditing ? "Recalculate" : "Calculate"}
-            </Button>
-            )}
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => { v.reset(); onReset() }}
-              className="flex-1 font-semibold"
-            >
-              {isEditing ? "Cancel Edit" : "Reset"}
-            </Button>
+      {/* Row 2: Paper Type, Sides, Bleed */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="print-paper" className="text-sm font-medium text-foreground">
+            Paper Type{v.req(!inputs.paperName) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
+          <Select value={inputs.paperName} onValueChange={handlePaperChange}>
+            <SelectTrigger id="print-paper" className={v.cls(!inputs.paperName)}>
+              <SelectValue placeholder="Select Paper" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAPER_OPTIONS.map((paper) => (
+                <SelectItem key={paper.name} value={paper.name}>
+                  {paper.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {v.attempted && !inputs.paperName && (
+            <p className="text-[10px] text-destructive font-medium">Select a paper type</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="print-sides" className="text-sm font-medium text-foreground">
+            Sides{v.req(!inputs.sidesValue) && <span className="text-destructive text-xs ml-0.5">*</span>}
+          </label>
+          <Select
+            value={inputs.sidesValue}
+            onValueChange={(val) => onInputsChange({ ...inputs, sidesValue: val })}
+            disabled={!inputs.paperName}
+          >
+            <SelectTrigger id="print-sides" className={v.cls(!inputs.sidesValue)}>
+              <SelectValue placeholder="Select Sides" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableSides.map((side) => (
+                <SelectItem key={side} value={side}>
+                  {side}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {v.attempted && !inputs.sidesValue && (
+            <p className="text-[10px] text-destructive font-medium">Select sides</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="bleed-checkbox" className="text-sm font-medium text-foreground">Bleed</label>
+          <div className="flex items-center gap-2 h-9">
+            <Checkbox
+              id="bleed-checkbox"
+              checked={inputs.hasBleed}
+              onCheckedChange={(checked) =>
+                onInputsChange({ ...inputs, hasBleed: checked === true })
+              }
+            />
+            <label htmlFor="bleed-checkbox" className="text-sm text-muted-foreground cursor-pointer">
+              Add bleed margins
+            </label>
           </div>
-        </form>
+        </div>
+      </div>
+
+      {/* Finishings Section */}
+      <FinishingsSection
+        inputs={inputs}
+        onInputsChange={onInputsChange}
+        currentResult={currentResult}
+      />
+
+      {/* Row 4: Add-on (in-house only) */}
+      {!ohpMode && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="add-on-charge" className="text-sm font-medium text-foreground">
+              Add on ($)
+            </label>
+            <Input
+              id="add-on-charge"
+              type="number"
+              step="0.01"
+              min={0}
+              autoComplete="off"
+              placeholder="e.g. 10.00..."
+              value={inputs.addOnCharge || ""}
+              onChange={(e) =>
+                onInputsChange({ ...inputs, addOnCharge: parseFloat(e.target.value) || 0 })
+              }
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="add-on-desc" className="text-sm font-medium text-foreground">
+              Add on Description
+            </label>
+            <Input
+              id="add-on-desc"
+              type="text"
+              placeholder="e.g. Graphic Design..."
+              value={inputs.addOnDescription}
+              onChange={(e) =>
+                onInputsChange({ ...inputs, addOnDescription: e.target.value })
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Validation summary */}
+      {v.attempted && (!inputs.qty || !inputs.width || !inputs.height || !inputs.paperName || !inputs.sidesValue) && (
+        <div className="rounded-lg bg-destructive/5 border border-destructive/20 px-3 py-2">
+          <p className="text-[11px] text-destructive font-medium">
+            Please fill in the highlighted fields above to calculate pricing.
+          </p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 mt-2">
+        {ohpMode ? (
+          <Button
+            type="button"
+            onClick={handleCalculateClick}
+            className="flex-1 font-semibold gap-2 bg-sky-600 hover:bg-sky-700 text-white"
+          >
+            <Save className="h-4 w-4" />
+            Save Specs
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={handleCalculateClick}
+            className={`flex-1 font-semibold ${
+              isEditing
+                ? "bg-amber-500 hover:bg-amber-600 text-foreground"
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            }`}
+          >
+            {isEditing ? "Recalculate" : "Calculate"}
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleResetClick}
+          className="flex-1 font-semibold"
+        >
+          {isEditing ? "Cancel Edit" : "Reset"}
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -310,10 +312,10 @@ function FinishingsSection({
   const isTextPaper = paperCat === "100 Text/80 Cover"
 
   return (
-    <div className="mb-5 rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-4">
+    <div className="rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-4">
       <h3 className="text-sm font-semibold text-foreground">Finishings</h3>
 
-      {/* ── Lamination ── */}
+      {/* Lamination */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -339,7 +341,7 @@ function FinishingsSection({
 
         {lam.enabled && (
           <div className="flex flex-col gap-3 pl-1">
-            {/* Type selector -- pill buttons */}
+            {/* Type selector */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-muted-foreground">Type</label>
               <div className="flex flex-wrap gap-1.5">
@@ -458,5 +460,3 @@ function FinishingsSection({
     </div>
   )
 }
-
-
