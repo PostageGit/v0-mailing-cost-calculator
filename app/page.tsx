@@ -624,7 +624,7 @@ function AppContent() {
                     </div>
                   </div>
                   {rightOpen ? (
-                    <aside className="hidden lg:block w-72 shrink-0 border-l border-border overflow-y-auto bg-card/50">
+                    <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-l border-border overflow-y-auto bg-card/50">
                       <QuoteSidebar
                         onGoToExport={() => setSection("export-qb")}
                         pendingSteps={pendingSteps.map((s) => ({
