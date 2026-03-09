@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -38,9 +39,12 @@ export function PerfectForm({
   validationError,
   ohpMode,
 }: PerfectFormProps) {
-  const { getPaperOptions } = usePapersContext()
-  const coverPapers = getPaperOptions("book_cover")
-  const insidePapers = getPaperOptions("book_inside")
+  const [showAllCoverPapers, setShowAllCoverPapers] = useState(false)
+  const [showAllInsidePapers, setShowAllInsidePapers] = useState(false)
+  const { getPaperOptions, papers: allPapers } = usePapersContext()
+  const allPaperOptions = allPapers.map((p) => ({ name: p.name, isCardstock: p.is_cardstock, thickness: p.thickness, availableSizes: p.available_sizes }))
+  const coverPapers = showAllCoverPapers ? allPaperOptions : getPaperOptions("book_cover")
+  const insidePapers = showAllInsidePapers ? allPaperOptions : getPaperOptions("book_inside")
   const v = useFormValidation()
 
   function handleSubmit(e: React.FormEvent) {
@@ -69,8 +73,8 @@ export function PerfectForm({
   }
 
   function getAvailableSizes(paperName: string): string[] {
-    const paper = PAPER_OPTIONS.find((p) => p.name === paperName)
-    return paper?.availableSizes ?? []
+    const paper = allPapers.find((p) => p.name === paperName)
+    return paper?.available_sizes ?? []
   }
 
   const coverCanLaminate = inputs.cover.paperName ? canLaminate(inputs.cover.paperName) : true
@@ -138,17 +142,32 @@ export function PerfectForm({
       {/* Cover Row */}
       <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
         <span className="text-sm font-medium text-foreground pb-2">Cover</span>
-        <Select
-          value={inputs.cover.paperName}
-          onValueChange={(val) => updatePart("cover", { paperName: val, sheetSize: "cheapest", sides: "" })}
-        >
-          <SelectTrigger className={v.cls(!inputs.cover.paperName)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
-          <SelectContent>
-            {coverPapers.map((p) => (
-              <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowAllCoverPapers(!showAllCoverPapers)}
+              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                showAllCoverPapers 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              {showAllCoverPapers ? "Filtered" : "Show All"}
+            </button>
+          </div>
+          <Select
+            value={inputs.cover.paperName}
+            onValueChange={(val) => updatePart("cover", { paperName: val, sheetSize: "cheapest", sides: "" })}
+          >
+            <SelectTrigger className={v.cls(!inputs.cover.paperName)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
+            <SelectContent>
+              {coverPapers.map((p) => (
+                <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Select
           value={inputs.cover.sides}
           onValueChange={(val) => updatePart("cover", { sides: val })}
@@ -192,17 +211,32 @@ export function PerfectForm({
       {/* Inside Pages Row */}
       <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
         <span className="text-sm font-medium text-foreground pb-2">Inside</span>
-        <Select
-          value={inputs.inside.paperName}
-          onValueChange={(val) => updatePart("inside", { paperName: val, sheetSize: "cheapest", sides: "" })}
-        >
-          <SelectTrigger className={v.cls(!inputs.inside.paperName)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
-          <SelectContent>
-            {insidePapers.map((p) => (
-              <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowAllInsidePapers(!showAllInsidePapers)}
+              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                showAllInsidePapers 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              {showAllInsidePapers ? "Filtered" : "Show All"}
+            </button>
+          </div>
+          <Select
+            value={inputs.inside.paperName}
+            onValueChange={(val) => updatePart("inside", { paperName: val, sheetSize: "cheapest", sides: "" })}
+          >
+            <SelectTrigger className={v.cls(!inputs.inside.paperName)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
+            <SelectContent>
+              {insidePapers.map((p) => (
+                <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Select
           value={inputs.inside.sides}
           onValueChange={(val) => updatePart("inside", { sides: val })}
