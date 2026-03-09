@@ -23,6 +23,11 @@ export async function GET(request: Request) {
   if (useFor === "flat_printing") query = query.eq("use_in_flat_printing", true)
   if (useFor === "book_cover") query = query.eq("use_in_book_cover", true)
   if (useFor === "book_inside") query = query.eq("use_in_book_inside", true)
+  if (useFor === "coil_cover") query = query.eq("use_in_coil_cover", true)
+  if (useFor === "coil_inside") query = query.eq("use_in_coil_inside", true)
+  if (useFor === "spiral_cover") query = query.eq("use_in_spiral_cover", true)
+  if (useFor === "spiral_inside") query = query.eq("use_in_spiral_inside", true)
+  if (useFor === "pad") query = query.eq("use_in_pad", true)
 
   if (category) query = query.eq("category", category)
 
@@ -53,6 +58,11 @@ export async function POST(request: Request) {
       use_in_flat_printing: body.use_in_flat_printing ?? true,
       use_in_book_cover: body.use_in_book_cover ?? false,
       use_in_book_inside: body.use_in_book_inside ?? false,
+      use_in_coil_cover: body.use_in_coil_cover ?? false,
+      use_in_coil_inside: body.use_in_coil_inside ?? false,
+      use_in_spiral_cover: body.use_in_spiral_cover ?? false,
+      use_in_spiral_inside: body.use_in_spiral_inside ?? false,
+      use_in_pad: body.use_in_pad ?? false,
       notes: body.notes,
       sort_order: body.sort_order || 0,
       active: body.active ?? true,

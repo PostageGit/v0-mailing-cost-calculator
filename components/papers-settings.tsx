@@ -22,14 +22,24 @@ interface Paper {
   use_in_flat_printing: boolean
   use_in_book_cover: boolean
   use_in_book_inside: boolean
+  use_in_coil_cover: boolean
+  use_in_coil_inside: boolean
+  use_in_spiral_cover: boolean
+  use_in_spiral_inside: boolean
+  use_in_pad: boolean
   notes: string | null
   sort_order: number
 }
 
 const PRINTING_USAGE_OPTIONS = [
-  { key: "use_in_flat_printing", label: "Flat Printing", description: "Sheets, flats, self-mailers" },
-  { key: "use_in_book_cover", label: "Book Cover", description: "Booklet, saddle stitch, perfect bind covers" },
-  { key: "use_in_book_inside", label: "Book Inside", description: "Booklet, saddle stitch, perfect bind inside pages" },
+  { key: "use_in_flat_printing", label: "Flat Printing", description: "Sheets, flats, self-mailers", group: "flat" },
+  { key: "use_in_book_cover", label: "Book Cover", description: "Booklet, saddle stitch, perfect bind", group: "book" },
+  { key: "use_in_book_inside", label: "Book Inside", description: "Booklet, saddle stitch, perfect bind", group: "book" },
+  { key: "use_in_coil_cover", label: "Coil Cover", description: "Coil bound covers", group: "coil" },
+  { key: "use_in_coil_inside", label: "Coil Inside", description: "Coil bound inside pages", group: "coil" },
+  { key: "use_in_spiral_cover", label: "Spiral Cover", description: "Spiral bound covers", group: "spiral" },
+  { key: "use_in_spiral_inside", label: "Spiral Inside", description: "Spiral bound inside pages", group: "spiral" },
+  { key: "use_in_pad", label: "Pad", description: "Notepad / pad printing", group: "pad" },
 ] as const
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -201,8 +211,13 @@ export function PapersSettings() {
                               <span className="text-muted-foreground/50">|</span>
                               <div className="flex gap-1 flex-wrap">
                                 {paper.use_in_flat_printing && <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">Flat</span>}
-                                {paper.use_in_book_cover && <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">Book Cover</span>}
-                                {paper.use_in_book_inside && <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Book Inside</span>}
+                                {paper.use_in_book_cover && <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">Book Cvr</span>}
+                                {paper.use_in_book_inside && <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Book In</span>}
+                                {paper.use_in_coil_cover && <span className="px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">Coil Cvr</span>}
+                                {paper.use_in_coil_inside && <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Coil In</span>}
+                                {paper.use_in_spiral_cover && <span className="px-1.5 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">Spiral Cvr</span>}
+                                {paper.use_in_spiral_inside && <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400">Spiral In</span>}
+                                {paper.use_in_pad && <span className="px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">Pad</span>}
                               </div>
                             </div>
                           </div>
@@ -248,6 +263,11 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
     use_in_flat_printing: paper?.use_in_flat_printing ?? true,
     use_in_book_cover: paper?.use_in_book_cover ?? false,
     use_in_book_inside: paper?.use_in_book_inside ?? false,
+    use_in_coil_cover: paper?.use_in_coil_cover ?? false,
+    use_in_coil_inside: paper?.use_in_coil_inside ?? false,
+    use_in_spiral_cover: paper?.use_in_spiral_cover ?? false,
+    use_in_spiral_inside: paper?.use_in_spiral_inside ?? false,
+    use_in_pad: paper?.use_in_pad ?? false,
   })
   const [saving, setSaving] = useState(false)
 

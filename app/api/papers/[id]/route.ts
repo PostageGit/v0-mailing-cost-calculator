@@ -45,6 +45,11 @@ export async function PATCH(
   if (body.use_in_flat_printing !== undefined) updates.use_in_flat_printing = body.use_in_flat_printing
   if (body.use_in_book_cover !== undefined) updates.use_in_book_cover = body.use_in_book_cover
   if (body.use_in_book_inside !== undefined) updates.use_in_book_inside = body.use_in_book_inside
+  if (body.use_in_coil_cover !== undefined) updates.use_in_coil_cover = body.use_in_coil_cover
+  if (body.use_in_coil_inside !== undefined) updates.use_in_coil_inside = body.use_in_coil_inside
+  if (body.use_in_spiral_cover !== undefined) updates.use_in_spiral_cover = body.use_in_spiral_cover
+  if (body.use_in_spiral_inside !== undefined) updates.use_in_spiral_inside = body.use_in_spiral_inside
+  if (body.use_in_pad !== undefined) updates.use_in_pad = body.use_in_pad
   if (body.notes !== undefined) updates.notes = body.notes
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order
   if (body.active !== undefined) updates.active = body.active
