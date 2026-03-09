@@ -137,13 +137,23 @@ export function ServiceBuilder() {
   // "Don't Forget" checklist - categories commonly needed, dismissed per quote
   const [dismissedCategories, setDismissedCategories] = useState<Set<ServiceCategory>>(new Set())
 
-  // ── Fetch supplier sell prices for list rentals ──
+  // ── Fetch supplier sell prices and name counts for list rentals ──
   const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
   const supplierPriceMap = useMemo(() => {
+  const cfg: SuppliersConfig = appSettings?.suppliers_config || DEFAULT_SUPPLIERS_CONFIG
+  const m = new Map<string, number>()
+  for (const item of cfg.supplyItems) {
+  if (item.sellPrice > 0) m.set(item.id, item.sellPrice)
+  }
+  return m
+  }, [appSettings])
+  
+  // Map of supplier item ID -> nameCount (for list rental max qty)
+  const supplierNameCountMap = useMemo(() => {
     const cfg: SuppliersConfig = appSettings?.suppliers_config || DEFAULT_SUPPLIERS_CONFIG
     const m = new Map<string, number>()
     for (const item of cfg.supplyItems) {
-      if (item.sellPrice > 0) m.set(item.id, item.sellPrice)
+      if (item.nameCount && item.nameCount > 0) m.set(item.id, item.nameCount)
     }
     return m
   }, [appSettings])
@@ -211,8 +221,24 @@ export function ServiceBuilder() {
   )
 
   const getQty = useCallback(
-    (item: ServiceItem): number => customQtys.get(item.id) ?? getAutoQuantity(item, mailingQty),
-    [customQtys, mailingQty]
+    (item: ServiceItem): number => {
+      const customQty = customQtys.get(item.id)
+      if (customQty !== undefined) {
+        // For list rentals, enforce max = nameCount if set
+        if (item.priceUnit === "name/mailing" && item.linkedSupplierId) {
+          const maxCount = supplierNameCountMap.get(item.linkedSupplierId)
+          if (maxCount && customQty > maxCount) return maxCount
+        }
+        return customQty
+      }
+      // Default qty: for list rentals with a nameCount, use that instead of mailing qty
+      if (item.priceUnit === "name/mailing" && item.linkedSupplierId) {
+        const listCount = supplierNameCountMap.get(item.linkedSupplierId)
+        if (listCount && listCount > 0) return listCount
+      }
+      return getAutoQuantity(item, mailingQty)
+    },
+    [customQtys, mailingQty, supplierNameCountMap]
   )
 
   const getTotal = useCallback(
@@ -472,6 +498,7 @@ const addToQuote = useCallback(
   customPrice={customPrices.get(item.id)}
   customQty={customQtys.get(item.id)}
   customTotal={customTotals.get(item.id)}
+  maxQty={item.linkedSupplierId ? supplierNameCountMap.get(item.linkedSupplierId) : undefined}
   resolvedPrice={getPrice(item)}
   total={getTotal(item)}
   onSetPrice={(p) => setCustomPrices((prev) => new Map(prev).set(item.id, p))}
@@ -662,6 +689,7 @@ interface ServiceRowProps {
   customPrice: number | undefined
   customQty: number | undefined
   customTotal: number | undefined
+  maxQty: number | undefined // For list rentals: max = list's nameCount
   resolvedPrice: number | null
   total: number | null
   onSetPrice: (p: number) => void
@@ -679,6 +707,7 @@ function ServiceRow({
   customPrice,
   customQty,
   customTotal,
+  maxQty,
   resolvedPrice,
   total,
   onSetPrice,
@@ -692,7 +721,10 @@ function ServiceRow({
   const effectivePrice = item.referToPostage ? null : resolvedPrice
   // List rentals can use customTotal even without a price, so don't block the Add button
   const needsCustomPrice = !item.referToPostage && effectivePrice === null && !isListRental
-  const effectiveQty = customQty ?? getAutoQuantity(item, mailingQty)
+  // For list rentals with maxQty (nameCount from settings), use that as default and cap
+  const defaultQty = isListRental && maxQty ? maxQty : getAutoQuantity(item, mailingQty)
+  const rawQty = customQty ?? defaultQty
+  const effectiveQty = isListRental && maxQty ? Math.min(rawQty, maxQty) : rawQty
 
   const calculatedTotal = item.referToPostage
     ? null
@@ -767,14 +799,29 @@ function ServiceRow({
       {/* Qty */}
       <div className="w-20 shrink-0">
         {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" || item.priceUnit === "name/mailing" ? (
-          <Input
-            type="number"
-            min={1}
-            className="h-8 text-sm text-right px-2 w-full"
-            value={effectiveQty}
-            onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
-            placeholder={mailingQty.toString()}
-          />
+          <div className="relative">
+            <Input
+              type="number"
+              min={1}
+              max={isListRental && maxQty ? maxQty : undefined}
+              className={cn(
+                "h-8 text-sm text-right px-2 w-full",
+                isListRental && maxQty && "pr-1"
+              )}
+              value={effectiveQty}
+              onChange={(e) => {
+                let val = parseInt(e.target.value) || 1
+                if (isListRental && maxQty && val > maxQty) val = maxQty
+                onSetQty(val)
+              }}
+              placeholder={defaultQty.toString()}
+            />
+            {isListRental && maxQty && (
+              <span className="absolute -bottom-3 right-0 text-[9px] text-muted-foreground">
+                max {maxQty.toLocaleString()}
+              </span>
+            )}
+          </div>
         ) : (
           <span className="block text-center text-xs text-muted-foreground">
             {item.pricingRule === "per1000_after_1000"
