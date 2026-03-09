@@ -58,87 +58,120 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
     costLines.push({ label: "Cover Sets", value: totalExtrasCost })
   }
 
+  // Calculate totals for Production Material Cost section
+  const totalPaperCost = insideResult.totalPaperCost + (frontResult?.totalPaperCost || 0) + (backResult?.totalPaperCost || 0)
+  const totalClickCost = insideResult.totalClickCost + (frontResult?.totalClickCost || 0) + (backResult?.totalClickCost || 0)
+  const totalMaterialCost = totalPaperCost + totalClickCost
+  const hasMaterialCosts = totalMaterialCost > 0
+
   const expandedDetails = (
-    <div className="flex flex-col gap-1">
-      <SectionHeader label="Inside Paper" />
-      <div className="grid grid-cols-2 gap-x-6">
-        <DetailRow label="Paper:" value={insideResult.paper} />
-        <DetailRow label="Paper Size:" value={insideResult.sheetSize} />
-        <DetailRow label="Max Ups:" value={String(insideResult.maxUps)} />
-        <DetailRow label="Cost/Sheet:" value={formatCurrency(insideResult.pricePerSheet, 4)} />
-        <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
-        <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
-      </div>
-      {insideResult.totalPaperCost > 0 && (
-        <>
-          <SectionHeader label="Inside P/L Breakdown" />
-          <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
-            <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(insideResult.paperCostPerSheet, 4)} />
-            <DetailRow label="Click Cost/Sheet:" value={formatCurrency(insideResult.clickCostPerSheet, 4)} />
-            <DetailRow label="Total Paper Cost:" value={formatCurrency(insideResult.totalPaperCost)} />
-            <DetailRow label="Total Click Cost:" value={formatCurrency(insideResult.totalClickCost)} />
+    <div className="flex flex-col gap-2">
+      {/* PRODUCTION MATERIAL COST - P/L Section (only if data available) */}
+      {hasMaterialCosts && (
+        <div className="border-2 border-primary/20 rounded-lg p-3 bg-primary/5">
+          <div className="text-xs font-bold uppercase tracking-wider text-primary text-center mb-2">
+            Production Material Cost
           </div>
-        </>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-primary/20">
+                <th className="text-left py-1 font-medium text-muted-foreground">Item</th>
+                <th className="text-right py-1 font-medium text-muted-foreground">Paper</th>
+                <th className="text-right py-1 font-medium text-muted-foreground">Click</th>
+                <th className="text-right py-1 font-medium text-muted-foreground">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-muted/50">
+                <td className="py-1">Inside ({insideResult.sheets.toLocaleString()} sht)</td>
+                <td className="text-right">{formatCurrency(insideResult.totalPaperCost)}</td>
+                <td className="text-right">{formatCurrency(insideResult.totalClickCost)}</td>
+                <td className="text-right font-medium">{formatCurrency(insideResult.totalPaperCost + insideResult.totalClickCost)}</td>
+              </tr>
+              {frontResult && (
+                <tr className="border-b border-muted/50">
+                  <td className="py-1">Front ({frontResult.sheets.toLocaleString()} sht)</td>
+                  <td className="text-right">{formatCurrency(frontResult.totalPaperCost)}</td>
+                  <td className="text-right">{formatCurrency(frontResult.totalClickCost)}</td>
+                  <td className="text-right font-medium">{formatCurrency(frontResult.totalPaperCost + frontResult.totalClickCost)}</td>
+                </tr>
+              )}
+              {backResult && (
+                <tr className="border-b border-muted/50">
+                  <td className="py-1">Back ({backResult.sheets.toLocaleString()} sht)</td>
+                  <td className="text-right">{formatCurrency(backResult.totalPaperCost)}</td>
+                  <td className="text-right">{formatCurrency(backResult.totalClickCost)}</td>
+                  <td className="text-right font-medium">{formatCurrency(backResult.totalPaperCost + backResult.totalClickCost)}</td>
+                </tr>
+              )}
+              <tr className="bg-primary/10 font-semibold">
+                <td className="py-1.5">TOTAL</td>
+                <td className="text-right">{formatCurrency(totalPaperCost)}</td>
+                <td className="text-right">{formatCurrency(totalClickCost)}</td>
+                <td className="text-right">{formatCurrency(totalMaterialCost)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {frontResult && (
-        <>
-          <SectionHeader label="Front Cover" />
-          <div className="grid grid-cols-2 gap-x-6">
-            <DetailRow label="Paper:" value={frontResult.paper} />
-            <DetailRow label="Paper Size:" value={frontResult.sheetSize} />
-            <DetailRow label="Max Ups:" value={String(frontResult.maxUps)} />
-            <DetailRow label="Cost/Sheet:" value={formatCurrency(frontResult.pricePerSheet, 4)} />
-            <DetailRow label="Total Sheets:" value={frontResult.sheets.toLocaleString()} />
-            <DetailRow label="Total Printing:" value={formatCurrency(frontResult.cost)} />
+      {/* CALCULATION DETAILS */}
+      <div className="border rounded-lg p-3 bg-muted/20">
+        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-center mb-2">
+          Calculation Details
+        </div>
+        
+        <div className="mb-2">
+          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Inside</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div><span className="text-muted-foreground">Paper:</span> {insideResult.paper}</div>
+            <div><span className="text-muted-foreground">Size:</span> {insideResult.sheetSize}</div>
+            <div><span className="text-muted-foreground">Ups:</span> {insideResult.maxUps}</div>
+            <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(insideResult.pricePerSheet, 4)}</div>
+            <div><span className="text-muted-foreground">Sheets:</span> {insideResult.sheets.toLocaleString()}</div>
+            <div><span className="text-muted-foreground">Total:</span> {formatCurrency(insideResult.cost)}</div>
           </div>
-          {frontResult.totalPaperCost > 0 && (
-            <>
-              <SectionHeader label="Front Cover P/L Breakdown" />
-              <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
-                <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(frontResult.paperCostPerSheet, 4)} />
-                <DetailRow label="Click Cost/Sheet:" value={formatCurrency(frontResult.clickCostPerSheet, 4)} />
-                <DetailRow label="Total Paper Cost:" value={formatCurrency(frontResult.totalPaperCost)} />
-                <DetailRow label="Total Click Cost:" value={formatCurrency(frontResult.totalClickCost)} />
-              </div>
-            </>
-          )}
-        </>
-      )}
+        </div>
 
-      {backResult && (
-        <>
-          <SectionHeader label="Back Cover" />
-          <div className="grid grid-cols-2 gap-x-6">
-            <DetailRow label="Paper:" value={backResult.paper} />
-            <DetailRow label="Paper Size:" value={backResult.sheetSize} />
-            <DetailRow label="Max Ups:" value={String(backResult.maxUps)} />
-            <DetailRow label="Cost/Sheet:" value={formatCurrency(backResult.pricePerSheet, 4)} />
-            <DetailRow label="Total Sheets:" value={backResult.sheets.toLocaleString()} />
-            <DetailRow label="Total Printing:" value={formatCurrency(backResult.cost)} />
+        {frontResult && (
+          <div className="mb-2">
+            <div className="text-[10px] font-semibold text-muted-foreground mb-1">Front Cover</div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Paper:</span> {frontResult.paper}</div>
+              <div><span className="text-muted-foreground">Size:</span> {frontResult.sheetSize}</div>
+              <div><span className="text-muted-foreground">Ups:</span> {frontResult.maxUps}</div>
+              <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(frontResult.pricePerSheet, 4)}</div>
+              <div><span className="text-muted-foreground">Sheets:</span> {frontResult.sheets.toLocaleString()}</div>
+              <div><span className="text-muted-foreground">Total:</span> {formatCurrency(frontResult.cost)}</div>
+            </div>
           </div>
-          {backResult.totalPaperCost > 0 && (
-            <>
-              <SectionHeader label="Back Cover P/L Breakdown" />
-              <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
-                <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(backResult.paperCostPerSheet, 4)} />
-                <DetailRow label="Click Cost/Sheet:" value={formatCurrency(backResult.clickCostPerSheet, 4)} />
-                <DetailRow label="Total Paper Cost:" value={formatCurrency(backResult.totalPaperCost)} />
-                <DetailRow label="Total Click Cost:" value={formatCurrency(backResult.totalClickCost)} />
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      <SectionHeader label="Book Info" />
-      <div className="grid grid-cols-2 gap-x-6">
-        <DetailRow label="Sheets/Book:" value={String(sheetsPerBook)} />
-        <DetailRow label="Printing/Book:" value={formatCurrency(bookQty > 0 ? totalPrintingCost / bookQty : 0)} />
-        <DetailRow label="Binding/Book:" value={formatCurrency(bindingPricePerBook)} />
-        {extraCoversCostPerBook > 0 && (
-          <DetailRow label="Cover Set/Book:" value={formatCurrency(extraCoversCostPerBook)} />
         )}
+
+        {backResult && (
+          <div className="mb-2">
+            <div className="text-[10px] font-semibold text-muted-foreground mb-1">Back Cover</div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Paper:</span> {backResult.paper}</div>
+              <div><span className="text-muted-foreground">Size:</span> {backResult.sheetSize}</div>
+              <div><span className="text-muted-foreground">Ups:</span> {backResult.maxUps}</div>
+              <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(backResult.pricePerSheet, 4)}</div>
+              <div><span className="text-muted-foreground">Sheets:</span> {backResult.sheets.toLocaleString()}</div>
+              <div><span className="text-muted-foreground">Total:</span> {formatCurrency(backResult.cost)}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-muted pt-2 mt-2">
+          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Per Book</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div><span className="text-muted-foreground">Sheets:</span> {sheetsPerBook}</div>
+            <div><span className="text-muted-foreground">Printing:</span> {formatCurrency(bookQty > 0 ? totalPrintingCost / bookQty : 0)}</div>
+            <div><span className="text-muted-foreground">Binding:</span> {formatCurrency(bindingPricePerBook)}</div>
+            {extraCoversCostPerBook > 0 && (
+              <div><span className="text-muted-foreground">Cover Set:</span> {formatCurrency(extraCoversCostPerBook)}</div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

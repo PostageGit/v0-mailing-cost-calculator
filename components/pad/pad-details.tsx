@@ -62,42 +62,76 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBr
     })
   }
 
+  // Calculate totals for Production Material Cost section
+  const hasMaterialCosts = insideResult.totalPaperCost > 0
+  const totalMaterialCost = insideResult.totalPaperCost + insideResult.totalClickCost
+
   const expandedDetails = (
-    <div className="flex flex-col gap-1">
-      <SectionHeader label="Inside Pages" />
-      <div className="grid grid-cols-2 gap-x-6">
-        <DetailRow label="Paper:" value={insideResult.paper} />
-        <DetailRow label="Paper Size:" value={insideResult.sheetSize} />
-        <DetailRow label="Max Ups:" value={String(insideResult.maxUps)} />
-        <DetailRow label="Cost/Sheet:" value={formatCurrency(insideResult.pricePerSheet, 4)} />
-        <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
-        <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
-      </div>
-      {insideResult.totalPaperCost > 0 && (
-        <>
-          <SectionHeader label="P/L Breakdown" />
-          <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
-            <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(insideResult.paperCostPerSheet, 4)} />
-            <DetailRow label="Click Cost/Sheet:" value={formatCurrency(insideResult.clickCostPerSheet, 4)} />
-            <DetailRow label="Total Paper Cost:" value={formatCurrency(insideResult.totalPaperCost)} />
-            <DetailRow label="Total Click Cost:" value={formatCurrency(insideResult.totalClickCost)} />
+    <div className="flex flex-col gap-2">
+      {/* PRODUCTION MATERIAL COST - P/L Section (only if data available) */}
+      {hasMaterialCosts && (
+        <div className="border-2 border-primary/20 rounded-lg p-3 bg-primary/5">
+          <div className="text-xs font-bold uppercase tracking-wider text-primary text-center mb-2">
+            Production Material Cost
           </div>
-        </>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-primary/20">
+                <th className="text-left py-1 font-medium text-muted-foreground">Item</th>
+                <th className="text-right py-1 font-medium text-muted-foreground">Paper</th>
+                <th className="text-right py-1 font-medium text-muted-foreground">Click</th>
+                <th className="text-right py-1 font-medium text-muted-foreground">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-muted/50">
+                <td className="py-1">Inside ({insideResult.sheets.toLocaleString()} sht)</td>
+                <td className="text-right">{formatCurrency(insideResult.totalPaperCost)}</td>
+                <td className="text-right">{formatCurrency(insideResult.totalClickCost)}</td>
+                <td className="text-right font-medium">{formatCurrency(totalMaterialCost)}</td>
+              </tr>
+              <tr className="bg-primary/10 font-semibold">
+                <td className="py-1.5">TOTAL</td>
+                <td className="text-right">{formatCurrency(insideResult.totalPaperCost)}</td>
+                <td className="text-right">{formatCurrency(insideResult.totalClickCost)}</td>
+                <td className="text-right">{formatCurrency(totalMaterialCost)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
 
-      <SectionHeader label="Pad Finishing" />
-      <div className="grid grid-cols-2 gap-x-6">
-        <DetailRow label="Sheets/Pad:" value={String(sheetsPerPad)} />
-        <DetailRow label="Padding Rate:" value={`${formatCurrency(paddingRate)}/pad`} />
-        <DetailRow label="Total Padding:" value={formatCurrency(totalPaddingCost)} />
-        <DetailRow label="Setup:" value={formatCurrency(setupCharge)} />
-        {chipBoardCost > 0 && (
-          <>
-            <DetailRow label="Chip Board/Pad:" value={formatCurrency(result.settings.chipBoardPerPad)} />
-            <DetailRow label="Total Chip Board:" value={formatCurrency(chipBoardCost)} />
-          </>
-        )}
-        <DetailRow label="Printing/Pad:" value={formatCurrency(padQty > 0 ? totalPrintingCost / padQty : 0)} />
+      {/* CALCULATION DETAILS */}
+      <div className="border rounded-lg p-3 bg-muted/20">
+        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-center mb-2">
+          Calculation Details
+        </div>
+        
+        <div className="mb-2">
+          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Inside Pages</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div><span className="text-muted-foreground">Paper:</span> {insideResult.paper}</div>
+            <div><span className="text-muted-foreground">Size:</span> {insideResult.sheetSize}</div>
+            <div><span className="text-muted-foreground">Ups:</span> {insideResult.maxUps}</div>
+            <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(insideResult.pricePerSheet, 4)}</div>
+            <div><span className="text-muted-foreground">Sheets:</span> {insideResult.sheets.toLocaleString()}</div>
+            <div><span className="text-muted-foreground">Total:</span> {formatCurrency(insideResult.cost)}</div>
+          </div>
+        </div>
+
+        <div className="border-t border-muted pt-2 mt-2">
+          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Pad Finishing</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div><span className="text-muted-foreground">Sheets/Pad:</span> {sheetsPerPad}</div>
+            <div><span className="text-muted-foreground">Rate:</span> {formatCurrency(paddingRate)}/pad</div>
+            <div><span className="text-muted-foreground">Padding:</span> {formatCurrency(totalPaddingCost)}</div>
+            <div><span className="text-muted-foreground">Setup:</span> {formatCurrency(setupCharge)}</div>
+            {chipBoardCost > 0 && (
+              <div><span className="text-muted-foreground">Chip Board:</span> {formatCurrency(chipBoardCost)}</div>
+            )}
+            <div><span className="text-muted-foreground">Print/Pad:</span> {formatCurrency(padQty > 0 ? totalPrintingCost / padQty : 0)}</div>
+          </div>
+        </div>
       </div>
     </div>
   )
