@@ -719,7 +719,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════════════════════════════════��══���═══════════���════
+/* ═════════════════��══════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -2368,24 +2368,24 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               (voidedQuotes || []).length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">No voided {label.toLowerCase()}s</p>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                <div className="flex flex-col gap-1">
                   {(voidedQuotes || []).map((q) => (
-                    <div key={q.id} className="relative">
-                      <div className="absolute inset-0 bg-amber-500/5 rounded-xl border border-amber-300/30 pointer-events-none z-10" />
-                      <div className="opacity-60">
-                        <QuoteCard quote={q} columns={cols}
-                          onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
-                          onRestore={handleRestore} onPatch={handlePatch}
-                          onEdit={(id) => { const found = (voidedQuotes || []).find((x) => x.id === id); if (found) setDetailQuote(found) }}
-                          onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                          boardType={boardType} />
-                      </div>
-                      {q.voided_at && (
-                        <div className="absolute top-1 right-1 z-20 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
-                          VOID
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      key={q.id}
+                      onClick={() => setDetailQuote(q)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 transition-colors text-left"
+                    >
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold shrink-0">VOID</span>
+                      <span className="text-xs font-medium text-foreground/70 truncate flex-1">
+                        {q.project_name || `${label} #${q.quote_number || q.id.slice(0, 6)}`}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {q.voided_at ? new Date(q.voided_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                      </span>
+                      <span className="text-xs font-mono text-muted-foreground tabular-nums shrink-0">
+                        ${q.total?.toLocaleString() || "0"}
+                      </span>
+                    </button>
                   ))}
                 </div>
               )
