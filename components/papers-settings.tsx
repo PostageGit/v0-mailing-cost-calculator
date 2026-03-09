@@ -18,32 +18,18 @@ interface Paper {
   active: boolean
   prices: Record<string, number>
   available_sizes: string[]
-  // Granular per-calculator usage flags
-  use_in_postcard: boolean
-  use_in_letter: boolean
-  use_in_flat: boolean
-  use_in_envelope: boolean
-  use_in_booklet_cover: boolean
-  use_in_booklet_inside: boolean
-  use_in_perfect_bind_cover: boolean
-  use_in_perfect_bind_inside: boolean
-  use_in_saddle_stitch_cover: boolean
-  use_in_saddle_stitch_inside: boolean
+  // Printing context usage flags
+  use_in_flat_printing: boolean
+  use_in_book_cover: boolean
+  use_in_book_inside: boolean
   notes: string | null
   sort_order: number
 }
 
-const CALCULATOR_USAGE_OPTIONS = [
-  { key: "use_in_postcard", label: "Postcard", group: "printing" },
-  { key: "use_in_letter", label: "Letter", group: "printing" },
-  { key: "use_in_flat", label: "Flat / Self-Mailer", group: "printing" },
-  { key: "use_in_envelope", label: "Envelope", group: "printing" },
-  { key: "use_in_booklet_cover", label: "Booklet Cover", group: "booklet" },
-  { key: "use_in_booklet_inside", label: "Booklet Inside", group: "booklet" },
-  { key: "use_in_saddle_stitch_cover", label: "Saddle Stitch Cover", group: "saddle" },
-  { key: "use_in_saddle_stitch_inside", label: "Saddle Stitch Inside", group: "saddle" },
-  { key: "use_in_perfect_bind_cover", label: "Perfect Bind Cover", group: "perfect" },
-  { key: "use_in_perfect_bind_inside", label: "Perfect Bind Inside", group: "perfect" },
+const PRINTING_USAGE_OPTIONS = [
+  { key: "use_in_flat_printing", label: "Flat Printing", description: "Sheets, flats, self-mailers" },
+  { key: "use_in_book_cover", label: "Book Cover", description: "Booklet, saddle stitch, perfect bind covers" },
+  { key: "use_in_book_inside", label: "Book Inside", description: "Booklet, saddle stitch, perfect bind inside pages" },
 ] as const
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -167,16 +153,9 @@ export function PapersSettings() {
                               <span>{paper.thickness}" thick</span>
                               <span className="text-muted-foreground/50">|</span>
                               <div className="flex gap-1 flex-wrap">
-                                {paper.use_in_postcard && <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">PC</span>}
-                                {paper.use_in_letter && <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">LTR</span>}
-                                {paper.use_in_flat && <span className="px-1 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">Flat</span>}
-                                {paper.use_in_envelope && <span className="px-1 py-0.5 rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">Env</span>}
-                                {paper.use_in_booklet_cover && <span className="px-1 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">BkCvr</span>}
-                                {paper.use_in_booklet_inside && <span className="px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">BkIn</span>}
-                                {paper.use_in_saddle_stitch_cover && <span className="px-1 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">SSCvr</span>}
-                                {paper.use_in_saddle_stitch_inside && <span className="px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">SSIn</span>}
-                                {paper.use_in_perfect_bind_cover && <span className="px-1 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">PBCvr</span>}
-                                {paper.use_in_perfect_bind_inside && <span className="px-1 py-0.5 rounded bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">PBIn</span>}
+                                {paper.use_in_flat_printing && <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">Flat</span>}
+                                {paper.use_in_book_cover && <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">Book Cover</span>}
+                                {paper.use_in_book_inside && <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Book Inside</span>}
                               </div>
                             </div>
                           </div>
@@ -219,16 +198,9 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
     paper?.prices ? Object.fromEntries(Object.entries(paper.prices).map(([k, v]) => [k, v.toString()])) : {}
   )
   const [usage, setUsage] = useState({
-    use_in_postcard: paper?.use_in_postcard ?? true,
-    use_in_letter: paper?.use_in_letter ?? true,
-    use_in_flat: paper?.use_in_flat ?? true,
-    use_in_envelope: paper?.use_in_envelope ?? true,
-    use_in_booklet_cover: paper?.use_in_booklet_cover ?? false,
-    use_in_booklet_inside: paper?.use_in_booklet_inside ?? false,
-    use_in_perfect_bind_cover: paper?.use_in_perfect_bind_cover ?? false,
-    use_in_perfect_bind_inside: paper?.use_in_perfect_bind_inside ?? false,
-    use_in_saddle_stitch_cover: paper?.use_in_saddle_stitch_cover ?? false,
-    use_in_saddle_stitch_inside: paper?.use_in_saddle_stitch_inside ?? false,
+    use_in_flat_printing: paper?.use_in_flat_printing ?? true,
+    use_in_book_cover: paper?.use_in_book_cover ?? false,
+    use_in_book_inside: paper?.use_in_book_inside ?? false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -347,38 +319,22 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
       </div>
 
       <div>
-        <Label className="text-xs mb-2 block">Enable in Calculators</Label>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-          {/* Printing column */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Printing</span>
-            {CALCULATOR_USAGE_OPTIONS.filter((o) => o.group === "printing").map((opt) => (
-              <label key={opt.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={usage[opt.key as keyof typeof usage]}
-                  onChange={() => toggleUsage(opt.key as keyof typeof usage)}
-                  className="rounded h-3.5 w-3.5"
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-          {/* Books column */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Books</span>
-            {CALCULATOR_USAGE_OPTIONS.filter((o) => ["booklet", "saddle", "perfect"].includes(o.group)).map((opt) => (
-              <label key={opt.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={usage[opt.key as keyof typeof usage]}
-                  onChange={() => toggleUsage(opt.key as keyof typeof usage)}
-                  className="rounded h-3.5 w-3.5"
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
+        <Label className="text-xs mb-2 block">Show in Printing Calculators</Label>
+        <div className="flex flex-col gap-2">
+          {PRINTING_USAGE_OPTIONS.map((opt) => (
+            <label key={opt.key} className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-lg border border-border hover:bg-secondary/50 transition-colors">
+              <input
+                type="checkbox"
+                checked={usage[opt.key as keyof typeof usage]}
+                onChange={() => toggleUsage(opt.key as keyof typeof usage)}
+                className="rounded h-4 w-4 mt-0.5"
+              />
+              <div>
+                <span className="font-medium">{opt.label}</span>
+                <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+              </div>
+            </label>
+          ))}
         </div>
       </div>
 
