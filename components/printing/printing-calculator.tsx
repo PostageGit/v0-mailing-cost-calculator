@@ -192,8 +192,10 @@ export function PrintingCalculator() {
 
   // Calculate
   const handleCalculate = useCallback(() => {
-    console.log("[v0] handleCalculate called, isFormValid:", isFormValid, "inputs:", inputs)
-    if (!isFormValid) {
+    // Check form validity inline to avoid stale closure issues
+    const formValid = inputs.qty > 0 && inputs.width > 0 && inputs.height > 0 && inputs.paperName !== "" && inputs.sidesValue !== ""
+    console.log("[v0] handleCalculate called, formValid:", formValid, "inputs:", inputs)
+    if (!formValid) {
       console.log("[v0] Form not valid, returning early")
       return
     }
@@ -244,7 +246,7 @@ export function PrintingCalculator() {
     setFullResult(null)
     setShowResults(false)
     setHasCalculated(true)
-  }, [inputs, isFormValid])
+  }, [inputs])
 
   // Reactively rebuild result when inputs change while a sheet is selected
   // (e.g. user toggles lamination or score/fold after picking a sheet)
