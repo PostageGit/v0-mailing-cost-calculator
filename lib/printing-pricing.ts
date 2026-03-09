@@ -11,7 +11,7 @@ import type {
   ScoreFoldCostLine,
   LaminationCostLine,
 } from "./printing-types"
-import { getActiveConfig, calculateFinishingCost, calculateScoreFoldCost } from "./pricing-config"
+import { getActiveConfig, calculateFinishingCost } from "./pricing-config"
 import { calculateLamination, LAMINATION_DEFAULTS } from "./lamination-pricing"
 import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "./finishing-fold-engine"
 import type { FoldFinishCostLine } from "./printing-types"
@@ -322,21 +322,7 @@ function getFinishingCosts(inputs: PrintingInputs, parentSheets: number): { line
   return { lines, total }
 }
 
-function getScoreFoldCost(inputs: PrintingInputs): ScoreFoldCostLine | null {
-  const op = inputs.scoreFoldOperation
-  const ft = inputs.scoreFoldType
-  if (!op || !ft) return null
-  const result = calculateScoreFoldCost(op, ft, inputs.paperName, inputs.width, inputs.height, inputs.qty, inputs.isBroker || false)
-  if (!result) return null
-  const foldLabels: Record<string, string> = { foldInHalf: "Fold in Half", foldIn3: "Fold in 3", foldIn4: "Fold in 4", gateFold: "Gate Fold" }
-  return {
-    operation: op === "folding" ? "Folding" : "Score & Fold",
-    foldType: foldLabels[ft] || ft,
-    cost: result.cost,
-    isMinApplied: result.isMinApplied,
-    suggestion: result.suggestion,
-  }
-}
+// OLD getScoreFoldCost removed - using new foldFinish engine instead
 
 export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow[] {
   const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
@@ -389,7 +375,8 @@ export function buildFullResult(
   const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
   const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
-  const scoreFoldCost = getScoreFoldCost(inputs)
+  // OLD score/fold system removed - using new foldFinish engine instead
+  const scoreFoldCost: ScoreFoldCostLine | null = null
   // Lamination cost (per parent sheet)
   const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
   const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)

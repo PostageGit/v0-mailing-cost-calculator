@@ -282,7 +282,6 @@ export async function GET() {
     const inputs: PrintingInputs = {
       qty: 500, width: 4, height: 6, paperName: "12pt Gloss", sidesValue: "4/4", hasBleed: true,
       addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker: false, lamination,
-      scoreFoldOperation: "", scoreFoldType: "",
     }
     const options = calculateAllSheetOptions(inputs)
     const valid = options.length > 0
@@ -307,7 +306,6 @@ export async function GET() {
     const base = {
       qty: 1000, width: 8.5, height: 11, paperName: "20lb Offset", sidesValue: "4/4" as const, hasBleed: false,
       addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, lamination,
-      scoreFoldOperation: "" as const, scoreFoldType: "" as const,
     }
     const regOpts = calculateAllSheetOptions({ ...base, isBroker: false })
     const brokerOpts = calculateAllSheetOptions({ ...base, isBroker: true })
