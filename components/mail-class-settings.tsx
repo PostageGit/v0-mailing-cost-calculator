@@ -3047,7 +3047,10 @@ function FinishingsSettingsTab() {
                       <tr className="bg-muted/30 border-b border-border">
                         <th />
                         {FOLD_TYPES.map((ft) => (
-                          <><th key={ft + "-s"} className="text-center text-muted-foreground px-1 py-1 font-normal">Setup</th><th key={ft + "-r"} className="text-center text-muted-foreground px-1 py-1 font-normal">Rt/100</th></>
+                          <React.Fragment key={ft}>
+                            <th className="text-center text-muted-foreground px-1 py-1 font-normal">Setup</th>
+                            <th className="text-center text-muted-foreground px-1 py-1 font-normal">Rt/100</th>
+                          </React.Fragment>
                         ))}
                       </tr>
                     </thead>
