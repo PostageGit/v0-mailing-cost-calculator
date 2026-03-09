@@ -41,10 +41,17 @@ export async function PATCH(
   if (body.weight_gsm !== undefined) updates.weight_gsm = body.weight_gsm
   if (body.prices !== undefined) updates.prices = body.prices
   if (body.available_sizes !== undefined) updates.available_sizes = body.available_sizes
-  if (body.use_for_printing !== undefined) updates.use_for_printing = body.use_for_printing
-  if (body.use_for_booklet_cover !== undefined) updates.use_for_booklet_cover = body.use_for_booklet_cover
-  if (body.use_for_booklet_inside !== undefined) updates.use_for_booklet_inside = body.use_for_booklet_inside
-  if (body.use_for_flat !== undefined) updates.use_for_flat = body.use_for_flat
+  // Granular per-calculator usage flags
+  if (body.use_in_postcard !== undefined) updates.use_in_postcard = body.use_in_postcard
+  if (body.use_in_letter !== undefined) updates.use_in_letter = body.use_in_letter
+  if (body.use_in_flat !== undefined) updates.use_in_flat = body.use_in_flat
+  if (body.use_in_envelope !== undefined) updates.use_in_envelope = body.use_in_envelope
+  if (body.use_in_booklet_cover !== undefined) updates.use_in_booklet_cover = body.use_in_booklet_cover
+  if (body.use_in_booklet_inside !== undefined) updates.use_in_booklet_inside = body.use_in_booklet_inside
+  if (body.use_in_perfect_bind_cover !== undefined) updates.use_in_perfect_bind_cover = body.use_in_perfect_bind_cover
+  if (body.use_in_perfect_bind_inside !== undefined) updates.use_in_perfect_bind_inside = body.use_in_perfect_bind_inside
+  if (body.use_in_saddle_stitch_cover !== undefined) updates.use_in_saddle_stitch_cover = body.use_in_saddle_stitch_cover
+  if (body.use_in_saddle_stitch_inside !== undefined) updates.use_in_saddle_stitch_inside = body.use_in_saddle_stitch_inside
   if (body.notes !== undefined) updates.notes = body.notes
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order
   if (body.active !== undefined) updates.active = body.active

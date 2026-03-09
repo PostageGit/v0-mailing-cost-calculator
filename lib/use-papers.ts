@@ -12,24 +12,37 @@ export interface Paper {
   active: boolean
   prices: Record<string, number>
   available_sizes: string[]
-  use_for_printing: boolean
-  use_for_booklet_cover: boolean
-  use_for_booklet_inside: boolean
-  use_for_flat: boolean
+  // Granular per-calculator usage flags
+  use_in_postcard: boolean
+  use_in_letter: boolean
+  use_in_flat: boolean
+  use_in_envelope: boolean
+  use_in_booklet_cover: boolean
+  use_in_booklet_inside: boolean
+  use_in_perfect_bind_cover: boolean
+  use_in_perfect_bind_inside: boolean
+  use_in_saddle_stitch_cover: boolean
+  use_in_saddle_stitch_inside: boolean
   notes: string | null
   sort_order: number
 }
+
+export type PaperUseFor = 
+  | "postcard" | "letter" | "flat" | "envelope"
+  | "booklet_cover" | "booklet_inside"
+  | "perfect_bind_cover" | "perfect_bind_inside"
+  | "saddle_stitch_cover" | "saddle_stitch_inside"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 /**
  * Hook to fetch papers from the database
- * @param useFor - Filter by usage type: 'printing', 'booklet_cover', 'booklet_inside', 'flat'
+ * @param useFor - Filter by usage type: 'postcard', 'letter', 'flat', 'envelope', 'booklet_cover', etc.
  * @param category - Filter by category: 'text', 'cover', 'specialty'
  * @param includeInactive - Include inactive papers (default: false)
  */
 export function usePapers(options?: {
-  useFor?: "printing" | "booklet_cover" | "booklet_inside" | "flat"
+  useFor?: PaperUseFor
   category?: "text" | "cover" | "specialty"
   includeInactive?: boolean
 }) {
@@ -49,32 +62,58 @@ export function usePapers(options?: {
   }
 }
 
-/**
- * Get all papers for printing (flat sheets, digital print)
- */
-export function usePrintingPapers() {
-  return usePapers({ useFor: "printing" })
+// ═══════════════════════════════════════════════════════════════════════════
+// Pre-configured hooks for each calculator type
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Get papers for postcard printing */
+export function usePostcardPapers() {
+  return usePapers({ useFor: "postcard" })
 }
 
-/**
- * Get papers suitable for booklet covers
- */
+/** Get papers for letter printing */
+export function useLetterPapers() {
+  return usePapers({ useFor: "letter" })
+}
+
+/** Get papers for flat / self-mailer printing */
+export function useFlatPapers() {
+  return usePapers({ useFor: "flat" })
+}
+
+/** Get papers for envelope printing */
+export function useEnvelopePapers() {
+  return usePapers({ useFor: "envelope" })
+}
+
+/** Get papers for booklet covers */
 export function useBookletCoverPapers() {
   return usePapers({ useFor: "booklet_cover" })
 }
 
-/**
- * Get papers suitable for booklet inside pages
- */
+/** Get papers for booklet inside pages */
 export function useBookletInsidePapers() {
   return usePapers({ useFor: "booklet_inside" })
 }
 
-/**
- * Get papers suitable for flats/self-mailers
- */
-export function useFlatPapers() {
-  return usePapers({ useFor: "flat" })
+/** Get papers for saddle stitch covers */
+export function useSaddleStitchCoverPapers() {
+  return usePapers({ useFor: "saddle_stitch_cover" })
+}
+
+/** Get papers for saddle stitch inside pages */
+export function useSaddleStitchInsidePapers() {
+  return usePapers({ useFor: "saddle_stitch_inside" })
+}
+
+/** Get papers for perfect bind covers */
+export function usePerfectBindCoverPapers() {
+  return usePapers({ useFor: "perfect_bind_cover" })
+}
+
+/** Get papers for perfect bind inside pages */
+export function usePerfectBindInsidePapers() {
+  return usePapers({ useFor: "perfect_bind_inside" })
 }
 
 /**

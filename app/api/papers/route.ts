@@ -19,10 +19,17 @@ export async function GET(request: Request) {
     query = query.eq("active", true)
   }
 
-  if (useFor === "printing") query = query.eq("use_for_printing", true)
-  if (useFor === "booklet_cover") query = query.eq("use_for_booklet_cover", true)
-  if (useFor === "booklet_inside") query = query.eq("use_for_booklet_inside", true)
-  if (useFor === "flat") query = query.eq("use_for_flat", true)
+  // Granular per-calculator filters
+  if (useFor === "postcard") query = query.eq("use_in_postcard", true)
+  if (useFor === "letter") query = query.eq("use_in_letter", true)
+  if (useFor === "flat") query = query.eq("use_in_flat", true)
+  if (useFor === "envelope") query = query.eq("use_in_envelope", true)
+  if (useFor === "booklet_cover") query = query.eq("use_in_booklet_cover", true)
+  if (useFor === "booklet_inside") query = query.eq("use_in_booklet_inside", true)
+  if (useFor === "perfect_bind_cover") query = query.eq("use_in_perfect_bind_cover", true)
+  if (useFor === "perfect_bind_inside") query = query.eq("use_in_perfect_bind_inside", true)
+  if (useFor === "saddle_stitch_cover") query = query.eq("use_in_saddle_stitch_cover", true)
+  if (useFor === "saddle_stitch_inside") query = query.eq("use_in_saddle_stitch_inside", true)
 
   if (category) query = query.eq("category", category)
 
@@ -49,10 +56,17 @@ export async function POST(request: Request) {
       weight_gsm: body.weight_gsm,
       prices: body.prices || {},
       available_sizes: body.available_sizes || ["8.5x11", "11x17", "12x18", "13x19"],
-      use_for_printing: body.use_for_printing ?? true,
-      use_for_booklet_cover: body.use_for_booklet_cover ?? false,
-      use_for_booklet_inside: body.use_for_booklet_inside ?? false,
-      use_for_flat: body.use_for_flat ?? true,
+      // Granular per-calculator usage flags
+      use_in_postcard: body.use_in_postcard ?? true,
+      use_in_letter: body.use_in_letter ?? true,
+      use_in_flat: body.use_in_flat ?? true,
+      use_in_envelope: body.use_in_envelope ?? true,
+      use_in_booklet_cover: body.use_in_booklet_cover ?? false,
+      use_in_booklet_inside: body.use_in_booklet_inside ?? false,
+      use_in_perfect_bind_cover: body.use_in_perfect_bind_cover ?? false,
+      use_in_perfect_bind_inside: body.use_in_perfect_bind_inside ?? false,
+      use_in_saddle_stitch_cover: body.use_in_saddle_stitch_cover ?? false,
+      use_in_saddle_stitch_inside: body.use_in_saddle_stitch_inside ?? false,
       notes: body.notes,
       sort_order: body.sort_order || 0,
       active: body.active ?? true,

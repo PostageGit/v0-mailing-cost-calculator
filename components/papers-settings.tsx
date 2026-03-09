@@ -18,13 +18,33 @@ interface Paper {
   active: boolean
   prices: Record<string, number>
   available_sizes: string[]
-  use_for_printing: boolean
-  use_for_booklet_cover: boolean
-  use_for_booklet_inside: boolean
-  use_for_flat: boolean
+  // Granular per-calculator usage flags
+  use_in_postcard: boolean
+  use_in_letter: boolean
+  use_in_flat: boolean
+  use_in_envelope: boolean
+  use_in_booklet_cover: boolean
+  use_in_booklet_inside: boolean
+  use_in_perfect_bind_cover: boolean
+  use_in_perfect_bind_inside: boolean
+  use_in_saddle_stitch_cover: boolean
+  use_in_saddle_stitch_inside: boolean
   notes: string | null
   sort_order: number
 }
+
+const CALCULATOR_USAGE_OPTIONS = [
+  { key: "use_in_postcard", label: "Postcard", group: "printing" },
+  { key: "use_in_letter", label: "Letter", group: "printing" },
+  { key: "use_in_flat", label: "Flat / Self-Mailer", group: "printing" },
+  { key: "use_in_envelope", label: "Envelope", group: "printing" },
+  { key: "use_in_booklet_cover", label: "Booklet Cover", group: "booklet" },
+  { key: "use_in_booklet_inside", label: "Booklet Inside", group: "booklet" },
+  { key: "use_in_saddle_stitch_cover", label: "Saddle Stitch Cover", group: "saddle" },
+  { key: "use_in_saddle_stitch_inside", label: "Saddle Stitch Inside", group: "saddle" },
+  { key: "use_in_perfect_bind_cover", label: "Perfect Bind Cover", group: "perfect" },
+  { key: "use_in_perfect_bind_inside", label: "Perfect Bind Inside", group: "perfect" },
+] as const
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -143,14 +163,20 @@ export function PapersSettings() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
                               <span>{paper.thickness}" thick</span>
-                              <span>{paper.available_sizes.length} sizes</span>
-                              <div className="flex gap-1">
-                                {paper.use_for_printing && <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">Print</span>}
-                                {paper.use_for_booklet_cover && <span className="px-1 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">Cover</span>}
-                                {paper.use_for_booklet_inside && <span className="px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Inside</span>}
-                                {paper.use_for_flat && <span className="px-1 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">Flat</span>}
+                              <span className="text-muted-foreground/50">|</span>
+                              <div className="flex gap-1 flex-wrap">
+                                {paper.use_in_postcard && <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">PC</span>}
+                                {paper.use_in_letter && <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">LTR</span>}
+                                {paper.use_in_flat && <span className="px-1 py-0.5 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">Flat</span>}
+                                {paper.use_in_envelope && <span className="px-1 py-0.5 rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400">Env</span>}
+                                {paper.use_in_booklet_cover && <span className="px-1 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">BkCvr</span>}
+                                {paper.use_in_booklet_inside && <span className="px-1 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">BkIn</span>}
+                                {paper.use_in_saddle_stitch_cover && <span className="px-1 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">SSCvr</span>}
+                                {paper.use_in_saddle_stitch_inside && <span className="px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">SSIn</span>}
+                                {paper.use_in_perfect_bind_cover && <span className="px-1 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">PBCvr</span>}
+                                {paper.use_in_perfect_bind_inside && <span className="px-1 py-0.5 rounded bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">PBIn</span>}
                               </div>
                             </div>
                           </div>
@@ -192,11 +218,23 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
   const [prices, setPrices] = useState<Record<string, string>>(
     paper?.prices ? Object.fromEntries(Object.entries(paper.prices).map(([k, v]) => [k, v.toString()])) : {}
   )
-  const [useForPrinting, setUseForPrinting] = useState(paper?.use_for_printing ?? true)
-  const [useForCover, setUseForCover] = useState(paper?.use_for_booklet_cover ?? false)
-  const [useForInside, setUseForInside] = useState(paper?.use_for_booklet_inside ?? false)
-  const [useForFlat, setUseForFlat] = useState(paper?.use_for_flat ?? true)
+  const [usage, setUsage] = useState({
+    use_in_postcard: paper?.use_in_postcard ?? true,
+    use_in_letter: paper?.use_in_letter ?? true,
+    use_in_flat: paper?.use_in_flat ?? true,
+    use_in_envelope: paper?.use_in_envelope ?? true,
+    use_in_booklet_cover: paper?.use_in_booklet_cover ?? false,
+    use_in_booklet_inside: paper?.use_in_booklet_inside ?? false,
+    use_in_perfect_bind_cover: paper?.use_in_perfect_bind_cover ?? false,
+    use_in_perfect_bind_inside: paper?.use_in_perfect_bind_inside ?? false,
+    use_in_saddle_stitch_cover: paper?.use_in_saddle_stitch_cover ?? false,
+    use_in_saddle_stitch_inside: paper?.use_in_saddle_stitch_inside ?? false,
+  })
   const [saving, setSaving] = useState(false)
+
+  const toggleUsage = (key: keyof typeof usage) => {
+    setUsage((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const handleSave = async () => {
     if (!name.trim()) return
@@ -208,10 +246,7 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
       thickness: parseFloat(thickness) || 0.003,
       available_sizes: sizes,
       prices: Object.fromEntries(Object.entries(prices).filter(([k]) => sizes.includes(k)).map(([k, v]) => [k, parseFloat(v) || 0])),
-      use_for_printing: useForPrinting,
-      use_for_booklet_cover: useForCover,
-      use_for_booklet_inside: useForInside,
-      use_for_flat: useForFlat,
+      ...usage,
     }
 
     if (paper) {
@@ -312,24 +347,38 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
       </div>
 
       <div>
-        <Label className="text-xs">Use For</Label>
-        <div className="flex flex-wrap gap-3 mt-1">
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-            <input type="checkbox" checked={useForPrinting} onChange={(e) => setUseForPrinting(e.target.checked)} className="rounded" />
-            Printing
-          </label>
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-            <input type="checkbox" checked={useForCover} onChange={(e) => setUseForCover(e.target.checked)} className="rounded" />
-            Booklet Cover
-          </label>
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-            <input type="checkbox" checked={useForInside} onChange={(e) => setUseForInside(e.target.checked)} className="rounded" />
-            Booklet Inside
-          </label>
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-            <input type="checkbox" checked={useForFlat} onChange={(e) => setUseForFlat(e.target.checked)} className="rounded" />
-            Flat
-          </label>
+        <Label className="text-xs mb-2 block">Enable in Calculators</Label>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+          {/* Printing column */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Printing</span>
+            {CALCULATOR_USAGE_OPTIONS.filter((o) => o.group === "printing").map((opt) => (
+              <label key={opt.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usage[opt.key as keyof typeof usage]}
+                  onChange={() => toggleUsage(opt.key as keyof typeof usage)}
+                  className="rounded h-3.5 w-3.5"
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          {/* Books column */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Books</span>
+            {CALCULATOR_USAGE_OPTIONS.filter((o) => ["booklet", "saddle", "perfect"].includes(o.group)).map((opt) => (
+              <label key={opt.key} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usage[opt.key as keyof typeof usage]}
+                  onChange={() => toggleUsage(opt.key as keyof typeof usage)}
+                  className="rounded h-3.5 w-3.5"
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
