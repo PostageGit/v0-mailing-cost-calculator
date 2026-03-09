@@ -21,6 +21,8 @@ import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculat
 import { PaperWeightsSettingsTab } from "@/components/paper-weights-settings"
 import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "@/lib/finishing-fold-engine"
 import { SuppliersSettings } from "@/components/suppliers-settings"
+import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
+import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -122,7 +124,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- nav config ----------
 type SettingsTab =
-  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs"
+  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
   | "items" | "supplies" | "steps"
   | "fields" | "terms" | "team" | "system"
@@ -140,6 +142,8 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "paper-weights", label: "Paper Weights", icon: <Scale className="h-4 w-4" />, description: "Weight per 1,000 sheets, thickness" },
       { id: "finishings", label: "Finishings", icon: <Wrench className="h-4 w-4" />, description: "Score, fold, lamination options" },
       { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
+      { id: "fold-score", label: "Fold & Score", icon: <Wrench className="h-4 w-4" />, description: "Fold and score pricing parameters" },
+      { id: "saddle-stitch", label: "Saddle Stitch", icon: <Wrench className="h-4 w-4" />, description: "Saddle stitch binding rates" },
     ],
   },
   {
@@ -176,6 +180,8 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   "paper-weights": () => <PaperWeightsSettingsTab />,
   finishings: () => <FinishingsSettingsTab />,
   "finishing-calcs": () => <FinishingCalculatorsSettingsTab />,
+  "fold-score": () => <FoldScoreSettingsTab />,
+  "saddle-stitch": () => <SaddleStitchSettingsTab />,
   labor: () => <LaborRatesTab />,
   departments: () => <DepartmentsTab />,
   envelopes: () => <EnvelopeSettingsTab />,

@@ -535,6 +535,7 @@ export function applyOverrides(overrides: Partial<{
   paper_weight_config: PaperWeightConfig
   envelope_weight_config: EnvelopeWeightConfig
   sort_level_mix: SortLevelMixConfig
+  saddle_stitch_config: SaddleStitchConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -573,6 +574,9 @@ export function applyOverrides(overrides: Partial<{
     sortLevelMix: overrides.sort_level_mix
       ? { ...structuredClone(DEFAULT_SORT_LEVEL_MIX), ...overrides.sort_level_mix }
       : structuredClone(DEFAULT_SORT_LEVEL_MIX),
+    saddleStitchConfig: overrides.saddle_stitch_config
+      ? structuredClone(overrides.saddle_stitch_config)
+      : structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
   }
 }
 
