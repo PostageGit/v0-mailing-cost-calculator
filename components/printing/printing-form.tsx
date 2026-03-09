@@ -12,7 +12,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Save } from "lucide-react"
-import { PAPER_OPTIONS, getAvailableSides } from "@/lib/printing-pricing"
+import { getAvailableSides } from "@/lib/printing-pricing"
+import { useFlatPrintingPapers, papersToOptions } from "@/lib/use-papers"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 
 import { FinishingAddOns } from "@/components/finishing-add-ons"
@@ -42,6 +43,8 @@ export function PrintingForm({
   currentResult,
   ohpMode,
 }: PrintingFormProps) {
+  const { papers } = useFlatPrintingPapers()
+  const paperOptions = papersToOptions(papers)
   const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
   const v = useFormValidation()
 
@@ -149,7 +152,7 @@ export function PrintingForm({
               <SelectValue placeholder="Select Paper" />
             </SelectTrigger>
             <SelectContent>
-              {PAPER_OPTIONS.map((paper) => (
+              {paperOptions.map((paper) => (
                 <SelectItem key={paper.name} value={paper.name}>
                   {paper.name}
                 </SelectItem>

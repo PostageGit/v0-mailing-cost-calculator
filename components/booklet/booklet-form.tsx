@@ -13,14 +13,13 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save } from "lucide-react"
 import {
-  getCoverPapers,
-  getInsidePapers,
   getAvailableSizes,
   canPaperLaminate,
   ALL_SIDES,
   INSIDE_SIDES,
   getLaminationPrice,
 } from "@/lib/booklet-pricing"
+import { usePapersContext } from "@/lib/papers-context"
 import { formatCurrency } from "@/lib/pricing"
 import type { BookletInputs } from "@/lib/booklet-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
@@ -44,8 +43,9 @@ export function BookletForm({
   validationError,
   ohpMode,
 }: BookletFormProps) {
-  const coverPapers = getCoverPapers()
-  const insidePapers = getInsidePapers()
+  const { getPaperOptions } = usePapersContext()
+  const coverPapers = getPaperOptions("book_cover")
+  const insidePapers = getPaperOptions("book_inside")
   const coverSizes = inputs.coverPaper ? getAvailableSizes(inputs.coverPaper) : []
   const insideSizes = inputs.insidePaper ? getAvailableSizes(inputs.insidePaper) : []
   const canLam = inputs.separateCover && inputs.coverPaper ? canPaperLaminate(inputs.coverPaper) : false

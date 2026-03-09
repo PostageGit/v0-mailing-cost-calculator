@@ -541,6 +541,19 @@ export function getActiveConfig(): PricingConfig {
 }
 
 /**
+ * Set dynamic paper prices from database (papers table).
+ * Call this when papers data loads to override hardcoded defaults.
+ */
+export function setDynamicPaperPrices(prices: Record<string, Record<string, number>>) {
+  _activeConfig = {
+    ..._activeConfig,
+    paperPrices: { ..._activeConfig.paperPrices, ...prices },
+    // Also apply to booklet paper prices so book calculators use database prices
+    bookletPaperPrices: { ..._activeConfig.bookletPaperPrices, ...prices },
+  }
+}
+
+/**
  * Merge DB overrides into the active config. Only provided keys are overridden;
  * everything else stays at default. Called once when the app loads settings.
  */

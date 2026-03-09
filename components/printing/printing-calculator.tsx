@@ -13,13 +13,13 @@ import { useGlobalChat } from "@/lib/chat-context"
 import { flatSpecsToChat } from "@/lib/specs-to-chat"
 import { MessageCircle } from "lucide-react"
 import {
-  PAPER_OPTIONS,
   parseSheetSize,
   calculateAllSheetOptions,
   calculatePrintingCost,
   buildFullResult,
   formatCurrency,
 } from "@/lib/printing-pricing"
+import { usePapersContext } from "@/lib/papers-context"
 import type {
   PrintingInputs,
   SheetOptionRow,
@@ -63,6 +63,8 @@ export function PrintingCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
+  const { getPaperOptions, getPaperPrices } = usePapersContext()
+  const flatPaperOptions = getPaperOptions("flat_printing")
 
   // Flat pieces from planner -- includes OHP so users can fill out full specs
   const flatPieces = mailing.pieces.filter(
@@ -201,13 +203,13 @@ export function PrintingCalculator() {
     setCalcError(null)
     const options = calculateAllSheetOptions(inputs)
     if (options.length === 0) {
-      const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
+      const paper = flatPaperOptions.find((p) => p.name === inputs.paperName)
       const largest = paper?.availableSizes[paper.availableSizes.length - 1] ?? "13x19"
 
       // Find other papers where this piece WOULD fit (trying both orientations)
       const pw = inputs.width
       const ph = inputs.height
-      const suggestions = PAPER_OPTIONS
+      const suggestions = flatPaperOptions
         .filter((p) => p.name !== inputs.paperName)
         .filter((p) => {
           return p.availableSizes.some((sizeStr) => {
@@ -243,7 +245,7 @@ export function PrintingCalculator() {
     setFullResult(null)
     setShowResults(false)
     setHasCalculated(true)
-  }, [inputs])
+  }, [inputs, flatPaperOptions])
 
   // Reactively rebuild result when inputs change while a sheet is selected
   // (e.g. user toggles lamination or score/fold after picking a sheet)
