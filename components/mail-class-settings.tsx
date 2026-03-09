@@ -25,6 +25,7 @@ import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
 import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
 import { PerfectBindingSettingsTab } from "@/components/perfect-binding-settings"
 import { LaminationSettingsTab } from "@/components/lamination-settings"
+import { PapersSettings } from "@/components/papers-settings"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -126,7 +127,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- nav config ----------
 type SettingsTab =
-  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding" | "lamination"
+  | "pricing" | "papers" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding" | "lamination"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix" | "dont-forget"
   | "items" | "supplies" | "steps"
   | "fields" | "terms" | "team" | "system"
@@ -141,6 +142,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
     label: "Pricing Engine",
     items: [
       { id: "pricing", label: "Click & Paper Costs", icon: <DollarSign className="h-4 w-4" />, description: "Click costs, paper prices, markup levels" },
+      { id: "papers", label: "Paper Management", icon: <Package className="h-4 w-4" />, description: "Add, edit, deactivate papers for all calculators" },
       { id: "paper-weights", label: "Paper Weights", icon: <Scale className="h-4 w-4" />, description: "Weight per 1,000 sheets, thickness" },
       { id: "finishings", label: "Finishings", icon: <Wrench className="h-4 w-4" />, description: "Score, fold, lamination options" },
       { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
@@ -182,6 +184,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   pricing: () => <PricingSettingsTab />,
+  papers: () => <PapersSettings />,
   "paper-weights": () => <PaperWeightsSettingsTab />,
   finishings: () => <FinishingsSettingsTab />,
   "finishing-calcs": () => <FinishingCalculatorsSettingsTab />,
