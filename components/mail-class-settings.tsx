@@ -127,7 +127,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 // ---------- nav config ----------
 type SettingsTab =
   | "pricing" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding" | "lamination"
-  | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
+  | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix" | "dont-forget"
   | "items" | "supplies" | "steps"
   | "fields" | "terms" | "team" | "system"
 
@@ -158,6 +158,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "envelopes", label: "Envelopes", icon: <Mail className="h-4 w-4" />, description: "Envelope pricing, ink-jet, laser" },
       { id: "addressing", label: "Addressing & Tabbing", icon: <Mail className="h-4 w-4" />, description: "Addressing brackets, tabbing rates" },
       { id: "sort-mix", label: "Sort Mix", icon: <Mail className="h-4 w-4" />, description: "USPS sort level mix ratios" },
+      { id: "dont-forget", label: "Don't Forget", icon: <AlertTriangle className="h-4 w-4" />, description: "Checklist items per mailing class" },
     ],
   },
   {
@@ -200,6 +201,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
     </>
   ),
   "sort-mix": () => <SortMixTab />,
+  "dont-forget": () => <DontForgetSettingsTab />,
   items: () => <ItemsSettingsTab />,
   supplies: () => <SuppliersSettings />,
   steps: () => <JobStepsTab />,
@@ -4280,6 +4282,251 @@ function SortMixTab() {
           </CardContent>
         </Card>
       ))}
+    </div>
+  )
+}
+
+// ─── Don't Forget Settings Tab ──────────────────────────────────
+
+// Categories that can be set as "commonly needed"
+const ALL_SERVICE_CATEGORIES = [
+  { id: "LIST_RENTAL", label: "List Rentals", hint: "Does customer need a mailing list?" },
+  { id: "ADDRESSING", label: "Addressing", hint: "How will addresses be applied?" },
+  { id: "COMPUTER_WORK", label: "Computer Work", hint: "Data processing, CASS, deduping" },
+  { id: "INSERTING", label: "Inserting", hint: "Machine inserting services" },
+  { id: "LABELING", label: "Labeling", hint: "Label application" },
+  { id: "LIST_WORK", label: "List Work", hint: "List cleaning, merge/purge" },
+  { id: "DELIVERY", label: "Delivery", hint: "Local delivery services" },
+] as const
+
+// Mail classes for configuration
+const MAIL_CLASSES = [
+  { id: "ALL", label: "All Mailings", description: "Default checklist for all mail classes" },
+  { id: "MKT_COMM", label: "Marketing Mail", description: "Standard commercial marketing mail" },
+  { id: "MKT_NP", label: "Non-Profit", description: "Non-profit marketing mail" },
+  { id: "FC_COMM", label: "First Class", description: "First class commercial mail" },
+  { id: "FC_NP", label: "First Class Non-Profit", description: "First class non-profit" },
+  { id: "RETAIL", label: "Retail / Stamps", description: "Single-piece retail mailings" },
+] as const
+
+type MailClassId = typeof MAIL_CLASSES[number]["id"]
+
+export interface DontForgetConfig {
+  [mailClass: string]: string[] // array of category IDs
+}
+
+export const DEFAULT_DONT_FORGET_CONFIG: DontForgetConfig = {
+  ALL: ["LIST_RENTAL", "ADDRESSING", "COMPUTER_WORK"],
+}
+
+function DontForgetSettingsTab() {
+  const { data: appSettings, mutate } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
+  const [saving, setSaving] = useState(false)
+  const [activeClass, setActiveClass] = useState<MailClassId>("ALL")
+  
+  // Load config from app settings
+  const config: DontForgetConfig = (appSettings?.dont_forget_config as DontForgetConfig) || DEFAULT_DONT_FORGET_CONFIG
+  
+  // Get categories for active mail class (fall back to ALL if not set)
+  const activeCategories = config[activeClass] || config.ALL || []
+  
+  const toggleCategory = async (categoryId: string) => {
+    const currentList = [...activeCategories]
+    const idx = currentList.indexOf(categoryId)
+    if (idx >= 0) {
+      currentList.splice(idx, 1)
+    } else {
+      currentList.push(categoryId)
+    }
+    
+    const newConfig = { ...config, [activeClass]: currentList }
+    
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dont_forget_config: newConfig }),
+      })
+      await mutate()
+    } finally {
+      setSaving(false)
+    }
+  }
+  
+  const copyFromAll = async () => {
+    const allCategories = config.ALL || []
+    const newConfig = { ...config, [activeClass]: [...allCategories] }
+    
+    setSaving(true)
+    try {
+      await fetch("/api/app-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dont_forget_config: newConfig }),
+      })
+      await mutate()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">Don't Forget Checklist</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure which service categories appear in the "Don't Forget" checklist. These prompts help ensure important items aren't missed when creating quotes.
+          </p>
+        </div>
+        {saving && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+      </div>
+
+      {/* Mail Class Tabs */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Select Mail Class</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {MAIL_CLASSES.map((mc) => {
+              const isActive = activeClass === mc.id
+              const hasCustom = mc.id !== "ALL" && config[mc.id] !== undefined
+              return (
+                <button
+                  key={mc.id}
+                  onClick={() => setActiveClass(mc.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all border",
+                    isActive
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-background hover:bg-muted border-border",
+                    hasCustom && !isActive && "border-amber-400 dark:border-amber-600"
+                  )}
+                >
+                  {mc.label}
+                  {hasCustom && !isActive && (
+                    <span className="ml-1.5 text-[10px] text-amber-600 dark:text-amber-400">*</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            {activeClass === "ALL"
+              ? "This is the default checklist used when no mail class-specific config exists."
+              : `Custom checklist for ${MAIL_CLASSES.find((m) => m.id === activeClass)?.label}. Leave empty to use "All Mailings" defaults.`}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Category Selection */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-semibold">
+            Checklist Items for "{MAIL_CLASSES.find((m) => m.id === activeClass)?.label}"
+          </CardTitle>
+          {activeClass !== "ALL" && (
+            <Button variant="outline" size="sm" onClick={copyFromAll} disabled={saving}>
+              Copy from "All Mailings"
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ALL_SERVICE_CATEGORIES.map((cat) => {
+              const isEnabled = activeCategories.includes(cat.id)
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => toggleCategory(cat.id)}
+                  disabled={saving}
+                  className={cn(
+                    "flex items-start gap-3 p-4 rounded-xl border text-left transition-all",
+                    isEnabled
+                      ? "border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/20"
+                      : "border-border bg-background hover:bg-muted/50"
+                  )}
+                >
+                  <div className={cn(
+                    "rounded-lg p-2 shrink-0",
+                    isEnabled ? "bg-emerald-500" : "bg-muted"
+                  )}>
+                    {isEnabled ? (
+                      <CheckCircle2 className="h-4 w-4 text-white" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <p className={cn(
+                      "font-semibold text-sm",
+                      isEnabled ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"
+                    )}>
+                      {cat.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{cat.hint}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          
+          {activeCategories.length === 0 && (
+            <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">
+                  No items selected
+                </p>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                {activeClass === "ALL"
+                  ? "The Don't Forget checklist won't appear if no items are selected."
+                  : "Will use the \"All Mailings\" defaults since no items are selected."}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Preview */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Preview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <h4 className="text-sm font-bold text-foreground">Don't Forget</h4>
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                {activeCategories.length} to review
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {activeCategories.length > 0 ? (
+                activeCategories.map((catId) => {
+                  const cat = ALL_SERVICE_CATEGORIES.find((c) => c.id === catId)
+                  return cat ? (
+                    <div
+                      key={catId}
+                      className="flex items-center gap-2 rounded-xl border border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950/10 px-3 py-2"
+                    >
+                      <span className="text-sm font-medium text-foreground">{cat.label}</span>
+                      <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Add / Not needed</span>
+                    </div>
+                  ) : null
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No checklist items configured</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

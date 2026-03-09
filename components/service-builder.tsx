@@ -45,12 +45,21 @@ import {
 import { cn } from "@/lib/utils"
 
 // ─── "Don't Forget" Categories ───────────────────────────
-// Categories that most jobs need - shown in checklist to prevent forgetting
-const COMMONLY_NEEDED_CATEGORIES: { category: ServiceCategory; label: string; hint: string }[] = [
-  { category: "LIST_RENTAL", label: "List Rental", hint: "Does customer need a mailing list?" },
-  { category: "ADDRESSING", label: "Addressing", hint: "How will addresses be applied?" },
-  { category: "COMPUTER_WORK", label: "Computer Work", hint: "Data processing, CASS, etc." },
-]
+// Metadata for all possible "don't forget" categories (config determines which are shown)
+const DONT_FORGET_CATEGORY_META: Record<string, { label: string; hint: string }> = {
+  LIST_RENTAL: { label: "List Rental", hint: "Does customer need a mailing list?" },
+  ADDRESSING: { label: "Addressing", hint: "How will addresses be applied?" },
+  COMPUTER_WORK: { label: "Computer Work", hint: "Data processing, CASS, etc." },
+  INSERTING: { label: "Inserting", hint: "Machine inserting services" },
+  LABELING: { label: "Labeling", hint: "Label application" },
+  LIST_WORK: { label: "List Work", hint: "List cleaning, merge/purge" },
+  DELIVERY: { label: "Delivery", hint: "Local delivery services" },
+}
+
+// Default config if not set in app settings
+const DEFAULT_DONT_FORGET_CONFIG: Record<string, string[]> = {
+  ALL: ["LIST_RENTAL", "ADDRESSING", "COMPUTER_WORK"],
+}
 
 // ─── Icon map ────────────────────────────────────────────
 const ICONS: Record<string, React.ElementType> = {
@@ -374,6 +383,8 @@ const addToQuote = useCallback(
       <DontForgetChecklist
         addedItems={addedItems}
         dismissedCategories={dismissedCategories}
+        mailService={mailService}
+        dontForgetConfig={appSettings?.dont_forget_config as Record<string, string[]> | undefined}
         onDismiss={(cat) => setDismissedCategories(prev => new Set(prev).add(cat))}
         onUndismiss={(cat) => setDismissedCategories(prev => { const n = new Set(prev); n.delete(cat); return n })}
         onOpenCategory={(cat) => setExpandedCat(cat)}
@@ -508,6 +519,8 @@ const addToQuote = useCallback(
 interface DontForgetChecklistProps {
   addedItems: Map<string, AddedEntry>
   dismissedCategories: Set<ServiceCategory>
+  mailService: string
+  dontForgetConfig: Record<string, string[]> | undefined
   onDismiss: (cat: ServiceCategory) => void
   onUndismiss: (cat: ServiceCategory) => void
   onOpenCategory: (cat: ServiceCategory) => void
@@ -516,10 +529,21 @@ interface DontForgetChecklistProps {
 function DontForgetChecklist({
   addedItems,
   dismissedCategories,
+  mailService,
+  dontForgetConfig,
   onDismiss,
   onUndismiss,
   onOpenCategory,
 }: DontForgetChecklistProps) {
+  // Get configured categories for this mail service (or fall back to ALL)
+  const configuredCategories = useMemo(() => {
+    const config = dontForgetConfig || DEFAULT_DONT_FORGET_CONFIG
+    // Map mail service to config key
+    const mailClassKey = mailService || "ALL"
+    // Try specific mail class first, then fall back to ALL
+    return config[mailClassKey] || config.ALL || []
+  }, [dontForgetConfig, mailService])
+
   // Check which categories have items added
   const addedCategories = useMemo(() => {
     const cats = new Set<ServiceCategory>()
@@ -530,18 +554,23 @@ function DontForgetChecklist({
     return cats
   }, [addedItems])
 
-  // Filter to only show commonly needed categories that need attention
+  // Filter to only show configured categories that need attention
   const checklistItems = useMemo(() => {
-    return COMMONLY_NEEDED_CATEGORIES.map((c) => {
-      const isAdded = addedCategories.has(c.category)
-      const isDismissed = dismissedCategories.has(c.category)
-      return { ...c, isAdded, isDismissed, needsAttention: !isAdded && !isDismissed }
-    })
-  }, [addedCategories, dismissedCategories])
+    return configuredCategories
+      .filter((catId) => DONT_FORGET_CATEGORY_META[catId]) // only valid categories
+      .map((catId) => {
+        const meta = DONT_FORGET_CATEGORY_META[catId]
+        const category = catId as ServiceCategory
+        const isAdded = addedCategories.has(category)
+        const isDismissed = dismissedCategories.has(category)
+        return { category, label: meta.label, hint: meta.hint, isAdded, isDismissed, needsAttention: !isAdded && !isDismissed }
+      })
+  }, [configuredCategories, addedCategories, dismissedCategories])
 
   const needsAttentionCount = checklistItems.filter((c) => c.needsAttention).length
 
-  // Don't show if all items are addressed
+  // Don't show if no categories configured or all items are addressed
+  if (checklistItems.length === 0) return null
   if (needsAttentionCount === 0 && checklistItems.every((c) => c.isAdded || c.isDismissed)) {
     return null
   }
