@@ -23,6 +23,8 @@ import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "@/lib/finishi
 import { SuppliersSettings } from "@/components/suppliers-settings"
 import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
 import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
+import { PerfectBindingSettingsTab } from "@/components/perfect-binding-settings"
+import { LaminationSettingsTab } from "@/components/lamination-settings"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -124,7 +126,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- nav config ----------
 type SettingsTab =
-  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch"
+  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding" | "lamination"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
   | "items" | "supplies" | "steps"
   | "fields" | "terms" | "team" | "system"
@@ -144,6 +146,8 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
       { id: "fold-score", label: "Fold & Score", icon: <Wrench className="h-4 w-4" />, description: "Fold and score pricing parameters" },
       { id: "saddle-stitch", label: "Saddle Stitch", icon: <Wrench className="h-4 w-4" />, description: "Saddle stitch binding rates" },
+      { id: "perfect-binding", label: "Perfect Binding", icon: <Wrench className="h-4 w-4" />, description: "Perfect bound book binding rates" },
+      { id: "lamination", label: "Lamination", icon: <Wrench className="h-4 w-4" />, description: "Lamination pricing by type" },
     ],
   },
   {
@@ -182,6 +186,8 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   "finishing-calcs": () => <FinishingCalculatorsSettingsTab />,
   "fold-score": () => <FoldScoreSettingsTab />,
   "saddle-stitch": () => <SaddleStitchSettingsTab />,
+  "perfect-binding": () => <PerfectBindingSettingsTab />,
+  "lamination": () => <LaminationSettingsTab />,
   labor: () => <LaborRatesTab />,
   departments: () => <DepartmentsTab />,
   envelopes: () => <EnvelopeSettingsTab />,
