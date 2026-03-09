@@ -579,8 +579,36 @@ function ListRentalRow({
         </button>
       </div>
 
-      {/* Detail row: updated date, file name, password */}
+      {/* Detail row: billing mode, updated date, file name, password */}
       <div className="flex items-center gap-3 pl-1 text-[10px] text-muted-foreground">
+        {/* Billing mode toggle */}
+        <div className="flex items-center gap-1 bg-muted/50 rounded px-1.5 py-0.5">
+          <span className="text-[9px] font-medium uppercase">Bill by:</span>
+          <button
+            type="button"
+            onClick={() => onUpdate(item.id, { billingMode: "list_count" })}
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors",
+              (item.billingMode || "list_count") === "list_count"
+                ? "bg-purple-500 text-white"
+                : "hover:bg-muted"
+            )}
+          >
+            List Count
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdate(item.id, { billingMode: "mailing_qty" })}
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors",
+              item.billingMode === "mailing_qty"
+                ? "bg-purple-500 text-white"
+                : "hover:bg-muted"
+            )}
+          >
+            Mailing Qty
+          </button>
+        </div>
         {updatedAgo && (
           <span className="flex items-center gap-0.5">
             <CalendarDays className="h-2.5 w-2.5" />

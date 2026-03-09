@@ -52,6 +52,7 @@ export interface SupplyItem {
   fileUrl?: string | null     // Vercel Blob URL of uploaded list file
   filePassword?: string | null // password to open the file
   fileName?: string | null    // original file name
+  billingMode?: "list_count" | "mailing_qty"  // how to bill: use list's count or mailing quantity
   // ── Catalog link ──
   linkedCatalogId?: string    // links to service-catalog item id (e.g. "list-rent-skver")
   notes?: string
