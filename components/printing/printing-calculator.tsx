@@ -192,12 +192,9 @@ export function PrintingCalculator() {
 
   // Calculate
   const handleCalculate = useCallback(() => {
-    console.log("[v0] handleCalculate in PrintingCalculator CALLED")
     // Check form validity inline to avoid stale closure issues
     const formValid = inputs.qty > 0 && inputs.width > 0 && inputs.height > 0 && inputs.paperName !== "" && inputs.sidesValue !== ""
-    console.log("[v0] formValid:", formValid, "inputs:", inputs)
     if (!formValid) {
-      console.log("[v0] Returning early - form invalid")
       return
     }
 

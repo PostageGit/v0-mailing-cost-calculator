@@ -337,11 +337,11 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
     const printingCostPlus10 = result.wasPrintingMinApplied ? printingCost : printingCost * pctMultiplier
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
-    const sfCost = getScoreFoldCost(inputs)
+    // Score/fold cost now handled by new foldFinish engine in buildFullPrintingResult
     const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
     const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
     const lamCost = lamResult?.total || 0
-    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + (sfCost?.cost || 0) + lamCost
+    const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + lamCost
     const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
 
     results.push({
