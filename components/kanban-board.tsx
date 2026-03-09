@@ -2351,14 +2351,35 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               filteredArchived.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">No archived {label.toLowerCase()}s</p>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                <div className="flex flex-col gap-1">
                   {filteredArchived.map((q) => (
-                    <QuoteCard key={q.id} quote={q} columns={cols}
-                      onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
-                      onRestore={handleRestore} onPatch={handlePatch}
-                      onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
-                      onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                      boardType={boardType} isArchived />
+                    <div
+                      key={q.id}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/30 border border-border/50 hover:bg-secondary/50 transition-colors"
+                    >
+                      <button
+                        onClick={() => handleRestore(q.id)}
+                        className="flex items-center gap-1 px-2 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-semibold shrink-0 transition-colors"
+                        title="Restore to active"
+                      >
+                        <ArchiveRestore className="h-3 w-3" />
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => setDetailQuote(q)}
+                        className="flex-1 text-left truncate"
+                      >
+                        <span className="text-xs font-medium text-foreground/80">
+                          {q.project_name || `${label} #${q.quote_number || q.id.slice(0, 6)}`}
+                        </span>
+                      </button>
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {q.archived_at ? new Date(q.archived_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                      </span>
+                      <span className="text-xs font-mono text-muted-foreground tabular-nums shrink-0">
+                        ${q.total?.toLocaleString() || "0"}
+                      </span>
+                    </div>
                   ))}
                 </div>
               )
