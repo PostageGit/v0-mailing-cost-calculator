@@ -34,7 +34,10 @@ import {
   type TierKey,
 } from "@/lib/usps-rates"
 import { getActiveConfig, sortMixKey } from "@/lib/pricing-config"
-import { Plus, ChevronDown, ChevronRight, Info, AlertCircle, AlertTriangle } from "lucide-react"
+import { Plus, ChevronDown, ChevronRight, Info, AlertCircle, AlertTriangle, BookOpen, Check } from "lucide-react"
+import useSWR from "swr"
+import type { SuppliersConfig, SupplyItem } from "@/lib/suppliers"
+import { DEFAULT_SUPPLIERS_CONFIG } from "@/lib/suppliers"
 import { cn } from "@/lib/utils"
 
 /* ── Compact pill ── */
@@ -492,6 +495,10 @@ function Tab1LettersFlats() {
   const [bufferCents, setBufferCents] = useState("0")
   const parsedBuffer = parseFloat(bufferCents) || 0
 
+  // Custom avg override - lets user type their own average rate
+  const [avgOverride, setAvgOverride] = useState<number | null>(null)
+  const [avgOverrideInput, setAvgOverrideInput] = useState("")
+
   const handleAddToQuote = useCallback(() => {
     if (!result.isValid) return
     const bufferPerPiece = parsedBuffer / 100
@@ -524,14 +531,21 @@ function Tab1LettersFlats() {
     }
 
     // Presort path with tier breakdown
-    const totalWithBuffer = weightedResult.grandTotal + (bufferPerPiece * weightedResult.totalQty)
-    const avgWithBuffer = weightedResult.avgPerPiece + bufferPerPiece
+    // Use custom override if set, otherwise use calculated weighted average
+    const baseAvg = avgOverride !== null ? avgOverride : weightedResult.avgPerPiece
+    const baseTotal = avgOverride !== null ? avgOverride * inputs.quantity : weightedResult.grandTotal
+    const totalWithBuffer = baseTotal + (bufferPerPiece * inputs.quantity)
+    const avgWithBuffer = baseAvg + bufferPerPiece
     // Customer-facing description: mail class + qty + estimated per-piece only
     const custParts: string[] = [mailingClass]
-    custParts.push(`${weightedResult.totalQty.toLocaleString()} x ~${formatPostageRate(avgWithBuffer)}`)
+    if (avgOverride !== null) {
+      custParts.push(`${inputs.quantity.toLocaleString()} x ${formatPostageRate(avgWithBuffer)}`)
+    } else {
+      custParts.push(`${weightedResult.totalQty.toLocaleString()} x ~${formatPostageRate(avgWithBuffer)}`)
+    }
     quote.addItem({
       category: "postage",
-      label: `USPS Postage - ${weightedResult.totalQty.toLocaleString()} pc`,
+      label: `USPS Postage - ${inputs.quantity.toLocaleString()} pc`,
       description: custParts.join(" | "),
       amount: totalWithBuffer,
       metadata: {
@@ -542,10 +556,11 @@ function Tab1LettersFlats() {
         entryPoint: inputs.entry,
         mailType: (inputs.service === "MKT_COMM" || inputs.service === "MKT_NP") ? inputs.mailType : undefined,
         bufferCents: parsedBuffer > 0 ? parsedBuffer : undefined,
-        tierBreakdown: tierQtys,
+        tierBreakdown: avgOverride === null ? tierQtys : undefined,
+        isCustomAvg: avgOverride !== null,
       },
     })
-  }, [result, inputs, quote, tiers, tierQtys, weightedResult, parsedBuffer])
+  }, [result, inputs, quote, tiers, tierQtys, weightedResult, parsedBuffer, avgOverride])
 
   const [showManual, setShowManual] = useState(false)
   const [manualRate, setManualRate] = useState("")
@@ -917,31 +932,62 @@ function Tab1LettersFlats() {
                   {weightedResult && (() => {
                     const missing = inputs.quantity - weightedResult.totalQty
                     const hasMissing = missing > 0
+                    // Use override if set, otherwise use calculated
+                    const displayAvg = avgOverride !== null ? avgOverride : weightedResult.avgPerPiece
+                    const displayTotal = displayAvg * inputs.quantity
+                    const isOverridden = avgOverride !== null
                     return (
-                    <tr className="bg-secondary/40 border-t border-border">
+                    <tr className={cn("border-t border-border", isOverridden ? "bg-pink-50 dark:bg-pink-950/20" : "bg-secondary/40")}>
                       <td className="px-3 py-2.5 font-bold text-xs text-foreground">
-                        Weighted Average
+                        {isOverridden ? "Custom Average" : "Weighted Average"}
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <span className={cn("text-xs font-mono font-bold tabular-nums", hasMissing ? "text-amber-600 dark:text-amber-400" : "text-foreground")}>
-                          {weightedResult.totalQty.toLocaleString()}
+                        <span className={cn("text-xs font-mono font-bold tabular-nums", hasMissing && !isOverridden ? "text-amber-600 dark:text-amber-400" : "text-foreground")}>
+                          {inputs.quantity.toLocaleString()}
                         </span>
-                        <span className="text-[10px] text-muted-foreground ml-0.5">/ {inputs.quantity.toLocaleString()}</span>
-                        {hasMissing && (
+                        {hasMissing && !isOverridden && (
                           <div className="text-[10px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
                             {missing.toLocaleString()} unallocated
                           </div>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-right">
-                        <span className="font-mono font-bold tabular-nums text-foreground">
-                          {formatPostageRate(weightedResult.avgPerPiece)}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground ml-1">avg</span>
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder={formatPostageRate(weightedResult.avgPerPiece)}
+                            value={avgOverrideInput}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              setAvgOverrideInput(v)
+                              if (v === "" || v.trim() === "") {
+                                setAvgOverride(null)
+                              } else {
+                                const parsed = parseFloat(v)
+                                if (!isNaN(parsed) && parsed >= 0) {
+                                  setAvgOverride(parsed)
+                                }
+                              }
+                            }}
+                            className={cn(
+                              "w-16 h-6 text-right text-xs font-mono font-bold rounded border px-1 outline-none focus:ring-1 focus:ring-foreground/20 tabular-nums",
+                              isOverridden 
+                                ? "border-pink-300 dark:border-pink-700 bg-white dark:bg-pink-950/30 text-pink-700 dark:text-pink-300" 
+                                : "border-border bg-background text-foreground"
+                            )}
+                          />
+                          <span className="text-[10px] text-muted-foreground">avg</span>
+                        </div>
+                        {!isOverridden && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            calc: {formatPostageRate(weightedResult.avgPerPiece)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-right">
-                        <span className="font-mono font-bold tabular-nums text-foreground">
-                          {formatCurrency(weightedResult.grandTotal)}
+                        <span className={cn("font-mono font-bold tabular-nums", isOverridden ? "text-pink-700 dark:text-pink-300" : "text-foreground")}>
+                          {formatCurrency(displayTotal)}
                         </span>
                       </td>
                     </tr>
@@ -1078,6 +1124,115 @@ function Tab1LettersFlats() {
           )}
         </div>
       </div>
+
+      {/* ── List Rentals Add-On Section ── */}
+      <ListRentalsAddOn quantity={inputs.quantity} />
+    </div>
+  )
+}
+
+// ─── List Rentals Add-On Component ───────────────────────────
+function ListRentalsAddOn({ quantity }: { quantity: number }) {
+  const quote = useQuote()
+  const [addedLists, setAddedLists] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState(false)
+
+  // Fetch supplier config for list rental prices
+  const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
+  const listRentals = useMemo(() => {
+    const cfg: SuppliersConfig = appSettings?.suppliers_config || DEFAULT_SUPPLIERS_CONFIG
+    return cfg.supplyItems.filter((item: SupplyItem) => item.type === "list_rental" && item.sellPrice > 0)
+  }, [appSettings])
+
+  const addListRental = useCallback((item: SupplyItem) => {
+    const totalCost = item.sellPrice * quantity
+    quote.addItem({
+      category: "item",
+      label: `List Rental - ${item.name}`,
+      description: `${quantity.toLocaleString()} names @ $${(item.sellPrice * 1000).toFixed(2)}/M`,
+      amount: totalCost,
+      metadata: { 
+        serviceId: `list-rent-${item.id}`, 
+        priceUnit: "name/mailing", 
+        unitPrice: item.sellPrice, 
+        qty: quantity,
+        listName: item.name
+      },
+    })
+    setAddedLists(prev => new Set(prev).add(item.id))
+  }, [quote, quantity])
+
+  if (listRentals.length === 0) return null
+
+  return (
+    <div className="rounded-2xl border-2 border-purple-200 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/20 p-4 sm:p-5">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-purple-500 p-2">
+            <BookOpen className="h-5 w-5 text-white" />
+          </div>
+          <div className="text-left">
+            <h4 className="text-sm font-bold text-foreground">Need a Mailing List?</h4>
+            <p className="text-xs text-muted-foreground">Add list rentals to your quote</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {addedLists.size > 0 && (
+            <span className="rounded-full bg-purple-500 text-white px-2.5 py-0.5 text-xs font-bold">
+              {addedLists.size} added
+            </span>
+          )}
+          {expanded ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {listRentals.map((item: SupplyItem) => {
+            const isAdded = addedLists.has(item.id)
+            const totalCost = item.sellPrice * quantity
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => !isAdded && addListRental(item)}
+                disabled={isAdded || quantity <= 0}
+                className={cn(
+                  "flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-all",
+                  isAdded
+                    ? "border-purple-400 bg-purple-100 dark:bg-purple-900/30"
+                    : "border-border bg-background hover:bg-purple-50 dark:hover:bg-purple-950/30 hover:border-purple-300"
+                )}
+              >
+                <div className="flex items-center gap-1.5 w-full">
+                  {isAdded ? (
+                    <Check className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  <span className={cn("text-sm font-semibold truncate", isAdded ? "text-purple-700 dark:text-purple-300" : "text-foreground")}>
+                    {item.name}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] text-muted-foreground">
+                    ${(item.sellPrice * 1000).toFixed(2)}/M
+                  </span>
+                  {quantity > 0 && (
+                    <span className={cn("text-xs font-bold", isAdded ? "text-purple-600 dark:text-purple-400" : "text-foreground")}>
+                      {formatCurrency(totalCost)}
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -450,11 +450,12 @@ function ListRentalTable({
 }) {
   return (
     <div className="divide-y divide-border/50">
-      <div className="grid grid-cols-[1fr_70px_55px_65px_80px_60px_24px] gap-1.5 px-4 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wide bg-purple-50/50 dark:bg-purple-950/10">
+      <div className="grid grid-cols-[1fr_70px_55px_70px_70px_80px_60px_24px] gap-1.5 px-4 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wide bg-purple-50/50 dark:bg-purple-950/10">
         <span>List Name</span>
-        <span className="text-right">Rate</span>
+        <span className="text-right">Rate/M</span>
         <span className="text-right">Mkup%</span>
-        <span className="text-right">Sell</span>
+        <span className="text-right">Cost/M</span>
+        <span className="text-right">Sell/M</span>
         <span className="text-right">Count</span>
         <span>File</span>
         <span />
@@ -496,7 +497,7 @@ function ListRentalRow({
   return (
     <div className="px-4 py-1.5 space-y-1">
       {/* Main row */}
-      <div className="grid grid-cols-[1fr_70px_55px_65px_80px_60px_24px] gap-1.5 items-center">
+      <div className="grid grid-cols-[1fr_70px_55px_70px_70px_80px_60px_24px] gap-1.5 items-center">
         <div className="flex items-center gap-1">
           <Input
             value={item.name}
@@ -507,11 +508,11 @@ function ListRentalRow({
         </div>
         <Input
           type="number"
-          value={item.costPerUnit || ""}
-          onChange={(e) => onUpdate(item.id, { costPerUnit: parseFloat(e.target.value) || 0 })}
+          value={item.costPerUnit ? (item.costPerUnit * 1000).toFixed(2) : ""}
+          onChange={(e) => onUpdate(item.id, { costPerUnit: (parseFloat(e.target.value) || 0) / 1000 })}
           className="h-6 text-[11px] px-1 text-right"
-          placeholder="$/name"
-          step="0.001"
+          placeholder="$/1000"
+          step="1"
         />
         <Input
           type="number"
@@ -521,8 +522,11 @@ function ListRentalRow({
           placeholder="0"
           step="1"
         />
+        <div className="text-[11px] text-right text-muted-foreground">
+          {item.costPerUnit > 0 ? `$${(item.costPerUnit * 1000).toFixed(2)}` : "--"}
+        </div>
         <div className="text-[11px] font-semibold text-right text-foreground">
-          {item.sellPrice > 0 ? `$${item.sellPrice.toFixed(4)}` : "--"}
+          {item.sellPrice > 0 ? `$${(item.sellPrice * 1000).toFixed(2)}` : "--"}
         </div>
         <div className="flex items-center gap-1">
           <Input
