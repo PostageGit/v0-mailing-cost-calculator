@@ -797,31 +797,60 @@ function ServiceRow({
       </span>
 
       {/* Qty */}
-      <div className="w-20 shrink-0">
-        {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" || item.priceUnit === "name/mailing" ? (
-          <div className="relative">
-            <Input
-              type="number"
-              min={1}
-              max={isListRental && maxQty ? maxQty : undefined}
-              className={cn(
-                "h-8 text-sm text-right px-2 w-full",
-                isListRental && maxQty && "pr-1"
-              )}
-              value={effectiveQty}
-              onChange={(e) => {
-                let val = parseInt(e.target.value) || 1
-                if (isListRental && maxQty && val > maxQty) val = maxQty
-                onSetQty(val)
-              }}
-              placeholder={defaultQty.toString()}
-            />
-            {isListRental && maxQty && (
-              <span className="absolute -bottom-3 right-0 text-[9px] text-muted-foreground">
-                max {maxQty.toLocaleString()}
-              </span>
-            )}
+      <div className={cn("shrink-0", isListRental && maxQty ? "w-28" : "w-20")}>
+        {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" ? (
+          <Input
+            type="number"
+            min={1}
+            className="h-8 text-sm text-right px-2 w-full"
+            value={effectiveQty}
+            onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
+            placeholder={defaultQty.toString()}
+          />
+        ) : isListRental && maxQty ? (
+          // List rental with nameCount: show "Full List" toggle or qty input
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSetQty(maxQty)}
+                className={cn(
+                  "px-2 py-1 rounded text-[10px] font-semibold transition-all whitespace-nowrap",
+                  effectiveQty === maxQty
+                    ? "bg-purple-500 text-white"
+                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                )}
+              >
+                All {maxQty.toLocaleString()}
+              </button>
+              <Input
+                type="number"
+                min={1}
+                max={maxQty}
+                className={cn(
+                  "h-7 text-xs text-right px-1 w-16",
+                  effectiveQty === maxQty && "opacity-50"
+                )}
+                value={effectiveQty === maxQty ? "" : effectiveQty}
+                onChange={(e) => {
+                  let val = parseInt(e.target.value) || 0
+                  if (val > maxQty) val = maxQty
+                  if (val > 0) onSetQty(val)
+                }}
+                placeholder="partial"
+              />
+            </div>
           </div>
+        ) : isListRental ? (
+          // List rental without nameCount: just show qty input
+          <Input
+            type="number"
+            min={1}
+            className="h-8 text-sm text-right px-2 w-full"
+            value={effectiveQty}
+            onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
+            placeholder={mailingQty.toString()}
+          />
         ) : (
           <span className="block text-center text-xs text-muted-foreground">
             {item.pricingRule === "per1000_after_1000"
