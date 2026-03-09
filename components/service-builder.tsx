@@ -552,18 +552,23 @@ function ServiceRow({
 
       {/* Unit */}
       <span className="w-16 shrink-0 text-xs text-muted-foreground text-center">
-        {item.pricingRule === "addressing_bracket" || item.pricingRule === "tabbing_bracket" ? "tiered" : formatPriceUnit(item.priceUnit)}
+        {item.pricingRule === "addressing_bracket" || item.pricingRule === "tabbing_bracket" 
+          ? "tiered" 
+          : item.priceUnit === "name/mailing" 
+            ? "per name" 
+            : formatPriceUnit(item.priceUnit)}
       </span>
 
       {/* Qty */}
-      <div className="w-14 shrink-0">
-        {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" ? (
+      <div className="w-20 shrink-0">
+        {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" || item.priceUnit === "name/mailing" ? (
           <Input
             type="number"
             min={1}
-            className="h-8 text-sm text-center px-1 w-full"
+            className="h-8 text-sm text-right px-2 w-full"
             value={effectiveQty}
             onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
+            placeholder={mailingQty.toString()}
           />
         ) : (
           <span className="block text-center text-xs text-muted-foreground">
