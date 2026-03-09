@@ -1046,15 +1046,20 @@ function Tab1LettersFlats() {
           <div className="flex items-baseline gap-5">
             <div>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5">Avg Per Piece</span>
-              <span className="text-2xl font-bold font-mono tabular-nums">
-                {result.isValid && weightedResult ? formatPostageRate(weightedResult.avgPerPiece + parsedBuffer / 100) : isRetail && result.isValid ? formatPostageRate(result.avgPerPiece + parsedBuffer / 100) : "---"}
+              <span className={cn("text-2xl font-bold font-mono tabular-nums", avgOverride !== null && "text-pink-600 dark:text-pink-400")}>
+                {result.isValid && weightedResult 
+                  ? formatPostageRate((avgOverride !== null ? avgOverride : weightedResult.avgPerPiece) + parsedBuffer / 100) 
+                  : isRetail && result.isValid 
+                    ? formatPostageRate(result.avgPerPiece + parsedBuffer / 100) 
+                    : "---"}
               </span>
+              {avgOverride !== null && <span className="text-[9px] text-pink-500 block">custom</span>}
             </div>
             <div>
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5">Total</span>
-              <span className="text-lg font-bold font-mono tabular-nums text-muted-foreground">
+              <span className={cn("text-lg font-bold font-mono tabular-nums", avgOverride !== null ? "text-pink-600 dark:text-pink-400" : "text-muted-foreground")}>
                 {result.isValid && weightedResult
-                  ? formatCurrency(weightedResult.grandTotal + (parsedBuffer / 100) * weightedResult.totalQty)
+                  ? formatCurrency((avgOverride !== null ? avgOverride * inputs.quantity : weightedResult.grandTotal) + (parsedBuffer / 100) * inputs.quantity)
                   : isRetail && result.isValid
                     ? formatCurrency((result.avgPerPiece + parsedBuffer / 100) * inputs.quantity)
                     : "$0.00"}
