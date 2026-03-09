@@ -43,10 +43,12 @@ export function PrintingForm({
   currentResult,
   ohpMode,
 }: PrintingFormProps) {
-  const { papers } = useFlatPrintingPapers()
+  const { papers, isLoading, error } = useFlatPrintingPapers()
   const paperOptions = papersToOptions(papers)
   const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
   const v = useFormValidation()
+  
+  console.log("[v0] Flat printing papers:", { papersCount: papers.length, isLoading, error, paperOptions: paperOptions.slice(0, 3) })
 
   function handlePaperChange(value: string) {
     const newSides = getAvailableSides(value)
