@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import useSWR, { mutate } from "swr"
-import { Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronRight, Power, PowerOff } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Check, ChevronDown, ChevronRight, Power, PowerOff, GripVertical, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -68,6 +68,33 @@ export function PapersSettings() {
     mutate("/api/papers?active=false")
   }
 
+  const handleReorder = async (category: string, paperId: string, direction: "up" | "down") => {
+    const catPapers = groupedPapers[category] || []
+    const idx = catPapers.findIndex((p) => p.id === paperId)
+    if (idx === -1) return
+    if (direction === "up" && idx === 0) return
+    if (direction === "down" && idx === catPapers.length - 1) return
+
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1
+    const currentPaper = catPapers[idx]
+    const swapPaper = catPapers[swapIdx]
+
+    // Swap sort_order values
+    await Promise.all([
+      fetch(`/api/papers/${currentPaper.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_order: swapPaper.sort_order }),
+      }),
+      fetch(`/api/papers/${swapPaper.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_order: currentPaper.sort_order }),
+      }),
+    ])
+    mutate("/api/papers?active=false")
+  }
+
   if (isLoading) return <div className="text-sm text-muted-foreground py-8 text-center">Loading papers...</div>
 
   return (
@@ -124,9 +151,29 @@ export function PapersSettings() {
                         />
                       ) : (
                         <div className={cn(
-                          "flex items-center gap-3 px-3 py-2",
+                          "flex items-center gap-2 px-3 py-2",
                           !paper.active && "opacity-50 bg-secondary/20"
                         )}>
+                          {/* Sort buttons */}
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              onClick={() => handleReorder(cat.value, paper.id, "up")}
+                              className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                              disabled={catPapers.indexOf(paper) === 0}
+                              title="Move up"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => handleReorder(cat.value, paper.id, "down")}
+                              className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                              disabled={catPapers.indexOf(paper) === catPapers.length - 1}
+                              title="Move down"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </button>
+                          </div>
+
                           <button
                             onClick={() => handleToggleActive(paper)}
                             className={cn(
