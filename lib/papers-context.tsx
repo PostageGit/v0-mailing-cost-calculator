@@ -5,17 +5,24 @@ import useSWR from "swr"
 import type { Paper } from "./use-papers"
 import { setDynamicPaperPrices } from "./pricing-config"
 
+type PaperUseFor = "flat_printing" | "book_cover" | "book_inside" | "coil_cover" | "coil_inside" | "spiral_cover" | "spiral_inside" | "pad"
+
 interface PapersContextValue {
   papers: Paper[]
   flatPrintingPapers: Paper[]
   bookCoverPapers: Paper[]
   bookInsidePapers: Paper[]
+  coilCoverPapers: Paper[]
+  coilInsidePapers: Paper[]
+  spiralCoverPapers: Paper[]
+  spiralInsidePapers: Paper[]
+  padPapers: Paper[]
   isLoading: boolean
   error: unknown
   refresh: () => void
   // Helper functions
-  getPaperOptions: (useFor: "flat_printing" | "book_cover" | "book_inside") => { name: string; isCardstock: boolean; thickness: number; availableSizes: string[] }[]
-  getPaperPrices: (useFor?: "flat_printing" | "book_cover" | "book_inside") => Record<string, Record<string, number>>
+  getPaperOptions: (useFor: PaperUseFor) => { name: string; isCardstock: boolean; thickness: number; availableSizes: string[] }[]
+  getPaperPrices: (useFor?: PaperUseFor) => Record<string, Record<string, number>>
   getPaperPrice: (paperName: string, size: string) => number
 }
 
@@ -44,13 +51,30 @@ export function PapersProvider({ children }: { children: ReactNode }) {
   const flatPrintingPapers = allPapers.filter((p) => p.use_in_flat_printing)
   const bookCoverPapers = allPapers.filter((p) => p.use_in_book_cover)
   const bookInsidePapers = allPapers.filter((p) => p.use_in_book_inside)
+  const coilCoverPapers = allPapers.filter((p) => p.use_in_coil_cover)
+  const coilInsidePapers = allPapers.filter((p) => p.use_in_coil_inside)
+  const spiralCoverPapers = allPapers.filter((p) => p.use_in_spiral_cover)
+  const spiralInsidePapers = allPapers.filter((p) => p.use_in_spiral_inside)
+  const padPapers = allPapers.filter((p) => p.use_in_pad)
+
+  // Helper to get papers by usage type
+  const getPapersByUseFor = (useFor: PaperUseFor) => {
+    switch (useFor) {
+      case "flat_printing": return flatPrintingPapers
+      case "book_cover": return bookCoverPapers
+      case "book_inside": return bookInsidePapers
+      case "coil_cover": return coilCoverPapers
+      case "coil_inside": return coilInsidePapers
+      case "spiral_cover": return spiralCoverPapers
+      case "spiral_inside": return spiralInsidePapers
+      case "pad": return padPapers
+      default: return allPapers
+    }
+  }
   
   // Convert to options format for dropdowns
-  const getPaperOptions = (useFor: "flat_printing" | "book_cover" | "book_inside") => {
-    const filtered = useFor === "flat_printing" ? flatPrintingPapers
-      : useFor === "book_cover" ? bookCoverPapers
-      : bookInsidePapers
-    return filtered.map((p) => ({
+  const getPaperOptions = (useFor: PaperUseFor) => {
+    return getPapersByUseFor(useFor).map((p) => ({
       name: p.name,
       isCardstock: p.is_cardstock,
       thickness: p.thickness,
@@ -59,12 +83,8 @@ export function PapersProvider({ children }: { children: ReactNode }) {
   }
   
   // Convert to prices lookup format
-  const getPaperPrices = (useFor?: "flat_printing" | "book_cover" | "book_inside") => {
-    const filtered = useFor 
-      ? (useFor === "flat_printing" ? flatPrintingPapers
-        : useFor === "book_cover" ? bookCoverPapers
-        : bookInsidePapers)
-      : allPapers
+  const getPaperPrices = (useFor?: PaperUseFor) => {
+    const filtered = useFor ? getPapersByUseFor(useFor) : allPapers
     return filtered.reduce((acc, p) => {
       acc[p.name] = p.prices
       return acc
@@ -83,6 +103,11 @@ export function PapersProvider({ children }: { children: ReactNode }) {
       flatPrintingPapers,
       bookCoverPapers,
       bookInsidePapers,
+      coilCoverPapers,
+      coilInsidePapers,
+      spiralCoverPapers,
+      spiralInsidePapers,
+      padPapers,
       isLoading,
       error,
       refresh: mutate,
@@ -104,6 +129,11 @@ export function usePapersContext() {
       flatPrintingPapers: [],
       bookCoverPapers: [],
       bookInsidePapers: [],
+      coilCoverPapers: [],
+      coilInsidePapers: [],
+      spiralCoverPapers: [],
+      spiralInsidePapers: [],
+      padPapers: [],
       isLoading: true,
       error: null,
       refresh: () => {},

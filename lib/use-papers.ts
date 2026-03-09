@@ -16,11 +16,21 @@ export interface Paper {
   use_in_flat_printing: boolean
   use_in_book_cover: boolean
   use_in_book_inside: boolean
+  use_in_coil_cover: boolean
+  use_in_coil_inside: boolean
+  use_in_spiral_cover: boolean
+  use_in_spiral_inside: boolean
+  use_in_pad: boolean
   notes: string | null
   sort_order: number
 }
 
-export type PaperUseFor = "flat_printing" | "book_cover" | "book_inside"
+export type PaperUseFor = 
+  | "flat_printing" 
+  | "book_cover" | "book_inside" 
+  | "coil_cover" | "coil_inside" 
+  | "spiral_cover" | "spiral_inside" 
+  | "pad"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -68,6 +78,31 @@ export function useBookCoverPapers() {
 /** Get papers for book inside pages (booklet, saddle stitch, perfect bind) */
 export function useBookInsidePapers() {
   return usePapers({ useFor: "book_inside" })
+}
+
+/** Get papers for coil bound covers */
+export function useCoilCoverPapers() {
+  return usePapers({ useFor: "coil_cover" })
+}
+
+/** Get papers for coil bound inside pages */
+export function useCoilInsidePapers() {
+  return usePapers({ useFor: "coil_inside" })
+}
+
+/** Get papers for spiral bound covers */
+export function useSpiralCoverPapers() {
+  return usePapers({ useFor: "spiral_cover" })
+}
+
+/** Get papers for spiral bound inside pages */
+export function useSpiralInsidePapers() {
+  return usePapers({ useFor: "spiral_inside" })
+}
+
+/** Get papers for pads/notepads */
+export function usePadPapers() {
+  return usePapers({ useFor: "pad" })
 }
 
 /**
