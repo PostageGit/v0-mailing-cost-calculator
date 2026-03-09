@@ -57,8 +57,11 @@ export function PrintingForm({
 
   // Direct click handler - bypass form submission entirely
   function handleCalculateClick() {
+    console.log("[v0] handleCalculateClick called")
     v.markAttempted()
+    console.log("[v0] Calling onCalculate prop...")
     onCalculate()
+    console.log("[v0] onCalculate finished")
   }
 
   function handleResetClick() {
@@ -268,7 +271,10 @@ export function PrintingForm({
         ) : (
           <Button
             type="button"
-            onClick={handleCalculateClick}
+            onClick={() => {
+              console.log("[v0] CALCULATE BUTTON CLICKED!")
+              handleCalculateClick()
+            }}
             className={`flex-1 font-semibold ${
               isEditing
                 ? "bg-amber-500 hover:bg-amber-600 text-foreground"
