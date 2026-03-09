@@ -112,14 +112,14 @@ function QuoteItemRow({
   }
 
   return (
-    <div className="group flex items-start gap-3 py-3 px-3.5 rounded-xl hover:bg-secondary/40 transition-colors">
+    <div className="group flex items-start gap-2 py-2 px-2.5 rounded-lg hover:bg-secondary/30 transition-colors">
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground leading-snug">
+        <p className="text-xs font-semibold text-foreground leading-snug">
           {item.label}
         </p>
         {item.metadata?.customerProvided && (
-          <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-[10px] font-bold text-amber-700 dark:text-amber-400 tracking-wide uppercase">
+          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/40 text-[9px] font-bold text-amber-700 dark:text-amber-400 tracking-wide uppercase">
             Customer Provides
             {item.metadata.providerExpectedDate && (
               <span className="font-semibold normal-case ml-0.5">
@@ -129,7 +129,7 @@ function QuoteItemRow({
           </span>
         )}
         {item.description && (
-          <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">
+          <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-1">
             {item.description}
           </p>
         )}
@@ -187,24 +187,24 @@ function QuoteItemRow({
       </div>
 
       {/* Amount + hover actions */}
-      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-        <span className="text-sm font-mono font-bold text-foreground tabular-nums">
+      <div className="flex items-center gap-1 shrink-0">
+        <span className="text-xs font-mono font-bold text-foreground tabular-nums">
           {formatCurrency(item.amount)}
         </span>
-        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => setEditing(true)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             aria-label={`Edit ${item.label}`}
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-3 w-3" />
           </button>
           <button
             onClick={() => onRemove(item.id)}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             aria-label={`Remove ${item.label}`}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-3 w-3" />
           </button>
         </div>
       </div>
@@ -304,46 +304,46 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   return (
     <div className="rounded-2xl bg-card border border-border flex flex-col h-full overflow-hidden">
       {/* ── Header ── */}
-      <div className="px-5 pt-5 pb-4 border-b border-border/50 shrink-0">
+      <div className="px-4 py-3 border-b border-border/50 shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-3">
-            <h2 className="text-base font-bold text-foreground">Quote</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-foreground">Quote</h2>
             {quoteNumber && (
-              <span className="text-xs font-mono font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-md">
+              <span className="text-[11px] font-mono font-semibold text-muted-foreground bg-secondary/60 px-2 py-0.5 rounded">
                 Q-{quoteNumber}
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-3">
             {saveText && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 {isSaving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <Cloud className="h-3.5 w-3.5 text-emerald-500" />
+                  <Cloud className="h-3 w-3 text-emerald-500" />
                 )}
                 {saveText}
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-2">
             {hasItems && !confirmClear && (
               <button
                 onClick={() => setConfirmClear(true)}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium"
+                className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
               >
                 Clear
               </button>
             )}
             {confirmClear && (
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => { clearAll(); setConfirmClear(false) }}
-                  className="text-xs font-bold text-destructive hover:underline"
+                  className="text-[11px] font-semibold text-destructive hover:underline"
                 >
                   Confirm
                 </button>
                 <button
                   onClick={() => setConfirmClear(false)}
-                  className="text-xs text-muted-foreground hover:underline font-medium"
+                  className="text-[11px] text-muted-foreground hover:underline"
                 >
                   Cancel
                 </button>
@@ -355,42 +355,34 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
 
       {/* ── Items ── */}
       <div
-        className="flex-1 min-h-0 overflow-y-auto px-4 py-4"
+        className="flex-1 min-h-0 overflow-y-auto px-3 py-3"
         style={{ overscrollBehavior: "contain" }}
       >
         {!hasItems ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="rounded-2xl bg-secondary/40 p-5 mb-4">
-                <FileText className="h-7 w-7 text-muted-foreground/25" />
-              </div>
-              <p className="text-sm font-semibold text-foreground/80 mb-1">No items yet</p>
-              <p className="text-[13px] text-muted-foreground/60 max-w-[220px] leading-relaxed">
-                Add items from any calculator to start building your quote.
-              </p>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 py-6 px-4 text-center justify-center">
+              <FileText className="h-5 w-5 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">No items yet</p>
             </div>
             {/* Show skipped steps even when no items */}
             {pendingSteps?.filter((s) => s.status === "skipped").map((s) => (
-              <div key={`skip-${s.id}`}>
-                <button
-                  onClick={() => onGoToStep?.(s.id)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-amber-300 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <SkipForward className="h-3.5 w-3.5 text-amber-400" />
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-900/20">
-                      {s.label}
-                    </span>
-                  </div>
-                  <span className="text-[11px] italic text-amber-500/70 dark:text-amber-500/50">
-                    Unfinished
+              <button
+                key={`skip-${s.id}`}
+                onClick={() => onGoToStep?.(s.id)}
+                className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-amber-300 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <SkipForward className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    {s.label}
                   </span>
-                </button>
-              </div>
+                </div>
+                <span className="text-[11px] text-amber-500">Unfinished</span>
+              </button>
             ))}
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             {CATEGORIES.map((cat) => {
               const catItems = items.filter((i) => i.category === cat)
               if (catItems.length === 0) return null
@@ -402,32 +394,32 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                   {/* Category header */}
                   <button
                     onClick={() => toggleCat(cat)}
-                    className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl bg-secondary/40 hover:bg-secondary/60 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors"
                   >
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2">
                       {collapsed ? (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
-                      <span className={`text-sm font-bold px-2.5 py-1 rounded-lg ${getCategoryColor(cat)}`}>
+                      <span className={`text-xs font-bold ${getCategoryColor(cat).replace('px-2.5 py-1 rounded-lg', '').trim()}`}>
                         {getCategoryLabel(cat)}
                       </span>
-                      {catItems.some((i) => i.metadata?.isEstimated) && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 uppercase tracking-wide">Est.</span>
-                      )}
-                      <span className="text-sm text-muted-foreground tabular-nums font-medium">
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
                         {catItems.length}
                       </span>
+                      {catItems.some((i) => i.metadata?.isEstimated) && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 uppercase">Est</span>
+                      )}
                     </div>
-                    <span className="text-base font-mono font-bold text-foreground tabular-nums">
+                    <span className="text-sm font-mono font-bold text-foreground tabular-nums">
                       {formatCurrency(catTotal)}
                     </span>
                   </button>
 
                   {/* Items list */}
                   {!collapsed && (
-                    <div className="flex flex-col mt-1">
+                    <div className="flex flex-col">
                       {catItems.map((item) => (
                         <QuoteItemRow
                           key={item.id}
@@ -444,22 +436,19 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
 
             {/* Skipped / unfinished step sections */}
             {pendingSteps?.filter((s) => s.status === "skipped").map((s) => (
-              <div key={`skip-${s.id}`}>
-                <button
-                  onClick={() => onGoToStep?.(s.id)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-dashed border-amber-300 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <SkipForward className="h-3.5 w-3.5 text-amber-400" />
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-900/20">
-                      {s.label}
-                    </span>
-                  </div>
-                  <span className="text-[11px] italic text-amber-500/70 dark:text-amber-500/50">
-                    Unfinished
+              <button
+                key={`skip-${s.id}`}
+                onClick={() => onGoToStep?.(s.id)}
+                className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-amber-300 dark:border-amber-700/50 bg-amber-50/40 dark:bg-amber-950/10 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <SkipForward className="h-3.5 w-3.5 text-amber-500" />
+                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    {s.label}
                   </span>
-                </button>
-              </div>
+                </div>
+                <span className="text-[11px] text-amber-500">Unfinished</span>
+              </button>
             ))}
           </div>
         )}
@@ -470,39 +459,36 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
 
       {/* ── Footer with total ── */}
       {hasItems && (
-        <div className="shrink-0 border-t border-border/50 px-5 py-5">
+        <div className="shrink-0 border-t border-border/50 px-4 py-4">
           {/* Total */}
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-bold text-foreground">Total</span>
-            <span className="text-2xl font-bold font-mono text-foreground tabular-nums tracking-tight">
+            <span className="text-xl font-bold font-mono text-foreground tabular-nums">
               {formatCurrency(total)}
             </span>
           </div>
 
           {/* Activity Log */}
           {activityLog.length > 0 && (
-            <div className="mb-4">
+            <div className="mb-3">
               <button
                 onClick={() => setShowLog(!showLog)}
-                className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-2"
+                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors mb-1.5"
               >
-                <Clock className="h-3.5 w-3.5" />
+                <Clock className="h-3 w-3" />
                 Activity ({activityLog.length})
                 {showLog ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               </button>
               {showLog && (
-                <div className="flex flex-col gap-2 max-h-36 overflow-y-auto rounded-lg bg-secondary/30 p-3">
+                <div className="flex flex-col gap-1.5 max-h-28 overflow-y-auto rounded-lg bg-secondary/40 p-2">
                   {activityLog.map((entry) => (
-                    <div key={entry.id} className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0" />
+                    <div key={entry.id} className="flex items-start gap-1.5">
+                      <div className="w-1 h-1 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-foreground font-medium leading-snug">
+                        <p className="text-[11px] text-foreground leading-tight">
                           {formatEvent(entry.event)}
                         </p>
-                        {entry.detail && (
-                          <p className="text-[11px] text-muted-foreground truncate">{entry.detail}</p>
-                        )}
-                        <p className="text-[11px] text-muted-foreground/70 tabular-nums">
+                        <p className="text-[10px] text-muted-foreground tabular-nums">
                           {formatLogDate(entry.created_at)}
                         </p>
                       </div>
@@ -514,50 +500,50 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
           )}
 
           {/* Actions */}
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             {onGoToExport && items.length > 0 && (
               <Button
                 size="sm"
-                className="w-full gap-2 text-sm h-11 rounded-xl font-bold bg-foreground text-background hover:bg-foreground/90"
+                className="w-full gap-1.5 text-xs h-9 rounded-lg font-bold bg-foreground text-background hover:bg-foreground/90"
                 onClick={handleFinishAndSend}
                 disabled={sending}
               >
                 {sending ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
                 ) : (
-                  <><Send className="h-4 w-4" /> Finish &amp; Send to Export</>
+                  <><Send className="h-3.5 w-3.5" /> Finish &amp; Send to Export</>
                 )}
               </Button>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <Button
                 variant={copied ? "default" : "secondary"}
                 size="sm"
-                className="flex-1 gap-2 text-sm h-10 rounded-xl font-semibold"
+                className="flex-1 gap-1.5 text-xs h-8 rounded-lg font-semibold"
                 onClick={handleCopy}
               >
                 {copied ? (
-                  <><Check className="h-4 w-4" /> Copied!</>
+                  <><Check className="h-3.5 w-3.5" /> Copied</>
                 ) : (
-                  <><ClipboardCopy className="h-4 w-4" /> Copy to Email</>
+                  <><ClipboardCopy className="h-3.5 w-3.5" /> Email</>
                 )}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                className="gap-2 text-sm h-10 rounded-xl font-semibold"
+                className="gap-1.5 text-xs h-8 rounded-lg font-semibold"
                 onClick={handleDownloadPDF}
                 title="Download PDF quote"
               >
-                <Download className="h-4 w-4" /> PDF
+                <Download className="h-3.5 w-3.5" /> PDF
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                className="gap-2 text-sm h-10 rounded-xl font-semibold"
+                className="gap-1.5 text-xs h-8 rounded-lg font-semibold"
                 onClick={newQuote}
               >
-                <FilePlus className="h-4 w-4" /> New
+                <FilePlus className="h-3.5 w-3.5" /> New
               </Button>
             </div>
           </div>
