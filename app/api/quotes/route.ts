@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const isJob = searchParams.get("is_job")
   const archived = searchParams.get("archived")
+  const voided = searchParams.get("voided")
   const search = searchParams.get("search")
 
   let query = supabase
@@ -30,6 +31,16 @@ export async function GET(request: Request) {
   } else {
     // Default: hide archived
     query = query.eq("archived", false)
+  }
+
+  // Filter voided quotes - default is to hide voided
+  if (voided === "true") {
+    query = query.eq("voided", true)
+  } else if (voided === "false") {
+    query = query.eq("voided", false)
+  } else {
+    // Default: hide voided (voided quotes preserved but not shown)
+    query = query.or("voided.is.null,voided.eq.false")
   }
 
   if (search) {

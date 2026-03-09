@@ -15,7 +15,7 @@ import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
 import {
-  FileText, Trash2, ArrowRight, ArrowLeft,
+  FileText, Trash2, ArrowRight, ArrowLeft, Ban,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
@@ -994,11 +994,11 @@ function MailDatePicker({ value, onChange }: { value: string; onChange: (v: stri
    ════════════════════════════════════════════════════ */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn,
-}: {
+  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn,
+  }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
-  onDelete: (id: string) => void
+  onVoid: (id: string, reason?: string) => void
   onArchive: (id: string) => void
   onRestore: (id: string) => void
   onEdit: (id: string) => void
@@ -1345,19 +1345,19 @@ function QuoteCard({
                   <Archive className="h-3.5 w-3.5" />
                 </button>
               )}
-              {confirmDel ? (
-                <div className="flex items-center gap-1 ml-1">
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(quote.id) }}
-                    className="h-7 px-2 text-[11px] font-semibold text-destructive-foreground bg-destructive rounded-md hover:bg-destructive/90">Delete</button>
-                  <button onClick={(e) => { e.stopPropagation(); setConfirmDel(false) }}
-                    className="h-7 px-2 text-[11px] text-muted-foreground rounded-md hover:bg-background">Cancel</button>
-                </div>
-              ) : (
-                <button onClick={(e) => { e.stopPropagation(); setConfirmDel(true) }}
-                  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20" title="Delete">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
+{confirmDel ? (
+  <div className="flex items-center gap-1 ml-1">
+  <button onClick={(e) => { e.stopPropagation(); onVoid(quote.id) }}
+  className="h-7 px-2 text-[11px] font-semibold text-destructive-foreground bg-destructive rounded-md hover:bg-destructive/90">Void</button>
+  <button onClick={(e) => { e.stopPropagation(); setConfirmDel(false) }}
+  className="h-7 px-2 text-[11px] text-muted-foreground rounded-md hover:bg-background">Cancel</button>
+  </div>
+  ) : (
+  <button onClick={(e) => { e.stopPropagation(); setConfirmDel(true) }}
+  className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 border border-transparent hover:border-amber-300" title="Void">
+  <Ban className="h-3.5 w-3.5" />
+  </button>
+  )}
             </div>
           </div>
 
@@ -1898,9 +1898,9 @@ function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, bo
   )
 }
 
-function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType }: {
+function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
-  onColumnChange: (id: string, colId: string) => void; onDelete: (id: string) => void
+  onColumnChange: (id: string, colId: string) => void; onVoid: (id: string, reason?: string) => void
   onArchive: (id: string) => void; onRestore: (id: string) => void; onEdit: (id: string) => void
   onConvertToJob?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void
   onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void; boardType: "quote" | "job"
@@ -1933,12 +1933,12 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onDelete, on
           <div className="flex items-center justify-center flex-1 min-h-[60px]">
             <p className="text-[10px] text-muted-foreground/30">{dragOver ? "Drop here" : "Empty"}</p>
           </div>
-        ) : quotes.map((q) => (
-          <QuoteCard key={q.id} quote={q} columns={allColumns}
-            onColumnChange={onColumnChange} onDelete={onDelete} onArchive={onArchive}
-            onRestore={onRestore} onEdit={onEdit} onConvertToJob={onConvertToJob}
-            onPatch={onPatch} onReorder={onReorder} boardType={boardType} />
-        ))}
+  ) : quotes.map((q) => (
+  <QuoteCard key={q.id} quote={q} columns={allColumns}
+  onColumnChange={onColumnChange} onVoid={onVoid} onArchive={onArchive}
+  onRestore={onRestore} onEdit={onEdit} onConvertToJob={onConvertToJob}
+  onPatch={onPatch} onReorder={onReorder} boardType={boardType} />
+  ))}
       </div>
     </div>
   )
@@ -2000,7 +2000,14 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
     refreshAll()
   }, [refreshAll])
 
-  const handleDelete = useCallback(async (id: string) => { await fetch(`/api/quotes/${id}`, { method: "DELETE" }); refreshAll() }, [refreshAll])
+  const handleVoid = useCallback(async (id: string, reason?: string) => { 
+    await fetch(`/api/quotes/${id}`, { 
+      method: "DELETE", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }) 
+    })
+    refreshAll() 
+  }, [refreshAll])
 
   const handleArchive = useCallback(async (id: string) => {
     await fetch(`/api/quotes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: true, archived_at: new Date().toISOString() }) })
@@ -2275,13 +2282,13 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             <p className="text-[9px] text-muted-foreground/50 py-3 text-center">No archived {label.toLowerCase()}s</p>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
-              {filteredArchived.map((q) => (
-                <QuoteCard key={q.id} quote={q} columns={cols}
-                  onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                  onRestore={handleRestore} onPatch={handlePatch}
-                  onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
-                  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                  boardType={boardType} isArchived />
+{filteredArchived.map((q) => (
+  <QuoteCard key={q.id} quote={q} columns={cols}
+  onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+  onRestore={handleRestore} onPatch={handlePatch}
+  onEdit={(id) => { const found = filteredArchived.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+  boardType={boardType} isArchived />
               ))}
             </div>
           )}
@@ -2295,12 +2302,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             {cols.map((col) => {
               const colQuotes = filteredQuotes.filter((q) => q.column_id === col.id)
               return (
-                <DroppableColumn key={col.id} col={col} quotes={colQuotes} allColumns={cols}
-                  onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
-                  onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
-                  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                  boardType={boardType} />
+  <DroppableColumn key={col.id} col={col} quotes={colQuotes} allColumns={cols}
+  onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
+  onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
+  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+  boardType={boardType} />
               )
             })}
           </div>
@@ -2314,12 +2321,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           {filteredQuotes.map((q) => {
             const col = cols.find((c) => c.id === q.column_id)
             return (
-              <QuoteCard key={q.id} quote={q} columns={cols}
-                onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
-                onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
-                onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                boardType={boardType} listColumn={col} />
+  <QuoteCard key={q.id} quote={q} columns={cols}
+  onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
+  onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+  boardType={boardType} listColumn={col} />
             )
           })}
         </div>
@@ -2405,13 +2412,13 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                 }
                 return (
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
-                    {cardsToShow.map((q) => (
-                      <QuoteCard key={q.id} quote={q} columns={cols}
-                        onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                        onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
-                        onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
-                        onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                        boardType={boardType} />
+{cardsToShow.map((q) => (
+  <QuoteCard key={q.id} quote={q} columns={cols}
+  onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
+  onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+  boardType={boardType} />
                     ))}
                   </div>
                 )
@@ -2433,13 +2440,13 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               <span className="text-[9px] font-mono text-muted-foreground/50">{unassigned.length}</span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5">
-              {unassigned.map((q) => (
-                <QuoteCard key={q.id} quote={q} columns={cols}
-                  onColumnChange={handleColumnChange} onDelete={handleDelete} onArchive={handleArchive}
-                  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
-                  onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
-                  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                  boardType={boardType} />
+{unassigned.map((q) => (
+  <QuoteCard key={q.id} quote={q} columns={cols}
+  onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
+  onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
+  onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+  boardType={boardType} />
               ))}
             </div>
           </div>

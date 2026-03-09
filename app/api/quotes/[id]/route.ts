@@ -51,6 +51,9 @@ export async function PATCH(
   if (body.converted_at !== undefined) updates.converted_at = body.converted_at
   if (body.archived !== undefined) updates.archived = body.archived
   if (body.archived_at !== undefined) updates.archived_at = body.archived_at
+  if (body.voided !== undefined) updates.voided = body.voided
+  if (body.voided_at !== undefined) updates.voided_at = body.voided_at
+  if (body.voided_reason !== undefined) updates.voided_reason = body.voided_reason
   if (body.job_meta !== undefined) {
     // Merge with existing job_meta instead of replacing
     const { data: existing } = await supabase.from("quotes").select("job_meta").eq("id", id).single()
@@ -91,18 +94,38 @@ export async function PATCH(
   return NextResponse.json(data)
 }
 
-// DELETE a quote
+// DELETE a quote - now voids instead of deleting (preserves audit trail)
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   const supabase = await createSafeClient()
   if (!supabase) return DB_ERR
-  const { error } = await supabase.from("quotes").delete().eq("id", id)
+  
+  // Get optional reason from request body
+  let reason: string | null = null
+  try {
+    const body = await request.json()
+    reason = body.reason || null
+  } catch {
+    // No body provided, that's okay
+  }
+  
+  // Void the quote instead of deleting (soft delete with audit trail)
+  const { data, error } = await supabase
+    .from("quotes")
+    .update({ 
+      voided: true, 
+      voided_at: new Date().toISOString(),
+      voided_reason: reason
+    })
+    .eq("id", id)
+    .select()
+    .single()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, voided: true, data })
 }
