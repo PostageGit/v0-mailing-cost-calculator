@@ -797,7 +797,7 @@ function ServiceRow({
       </span>
 
       {/* Qty */}
-      <div className={cn("shrink-0", isListRental && maxQty ? "w-28" : "w-20")}>
+      <div className={cn("shrink-0", isListRental && maxQty ? "w-36" : "w-20")}>
         {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" ? (
           <Input
             type="number"
@@ -808,49 +808,55 @@ function ServiceRow({
             placeholder={defaultQty.toString()}
           />
         ) : isListRental && maxQty ? (
-          // List rental with nameCount: show "Full List" toggle or qty input
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
+          // List rental with nameCount: clear toggle between Full and Partial
+          <div className="flex flex-col">
+            <div className="flex items-center rounded-lg border border-border overflow-hidden h-8">
               <button
                 type="button"
                 onClick={() => onSetQty(maxQty)}
                 className={cn(
-                  "px-2 py-1 rounded text-[10px] font-semibold transition-all whitespace-nowrap",
+                  "h-full px-2.5 text-xs font-semibold transition-all border-r border-border whitespace-nowrap",
                   effectiveQty === maxQty
                     ? "bg-purple-500 text-white"
-                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    : "bg-background hover:bg-muted text-muted-foreground"
                 )}
+                title={`Use full list: ${maxQty.toLocaleString()} names`}
               >
-                All {maxQty.toLocaleString()}
+                Full
               </button>
-              <Input
-                type="number"
-                min={1}
-                max={maxQty}
-                className={cn(
-                  "h-7 text-xs text-right px-1 w-16",
-                  effectiveQty === maxQty && "opacity-50"
-                )}
-                value={effectiveQty === maxQty ? "" : effectiveQty}
-                onChange={(e) => {
-                  let val = parseInt(e.target.value) || 0
-                  if (val > maxQty) val = maxQty
-                  if (val > 0) onSetQty(val)
-                }}
-                placeholder="partial"
-              />
+              <div className="flex-1 flex items-center h-full bg-background">
+                <Input
+                  type="number"
+                  min={1}
+                  max={maxQty}
+                  className={cn(
+                    "h-full text-xs text-right px-2 border-0 rounded-none focus-visible:ring-0 bg-transparent",
+                    effectiveQty === maxQty ? "text-muted-foreground" : "font-semibold text-foreground"
+                  )}
+                  value={effectiveQty}
+                  onChange={(e) => {
+                    let val = parseInt(e.target.value) || 0
+                    if (val > maxQty) val = maxQty
+                    if (val > 0) onSetQty(val)
+                  }}
+                  placeholder={maxQty.toString()}
+                />
+                <span className="text-[9px] text-muted-foreground pr-1.5 whitespace-nowrap">/{maxQty.toLocaleString()}</span>
+              </div>
             </div>
           </div>
         ) : isListRental ? (
-          // List rental without nameCount: just show qty input
-          <Input
-            type="number"
-            min={1}
-            className="h-8 text-sm text-right px-2 w-full"
-            value={effectiveQty}
-            onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
-            placeholder={mailingQty.toString()}
-          />
+          // List rental without nameCount: just show qty input with label
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min={1}
+              className="h-8 text-sm text-right px-2 w-full"
+              value={effectiveQty}
+              onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
+              placeholder={mailingQty.toString()}
+            />
+          </div>
         ) : (
           <span className="block text-center text-xs text-muted-foreground">
             {item.pricingRule === "per1000_after_1000"
