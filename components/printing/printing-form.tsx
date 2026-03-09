@@ -62,12 +62,8 @@ export function PrintingForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    console.log("[v0] PrintingForm handleSubmit called, inputs:", JSON.stringify(inputs))
-    console.log("[v0] sidesValue:", inputs.sidesValue, "paperName:", inputs.paperName)
     v.markAttempted()
-    console.log("[v0] Calling onCalculate...")
     onCalculate()
-    console.log("[v0] onCalculate finished")
   }
 
   return (
@@ -270,12 +266,7 @@ export function PrintingForm({
               </Button>
             ) : (
             <Button
-              type="button"
-              onClick={(e) => {
-                console.log("[v0] Calculate button CLICKED")
-                e.preventDefault()
-                handleSubmit(e as unknown as React.FormEvent)
-              }}
+              type="submit"
               className={`flex-1 font-semibold ${
                 isEditing
                   ? "bg-amber-500 hover:bg-amber-600 text-foreground"
