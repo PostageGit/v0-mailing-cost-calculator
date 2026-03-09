@@ -34,7 +34,10 @@ import {
   type TierKey,
 } from "@/lib/usps-rates"
 import { getActiveConfig, sortMixKey } from "@/lib/pricing-config"
-import { Plus, ChevronDown, ChevronRight, Info, AlertCircle, AlertTriangle } from "lucide-react"
+import { Plus, ChevronDown, ChevronRight, Info, AlertCircle, AlertTriangle, BookOpen, Check } from "lucide-react"
+import useSWR from "swr"
+import type { SuppliersConfig, SupplyItem } from "@/lib/suppliers"
+import { DEFAULT_SUPPLIERS_CONFIG } from "@/lib/suppliers"
 import { cn } from "@/lib/utils"
 
 /* ── Compact pill ── */
@@ -1121,6 +1124,115 @@ function Tab1LettersFlats() {
           )}
         </div>
       </div>
+
+      {/* ── List Rentals Add-On Section ── */}
+      <ListRentalsAddOn quantity={inputs.quantity} />
+    </div>
+  )
+}
+
+// ─── List Rentals Add-On Component ───────────────────────────
+function ListRentalsAddOn({ quantity }: { quantity: number }) {
+  const quote = useQuote()
+  const [addedLists, setAddedLists] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState(false)
+
+  // Fetch supplier config for list rental prices
+  const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
+  const listRentals = useMemo(() => {
+    const cfg: SuppliersConfig = appSettings?.suppliers_config || DEFAULT_SUPPLIERS_CONFIG
+    return cfg.supplyItems.filter((item: SupplyItem) => item.type === "list_rental" && item.sellPrice > 0)
+  }, [appSettings])
+
+  const addListRental = useCallback((item: SupplyItem) => {
+    const totalCost = item.sellPrice * quantity
+    quote.addItem({
+      category: "item",
+      label: `List Rental - ${item.name}`,
+      description: `${quantity.toLocaleString()} names @ $${(item.sellPrice * 1000).toFixed(2)}/M`,
+      amount: totalCost,
+      metadata: { 
+        serviceId: `list-rent-${item.id}`, 
+        priceUnit: "name/mailing", 
+        unitPrice: item.sellPrice, 
+        qty: quantity,
+        listName: item.name
+      },
+    })
+    setAddedLists(prev => new Set(prev).add(item.id))
+  }, [quote, quantity])
+
+  if (listRentals.length === 0) return null
+
+  return (
+    <div className="rounded-2xl border-2 border-purple-200 dark:border-purple-800/40 bg-purple-50/50 dark:bg-purple-950/20 p-4 sm:p-5">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between"
+      >
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-purple-500 p-2">
+            <BookOpen className="h-5 w-5 text-white" />
+          </div>
+          <div className="text-left">
+            <h4 className="text-sm font-bold text-foreground">Need a Mailing List?</h4>
+            <p className="text-xs text-muted-foreground">Add list rentals to your quote</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {addedLists.size > 0 && (
+            <span className="rounded-full bg-purple-500 text-white px-2.5 py-0.5 text-xs font-bold">
+              {addedLists.size} added
+            </span>
+          )}
+          {expanded ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {listRentals.map((item: SupplyItem) => {
+            const isAdded = addedLists.has(item.id)
+            const totalCost = item.sellPrice * quantity
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => !isAdded && addListRental(item)}
+                disabled={isAdded || quantity <= 0}
+                className={cn(
+                  "flex flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-all",
+                  isAdded
+                    ? "border-purple-400 bg-purple-100 dark:bg-purple-900/30"
+                    : "border-border bg-background hover:bg-purple-50 dark:hover:bg-purple-950/30 hover:border-purple-300"
+                )}
+              >
+                <div className="flex items-center gap-1.5 w-full">
+                  {isAdded ? (
+                    <Check className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  <span className={cn("text-sm font-semibold truncate", isAdded ? "text-purple-700 dark:text-purple-300" : "text-foreground")}>
+                    {item.name}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[10px] text-muted-foreground">
+                    ${(item.sellPrice * 1000).toFixed(2)}/M
+                  </span>
+                  {quantity > 0 && (
+                    <span className={cn("text-xs font-bold", isAdded ? "text-purple-600 dark:text-purple-400" : "text-foreground")}>
+                      {formatCurrency(totalCost)}
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
