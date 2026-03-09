@@ -154,10 +154,10 @@ export function PrintingForm({
             <button
               type="button"
               onClick={() => setShowAllPapers(!showAllPapers)}
-              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+              className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${
                 showAllPapers 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "bg-primary text-primary-foreground border-primary" 
+                  : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
               }`}
             >
               {showAllPapers ? "Filtered" : "Show All"}
