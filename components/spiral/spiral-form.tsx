@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -13,12 +14,12 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save } from "lucide-react"
 import {
-  getPaperNames,
   getAvailableSizes,
   getAvailableSides,
 } from "@/lib/spiral-pricing"
 import type { SpiralInputs, SpiralPartInputs } from "@/lib/spiral-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
+import { usePapersContext } from "@/lib/papers-context"
 
 interface SpiralFormProps {
   inputs: SpiralInputs
@@ -39,7 +40,11 @@ export function SpiralForm({
   validationError,
   ohpMode,
 }: SpiralFormProps) {
-  const paperNames = getPaperNames()
+  const [showAllPapers, setShowAllPapers] = useState(false)
+  const { getPaperOptions, papers: allPapers } = usePapersContext()
+  const filteredPapers = getPaperOptions("spiral_inside")
+  const allPaperOptions = allPapers.map((p) => ({ name: p.name }))
+  const paperNames = (showAllPapers ? allPaperOptions : filteredPapers).map((p) => p.name)
   const v = useFormValidation()
 
   function handleSubmit(e: React.FormEvent) {
@@ -71,17 +76,32 @@ export function SpiralForm({
     return (
       <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
         <span className="text-sm font-medium text-foreground pb-2">{label}</span>
-        <Select
-          value={part.paperName}
-          onValueChange={(val) => updatePart(partKey, { paperName: val, sheetSize: "cheapest", sides: "" })}
-        >
-          <SelectTrigger className={v.cls(needsPaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
-          <SelectContent>
-            {paperNames.map((p) => (
-              <SelectItem key={p} value={p}>{p}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowAllPapers(!showAllPapers)}
+              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                showAllPapers 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              {showAllPapers ? "Filtered" : "Show All"}
+            </button>
+          </div>
+          <Select
+            value={part.paperName}
+            onValueChange={(val) => updatePart(partKey, { paperName: val, sheetSize: "cheapest", sides: "" })}
+          >
+            <SelectTrigger className={v.cls(needsPaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
+            <SelectContent>
+              {paperNames.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Select
           value={part.sides}
           onValueChange={(val) => updatePart(partKey, { sides: val })}
