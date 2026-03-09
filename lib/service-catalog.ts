@@ -76,6 +76,8 @@ export interface ServiceItem {
   linkedSupplierId?: string
   /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
   pricingRule?: "per1000_after_1000" | "min_then_per_pc" | "addressing_bracket" | "tabbing_bracket"
+  /** If true, show in "Don't Forget" checklist - items commonly needed for most jobs */
+  commonlyNeeded?: boolean
 }
 
 // ─── Full Catalog ────────────────────────────────────────
@@ -232,8 +234,10 @@ export function calculateItemAmount(
     case "piece":
     case "stamp":
     case "bag":
-    case "name/mailing":
       return unitPrice * mailingQty * itemQty
+    case "name/mailing":
+      // List rentals: itemQty IS the number of names (user sets this)
+      return unitPrice * itemQty
     case "job":
     case "list":
     case "delivery":
@@ -269,14 +273,15 @@ function calculateAddressingBracket(brackets: AddressingBracket[], qty: number):
 }
 
 /** Get the auto-quantity for an item based on its price unit and mailing qty */
-export function getAutoQuantity(item: ServiceItem, _mailingQty: number): number {
+export function getAutoQuantity(item: ServiceItem, mailingQty: number): number {
   switch (item.priceUnit) {
-    case "1000":
-    case "piece":
-    case "stamp":
-    case "bag":
-    case "name/mailing":
-      return 1 // multiplied by mailingQty in calculateItemAmount
+  case "1000":
+  case "piece":
+  case "stamp":
+  case "bag":
+  return 1 // multiplied by mailingQty in calculateItemAmount
+  case "name/mailing":
+  return mailingQty // list rentals: show actual name count, user can override
     case "job":
     case "list":
     case "delivery":

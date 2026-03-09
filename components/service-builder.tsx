@@ -38,8 +38,28 @@ import {
   Stamp,
   BookOpen,
   X,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+// ─── "Don't Forget" Categories ───────────────────────────
+// Metadata for all possible "don't forget" categories (config determines which are shown)
+const DONT_FORGET_CATEGORY_META: Record<string, { label: string; hint: string }> = {
+  LIST_RENTAL: { label: "List Rental", hint: "Does customer need a mailing list?" },
+  ADDRESSING: { label: "Addressing", hint: "How will addresses be applied?" },
+  COMPUTER_WORK: { label: "Computer Work", hint: "Data processing, CASS, etc." },
+  INSERTING: { label: "Inserting", hint: "Machine inserting services" },
+  LABELING: { label: "Labeling", hint: "Label application" },
+  LIST_WORK: { label: "List Work", hint: "List cleaning, merge/purge" },
+  DELIVERY: { label: "Delivery", hint: "Local delivery services" },
+}
+
+// Default config if not set in app settings
+const DEFAULT_DONT_FORGET_CONFIG: Record<string, string[]> = {
+  ALL: ["LIST_RENTAL", "ADDRESSING", "COMPUTER_WORK"],
+}
 
 // ─── Icon map ────────────────────────────────────────────
 const ICONS: Record<string, React.ElementType> = {
@@ -110,8 +130,12 @@ export function ServiceBuilder() {
   const [addedItems, setAddedItems] = useState<Map<string, AddedEntry>>(new Map())
   const [customPrices, setCustomPrices] = useState<Map<string, number>>(new Map())
   const [customQtys, setCustomQtys] = useState<Map<string, number>>(new Map())
+  const [customTotals, setCustomTotals] = useState<Map<string, number>>(new Map()) // Override totals for list rentals
   const [search, setSearch] = useState("")
   const [expandedCat, setExpandedCat] = useState<ServiceCategory | null>(null)
+  
+  // "Don't Forget" checklist - categories commonly needed, dismissed per quote
+  const [dismissedCategories, setDismissedCategories] = useState<Set<ServiceCategory>>(new Set())
 
   // ── Fetch supplier sell prices for list rentals ──
   const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
@@ -200,22 +224,36 @@ export function ServiceBuilder() {
     [getPrice, getQty, mailingQty]
   )
 
-  const addToQuote = useCallback(
-    (item: ServiceItem) => {
-      const price = getPrice(item)
-      if (price === null && !item.referToPostage) return
-      const qty = getQty(item)
-      const total = item.referToPostage ? 0 : calculateItemAmount(item, price!, mailingQty, qty)
-      quote.addItem({
-        category: "item",
-        label: item.name,
-        description: `${item.description}${item.referToPostage ? " (see postage tab)" : ""}`,
-        amount: total,
-        metadata: { serviceId: item.id, priceUnit: item.priceUnit, unitPrice: price ?? undefined, qty, mailingQty, shape },
-      })
-      setAddedItems((prev) => new Map(prev).set(item.id, { serviceId: item.id, qty, price: price ?? 0, total }))
-    },
-    [getPrice, getQty, mailingQty, quote, shape]
+const addToQuote = useCallback(
+  (item: ServiceItem) => {
+  const price = getPrice(item)
+  if (price === null && !item.referToPostage) return
+  const qty = getQty(item)
+  const calculatedTotal = item.referToPostage ? 0 : calculateItemAmount(item, price!, mailingQty, qty)
+  // Use custom total override if set (for list rentals), otherwise use calculated
+  const overrideTotal = customTotals.get(item.id)
+  const total = overrideTotal !== undefined ? overrideTotal : calculatedTotal
+  const isOverridden = overrideTotal !== undefined
+  
+  // Build description
+  let description = item.description
+  if (item.referToPostage) {
+    description += " (see postage tab)"
+  } else if (item.priceUnit === "name/mailing") {
+    // List rental: show qty and rate
+    description = `${qty.toLocaleString()} names @ $${(price! * 1000).toFixed(0)}/M${isOverridden ? " (custom price)" : ""}`
+  }
+  
+  quote.addItem({
+  category: "item",
+  label: item.name,
+  description,
+  amount: total,
+  metadata: { serviceId: item.id, priceUnit: item.priceUnit, unitPrice: price ?? undefined, qty, mailingQty, shape, isOverridden },
+  })
+  setAddedItems((prev) => new Map(prev).set(item.id, { serviceId: item.id, qty, price: price ?? 0, total }))
+  },
+  [getPrice, getQty, mailingQty, quote, shape, customTotals]
   )
 
   const addAllInferred = useCallback(() => {
@@ -341,6 +379,17 @@ export function ServiceBuilder() {
         </div>
       )}
 
+      {/* ── Don't Forget Checklist ── */}
+      <DontForgetChecklist
+        addedItems={addedItems}
+        dismissedCategories={dismissedCategories}
+        mailService={mailService}
+        dontForgetConfig={appSettings?.dont_forget_config as Record<string, string[]> | undefined}
+        onDismiss={(cat) => setDismissedCategories(prev => new Set(prev).add(cat))}
+        onUndismiss={(cat) => setDismissedCategories(prev => { const n = new Set(prev); n.delete(cat); return n })}
+        onOpenCategory={(cat) => setExpandedCat(cat)}
+      />
+
       {/* ── Search ── */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -413,19 +462,22 @@ export function ServiceBuilder() {
           </div>
           <div className="divide-y divide-border/50 bg-background">
             {grouped[expandedCat].map((item) => (
-              <ServiceRow
-                key={item.id}
-                item={item}
-                mailingQty={mailingQty}
-                isAdded={addedItems.has(item.id)}
-                inferredReason={inferredMap.get(item.id) || null}
+ <ServiceRow
+  key={item.id}
+  item={item}
+  mailingQty={mailingQty}
+  isAdded={addedItems.has(item.id)}
+  inferredReason={inferredMap.get(item.id) || null}
   customPrice={customPrices.get(item.id)}
   customQty={customQtys.get(item.id)}
+  customTotal={customTotals.get(item.id)}
   resolvedPrice={getPrice(item)}
   total={getTotal(item)}
-                onSetPrice={(p) => setCustomPrices((prev) => new Map(prev).set(item.id, p))}
-                onSetQty={(q) => setCustomQtys((prev) => new Map(prev).set(item.id, q))}
-                onAdd={() => addToQuote(item)}
+  onSetPrice={(p) => setCustomPrices((prev) => new Map(prev).set(item.id, p))}
+  onSetQty={(q) => setCustomQtys((prev) => new Map(prev).set(item.id, q))}
+  onSetTotal={(t) => setCustomTotals((prev) => new Map(prev).set(item.id, t))}
+  onClearTotal={() => setCustomTotals((prev) => { const n = new Map(prev); n.delete(item.id); return n })}
+  onAdd={() => addToQuote(item)}
               />
             ))}
           </div>
@@ -462,6 +514,152 @@ export function ServiceBuilder() {
   )
 }
 
+// ─── Don't Forget Checklist ──────────────────────────────
+
+interface DontForgetChecklistProps {
+  addedItems: Map<string, AddedEntry>
+  dismissedCategories: Set<ServiceCategory>
+  mailService: string
+  dontForgetConfig: Record<string, string[]> | undefined
+  onDismiss: (cat: ServiceCategory) => void
+  onUndismiss: (cat: ServiceCategory) => void
+  onOpenCategory: (cat: ServiceCategory) => void
+}
+
+function DontForgetChecklist({
+  addedItems,
+  dismissedCategories,
+  mailService,
+  dontForgetConfig,
+  onDismiss,
+  onUndismiss,
+  onOpenCategory,
+}: DontForgetChecklistProps) {
+  // Get configured categories for this mail service (or fall back to ALL)
+  const configuredCategories = useMemo(() => {
+    const config = dontForgetConfig || DEFAULT_DONT_FORGET_CONFIG
+    // Map mail service to config key
+    const mailClassKey = mailService || "ALL"
+    // Try specific mail class first, then fall back to ALL
+    return config[mailClassKey] || config.ALL || []
+  }, [dontForgetConfig, mailService])
+
+  // Check which categories have items added
+  const addedCategories = useMemo(() => {
+    const cats = new Set<ServiceCategory>()
+    for (const [id] of addedItems) {
+      const item = SERVICE_CATALOG.find((s) => s.id === id)
+      if (item) cats.add(item.category)
+    }
+    return cats
+  }, [addedItems])
+
+  // Filter to only show configured categories that need attention
+  const checklistItems = useMemo(() => {
+    return configuredCategories
+      .filter((catId) => DONT_FORGET_CATEGORY_META[catId]) // only valid categories
+      .map((catId) => {
+        const meta = DONT_FORGET_CATEGORY_META[catId]
+        const category = catId as ServiceCategory
+        const isAdded = addedCategories.has(category)
+        const isDismissed = dismissedCategories.has(category)
+        return { category, label: meta.label, hint: meta.hint, isAdded, isDismissed, needsAttention: !isAdded && !isDismissed }
+      })
+  }, [configuredCategories, addedCategories, dismissedCategories])
+
+  const needsAttentionCount = checklistItems.filter((c) => c.needsAttention).length
+
+  // Don't show if no categories configured or all items are addressed
+  if (checklistItems.length === 0) return null
+  if (needsAttentionCount === 0 && checklistItems.every((c) => c.isAdded || c.isDismissed)) {
+    return null
+  }
+
+  return (
+    <div className={cn(
+      "rounded-2xl border-2 p-4",
+      needsAttentionCount > 0
+        ? "border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20"
+        : "border-border bg-card"
+    )}>
+      <div className="flex items-center gap-2 mb-3">
+        {needsAttentionCount > 0 ? (
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        ) : (
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        )}
+        <h4 className="text-sm font-bold text-foreground">
+          {needsAttentionCount > 0 ? "Don't Forget" : "All Reviewed"}
+        </h4>
+        {needsAttentionCount > 0 && (
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+            {needsAttentionCount} to review
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {checklistItems.map((item) => {
+          const Icon = ICONS[CATEGORY_META[item.category].icon] || MoreHorizontal
+          return (
+            <div
+              key={item.category}
+              className={cn(
+                "flex items-center gap-2 rounded-xl border px-3 py-2 transition-all",
+                item.isAdded
+                  ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30"
+                  : item.isDismissed
+                    ? "border-border bg-muted/30 opacity-60"
+                    : "border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950/10"
+              )}
+            >
+              <Icon className={cn(
+                "h-4 w-4",
+                item.isAdded ? "text-emerald-600" : item.isDismissed ? "text-muted-foreground" : "text-amber-600"
+              )} />
+              <span className={cn(
+                "text-sm font-medium",
+                item.isAdded ? "text-emerald-700 dark:text-emerald-300" : item.isDismissed ? "text-muted-foreground line-through" : "text-foreground"
+              )}>
+                {item.label}
+              </span>
+              
+              {item.isAdded ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 ml-1" />
+              ) : item.isDismissed ? (
+                <button
+                  type="button"
+                  onClick={() => onUndismiss(item.category)}
+                  className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+                >
+                  undo
+                </button>
+              ) : (
+                <div className="flex items-center gap-1 ml-1">
+                  <button
+                    type="button"
+                    onClick={() => onOpenCategory(item.category)}
+                    className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline"
+                  >
+                    Add
+                  </button>
+                  <span className="text-muted-foreground">/</span>
+                  <button
+                    type="button"
+                    onClick={() => onDismiss(item.category)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Not needed
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Item Row ────────────────────────────────────────────
 
 interface ServiceRowProps {
@@ -471,10 +669,13 @@ interface ServiceRowProps {
   inferredReason: string | null
   customPrice: number | undefined
   customQty: number | undefined
+  customTotal: number | undefined
   resolvedPrice: number | null
   total: number | null
   onSetPrice: (p: number) => void
   onSetQty: (q: number) => void
+  onSetTotal: (t: number) => void
+  onClearTotal: () => void
   onAdd: () => void
 }
 
@@ -485,22 +686,29 @@ function ServiceRow({
   inferredReason,
   customPrice,
   customQty,
+  customTotal,
   resolvedPrice,
   total,
   onSetPrice,
   onSetQty,
+  onSetTotal,
+  onClearTotal,
   onAdd,
 }: ServiceRowProps) {
   const isInferred = !!inferredReason
+  const isListRental = item.priceUnit === "name/mailing"
   const effectivePrice = item.referToPostage ? null : resolvedPrice
-  const needsCustomPrice = !item.referToPostage && effectivePrice === null
+  // List rentals can use customTotal even without a price, so don't block the Add button
+  const needsCustomPrice = !item.referToPostage && effectivePrice === null && !isListRental
   const effectiveQty = customQty ?? getAutoQuantity(item, mailingQty)
 
-  const displayTotal = item.referToPostage
+  const calculatedTotal = item.referToPostage
     ? null
     : effectivePrice !== null
     ? calculateItemAmount(item, effectivePrice, mailingQty, effectiveQty)
     : null
+  // For list rentals, allow customTotal override
+  const displayTotal = isListRental && customTotal !== undefined ? customTotal : calculatedTotal
 
   return (
     <div
@@ -538,6 +746,11 @@ function ServiceRow({
           <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">See Rate</span>
         ) : item.pricingRule === "addressing_bracket" || item.pricingRule === "tabbing_bracket" ? (
           <span className="text-xs text-muted-foreground font-medium text-center block">Bracket</span>
+        ) : item.priceUnit === "name/mailing" ? (
+          // List rental: show rate as read-only (editable in Settings only)
+          <span className="text-sm text-right block font-mono text-muted-foreground">
+            {effectivePrice !== null ? effectivePrice.toFixed(4) : "--"}
+          </span>
         ) : (
           <Input
             type="number"
@@ -552,18 +765,23 @@ function ServiceRow({
 
       {/* Unit */}
       <span className="w-16 shrink-0 text-xs text-muted-foreground text-center">
-        {item.pricingRule === "addressing_bracket" || item.pricingRule === "tabbing_bracket" ? "tiered" : formatPriceUnit(item.priceUnit)}
+        {item.pricingRule === "addressing_bracket" || item.pricingRule === "tabbing_bracket" 
+          ? "tiered" 
+          : item.priceUnit === "name/mailing" 
+            ? "per name" 
+            : formatPriceUnit(item.priceUnit)}
       </span>
 
       {/* Qty */}
-      <div className="w-14 shrink-0">
-        {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" ? (
+      <div className="w-20 shrink-0">
+        {item.priceUnit === "job" || item.priceUnit === "list" || item.priceUnit === "delivery" || item.priceUnit === "name/mailing" ? (
           <Input
             type="number"
             min={1}
-            className="h-8 text-sm text-center px-1 w-full"
+            className="h-8 text-sm text-right px-2 w-full"
             value={effectiveQty}
             onChange={(e) => onSetQty(parseInt(e.target.value) || 1)}
+            placeholder={mailingQty.toString()}
           />
         ) : (
           <span className="block text-center text-xs text-muted-foreground">
@@ -585,8 +803,36 @@ function ServiceRow({
       </div>
 
       {/* Total */}
-      <div className="w-20 shrink-0 text-right">
-        {displayTotal !== null ? (
+      <div className="w-24 shrink-0 text-right">
+        {item.priceUnit === "name/mailing" ? (
+          // List rental: editable total with override indicator
+          <div className="flex items-center gap-1 justify-end">
+            {customTotal !== undefined && (
+              <button
+                type="button"
+                onClick={onClearTotal}
+                className="text-[10px] text-pink-500 hover:text-pink-700 font-medium"
+                title="Clear override"
+              >
+                ✕
+              </button>
+            )}
+            <div className="relative">
+              <span className="absolute left-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+              <Input
+                type="number"
+                step="1"
+                className={cn(
+                  "h-8 text-sm text-right pl-4 pr-2 w-20",
+                  customTotal !== undefined && "border-pink-300 bg-pink-50 dark:bg-pink-950/20 text-pink-700 dark:text-pink-300 font-bold"
+                )}
+                value={customTotal ?? (displayTotal !== null ? Math.round(displayTotal) : "")}
+                onChange={(e) => onSetTotal(parseFloat(e.target.value) || 0)}
+                placeholder={displayTotal !== null ? Math.round(displayTotal).toString() : "0"}
+              />
+            </div>
+          </div>
+        ) : displayTotal !== null ? (
           <span className="text-sm font-bold">${displayTotal.toFixed(2)}</span>
         ) : item.referToPostage ? (
           <span className="text-xs text-muted-foreground">--</span>
