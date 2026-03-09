@@ -1146,22 +1146,26 @@ function ListRentalsAddOn({ quantity }: { quantity: number }) {
   const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
   const listRentals = useMemo(() => {
     const cfg: SuppliersConfig = appSettings?.suppliers_config || DEFAULT_SUPPLIERS_CONFIG
-    return cfg.supplyItems.filter((item: SupplyItem) => item.type === "list_rental" && item.sellPrice > 0)
+    return cfg.supplyItems.filter((item: SupplyItem) => item.category === "list_rental" && item.sellPrice > 0)
   }, [appSettings])
 
   const addListRental = useCallback((item: SupplyItem) => {
-    const totalCost = item.sellPrice * quantity
+    // Use list's own count if billingMode is "list_count", otherwise use mailing quantity
+    const billingQty = item.billingMode === "mailing_qty" ? quantity : (item.nameCount || quantity)
+    const totalCost = item.sellPrice * billingQty
+    const qtyLabel = item.billingMode === "mailing_qty" ? `${quantity.toLocaleString()} pcs` : `${billingQty.toLocaleString()} names`
     quote.addItem({
       category: "item",
       label: `List Rental - ${item.name}`,
-      description: `${quantity.toLocaleString()} names @ $${(item.sellPrice * 1000).toFixed(2)}/M`,
+      description: `${qtyLabel} @ $${(item.sellPrice * 1000).toFixed(0)}/M`,
       amount: totalCost,
       metadata: { 
         serviceId: `list-rent-${item.id}`, 
         priceUnit: "name/mailing", 
         unitPrice: item.sellPrice, 
-        qty: quantity,
-        listName: item.name
+        qty: billingQty,
+        listName: item.name,
+        billingMode: item.billingMode || "list_count"
       },
     })
     setAddedLists(prev => new Set(prev).add(item.id))
@@ -1199,7 +1203,9 @@ function ListRentalsAddOn({ quantity }: { quantity: number }) {
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {listRentals.map((item: SupplyItem) => {
             const isAdded = addedLists.has(item.id)
-            const totalCost = item.sellPrice * quantity
+            const billingQty = item.billingMode === "mailing_qty" ? quantity : (item.nameCount || quantity)
+            const totalCost = item.sellPrice * billingQty
+            const isUsingListCount = (item.billingMode || "list_count") === "list_count" && item.nameCount && item.nameCount > 0
             return (
               <button
                 key={item.id}
@@ -1223,15 +1229,20 @@ function ListRentalsAddOn({ quantity }: { quantity: number }) {
                     {item.name}
                   </span>
                 </div>
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-[10px] text-muted-foreground">
-                    ${(item.sellPrice * 1000).toFixed(2)}/M
-                  </span>
-                  {quantity > 0 && (
-                    <span className={cn("text-xs font-bold", isAdded ? "text-purple-600 dark:text-purple-400" : "text-foreground")}>
-                      {formatCurrency(totalCost)}
+                <div className="flex flex-col w-full gap-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">
+                      ${Math.round(item.sellPrice * 1000)}/M
                     </span>
-                  )}
+                    {billingQty > 0 && (
+                      <span className={cn("text-xs font-bold", isAdded ? "text-purple-600 dark:text-purple-400" : "text-foreground")}>
+                        {formatCurrency(totalCost)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground">
+                    {isUsingListCount ? `${billingQty.toLocaleString()} names` : `x ${quantity.toLocaleString()} pcs`}
+                  </div>
                 </div>
               </button>
             )
