@@ -38,8 +38,19 @@ import {
   Stamp,
   BookOpen,
   X,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+// ─── "Don't Forget" Categories ───────────────────────────
+// Categories that most jobs need - shown in checklist to prevent forgetting
+const COMMONLY_NEEDED_CATEGORIES: { category: ServiceCategory; label: string; hint: string }[] = [
+  { category: "LIST_RENTAL", label: "List Rental", hint: "Does customer need a mailing list?" },
+  { category: "ADDRESSING", label: "Addressing", hint: "How will addresses be applied?" },
+  { category: "COMPUTER_WORK", label: "Computer Work", hint: "Data processing, CASS, etc." },
+]
 
 // ─── Icon map ────────────────────────────────────────────
 const ICONS: Record<string, React.ElementType> = {
@@ -113,6 +124,9 @@ export function ServiceBuilder() {
   const [customTotals, setCustomTotals] = useState<Map<string, number>>(new Map()) // Override totals for list rentals
   const [search, setSearch] = useState("")
   const [expandedCat, setExpandedCat] = useState<ServiceCategory | null>(null)
+  
+  // "Don't Forget" checklist - categories commonly needed, dismissed per quote
+  const [dismissedCategories, setDismissedCategories] = useState<Set<ServiceCategory>>(new Set())
 
   // ── Fetch supplier sell prices for list rentals ──
   const { data: appSettings } = useSWR("/api/app-settings", (url: string) => fetch(url).then((r) => r.json()))
@@ -356,6 +370,15 @@ const addToQuote = useCallback(
         </div>
       )}
 
+      {/* ── Don't Forget Checklist ── */}
+      <DontForgetChecklist
+        addedItems={addedItems}
+        dismissedCategories={dismissedCategories}
+        onDismiss={(cat) => setDismissedCategories(prev => new Set(prev).add(cat))}
+        onUndismiss={(cat) => setDismissedCategories(prev => { const n = new Set(prev); n.delete(cat); return n })}
+        onOpenCategory={(cat) => setExpandedCat(cat)}
+      />
+
       {/* ── Search ── */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -476,6 +499,134 @@ const addToQuote = useCallback(
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Don't Forget Checklist ──────────────────────────────
+
+interface DontForgetChecklistProps {
+  addedItems: Map<string, AddedEntry>
+  dismissedCategories: Set<ServiceCategory>
+  onDismiss: (cat: ServiceCategory) => void
+  onUndismiss: (cat: ServiceCategory) => void
+  onOpenCategory: (cat: ServiceCategory) => void
+}
+
+function DontForgetChecklist({
+  addedItems,
+  dismissedCategories,
+  onDismiss,
+  onUndismiss,
+  onOpenCategory,
+}: DontForgetChecklistProps) {
+  // Check which categories have items added
+  const addedCategories = useMemo(() => {
+    const cats = new Set<ServiceCategory>()
+    for (const [id] of addedItems) {
+      const item = SERVICE_CATALOG.find((s) => s.id === id)
+      if (item) cats.add(item.category)
+    }
+    return cats
+  }, [addedItems])
+
+  // Filter to only show commonly needed categories that need attention
+  const checklistItems = useMemo(() => {
+    return COMMONLY_NEEDED_CATEGORIES.map((c) => {
+      const isAdded = addedCategories.has(c.category)
+      const isDismissed = dismissedCategories.has(c.category)
+      return { ...c, isAdded, isDismissed, needsAttention: !isAdded && !isDismissed }
+    })
+  }, [addedCategories, dismissedCategories])
+
+  const needsAttentionCount = checklistItems.filter((c) => c.needsAttention).length
+
+  // Don't show if all items are addressed
+  if (needsAttentionCount === 0 && checklistItems.every((c) => c.isAdded || c.isDismissed)) {
+    return null
+  }
+
+  return (
+    <div className={cn(
+      "rounded-2xl border-2 p-4",
+      needsAttentionCount > 0
+        ? "border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20"
+        : "border-border bg-card"
+    )}>
+      <div className="flex items-center gap-2 mb-3">
+        {needsAttentionCount > 0 ? (
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        ) : (
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        )}
+        <h4 className="text-sm font-bold text-foreground">
+          {needsAttentionCount > 0 ? "Don't Forget" : "All Reviewed"}
+        </h4>
+        {needsAttentionCount > 0 && (
+          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+            {needsAttentionCount} to review
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {checklistItems.map((item) => {
+          const Icon = ICONS[CATEGORY_META[item.category].icon] || MoreHorizontal
+          return (
+            <div
+              key={item.category}
+              className={cn(
+                "flex items-center gap-2 rounded-xl border px-3 py-2 transition-all",
+                item.isAdded
+                  ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30"
+                  : item.isDismissed
+                    ? "border-border bg-muted/30 opacity-60"
+                    : "border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950/10"
+              )}
+            >
+              <Icon className={cn(
+                "h-4 w-4",
+                item.isAdded ? "text-emerald-600" : item.isDismissed ? "text-muted-foreground" : "text-amber-600"
+              )} />
+              <span className={cn(
+                "text-sm font-medium",
+                item.isAdded ? "text-emerald-700 dark:text-emerald-300" : item.isDismissed ? "text-muted-foreground line-through" : "text-foreground"
+              )}>
+                {item.label}
+              </span>
+              
+              {item.isAdded ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 ml-1" />
+              ) : item.isDismissed ? (
+                <button
+                  type="button"
+                  onClick={() => onUndismiss(item.category)}
+                  className="text-xs text-muted-foreground hover:text-foreground underline ml-1"
+                >
+                  undo
+                </button>
+              ) : (
+                <div className="flex items-center gap-1 ml-1">
+                  <button
+                    type="button"
+                    onClick={() => onOpenCategory(item.category)}
+                    className="text-xs font-semibold text-amber-700 dark:text-amber-300 hover:underline"
+                  >
+                    Add
+                  </button>
+                  <span className="text-muted-foreground">/</span>
+                  <button
+                    type="button"
+                    onClick={() => onDismiss(item.category)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Not needed
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

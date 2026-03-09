@@ -76,6 +76,8 @@ export interface ServiceItem {
   linkedSupplierId?: string
   /** Special pricing rule override (e.g. CASS 2nd: first 1,000 free) */
   pricingRule?: "per1000_after_1000" | "min_then_per_pc" | "addressing_bracket" | "tabbing_bracket"
+  /** If true, show in "Don't Forget" checklist - items commonly needed for most jobs */
+  commonlyNeeded?: boolean
 }
 
 // ─── Full Catalog ────────────────────────────────────────
