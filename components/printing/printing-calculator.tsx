@@ -194,15 +194,12 @@ export function PrintingCalculator() {
   const handleCalculate = useCallback(() => {
     // Check form validity inline to avoid stale closure issues
     const formValid = inputs.qty > 0 && inputs.width > 0 && inputs.height > 0 && inputs.paperName !== "" && inputs.sidesValue !== ""
-    console.log("[v0] handleCalculate called, formValid:", formValid, "inputs:", inputs)
     if (!formValid) {
-      console.log("[v0] Form not valid, returning early")
       return
     }
 
     setCalcError(null)
     const options = calculateAllSheetOptions(inputs)
-    console.log("[v0] calculateAllSheetOptions returned:", options.length, "options")
     if (options.length === 0) {
       const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
       const largest = paper?.availableSizes[paper.availableSizes.length - 1] ?? "13x19"
