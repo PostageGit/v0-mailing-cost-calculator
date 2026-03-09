@@ -18,6 +18,8 @@ export const BOOKLET_PAPER_OPTIONS: BookletPaperOption[] = [
   { name: "10pt Matte", isCardstock: true, canLaminate: true, thickness: 0.00225, availableSizes: ["11x17", "12x18", "13x19"] },
   { name: "12pt Gloss", isCardstock: true, canLaminate: true, thickness: 0.00225, availableSizes: ["11x17", "12x18", "13x19", "13x26"] },
   { name: "12pt Matte", isCardstock: true, canLaminate: true, thickness: 0.00225, availableSizes: ["11x17", "12x18", "13x19", "13x26"] },
+  { name: "14pt Gloss", isCardstock: true, canLaminate: true, thickness: 0.014, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
+  { name: "14pt Matte", isCardstock: true, canLaminate: true, thickness: 0.014, availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
   // Paper (for inside pages)
   { name: "20lb Offset", isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "12.5x19", "Short 11x17"] },
   { name: "60lb Offset", isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12.5x19", "Short 12x18", "Short 12.5x19"] },
@@ -33,6 +35,8 @@ export const BOOKLET_PAPER_PRICES: Record<string, Record<string, number>> = {
   "10pt Matte": { "11x17": 0.1272, "12x18": 0.1272, "13x19": 0.1272 },
   "12pt Gloss": { "11x17": 0.1490, "12x18": 0.1490, "13x19": 0.1490, "13x26": 0.4470 },
   "12pt Matte": { "11x17": 0.1601, "12x18": 0.1601, "13x19": 0.1601, "13x26": 0.4803 },
+  "14pt Gloss": { "8.5x11": 0.09455, "11x17": 0.1891, "12x18": 0.1891, "13x19": 0.1891 },
+  "14pt Matte": { "8.5x11": 0.09455, "11x17": 0.1891, "12x18": 0.1891, "13x19": 0.1891 },
   "20lb Offset": { "8.5x11": 0.0092, "11x17": 0.0174, "12x18": 0.0293, "12.5x19": 0.0270, "Short 11x17": 0.0184 },
   "60lb Offset": { "8.5x11": 0.015, "11x17": 0.0295, "12x18": 0.0346, "12.5x19": 0.0320, "Short 12x18": 0.0360, "Short 12.5x19": 0.0410 },
   "80lb Text Gloss": { "8.5x11": 0.025, "11x17": 0.0490, "12x18": 0.0490, "13x19": 0.0615, "Short 11x17": 0.0523, "Short 12x18": 0.0523 },
