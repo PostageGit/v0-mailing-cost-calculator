@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createSafeClient } from "@/lib/supabase-server"
+import { createSafeClient } from "@/lib/supabase/server"
 
 const DB_ERR = NextResponse.json({ error: "Database not configured" }, { status: 500 })
 
