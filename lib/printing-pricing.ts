@@ -124,9 +124,21 @@ const BLEED_MARGIN = 0.25
 
 // ==================== HELPER FUNCTIONS ====================
 
-export function getAvailableSides(paperName: string): string[] {
-  const paper = PAPER_OPTIONS.find((p) => p.name === paperName)
-  if (!paper) return []
+export function getAvailableSides(paperName: string, paperInfo?: { isCardstock: boolean }): string[] {
+  // Use provided paper info, or look up from defaults
+  const paper = paperInfo || PAPER_OPTIONS.find((p) => p.name === paperName)
+  if (!paper) {
+    // If paper not found in defaults, check if it looks like cardstock by name
+    const lowerName = paperName.toLowerCase()
+    const isCardstockByName = lowerName.includes("cover") || lowerName.includes("pt ") || lowerName.includes("pt")
+    if (paperName === "Sticker (Crack & Peel)") {
+      return ["S/S", "4/0", "1/0"]
+    }
+    if (isCardstockByName) {
+      return ["4/4", "4/0", "1/1", "1/0"]
+    }
+    return ["S/S", "D/S", "4/4", "4/0", "1/1", "1/0"]
+  }
   if (paperName === "Sticker (Crack & Peel)") {
     return ["S/S", "4/0", "1/0"]
   }

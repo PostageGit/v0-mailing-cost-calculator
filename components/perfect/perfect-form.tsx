@@ -12,9 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save } from "lucide-react"
-import { getCoverPapers, getInsidePapers, canLaminate, getLaminationPrice } from "@/lib/perfect-pricing"
+import { canLaminate, getLaminationPrice } from "@/lib/perfect-pricing"
 import { formatCurrency } from "@/lib/pricing"
-import { PAPER_OPTIONS, COVER_SIDES, INSIDE_SIDES } from "@/lib/perfect-types"
+import { COVER_SIDES, INSIDE_SIDES } from "@/lib/perfect-types"
+import { usePapersContext } from "@/lib/papers-context"
 import type { PerfectInputs, PerfectPartInputs } from "@/lib/perfect-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
 
@@ -37,8 +38,9 @@ export function PerfectForm({
   validationError,
   ohpMode,
 }: PerfectFormProps) {
-  const coverPapers = getCoverPapers()
-  const insidePapers = getInsidePapers()
+  const { getPaperOptions } = usePapersContext()
+  const coverPapers = getPaperOptions("book_cover")
+  const insidePapers = getPaperOptions("book_inside")
   const v = useFormValidation()
 
   function handleSubmit(e: React.FormEvent) {
