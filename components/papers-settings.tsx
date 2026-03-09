@@ -155,22 +155,22 @@ export function PapersSettings() {
                           !paper.active && "opacity-50 bg-secondary/20"
                         )}>
                           {/* Sort buttons */}
-                          <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-col border rounded bg-secondary/50">
                             <button
                               onClick={() => handleReorder(cat.value, paper.id, "up")}
-                              className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                              className="p-1 rounded-t text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-20 disabled:pointer-events-none border-b"
                               disabled={catPapers.indexOf(paper) === 0}
                               title="Move up"
                             >
-                              <ArrowUp className="h-3 w-3" />
+                              <ArrowUp className="h-3.5 w-3.5" />
                             </button>
                             <button
                               onClick={() => handleReorder(cat.value, paper.id, "down")}
-                              className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                              className="p-1 rounded-b text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-20 disabled:pointer-events-none"
                               disabled={catPapers.indexOf(paper) === catPapers.length - 1}
                               title="Move down"
                             >
-                              <ArrowDown className="h-3 w-3" />
+                              <ArrowDown className="h-3.5 w-3.5" />
                             </button>
                           </div>
 
