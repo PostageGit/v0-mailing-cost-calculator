@@ -52,6 +52,11 @@ export interface PartCalcResult {
   finalSheetWidth: number
   finalSheetHeight: number
   error?: string
+  // P/L cost breakdown
+  paperCostPerSheet: number
+  clickCostPerSheet: number
+  totalPaperCost: number
+  totalClickCost: number
 }
 
 export interface BookletCalcResult {

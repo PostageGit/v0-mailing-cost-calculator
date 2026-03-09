@@ -78,6 +78,13 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
             <DetailRow label="Cost/Sheet:" value={formatCurrency(coverResult.pricePerSheet, 4)} />
             <DetailRow label="Total Printing:" value={formatCurrency(coverResult.cost)} />
           </div>
+          <SectionHeader label="Cover P/L Breakdown" />
+          <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
+            <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(coverResult.paperCostPerSheet, 4)} />
+            <DetailRow label="Click Cost/Sheet:" value={formatCurrency(coverResult.clickCostPerSheet, 4)} />
+            <DetailRow label="Total Paper Cost:" value={formatCurrency(coverResult.totalPaperCost)} />
+            <DetailRow label="Total Click Cost:" value={formatCurrency(coverResult.totalClickCost)} />
+          </div>
         </>
       )}
       <SectionHeader label="Inside Paper" />
@@ -89,6 +96,13 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
         <DetailRow label="Cost/Sheet:" value={formatCurrency(insideResult.pricePerSheet, 4)} />
         <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
         <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
+      </div>
+      <SectionHeader label="Inside P/L Breakdown" />
+      <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
+        <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(insideResult.paperCostPerSheet, 4)} />
+        <DetailRow label="Click Cost/Sheet:" value={formatCurrency(insideResult.clickCostPerSheet, 4)} />
+        <DetailRow label="Total Paper Cost:" value={formatCurrency(insideResult.totalPaperCost)} />
+        <DetailRow label="Total Click Cost:" value={formatCurrency(insideResult.totalClickCost)} />
       </div>
       <SectionHeader label="Booklet Info" />
       <div className="grid grid-cols-2 gap-x-6">

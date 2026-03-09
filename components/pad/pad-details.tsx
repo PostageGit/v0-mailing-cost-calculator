@@ -73,6 +73,17 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBr
         <DetailRow label="Total Sheets:" value={insideResult.sheets.toLocaleString()} />
         <DetailRow label="Total Printing:" value={formatCurrency(insideResult.cost)} />
       </div>
+      {insideResult.totalPaperCost > 0 && (
+        <>
+          <SectionHeader label="P/L Breakdown" />
+          <div className="grid grid-cols-2 gap-x-6 bg-muted/30 rounded p-2">
+            <DetailRow label="Paper Cost/Sheet:" value={formatCurrency(insideResult.paperCostPerSheet, 4)} />
+            <DetailRow label="Click Cost/Sheet:" value={formatCurrency(insideResult.clickCostPerSheet, 4)} />
+            <DetailRow label="Total Paper Cost:" value={formatCurrency(insideResult.totalPaperCost)} />
+            <DetailRow label="Total Click Cost:" value={formatCurrency(insideResult.totalClickCost)} />
+          </div>
+        </>
+      )}
 
       <SectionHeader label="Pad Finishing" />
       <div className="grid grid-cols-2 gap-x-6">

@@ -35,6 +35,11 @@ export interface PerfectPartResult {
   level: number
   autoLevel: number
   markup: number
+  // P/L cost breakdown
+  paperCostPerSheet: number
+  clickCostPerSheet: number
+  totalPaperCost: number
+  totalClickCost: number
 }
 
 export interface PerfectCalcResult {

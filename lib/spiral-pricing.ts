@@ -368,6 +368,11 @@ export function calculatePart(
     pricePerSheet: info.price,
     levelName: info.levelName,
     autoLevelName: info.autoLevelName,
+    // P/L cost breakdown - spiral uses pre-baked prices, so no separate breakdown
+    paperCostPerSheet: 0,
+    clickCostPerSheet: 0,
+    totalPaperCost: 0,
+    totalClickCost: 0,
   }
 }
 

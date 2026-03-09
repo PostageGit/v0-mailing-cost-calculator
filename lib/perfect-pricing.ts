@@ -177,6 +177,11 @@ function calculatePart(
       sides: part.sides, bleed: part.hasBleed, isRotated: layout.isRotated,
       finalSheetWidth: sheet.w, finalSheetHeight: sheet.h,
       maxUps: layout.maxUps, pricePerSheet: price, level, autoLevel, markup,
+      // P/L cost breakdown
+      paperCostPerSheet: paperCost,
+      clickCostPerSheet: clickPerSheet,
+      totalPaperCost: paperCost * totalSheets,
+      totalClickCost: clickPerSheet * totalSheets,
     }
   }
 

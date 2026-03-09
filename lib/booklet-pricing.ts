@@ -245,6 +245,11 @@ function calculatePartCost(
       rows: layout.rows,
       finalSheetWidth: sheet.w,
       finalSheetHeight: sheet.h,
+      // P/L cost breakdown
+      paperCostPerSheet: paperCost,
+      clickCostPerSheet: clickCost,
+      totalPaperCost: paperCost * totalSheets,
+      totalClickCost: clickCost * totalSheets,
     }
   }
 
@@ -275,9 +280,10 @@ function calculatePartCost(
 function emptyPartResult(name: string, error: string): PartCalcResult {
   return {
     name, cost: 0, sheets: 0, sheetSize: "N/A", paper: "N/A", sides: "N/A",
-    bleed: false, pricePerSheet: 0, level: 0, markup: 0, maxUps: 0,
+    bleed: false, pricePerSheet: 0, level: 0, autoLevel: 0, markup: 0, maxUps: 0,
     isRotated: false, verticalUps: 0, cols: 0, rows: 0,
     finalSheetWidth: 0, finalSheetHeight: 0, error,
+    paperCostPerSheet: 0, clickCostPerSheet: 0, totalPaperCost: 0, totalClickCost: 0,
   }
 }
 
