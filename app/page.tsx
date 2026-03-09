@@ -615,8 +615,8 @@ function AppContent() {
                 </div>
 
                 {/* Content + Quote Sidebar */}
-                <div className="flex-1 flex min-h-0 overflow-hidden">
-                  <div className="flex-1 min-w-0 overflow-auto px-4 sm:px-6 pt-4 pb-8">
+                <div className="flex-1 flex min-h-0 overflow-hidden justify-center">
+                  <div className="flex-1 min-w-0 max-w-4xl overflow-auto px-4 sm:px-6 pt-4 pb-8">
                     <div key={currentStep} className="step-enter">
                       <StepErrorBoundary stepId={currentStep}>
                         {renderStep()}
@@ -624,7 +624,7 @@ function AppContent() {
                     </div>
                   </div>
                   {rightOpen ? (
-                    <aside className="hidden lg:block w-[22rem] shrink-0 border-l border-border overflow-y-auto">
+                    <aside className="hidden lg:block w-72 shrink-0 border-l border-border overflow-y-auto bg-card/50">
                       <QuoteSidebar
                         onGoToExport={() => setSection("export-qb")}
                         pendingSteps={pendingSteps.map((s) => ({
