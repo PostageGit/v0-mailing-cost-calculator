@@ -474,7 +474,7 @@ export const DEFAULT_SADDLE_STITCH_CONFIG: SaddleStitchConfig = {
       thick: { self: { rate: 0.54, setup: 65 }, with: { rate: 0.64, setup: 80 } },
     },
   },
-  brokerDiscountPercent: 30, // Default 30% off for brokers
+  brokerDiscountPercent: 20, // Default 20% off for brokers
 }
 
 // ==================== RUNTIME CONFIG ====================
