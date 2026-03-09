@@ -62,8 +62,12 @@ export function PrintingForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    console.log("[v0] PrintingForm handleSubmit called, inputs:", JSON.stringify(inputs))
+    console.log("[v0] sidesValue:", inputs.sidesValue, "paperName:", inputs.paperName)
     v.markAttempted()
+    console.log("[v0] Calling onCalculate...")
     onCalculate()
+    console.log("[v0] onCalculate finished")
   }
 
   return (
