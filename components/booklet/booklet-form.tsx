@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -43,9 +44,12 @@ export function BookletForm({
   validationError,
   ohpMode,
 }: BookletFormProps) {
-  const { getPaperOptions } = usePapersContext()
-  const coverPapers = getPaperOptions("book_cover")
-  const insidePapers = getPaperOptions("book_inside")
+  const [showAllCoverPapers, setShowAllCoverPapers] = useState(false)
+  const [showAllInsidePapers, setShowAllInsidePapers] = useState(false)
+  const { getPaperOptions, papers: allPapers } = usePapersContext()
+  const allPaperOptions = allPapers.map((p) => ({ name: p.name, isCardstock: p.is_cardstock, thickness: p.thickness, availableSizes: p.available_sizes }))
+  const coverPapers = showAllCoverPapers ? allPaperOptions : getPaperOptions("book_cover")
+  const insidePapers = showAllInsidePapers ? allPaperOptions : getPaperOptions("book_inside")
   const coverSizes = inputs.coverPaper ? getAvailableSizes(inputs.coverPaper) : []
   const insideSizes = inputs.insidePaper ? getAvailableSizes(inputs.insidePaper) : []
   const canLam = inputs.separateCover && inputs.coverPaper ? canPaperLaminate(inputs.coverPaper) : false
@@ -158,12 +162,27 @@ export function BookletForm({
       {inputs.separateCover && (
         <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
           <span className="text-sm font-medium text-foreground pb-2">Cover</span>
-          <Select value={inputs.coverPaper} onValueChange={(val) => updateInputs({ coverPaper: val, coverSheetSize: "cheapest" })}>
-            <SelectTrigger className={v.cls(!inputs.coverPaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
-            <SelectContent>
-              {coverPapers.map((p) => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAllCoverPapers(!showAllCoverPapers)}
+                className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                  showAllCoverPapers 
+                    ? "bg-primary text-primary-foreground" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                {showAllCoverPapers ? "Filtered" : "Show All"}
+              </button>
+            </div>
+            <Select value={inputs.coverPaper} onValueChange={(val) => updateInputs({ coverPaper: val, coverSheetSize: "cheapest" })}>
+              <SelectTrigger className={v.cls(!inputs.coverPaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
+              <SelectContent>
+                {coverPapers.map((p) => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <Select value={inputs.coverSides} onValueChange={(val) => updateInputs({ coverSides: val })}>
             <SelectTrigger className={v.cls(!inputs.coverSides)}><SelectValue placeholder="Sides" /></SelectTrigger>
             <SelectContent>
@@ -197,12 +216,27 @@ export function BookletForm({
       {/* Inside Pages Row */}
       <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
         <span className="text-sm font-medium text-foreground pb-2">Inside</span>
-        <Select value={inputs.insidePaper} onValueChange={(val) => updateInputs({ insidePaper: val, insideSheetSize: "cheapest" })}>
-          <SelectTrigger className={v.cls(!inputs.insidePaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
-          <SelectContent>
-            {insidePapers.map((p) => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowAllInsidePapers(!showAllInsidePapers)}
+              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                showAllInsidePapers 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              {showAllInsidePapers ? "Filtered" : "Show All"}
+            </button>
+          </div>
+          <Select value={inputs.insidePaper} onValueChange={(val) => updateInputs({ insidePaper: val, insideSheetSize: "cheapest" })}>
+            <SelectTrigger className={v.cls(!inputs.insidePaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
+            <SelectContent>
+              {insidePapers.map((p) => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <Select value={inputs.insideSides} onValueChange={(val) => updateInputs({ insideSides: val })}>
           <SelectTrigger className={v.cls(!inputs.insideSides)}><SelectValue placeholder="Sides" /></SelectTrigger>
           <SelectContent>

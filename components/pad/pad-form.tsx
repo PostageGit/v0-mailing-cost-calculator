@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -12,7 +13,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
-  getPaperNames,
   getAvailableSizes,
   getAvailableSides,
 } from "@/lib/spiral-pricing"
@@ -21,6 +21,7 @@ import type { PadSettings } from "@/lib/pad-types"
 import type { SpiralPartInputs } from "@/lib/spiral-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
 import { PadSettingsPanel } from "./pad-settings"
+import { usePapersContext } from "@/lib/papers-context"
 
 interface PadFormProps {
   inputs: PadInputs
@@ -43,7 +44,11 @@ export function PadForm({
   settings,
   onSettingsSave,
 }: PadFormProps) {
-  const paperNames = getPaperNames()
+  const [showAllPapers, setShowAllPapers] = useState(false)
+  const { getPaperOptions, papers: allPapers } = usePapersContext()
+  const filteredPapers = getPaperOptions("pad")
+  const allPaperOptions = allPapers.map((p) => ({ name: p.name }))
+  const paperNames = (showAllPapers ? allPaperOptions : filteredPapers).map((p) => p.name)
   const v = useFormValidation()
 
   function handleSubmit(e: React.FormEvent) {
@@ -140,7 +145,20 @@ export function PadForm({
       <Separator className="my-4" />
 
       {/* Inside Pages Paper Row */}
-      <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Inside Pages</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inside Pages</p>
+        <button
+          type="button"
+          onClick={() => setShowAllPapers(!showAllPapers)}
+          className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+            showAllPapers 
+              ? "bg-primary text-primary-foreground" 
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+        >
+          {showAllPapers ? "Filtered" : "Show All"}
+        </button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
         <div className="flex flex-col gap-1.5">
           <Select

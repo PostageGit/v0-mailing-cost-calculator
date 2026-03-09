@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Save } from "lucide-react"
 import { getAvailableSides } from "@/lib/printing-pricing"
-import { useFlatPrintingPapers, papersToOptions } from "@/lib/use-papers"
+import { useFlatPrintingPapers, usePapers, papersToOptions } from "@/lib/use-papers"
 import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 
 import { FinishingAddOns } from "@/components/finishing-add-ons"
@@ -43,12 +43,13 @@ export function PrintingForm({
   currentResult,
   ohpMode,
 }: PrintingFormProps) {
-  const { papers, isLoading, error } = useFlatPrintingPapers()
+  const [showAllPapers, setShowAllPapers] = useState(false)
+  const { papers: filteredPapers } = useFlatPrintingPapers()
+  const { papers: allPapers } = usePapers()
+  const papers = showAllPapers ? allPapers : filteredPapers
   const paperOptions = papersToOptions(papers)
   const availableSides = inputs.paperName ? getAvailableSides(inputs.paperName) : []
   const v = useFormValidation()
-  
-  console.log("[v0] Flat printing papers:", { papersCount: papers.length, isLoading, error, paperOptions: paperOptions.slice(0, 3) })
 
   function handlePaperChange(value: string) {
     const newSides = getAvailableSides(value)
@@ -146,9 +147,22 @@ export function PrintingForm({
       {/* Row 2: Paper Type, Sides, Bleed */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="print-paper" className="text-sm font-medium text-foreground">
-            Paper Type{v.req(!inputs.paperName) && <span className="text-destructive text-xs ml-0.5">*</span>}
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="print-paper" className="text-sm font-medium text-foreground">
+              Paper Type{v.req(!inputs.paperName) && <span className="text-destructive text-xs ml-0.5">*</span>}
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowAllPapers(!showAllPapers)}
+              className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                showAllPapers 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              {showAllPapers ? "Filtered" : "Show All"}
+            </button>
+          </div>
           <Select value={inputs.paperName} onValueChange={handlePaperChange}>
             <SelectTrigger id="print-paper" className={v.cls(!inputs.paperName)}>
               <SelectValue placeholder="Select Paper" />
