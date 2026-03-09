@@ -563,43 +563,30 @@ function DontForgetChecklist({
     return cats
   }, [addedItems, inferredItems])
 
-  // Filter to only show configured categories that need attention
+  // Filter to only show categories that NEED attention (not already detected/added)
+  // Categories with detected items are already shown in "Detected for this job" - no need to show twice
   const checklistItems = useMemo(() => {
     return configuredCategories
       .filter((catId) => DONT_FORGET_CATEGORY_META[catId]) // only valid categories
+      .filter((catId) => !addressedCategories.has(catId as ServiceCategory)) // hide if already detected/added
       .map((catId) => {
         const meta = DONT_FORGET_CATEGORY_META[catId]
         const category = catId as ServiceCategory
-        const isAddressed = addressedCategories.has(category)
         const isDismissed = dismissedCategories.has(category)
-        return { category, label: meta.label, hint: meta.hint, isAdded: isAddressed, isDismissed, needsAttention: !isAddressed && !isDismissed }
+        return { category, label: meta.label, hint: meta.hint, isDismissed, needsAttention: !isDismissed }
       })
   }, [configuredCategories, addressedCategories, dismissedCategories])
 
   const needsAttentionCount = checklistItems.filter((c) => c.needsAttention).length
 
-  // Don't show if no categories configured or all items are addressed
+  // Don't show if no categories need attention (all detected or dismissed)
   if (checklistItems.length === 0) return null
-  if (needsAttentionCount === 0 && checklistItems.every((c) => c.isAdded || c.isDismissed)) {
-    return null
-  }
 
   return (
-    <div className={cn(
-      "rounded-2xl border-2 p-4",
-      needsAttentionCount > 0
-        ? "border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20"
-        : "border-border bg-card"
-    )}>
+    <div className="rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-4">
       <div className="flex items-center gap-2 mb-3">
-        {needsAttentionCount > 0 ? (
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-        ) : (
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-        )}
-        <h4 className="text-sm font-bold text-foreground">
-          {needsAttentionCount > 0 ? "Don't Forget" : "All Reviewed"}
-        </h4>
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <h4 className="text-sm font-bold text-foreground">Don't Forget</h4>
         {needsAttentionCount > 0 && (
           <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
             {needsAttentionCount} to review
@@ -614,27 +601,23 @@ function DontForgetChecklist({
               key={item.category}
               className={cn(
                 "flex items-center gap-2 rounded-xl border px-3 py-2 transition-all",
-                item.isAdded
-                  ? "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/30"
-                  : item.isDismissed
-                    ? "border-border bg-muted/30 opacity-60"
-                    : "border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950/10"
+                item.isDismissed
+                  ? "border-border bg-muted/30 opacity-60"
+                  : "border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950/10"
               )}
             >
               <Icon className={cn(
                 "h-4 w-4",
-                item.isAdded ? "text-emerald-600" : item.isDismissed ? "text-muted-foreground" : "text-amber-600"
+                item.isDismissed ? "text-muted-foreground" : "text-amber-600"
               )} />
               <span className={cn(
                 "text-sm font-medium",
-                item.isAdded ? "text-emerald-700 dark:text-emerald-300" : item.isDismissed ? "text-muted-foreground line-through" : "text-foreground"
+                item.isDismissed ? "text-muted-foreground line-through" : "text-foreground"
               )}>
                 {item.label}
               </span>
               
-              {item.isAdded ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 ml-1" />
-              ) : item.isDismissed ? (
+              {item.isDismissed ? (
                 <button
                   type="button"
                   onClick={() => onUndismiss(item.category)}
