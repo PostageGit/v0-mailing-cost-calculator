@@ -14,7 +14,9 @@ const SETTINGS_KEY = "lamination_config"
 const LAM_TYPES: LaminationType[] = ["Gloss", "Matte", "Silk", "Leather", "Linen"]
 
 export interface LaminationConfig {
-  rollCosts: Record<LaminationType, number>
+  rollPrices: Record<LaminationType, number>      // Price for entire roll ($)
+  rollLengthFt: Record<LaminationType, number>    // Roll length in feet
+  rollCosts: Record<LaminationType, number>       // Calculated $/sheet (can be derived or overridden)
   rollChangeFees: Record<LaminationType, number>
   wastePct: Record<LaminationType, number>
   minSheets: Record<LaminationType, number>
@@ -29,6 +31,8 @@ export interface LaminationConfig {
 }
 
 export const DEFAULT_LAMINATION_CONFIG: LaminationConfig = {
+  rollPrices: { Gloss: 150, Matte: 145, Silk: 160, Leather: 155, Linen: 155 },
+  rollLengthFt: { Gloss: 500, Matte: 500, Silk: 500, Leather: 500, Linen: 500 },
   rollCosts: { Gloss: 0.1058, Matte: 0.1045, Silk: 0.1009, Leather: 0.1045, Linen: 0.1045 },
   rollChangeFees: { Gloss: 0, Matte: 10, Silk: 10, Leather: 10, Linen: 10 },
   wastePct: { Gloss: 5, Matte: 5, Silk: 10, Leather: 5, Linen: 5 },
@@ -80,6 +84,16 @@ export function LaminationSettingsTab() {
 
   const handleReset = () => {
     setConfig(DEFAULT_LAMINATION_CONFIG)
+    setHasChanges(true)
+  }
+
+  const updateRollPrice = (type: LaminationType, value: number) => {
+    setConfig((prev) => ({ ...prev, rollPrices: { ...prev.rollPrices, [type]: value } }))
+    setHasChanges(true)
+  }
+
+  const updateRollLengthFt = (type: LaminationType, value: number) => {
+    setConfig((prev) => ({ ...prev, rollLengthFt: { ...prev.rollLengthFt, [type]: value } }))
     setHasChanges(true)
   }
 
@@ -142,54 +156,90 @@ export function LaminationSettingsTab() {
             <thead>
               <tr className="border-b">
                 <th className="text-left py-2 font-medium">Type</th>
-                <th className="text-left py-2 font-medium">Roll Cost ($/sheet)</th>
-                <th className="text-left py-2 font-medium">Roll Change Fee ($)</th>
+                <th className="text-left py-2 font-medium">
+                  <div>Roll Price ($)</div>
+                  <div className="text-[10px] text-muted-foreground font-normal">Entire roll</div>
+                </th>
+                <th className="text-left py-2 font-medium">
+                  <div>Roll Length</div>
+                  <div className="text-[10px] text-muted-foreground font-normal">Feet (in)</div>
+                </th>
+                <th className="text-left py-2 font-medium">
+                  <div>Cost/Sheet</div>
+                  <div className="text-[10px] text-muted-foreground font-normal">$/sheet</div>
+                </th>
+                <th className="text-left py-2 font-medium">Roll Change ($)</th>
                 <th className="text-left py-2 font-medium">Waste %</th>
                 <th className="text-left py-2 font-medium">Min Sheets</th>
               </tr>
             </thead>
             <tbody>
-              {LAM_TYPES.map((type) => (
-                <tr key={type} className="border-b last:border-0">
-                  <td className="py-2 font-medium">{type}</td>
-                  <td className="py-2">
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      value={config.rollCosts[type]}
-                      onChange={(e) => updateRollCost(type, parseFloat(e.target.value) || 0)}
-                      className="h-7 w-24"
-                    />
-                  </td>
-                  <td className="py-2">
-                    <Input
-                      type="number"
-                      step="1"
-                      value={config.rollChangeFees[type]}
-                      onChange={(e) => updateRollChangeFee(type, parseFloat(e.target.value) || 0)}
-                      className="h-7 w-20"
-                    />
-                  </td>
-                  <td className="py-2">
-                    <Input
-                      type="number"
-                      step="1"
-                      value={config.wastePct[type]}
-                      onChange={(e) => updateWastePct(type, parseFloat(e.target.value) || 0)}
-                      className="h-7 w-16"
-                    />
-                  </td>
-                  <td className="py-2">
-                    <Input
-                      type="number"
-                      step="1"
-                      value={config.minSheets[type]}
-                      onChange={(e) => updateMinSheets(type, parseFloat(e.target.value) || 0)}
-                      className="h-7 w-16"
-                    />
-                  </td>
-                </tr>
-              ))}
+              {LAM_TYPES.map((type) => {
+                const lengthFt = config.rollLengthFt?.[type] ?? 500
+                const lengthIn = lengthFt * 12
+                return (
+                  <tr key={type} className="border-b last:border-0">
+                    <td className="py-2 font-medium">{type}</td>
+                    <td className="py-2">
+                      <Input
+                        type="number"
+                        step="1"
+                        value={config.rollPrices?.[type] ?? 150}
+                        onChange={(e) => updateRollPrice(type, parseFloat(e.target.value) || 0)}
+                        className="h-7 w-20"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="1"
+                          value={lengthFt}
+                          onChange={(e) => updateRollLengthFt(type, parseFloat(e.target.value) || 0)}
+                          className="h-7 w-20"
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">({lengthIn.toLocaleString()}")</span>
+                      </div>
+                    </td>
+                    <td className="py-2">
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        value={config.rollCosts[type]}
+                        onChange={(e) => updateRollCost(type, parseFloat(e.target.value) || 0)}
+                        className="h-7 w-24"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <Input
+                        type="number"
+                        step="1"
+                        value={config.rollChangeFees[type]}
+                        onChange={(e) => updateRollChangeFee(type, parseFloat(e.target.value) || 0)}
+                        className="h-7 w-20"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <Input
+                        type="number"
+                        step="1"
+                        value={config.wastePct[type]}
+                        onChange={(e) => updateWastePct(type, parseFloat(e.target.value) || 0)}
+                        className="h-7 w-16"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <Input
+                        type="number"
+                        step="1"
+                        value={config.minSheets[type]}
+                        onChange={(e) => updateMinSheets(type, parseFloat(e.target.value) || 0)}
+                        className="h-7 w-16"
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
