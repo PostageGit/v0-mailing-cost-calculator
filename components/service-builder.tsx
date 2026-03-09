@@ -110,6 +110,7 @@ export function ServiceBuilder() {
   const [addedItems, setAddedItems] = useState<Map<string, AddedEntry>>(new Map())
   const [customPrices, setCustomPrices] = useState<Map<string, number>>(new Map())
   const [customQtys, setCustomQtys] = useState<Map<string, number>>(new Map())
+  const [customTotals, setCustomTotals] = useState<Map<string, number>>(new Map()) // Override totals for list rentals
   const [search, setSearch] = useState("")
   const [expandedCat, setExpandedCat] = useState<ServiceCategory | null>(null)
 
@@ -200,22 +201,36 @@ export function ServiceBuilder() {
     [getPrice, getQty, mailingQty]
   )
 
-  const addToQuote = useCallback(
-    (item: ServiceItem) => {
-      const price = getPrice(item)
-      if (price === null && !item.referToPostage) return
-      const qty = getQty(item)
-      const total = item.referToPostage ? 0 : calculateItemAmount(item, price!, mailingQty, qty)
-      quote.addItem({
-        category: "item",
-        label: item.name,
-        description: `${item.description}${item.referToPostage ? " (see postage tab)" : ""}`,
-        amount: total,
-        metadata: { serviceId: item.id, priceUnit: item.priceUnit, unitPrice: price ?? undefined, qty, mailingQty, shape },
-      })
-      setAddedItems((prev) => new Map(prev).set(item.id, { serviceId: item.id, qty, price: price ?? 0, total }))
-    },
-    [getPrice, getQty, mailingQty, quote, shape]
+const addToQuote = useCallback(
+  (item: ServiceItem) => {
+  const price = getPrice(item)
+  if (price === null && !item.referToPostage) return
+  const qty = getQty(item)
+  const calculatedTotal = item.referToPostage ? 0 : calculateItemAmount(item, price!, mailingQty, qty)
+  // Use custom total override if set (for list rentals), otherwise use calculated
+  const overrideTotal = customTotals.get(item.id)
+  const total = overrideTotal !== undefined ? overrideTotal : calculatedTotal
+  const isOverridden = overrideTotal !== undefined
+  
+  // Build description
+  let description = item.description
+  if (item.referToPostage) {
+    description += " (see postage tab)"
+  } else if (item.priceUnit === "name/mailing") {
+    // List rental: show qty and rate
+    description = `${qty.toLocaleString()} names @ $${(price! * 1000).toFixed(0)}/M${isOverridden ? " (custom price)" : ""}`
+  }
+  
+  quote.addItem({
+  category: "item",
+  label: item.name,
+  description,
+  amount: total,
+  metadata: { serviceId: item.id, priceUnit: item.priceUnit, unitPrice: price ?? undefined, qty, mailingQty, shape, isOverridden },
+  })
+  setAddedItems((prev) => new Map(prev).set(item.id, { serviceId: item.id, qty, price: price ?? 0, total }))
+  },
+  [getPrice, getQty, mailingQty, quote, shape, customTotals]
   )
 
   const addAllInferred = useCallback(() => {
@@ -413,19 +428,22 @@ export function ServiceBuilder() {
           </div>
           <div className="divide-y divide-border/50 bg-background">
             {grouped[expandedCat].map((item) => (
-              <ServiceRow
-                key={item.id}
-                item={item}
-                mailingQty={mailingQty}
-                isAdded={addedItems.has(item.id)}
-                inferredReason={inferredMap.get(item.id) || null}
+ <ServiceRow
+  key={item.id}
+  item={item}
+  mailingQty={mailingQty}
+  isAdded={addedItems.has(item.id)}
+  inferredReason={inferredMap.get(item.id) || null}
   customPrice={customPrices.get(item.id)}
   customQty={customQtys.get(item.id)}
+  customTotal={customTotals.get(item.id)}
   resolvedPrice={getPrice(item)}
   total={getTotal(item)}
-                onSetPrice={(p) => setCustomPrices((prev) => new Map(prev).set(item.id, p))}
-                onSetQty={(q) => setCustomQtys((prev) => new Map(prev).set(item.id, q))}
-                onAdd={() => addToQuote(item)}
+  onSetPrice={(p) => setCustomPrices((prev) => new Map(prev).set(item.id, p))}
+  onSetQty={(q) => setCustomQtys((prev) => new Map(prev).set(item.id, q))}
+  onSetTotal={(t) => setCustomTotals((prev) => new Map(prev).set(item.id, t))}
+  onClearTotal={() => setCustomTotals((prev) => { const n = new Map(prev); n.delete(item.id); return n })}
+  onAdd={() => addToQuote(item)}
               />
             ))}
           </div>
@@ -471,10 +489,13 @@ interface ServiceRowProps {
   inferredReason: string | null
   customPrice: number | undefined
   customQty: number | undefined
+  customTotal: number | undefined
   resolvedPrice: number | null
   total: number | null
   onSetPrice: (p: number) => void
   onSetQty: (q: number) => void
+  onSetTotal: (t: number) => void
+  onClearTotal: () => void
   onAdd: () => void
 }
 
@@ -485,22 +506,29 @@ function ServiceRow({
   inferredReason,
   customPrice,
   customQty,
+  customTotal,
   resolvedPrice,
   total,
   onSetPrice,
   onSetQty,
+  onSetTotal,
+  onClearTotal,
   onAdd,
 }: ServiceRowProps) {
   const isInferred = !!inferredReason
+  const isListRental = item.priceUnit === "name/mailing"
   const effectivePrice = item.referToPostage ? null : resolvedPrice
-  const needsCustomPrice = !item.referToPostage && effectivePrice === null
+  // List rentals can use customTotal even without a price, so don't block the Add button
+  const needsCustomPrice = !item.referToPostage && effectivePrice === null && !isListRental
   const effectiveQty = customQty ?? getAutoQuantity(item, mailingQty)
 
-  const displayTotal = item.referToPostage
+  const calculatedTotal = item.referToPostage
     ? null
     : effectivePrice !== null
     ? calculateItemAmount(item, effectivePrice, mailingQty, effectiveQty)
     : null
+  // For list rentals, allow customTotal override
+  const displayTotal = isListRental && customTotal !== undefined ? customTotal : calculatedTotal
 
   return (
     <div
@@ -538,6 +566,11 @@ function ServiceRow({
           <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">See Rate</span>
         ) : item.pricingRule === "addressing_bracket" || item.pricingRule === "tabbing_bracket" ? (
           <span className="text-xs text-muted-foreground font-medium text-center block">Bracket</span>
+        ) : item.priceUnit === "name/mailing" ? (
+          // List rental: show rate as read-only (editable in Settings only)
+          <span className="text-sm text-right block font-mono text-muted-foreground">
+            {effectivePrice !== null ? effectivePrice.toFixed(4) : "--"}
+          </span>
         ) : (
           <Input
             type="number"
@@ -590,8 +623,36 @@ function ServiceRow({
       </div>
 
       {/* Total */}
-      <div className="w-20 shrink-0 text-right">
-        {displayTotal !== null ? (
+      <div className="w-24 shrink-0 text-right">
+        {item.priceUnit === "name/mailing" ? (
+          // List rental: editable total with override indicator
+          <div className="flex items-center gap-1 justify-end">
+            {customTotal !== undefined && (
+              <button
+                type="button"
+                onClick={onClearTotal}
+                className="text-[10px] text-pink-500 hover:text-pink-700 font-medium"
+                title="Clear override"
+              >
+                ✕
+              </button>
+            )}
+            <div className="relative">
+              <span className="absolute left-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+              <Input
+                type="number"
+                step="1"
+                className={cn(
+                  "h-8 text-sm text-right pl-4 pr-2 w-20",
+                  customTotal !== undefined && "border-pink-300 bg-pink-50 dark:bg-pink-950/20 text-pink-700 dark:text-pink-300 font-bold"
+                )}
+                value={customTotal ?? (displayTotal !== null ? Math.round(displayTotal) : "")}
+                onChange={(e) => onSetTotal(parseFloat(e.target.value) || 0)}
+                placeholder={displayTotal !== null ? Math.round(displayTotal).toString() : "0"}
+              />
+            </div>
+          </div>
+        ) : displayTotal !== null ? (
           <span className="text-sm font-bold">${displayTotal.toFixed(2)}</span>
         ) : item.referToPostage ? (
           <span className="text-xs text-muted-foreground">--</span>
