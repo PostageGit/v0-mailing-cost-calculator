@@ -112,24 +112,24 @@ function QuoteItemRow({
   }
 
   return (
-    <div className="group flex items-start gap-3 py-2.5 px-3 rounded-xl hover:bg-secondary/30 transition-colors">
+    <div className="group flex items-start gap-3 py-3 px-3.5 rounded-xl hover:bg-secondary/40 transition-colors">
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-foreground/90 leading-snug">
+        <p className="text-sm font-semibold text-foreground leading-snug">
           {item.label}
         </p>
         {item.metadata?.customerProvided && (
-          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/40 text-[9px] font-bold text-amber-700 dark:text-amber-400 tracking-wide uppercase">
+          <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-[10px] font-bold text-amber-700 dark:text-amber-400 tracking-wide uppercase">
             Customer Provides
             {item.metadata.providerExpectedDate && (
-              <span className="font-normal normal-case ml-0.5">
+              <span className="font-semibold normal-case ml-0.5">
                 {" "}&middot; {new Date(item.metadata.providerExpectedDate as string).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               </span>
             )}
           </span>
         )}
         {item.description && (
-          <p className="text-[11px] text-muted-foreground/60 leading-relaxed mt-0.5 line-clamp-2 font-normal">
+          <p className="text-xs text-muted-foreground leading-relaxed mt-1 line-clamp-2">
             {item.description}
           </p>
         )}
@@ -187,24 +187,24 @@ function QuoteItemRow({
       </div>
 
       {/* Amount + hover actions */}
-      <div className="flex items-center gap-1 shrink-0 pt-0.5">
-        <span className="text-[13px] font-mono font-semibold text-foreground/80 tabular-nums">
+      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+        <span className="text-sm font-mono font-bold text-foreground tabular-nums">
           {formatCurrency(item.amount)}
         </span>
-        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-1">
           <button
             onClick={() => setEditing(true)}
-            className="p-1 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             aria-label={`Edit ${item.label}`}
           >
-            <Pencil className="h-3 w-3" />
+            <Pencil className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => onRemove(item.id)}
-            className="p-1 rounded-md text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             aria-label={`Remove ${item.label}`}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -304,23 +304,23 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   return (
     <div className="rounded-2xl bg-card border border-border flex flex-col h-full overflow-hidden">
       {/* ── Header ── */}
-      <div className="px-5 pt-5 pb-4 border-b border-border/40 shrink-0">
+      <div className="px-5 pt-5 pb-4 border-b border-border/50 shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-2.5">
-            <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Quote</h2>
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-base font-bold text-foreground">Quote</h2>
             {quoteNumber && (
-              <span className="text-[11px] font-mono font-medium text-muted-foreground/70 bg-secondary/60 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-mono font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-md">
                 Q-{quoteNumber}
               </span>
             )}
           </div>
           <div className="flex items-center gap-3">
             {saveText && (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70 font-normal">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
                 {isSaving ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Cloud className="h-3 w-3 text-emerald-500/70" />
+                  <Cloud className="h-3.5 w-3.5 text-emerald-500" />
                 )}
                 {saveText}
               </span>
@@ -328,7 +328,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
             {hasItems && !confirmClear && (
               <button
                 onClick={() => setConfirmClear(true)}
-                className="text-[11px] text-muted-foreground/60 hover:text-destructive transition-colors font-medium"
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium"
               >
                 Clear
               </button>
@@ -337,13 +337,13 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
               <div className="flex items-center gap-2.5">
                 <button
                   onClick={() => { clearAll(); setConfirmClear(false) }}
-                  className="text-[11px] font-semibold text-destructive hover:underline"
+                  className="text-xs font-bold text-destructive hover:underline"
                 >
                   Confirm
                 </button>
                 <button
                   onClick={() => setConfirmClear(false)}
-                  className="text-[11px] text-muted-foreground/60 hover:underline"
+                  className="text-xs text-muted-foreground hover:underline font-medium"
                 >
                   Cancel
                 </button>
@@ -402,25 +402,25 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                   {/* Category header */}
                   <button
                     onClick={() => toggleCat(cat)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                    className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl bg-secondary/40 hover:bg-secondary/60 transition-colors"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       {collapsed ? (
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       )}
-  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${getCategoryColor(cat)}`}>
-  {getCategoryLabel(cat)}
-  </span>
-  {catItems.some((i) => i.metadata?.isEstimated) && (
-    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 uppercase tracking-wide">Est.</span>
-  )}
-  <span className="text-[11px] text-muted-foreground/50 tabular-nums font-normal">
-  {catItems.length}
-  </span>
+                      <span className={`text-sm font-bold px-2.5 py-1 rounded-lg ${getCategoryColor(cat)}`}>
+                        {getCategoryLabel(cat)}
+                      </span>
+                      {catItems.some((i) => i.metadata?.isEstimated) && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 uppercase tracking-wide">Est.</span>
+                      )}
+                      <span className="text-sm text-muted-foreground tabular-nums font-medium">
+                        {catItems.length}
+                      </span>
                     </div>
-                    <span className="text-[13px] font-mono font-semibold text-foreground/80 tabular-nums">
+                    <span className="text-base font-mono font-bold text-foreground tabular-nums">
                       {formatCurrency(catTotal)}
                     </span>
                   </button>
@@ -470,39 +470,39 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
 
       {/* ── Footer with total ── */}
       {hasItems && (
-        <div className="shrink-0 border-t border-border/40 px-5 py-4">
+        <div className="shrink-0 border-t border-border/50 px-5 py-5">
           {/* Total */}
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[13px] font-semibold text-foreground/70">Total</span>
-            <span className="text-xl font-bold font-mono text-foreground tabular-nums tracking-tight">
+          <div className="flex items-center justify-between mb-5">
+            <span className="text-sm font-bold text-foreground">Total</span>
+            <span className="text-2xl font-bold font-mono text-foreground tabular-nums tracking-tight">
               {formatCurrency(total)}
             </span>
           </div>
 
           {/* Activity Log */}
           {activityLog.length > 0 && (
-            <div className="mb-3.5">
+            <div className="mb-4">
               <button
                 onClick={() => setShowLog(!showLog)}
-                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/60 hover:text-foreground transition-colors mb-2"
+                className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-2"
               >
-                <Clock className="h-3 w-3" />
+                <Clock className="h-3.5 w-3.5" />
                 Activity ({activityLog.length})
-                {showLog ? <ChevronDown className="h-2.5 w-2.5" /> : <ChevronRight className="h-2.5 w-2.5" />}
+                {showLog ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               </button>
               {showLog && (
-                <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto rounded-lg bg-secondary/20 p-2.5">
+                <div className="flex flex-col gap-2 max-h-36 overflow-y-auto rounded-lg bg-secondary/30 p-3">
                   {activityLog.map((entry) => (
                     <div key={entry.id} className="flex items-start gap-2">
-                      <div className="w-1 h-1 rounded-full bg-muted-foreground/25 mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] text-foreground/80 font-medium leading-snug">
+                        <p className="text-xs text-foreground font-medium leading-snug">
                           {formatEvent(entry.event)}
                         </p>
                         {entry.detail && (
-                          <p className="text-[10px] text-muted-foreground/50 truncate font-normal">{entry.detail}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{entry.detail}</p>
                         )}
-                        <p className="text-[10px] text-muted-foreground/40 tabular-nums font-normal">
+                        <p className="text-[11px] text-muted-foreground/70 tabular-nums">
                           {formatLogDate(entry.created_at)}
                         </p>
                       </div>
@@ -514,18 +514,18 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
           )}
 
           {/* Actions */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             {onGoToExport && items.length > 0 && (
               <Button
                 size="sm"
-                className="w-full gap-1.5 text-[12px] h-10 rounded-lg font-semibold bg-foreground text-background hover:bg-foreground/90"
+                className="w-full gap-2 text-sm h-11 rounded-xl font-bold bg-foreground text-background hover:bg-foreground/90"
                 onClick={handleFinishAndSend}
                 disabled={sending}
               >
                 {sending ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
                 ) : (
-                  <><Send className="h-3.5 w-3.5" /> Finish &amp; Send to Export</>
+                  <><Send className="h-4 w-4" /> Finish &amp; Send to Export</>
                 )}
               </Button>
             )}
@@ -533,31 +533,31 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
               <Button
                 variant={copied ? "default" : "secondary"}
                 size="sm"
-                className="flex-1 gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                className="flex-1 gap-2 text-sm h-10 rounded-xl font-semibold"
                 onClick={handleCopy}
               >
                 {copied ? (
-                  <><Check className="h-3.5 w-3.5" /> Copied!</>
+                  <><Check className="h-4 w-4" /> Copied!</>
                 ) : (
-                  <><ClipboardCopy className="h-3.5 w-3.5" /> Copy to Email</>
+                  <><ClipboardCopy className="h-4 w-4" /> Copy to Email</>
                 )}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                className="gap-2 text-sm h-10 rounded-xl font-semibold"
                 onClick={handleDownloadPDF}
                 title="Download PDF quote"
               >
-                <Download className="h-3.5 w-3.5" /> PDF
+                <Download className="h-4 w-4" /> PDF
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                className="gap-1.5 text-[12px] h-9 rounded-lg font-semibold"
+                className="gap-2 text-sm h-10 rounded-xl font-semibold"
                 onClick={newQuote}
               >
-                <FilePlus className="h-3.5 w-3.5" /> New
+                <FilePlus className="h-4 w-4" /> New
               </Button>
             </div>
           </div>
