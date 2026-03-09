@@ -382,6 +382,7 @@ const addToQuote = useCallback(
       {/* ── Don't Forget Checklist ── */}
       <DontForgetChecklist
         addedItems={addedItems}
+        inferredItems={inferredMap}
         dismissedCategories={dismissedCategories}
         mailService={mailService}
         dontForgetConfig={appSettings?.dont_forget_config as Record<string, string[]> | undefined}
@@ -518,6 +519,7 @@ const addToQuote = useCallback(
 
 interface DontForgetChecklistProps {
   addedItems: Map<string, AddedEntry>
+  inferredItems: Map<string, string> // items detected for this job (id -> reason)
   dismissedCategories: Set<ServiceCategory>
   mailService: string
   dontForgetConfig: Record<string, string[]> | undefined
@@ -528,6 +530,7 @@ interface DontForgetChecklistProps {
 
 function DontForgetChecklist({
   addedItems,
+  inferredItems,
   dismissedCategories,
   mailService,
   dontForgetConfig,
@@ -544,15 +547,21 @@ function DontForgetChecklist({
     return config[mailClassKey] || config.ALL || []
   }, [dontForgetConfig, mailService])
 
-  // Check which categories have items added
-  const addedCategories = useMemo(() => {
+  // Check which categories have items added OR detected (inferred)
+  const addressedCategories = useMemo(() => {
     const cats = new Set<ServiceCategory>()
+    // Added items
     for (const [id] of addedItems) {
       const item = SERVICE_CATALOG.find((s) => s.id === id)
       if (item) cats.add(item.category)
     }
+    // Inferred/detected items also count as addressed
+    for (const [id] of inferredItems) {
+      const item = SERVICE_CATALOG.find((s) => s.id === id)
+      if (item) cats.add(item.category)
+    }
     return cats
-  }, [addedItems])
+  }, [addedItems, inferredItems])
 
   // Filter to only show configured categories that need attention
   const checklistItems = useMemo(() => {
@@ -561,11 +570,11 @@ function DontForgetChecklist({
       .map((catId) => {
         const meta = DONT_FORGET_CATEGORY_META[catId]
         const category = catId as ServiceCategory
-        const isAdded = addedCategories.has(category)
+        const isAddressed = addressedCategories.has(category)
         const isDismissed = dismissedCategories.has(category)
-        return { category, label: meta.label, hint: meta.hint, isAdded, isDismissed, needsAttention: !isAdded && !isDismissed }
+        return { category, label: meta.label, hint: meta.hint, isAdded: isAddressed, isDismissed, needsAttention: !isAddressed && !isDismissed }
       })
-  }, [configuredCategories, addedCategories, dismissedCategories])
+  }, [configuredCategories, addressedCategories, dismissedCategories])
 
   const needsAttentionCount = checklistItems.filter((c) => c.needsAttention).length
 
