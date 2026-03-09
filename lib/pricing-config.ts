@@ -292,61 +292,7 @@ export function validateScoreFold(
   return { valid: true }
 }
 
-/** Calculate score-fold cost for a given piece quantity */
-export function calculateScoreFoldCost(
-  operation: string,
-  foldType: string,
-  paperName: string,
-  width: number,
-  height: number,
-  quantity: number,
-  isBroker: boolean,
-): { cost: number; isMinApplied: boolean; suggestion?: string } | null {
-  const paperCat = mapPaperToScoreFoldCategory(paperName)
-  const foldSize = mapDimensionsToFoldSize(width, height)
-  if (!paperCat || !foldSize) return null
-
-  const cfg = getActiveConfig().scoreFold
-  const entry = cfg.data[operation]?.[paperCat]?.[foldSize]?.[foldType]
-  if (!entry || entry.setup === "N/A" || entry.setup === "hand fold") return null
-
-  const setupTime = cfg.setupLevels[entry.setup] || 20
-  const setupCost = (setupTime / 60) * cfg.setupCostPerHour
-  const baseRuntime = (quantity / 100) * entry.runtime
-  const totalRuntime = baseRuntime + 5
-  const runtimeCost = (totalRuntime / 60) * cfg.runtimeCostPerHour
-  const machineCharge = (totalRuntime / 60) * cfg.machineChargePerHour
-  const totalBeforeMarkup = setupCost + runtimeCost + machineCharge
-  let finalCost = totalBeforeMarkup * (1 + cfg.markupPercent / 100)
-
-  if (isBroker) finalCost *= (1 - cfg.brokerDiscountPercent / 100)
-
-  const isMinApplied = finalCost < cfg.minimumJobPrice
-  finalCost = Math.max(finalCost, cfg.minimumJobPrice)
-
-  // Check if the alternative operation would be cheaper
-  let suggestion: string | undefined
-  const altOp = operation === "folding" ? "scoring" : "folding"
-  const altPaper = operation === "folding" ? "100text" : "80text"
-  const altEntry = cfg.data[altOp]?.[altPaper]?.[foldSize]?.[foldType]
-  if (altEntry && altEntry.setup !== "N/A" && altEntry.setup !== "hand fold" && altEntry.runtime > 0) {
-    const altSetup = cfg.setupLevels[altEntry.setup] || 20
-    const altSetupCost = (altSetup / 60) * cfg.setupCostPerHour
-    const altBaseRt = (quantity / 100) * altEntry.runtime
-    const altTotalRt = altBaseRt + 5
-    const altRuntimeCost = (altTotalRt / 60) * cfg.runtimeCostPerHour
-    const altMachine = (altTotalRt / 60) * cfg.machineChargePerHour
-    let altFinal = (altSetupCost + altRuntimeCost + altMachine) * (1 + cfg.markupPercent / 100)
-    if (isBroker) altFinal *= (1 - cfg.brokerDiscountPercent / 100)
-    altFinal = Math.max(altFinal, cfg.minimumJobPrice)
-    if (altFinal < finalCost) {
-      const label = altOp === "folding" ? "Folding with 80 Text" : "Score & Fold with 100 Text"
-      suggestion = `${label} would be cheaper at $${altFinal.toFixed(2)}.`
-    }
-  }
-
-  return { cost: finalCost, isMinApplied, suggestion }
-}
+// OLD calculateScoreFoldCost removed - using new foldFinish engine instead
 
 // ==================== ADDRESSING BRACKET CONFIG ====================
 
@@ -589,6 +535,7 @@ export function applyOverrides(overrides: Partial<{
   paper_weight_config: PaperWeightConfig
   envelope_weight_config: EnvelopeWeightConfig
   sort_level_mix: SortLevelMixConfig
+  saddle_stitch_config: SaddleStitchConfig
 }>) {
   _activeConfig = {
     clickCosts: overrides.pricing_click_costs
@@ -627,6 +574,9 @@ export function applyOverrides(overrides: Partial<{
     sortLevelMix: overrides.sort_level_mix
       ? { ...structuredClone(DEFAULT_SORT_LEVEL_MIX), ...overrides.sort_level_mix }
       : structuredClone(DEFAULT_SORT_LEVEL_MIX),
+    saddleStitchConfig: overrides.saddle_stitch_config
+      ? structuredClone(overrides.saddle_stitch_config)
+      : structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
   }
 }
 

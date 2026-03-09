@@ -402,12 +402,10 @@ const tools = {
       laminationEnabled: z.boolean().describe("Add lamination. Only on cardstock."),
       laminationType: z.enum(["Gloss", "Matte", "Silk", "Leather"]).nullable().describe("Lamination type if enabled"),
       laminationSides: z.enum(["S/S", "D/S"]).nullable().describe("Lamination sides: S/S=one side, D/S=both"),
-      scoreFoldOperation: z.enum(["folding", "scoring", ""]).nullable().describe("folding=text paper, scoring=cardstock. Empty=no fold."),
-      scoreFoldType: z.enum(["foldInHalf", "foldIn3", "foldIn4", "gateFold", ""]).nullable().describe("Fold type. Empty=no fold."),
     }),
-    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, scoreFoldOperation, scoreFoldType }) => {
+    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides }) => {
       try {
-        console.log("[v0] calculate_printing called:", { qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, scoreFoldOperation, scoreFoldType })
+        console.log("[v0] calculate_printing called:", { qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides })
         const lamination: LaminationInputs = {
           enabled: laminationEnabled,
           type: (laminationType || "Gloss") as LaminationInputs["type"],
@@ -418,8 +416,6 @@ const tools = {
         const inputs: PrintingInputs = {
           qty, width, height, paperName, sidesValue, hasBleed,
           addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker, lamination,
-          scoreFoldOperation: (scoreFoldOperation || "") as PrintingInputs["scoreFoldOperation"],
-          scoreFoldType: (scoreFoldType || "") as PrintingInputs["scoreFoldType"],
         }
         const options = calculateAllSheetOptions(inputs)
         if (!options.length) {
@@ -430,16 +426,13 @@ const tools = {
         const parts: Record<string, string> = { printing: fmt(fullResult.printingCostPlus10) }
         if (fullResult.laminationCost && fullResult.laminationCost.cost > 0) parts.lamination = fmt(fullResult.laminationCost.cost)
         if (fullResult.cuttingCost > 0) parts.cutting = fmt(fullResult.cuttingCost)
-        if (fullResult.scoreFoldCost && fullResult.scoreFoldCost.cost > 0) {
-          parts.scoreFold = `${fmt(fullResult.scoreFoldCost.cost)} (${fullResult.scoreFoldCost.operation} - ${fullResult.scoreFoldCost.foldType})`
-        }
+        // Note: scoreFold now uses new foldFinish engine (not available in chat yet)
         console.log("[v0] calculate_printing result:", { total: fullResult.grandTotal, qty })
         return {
           total: fmt(fullResult.grandTotal), perUnit: fmt(fullResult.grandTotal / qty),
           qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
           bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
           lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
-          scoreFold: scoreFoldOperation ? `${scoreFoldOperation} - ${scoreFoldType}` : "none",
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_printing error:", e)

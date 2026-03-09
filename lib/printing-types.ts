@@ -36,9 +36,6 @@ export interface PrintingInputs {
   /** IDs of sheet finishing options to apply (e.g. ["gloss_lamination"]) */
   finishingIds?: string[]
   isBroker?: boolean
-  /** Score & fold settings (per-piece finishing) */
-  scoreFoldOperation?: "folding" | "scoring" | ""
-  scoreFoldType?: "foldInHalf" | "foldIn3" | "foldIn4" | "gateFold" | ""
   /** IDs of custom finishing calculators to apply */
   finishingCalcIds?: string[]
   /** Override the auto-detected level (1-8) */

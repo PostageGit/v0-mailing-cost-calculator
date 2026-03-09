@@ -21,6 +21,10 @@ import { FinishingCalculatorsSettingsTab } from "@/components/finishing-calculat
 import { PaperWeightsSettingsTab } from "@/components/paper-weights-settings"
 import { DEFAULT_FOLD_SETTINGS, type FoldFinishingSettings } from "@/lib/finishing-fold-engine"
 import { SuppliersSettings } from "@/components/suppliers-settings"
+import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
+import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
+import { PerfectBindingSettingsTab } from "@/components/perfect-binding-settings"
+import { LaminationSettingsTab } from "@/components/lamination-settings"
 import {
   DEFAULT_CLICK_COSTS,
   DEFAULT_PAPER_PRICES,
@@ -122,7 +126,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- nav config ----------
 type SettingsTab =
-  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs"
+  | "pricing" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding" | "lamination"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix"
   | "items" | "supplies" | "steps"
   | "fields" | "terms" | "team" | "system"
@@ -140,6 +144,10 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "paper-weights", label: "Paper Weights", icon: <Scale className="h-4 w-4" />, description: "Weight per 1,000 sheets, thickness" },
       { id: "finishings", label: "Finishings", icon: <Wrench className="h-4 w-4" />, description: "Score, fold, lamination options" },
       { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
+      { id: "fold-score", label: "Fold & Score", icon: <Wrench className="h-4 w-4" />, description: "Fold and score pricing parameters" },
+      { id: "saddle-stitch", label: "Saddle Stitch", icon: <Wrench className="h-4 w-4" />, description: "Saddle stitch binding rates" },
+      { id: "perfect-binding", label: "Perfect Binding", icon: <Wrench className="h-4 w-4" />, description: "Perfect bound book binding rates" },
+      { id: "lamination", label: "Lamination", icon: <Wrench className="h-4 w-4" />, description: "Lamination pricing by type" },
     ],
   },
   {
@@ -176,6 +184,10 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   "paper-weights": () => <PaperWeightsSettingsTab />,
   finishings: () => <FinishingsSettingsTab />,
   "finishing-calcs": () => <FinishingCalculatorsSettingsTab />,
+  "fold-score": () => <FoldScoreSettingsTab />,
+  "saddle-stitch": () => <SaddleStitchSettingsTab />,
+  "perfect-binding": () => <PerfectBindingSettingsTab />,
+  "lamination": () => <LaminationSettingsTab />,
   labor: () => <LaborRatesTab />,
   departments: () => <DepartmentsTab />,
   envelopes: () => <EnvelopeSettingsTab />,
@@ -3035,7 +3047,10 @@ function FinishingsSettingsTab() {
                       <tr className="bg-muted/30 border-b border-border">
                         <th />
                         {FOLD_TYPES.map((ft) => (
-                          <><th key={ft + "-s"} className="text-center text-muted-foreground px-1 py-1 font-normal">Setup</th><th key={ft + "-r"} className="text-center text-muted-foreground px-1 py-1 font-normal">Rt/100</th></>
+                          <React.Fragment key={ft}>
+                            <th className="text-center text-muted-foreground px-1 py-1 font-normal">Setup</th>
+                            <th className="text-center text-muted-foreground px-1 py-1 font-normal">Rt/100</th>
+                          </React.Fragment>
                         ))}
                       </tr>
                     </thead>

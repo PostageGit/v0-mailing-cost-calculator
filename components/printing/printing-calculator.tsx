@@ -49,8 +49,6 @@ const EMPTY_INPUTS: PrintingInputs = {
   finishingIds: [],
   finishingCalcIds: [],
   isBroker: false,
-  scoreFoldOperation: "",
-  scoreFoldType: "",
   printingMarkupPct: 0,
   lamination: {
     enabled: false,
@@ -258,8 +256,6 @@ export function PrintingCalculator() {
   }, [
   inputs.finishingIds?.join(","),
   inputs.finishingCalcIds?.join(","),
-    inputs.scoreFoldOperation,
-    inputs.scoreFoldType,
     inputs.addOnCharge,
     inputs.addOnDescription,
     inputs.isBroker,
