@@ -249,18 +249,22 @@ export function PerfectForm({
       </div>
 
       {/* Inside Pages Header with Section Toggle */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-foreground">Inside Pages</span>
+      <div className="flex items-center justify-between mb-3 pb-2 border-b">
+        <span className="text-sm font-semibold text-foreground">Inside Pages</span>
         <button
           type="button"
           onClick={toggleSectionMode}
-          className={`text-xs px-2.5 py-1 rounded border font-medium transition-colors ${
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-semibold transition-colors shadow-sm ${
             useSections 
-              ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200" 
-              : "bg-secondary text-foreground border-border hover:bg-primary/10"
+              ? "bg-amber-500 text-white border-amber-600 hover:bg-amber-600" 
+              : "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200"
           }`}
         >
-          {useSections ? "Using Sections" : "Add Sections"}
+          {useSections ? (
+            <>Using Multiple Sections</>
+          ) : (
+            <><Plus className="h-3.5 w-3.5" /> Add Paper Sections</>
+          )}
         </button>
       </div>
 
@@ -427,9 +431,9 @@ export function PerfectForm({
           <button
             type="button"
             onClick={addSection}
-            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium mt-2"
+            className="flex items-center gap-2 text-sm px-3 py-2 mt-2 rounded-md border-2 border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/5 font-medium transition-colors w-full justify-center"
           >
-            <Plus className="h-3.5 w-3.5" /> Add Section
+            <Plus className="h-4 w-4" /> Add Another Section
           </button>
         </div>
       )}
