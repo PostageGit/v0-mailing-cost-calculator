@@ -36,6 +36,16 @@ export function PapersProvider({ children }: { children: ReactNode }) {
   
   const allPapers = papers || []
   
+  // Filter papers by usage - MUST be defined before useEffect that references them
+  const flatPrintingPapers = allPapers.filter((p) => p.use_in_flat_printing)
+  const bookCoverPapers = allPapers.filter((p) => p.use_in_book_cover)
+  const bookInsidePapers = allPapers.filter((p) => p.use_in_book_inside)
+  const coilCoverPapers = allPapers.filter((p) => p.use_in_coil_cover)
+  const coilInsidePapers = allPapers.filter((p) => p.use_in_coil_inside)
+  const spiralCoverPapers = allPapers.filter((p) => p.use_in_spiral_cover)
+  const spiralInsidePapers = allPapers.filter((p) => p.use_in_spiral_inside)
+  const padPapers = allPapers.filter((p) => p.use_in_pad)
+  
   // Sync paper prices AND options to the global pricing config when papers load
   useEffect(() => {
     if (allPapers.length > 0) {
@@ -66,16 +76,6 @@ export function PapersProvider({ children }: { children: ReactNode }) {
       })
     }
   }, [allPapers, flatPrintingPapers, bookInsidePapers, bookCoverPapers, spiralInsidePapers, spiralCoverPapers, padPapers])
-  
-  // Filter papers by usage
-  const flatPrintingPapers = allPapers.filter((p) => p.use_in_flat_printing)
-  const bookCoverPapers = allPapers.filter((p) => p.use_in_book_cover)
-  const bookInsidePapers = allPapers.filter((p) => p.use_in_book_inside)
-  const coilCoverPapers = allPapers.filter((p) => p.use_in_coil_cover)
-  const coilInsidePapers = allPapers.filter((p) => p.use_in_coil_inside)
-  const spiralCoverPapers = allPapers.filter((p) => p.use_in_spiral_cover)
-  const spiralInsidePapers = allPapers.filter((p) => p.use_in_spiral_inside)
-  const padPapers = allPapers.filter((p) => p.use_in_pad)
 
   // Helper to get papers by usage type
   const getPapersByUseFor = (useFor: PaperUseFor) => {
