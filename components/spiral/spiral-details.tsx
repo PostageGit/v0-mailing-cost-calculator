@@ -3,6 +3,7 @@
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency } from "@/lib/pricing"
 import type { SpiralCalcResult } from "@/lib/spiral-types"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -43,6 +44,35 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
 
   const levelNum = parseLevelNum(result.levelName)
   const autoLevelNum = parseLevelNum(result.autoLevelName)
+
+  // Calculate weight per spiral book
+  const bookWeightOz = (() => {
+    const { pageWidth, pageHeight, pagesPerBook } = result
+    if (!pageWidth || !pageHeight) return undefined
+    let totalOz = 0
+    
+    // Inside pages weight (pagesPerBook is total pages, 2 pages per sheet for D/S printing)
+    const insideOz = calcSheetWeightOz(insideResult.paper, pageWidth, pageHeight)
+    if (insideOz !== null) {
+      // Each inside sheet has 2 sides, so sheets = pages / 2
+      const insideSheets = Math.ceil(pagesPerBook / 2)
+      totalOz += insideOz * insideSheets
+    }
+    
+    // Front cover weight (separate sheet)
+    if (frontResult) {
+      const frontOz = calcSheetWeightOz(frontResult.paper, pageWidth, pageHeight)
+      if (frontOz !== null) totalOz += frontOz
+    }
+    
+    // Back cover weight (separate sheet)
+    if (backResult) {
+      const backOz = calcSheetWeightOz(backResult.paper, pageWidth, pageHeight)
+      if (backOz !== null) totalOz += backOz
+    }
+    
+    return totalOz > 0 ? Math.round(totalOz * 100) / 100 : undefined
+  })()
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: insideResult.sheetSize },
@@ -196,6 +226,8 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
+      weightOz={bookWeightOz}
+      weightLabel="/ book"
     />
   )
 }

@@ -3,6 +3,7 @@
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency } from "@/lib/pricing"
 import type { PerfectCalcResult } from "@/lib/perfect-types"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 
 interface PerfectDetailsProps {
   result: PerfectCalcResult
@@ -20,6 +21,34 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
   } = result
   
   const usingSections = insideSectionResults && insideSectionResults.length > 0
+
+  // Calculate weight per book using finished page dimensions
+  const bookWeightOz = (() => {
+    const { pageWidth, pageHeight, pagesPerBook, spineWidth } = result
+    if (!pageWidth || !pageHeight) return undefined
+    let totalOz = 0
+    
+    // Cover weight (wrap cover = width*2 + spine)
+    const coverOz = calcSheetWeightOz(coverResult.paper, (pageWidth * 2) + spineWidth, pageHeight)
+    if (coverOz !== null) totalOz += coverOz
+    
+    // Inside pages weight
+    if (usingSections) {
+      for (const section of insideSectionResults) {
+        const leafOz = calcSheetWeightOz(section.paper, pageWidth, pageHeight)
+        if (leafOz !== null && section.pagesInSection) {
+          totalOz += leafOz * section.pagesInSection / 2 // 2 pages per leaf
+        }
+      }
+    } else {
+      const leafOz = calcSheetWeightOz(insideResult.paper, pageWidth, pageHeight)
+      if (leafOz !== null) {
+        totalOz += leafOz * pagesPerBook / 2 // 2 pages per leaf
+      }
+    }
+    
+    return totalOz > 0 ? Math.round(totalOz * 100) / 100 : undefined
+  })()
 
   const stats: PaperStat[] = usingSections
     ? [
@@ -170,6 +199,8 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
+      weightOz={bookWeightOz}
+      weightLabel="/ book"
     />
   )
 }

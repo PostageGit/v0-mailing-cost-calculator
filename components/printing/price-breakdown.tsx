@@ -3,6 +3,7 @@
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency } from "@/lib/printing-pricing"
 import type { FullPrintingResult } from "@/lib/printing-types"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 
 interface PriceBreakdownProps {
   data: FullPrintingResult
@@ -32,6 +33,9 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
 
   const pricePerPage = subtotal > 0 && inputs.qty > 0 ? subtotal / inputs.qty : 0
   const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
+
+  // Calculate weight per piece
+  const pieceWeightOz = calcSheetWeightOz(inputs.paperName, inputs.width, inputs.height)
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: result.sheetSize },
@@ -155,6 +159,8 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
+      weightOz={pieceWeightOz ?? undefined}
+      weightLabel="/ piece"
     />
   )
 }

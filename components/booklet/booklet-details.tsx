@@ -3,6 +3,7 @@
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency, formatDecimal } from "@/lib/booklet-pricing"
 import type { BookletCalcResult, BookletInputs } from "@/lib/booklet-types"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 
 interface BookletDetailsProps {
   result: BookletCalcResult
@@ -45,6 +46,32 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   const primaryAutoLevel = insideResult.autoLevel ?? insideResult.level
   const primaryMarkup = hasCover ? coverResult.markup : insideResult.markup
   const primaryPPS = hasCover ? coverResult.pricePerSheet : insideResult.pricePerSheet
+
+  // Calculate weight per booklet
+  const bookletWeightOz = (() => {
+    const { pageWidth, pageHeight, pagesPerBook } = inputs
+    if (!pageWidth || !pageHeight) return undefined
+    let totalOz = 0
+    
+    // Inside pages weight - saddle-stitch: each folded sheet = 4 pages
+    const insideOz = calcSheetWeightOz(insideResult.paper, pageWidth * 2, pageHeight) // spread size
+    if (insideOz !== null) {
+      // Subtract cover pages (4) if separate cover, divide by 4 pages per sheet
+      const insidePages = hasCover ? pagesPerBook - 4 : pagesPerBook
+      const insideSheetsPerBook = Math.max(0, insidePages / 4)
+      totalOz += insideOz * insideSheetsPerBook
+    }
+    
+    // Cover weight (1 folded sheet = 4 cover pages: front, inside front, inside back, back)
+    if (hasCover) {
+      const coverOz = calcSheetWeightOz(coverResult.paper, pageWidth * 2, pageHeight) // cover spread
+      if (coverOz !== null) {
+        totalOz += coverOz
+      }
+    }
+    
+    return totalOz > 0 ? Math.round(totalOz * 100) / 100 : undefined
+  })()
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: insideResult.sheetSize },
@@ -176,6 +203,8 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={inputs.isBroker}
       onBrokerChange={onBrokerChange}
+      weightOz={bookletWeightOz}
+      weightLabel="/ booklet"
     />
   )
 }
