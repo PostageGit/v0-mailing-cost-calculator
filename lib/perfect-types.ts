@@ -37,6 +37,7 @@ export interface PerfectPartResult {
   sides: string
   bleed: boolean
   isRotated: boolean
+  isShort: boolean // True when using "Short" paper orientation (swapped dimensions)
   finalSheetWidth: number
   finalSheetHeight: number
   maxUps: number
