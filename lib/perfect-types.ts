@@ -47,6 +47,8 @@ export interface PerfectPartResult {
   clickCostPerSheet: number
   totalPaperCost: number
   totalClickCost: number
+  // Section-specific (optional)
+  pagesInSection?: number
 }
 
 export interface PerfectCalcResult {
