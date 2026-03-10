@@ -1,14 +1,89 @@
 "use client"
 
+import { useState } from "react"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency } from "@/lib/pricing"
-import type { PerfectCalcResult } from "@/lib/perfect-types"
+import type { PerfectCalcResult, PerfectPartResult } from "@/lib/perfect-types"
 
 interface PerfectDetailsProps {
   result: PerfectCalcResult
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
   onBrokerChange?: (value: boolean) => void
+}
+
+// Expandable row component for section details
+function SectionDetailRow({ section, label }: { section: PerfectPartResult; label: string }) {
+  const [expanded, setExpanded] = useState(false)
+  
+  return (
+    <>
+      <tr 
+        className="border-b border-muted/50 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <td className="py-1.5 px-1 font-medium">
+          <span className="inline-flex items-center gap-1">
+            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {label}
+          </span>
+        </td>
+        <td className="py-1.5 px-1">{section.sides || "D/S"}</td>
+        <td className="py-1.5 px-1">{section.paper}</td>
+        <td className="py-1.5 px-1 text-center">
+          <span className="font-mono">{section.sheets.toLocaleString()}</span>
+          <span className="text-muted-foreground mx-1">{section.sheetSize}</span>
+          <span className="text-muted-foreground">/ {section.maxUps} Up</span>
+        </td>
+        <td className="py-1.5 px-1 text-center">
+          <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{section.level}</span>
+        </td>
+        <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(section.cost)}</td>
+        <td className="py-1.5 px-1 text-right">{section.pagesInSection || "-"}</td>
+      </tr>
+      {expanded && (
+        <tr className="bg-muted/20">
+          <td colSpan={7} className="py-2 px-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">Sheets</div>
+                <div className="font-semibold">{section.sheets.toLocaleString()}</div>
+              </div>
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">Ups</div>
+                <div className="font-semibold">{section.maxUps} up</div>
+              </div>
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">Sheet Size</div>
+                <div className="font-semibold">{section.sheetSize}</div>
+              </div>
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">Level</div>
+                <div className="font-semibold">{section.level} <span className="text-muted-foreground">({section.markup.toFixed(2)}x)</span></div>
+              </div>
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">Paper Cost</div>
+                <div className="font-semibold">{formatCurrency(section.totalPaperCost)}</div>
+              </div>
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">Click Cost</div>
+                <div className="font-semibold">{formatCurrency(section.totalClickCost)}</div>
+              </div>
+              <div className="bg-background rounded p-2 border">
+                <div className="text-muted-foreground text-[10px] uppercase">$/Sheet</div>
+                <div className="font-semibold">{formatCurrency(section.pricePerSheet, 4)}</div>
+              </div>
+              <div className="bg-background rounded p-2 border border-primary/30 bg-primary/5">
+                <div className="text-muted-foreground text-[10px] uppercase">Total</div>
+                <div className="font-bold text-primary">{formatCurrency(section.cost)}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  )
 }
 
 export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, onBrokerChange }: PerfectDetailsProps) {
@@ -70,58 +145,26 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-muted/50 bg-blue-50 dark:bg-blue-950/30">
-            <td className="py-1.5 px-1 font-medium">Cover</td>
-            <td className="py-1.5 px-1">{coverResult.sides || "4/0"}</td>
-            <td className="py-1.5 px-1">{coverResult.paper}</td>
-            <td className="py-1.5 px-1 text-center">
-              <span className="font-mono">{coverResult.sheets.toLocaleString()}</span>
-              <span className="text-muted-foreground mx-1">{coverResult.sheetSize}</span>
-              <span className="text-muted-foreground">/ {coverResult.maxUps} Up</span>
+          {/* Hint row */}
+          <tr className="bg-blue-50/50 dark:bg-blue-950/20">
+            <td colSpan={7} className="py-1 px-2 text-[10px] text-muted-foreground text-center italic">
+              Click any row to expand details
             </td>
-            <td className="py-1.5 px-1 text-center">
-              <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{coverResult.level}</span>
-            </td>
-            <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(coverResult.cost)}</td>
-            <td className="py-1.5 px-1 text-right text-muted-foreground">-</td>
           </tr>
+          {/* Cover - expandable */}
+          <SectionDetailRow section={coverResult} label="Cover" />
           
+          {/* Inside sections - expandable */}
           {usingSections ? (
             insideSectionResults.map((section, idx) => (
-              <tr key={idx} className={`border-b border-muted/50 ${idx % 2 === 0 ? "bg-secondary/20" : ""}`}>
-                <td className="py-1.5 px-1 font-medium">
-                  {idx === 0 ? "Inside" : "+ Section"}
-                </td>
-                <td className="py-1.5 px-1">{section.sides || "D/S"}</td>
-                <td className="py-1.5 px-1">{section.paper}</td>
-                <td className="py-1.5 px-1 text-center">
-                  <span className="font-mono">{section.sheets.toLocaleString()}</span>
-                  <span className="text-muted-foreground mx-1">{section.sheetSize}</span>
-                  <span className="text-muted-foreground">/ {section.maxUps} Up</span>
-                </td>
-                <td className="py-1.5 px-1 text-center">
-                  <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{section.level}</span>
-                </td>
-                <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(section.cost)}</td>
-                <td className="py-1.5 px-1 text-right">{section.pagesInSection || "-"}</td>
-              </tr>
+              <SectionDetailRow 
+                key={idx} 
+                section={section} 
+                label={idx === 0 ? "Inside" : `+ Sec ${idx + 1}`} 
+              />
             ))
           ) : (
-            <tr className="border-b border-muted/50 bg-secondary/20">
-              <td className="py-1.5 px-1 font-medium">Inside</td>
-              <td className="py-1.5 px-1">{insideResult.sides || "D/S"}</td>
-              <td className="py-1.5 px-1">{insideResult.paper}</td>
-              <td className="py-1.5 px-1 text-center">
-                <span className="font-mono">{insideResult.sheets.toLocaleString()}</span>
-                <span className="text-muted-foreground mx-1">{insideResult.sheetSize}</span>
-                <span className="text-muted-foreground">/ {insideResult.maxUps} Up</span>
-              </td>
-              <td className="py-1.5 px-1 text-center">
-                <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{insideResult.level}</span>
-              </td>
-              <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(insideResult.cost)}</td>
-              <td className="py-1.5 px-1 text-right text-muted-foreground">-</td>
-            </tr>
+            <SectionDetailRow section={insideResult} label="Inside" />
           )}
         </tbody>
       </table>
