@@ -5,6 +5,7 @@
 import { calculatePart } from "./spiral-pricing"
 import type { PadInputs, PadCalcResult, PadSettings } from "./pad-types"
 import { DEFAULT_PAD_SETTINGS } from "./pad-types"
+import type { PaperOption } from "./perfect-types"
 
 /**
  * Look up the per-pad padding rate from the tiers table.
@@ -24,6 +25,7 @@ function getPaddingRate(padQty: number, tiers: PadSettings["tiers"]): number {
 export function calculatePad(
   inputs: PadInputs,
   settings: PadSettings = DEFAULT_PAD_SETTINGS,
+  paperLookup?: Record<string, PaperOption>,
 ): PadCalcResult | { error: string } {
   const { padQty, pagesPerPad, pageWidth, pageHeight, inside, useChipBoard, customLevel } = inputs
 
@@ -38,7 +40,7 @@ export function calculatePad(
 
   // Calculate inside printing using spiral's calculatePart
   const forcedLevel = customLevel !== "auto" ? customLevel : undefined
-  const insideResult = calculatePart("inside", padQty, pageWidth, pageHeight, sheetsPerPad, inside, forcedLevel)
+  const insideResult = calculatePart("inside", padQty, pageWidth, pageHeight, sheetsPerPad, inside, forcedLevel, paperLookup)
 
   if (!insideResult) return { error: "Could not calculate inside pages." }
   if ("error" in insideResult) return insideResult

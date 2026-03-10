@@ -14,11 +14,13 @@ import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { Plus } from "lucide-react"
 import useSWR from "swr"
+import { usePapersContext } from "@/lib/papers-context"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export function PadCalculator() {
   const quote = useQuote()
+  const { paperDataLookup } = usePapersContext()
 
   // Load pad settings from app_settings
   const { data: settingsData } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
@@ -55,7 +57,7 @@ export function PadCalculator() {
       return
     }
 
-    const result = calculatePad(inputs, padSettings)
+    const result = calculatePad(inputs, padSettings, paperDataLookup)
     if ("error" in result) {
       setValidationError(result.error)
       setCalcResult(null)
@@ -63,16 +65,16 @@ export function PadCalculator() {
     }
 
     setCalcResult(result)
-  }, [inputs, isFormValid, padSettings])
+  }, [inputs, isFormValid, padSettings, paperDataLookup])
 
   const handleBrokerChange = useCallback((val: boolean) => {
     const updated: PadInputs = { ...inputs, isBroker: val }
     setInputs(updated)
     if (calcResult) {
-      const newResult = calculatePad(updated, padSettings)
+      const newResult = calculatePad(updated, padSettings, paperDataLookup)
       if (!("error" in newResult)) setCalcResult(newResult)
     }
-  }, [inputs, calcResult, padSettings])
+  }, [inputs, calcResult, padSettings, paperDataLookup])
 
   const handleLevelChange = useCallback((delta: number) => {
     if (!calcResult) return
@@ -80,11 +82,11 @@ export function PadCalculator() {
     const newLevel = Math.max(2, Math.min(10, currentNum + delta))
     if (newLevel === currentNum) return
     const updatedInputs: PadInputs = { ...inputs, customLevel: `Level ${newLevel}` }
-    const newResult = calculatePad(updatedInputs, padSettings)
+    const newResult = calculatePad(updatedInputs, padSettings, paperDataLookup)
     if ("error" in newResult) return
     setInputs(updatedInputs)
     setCalcResult(newResult)
-  }, [calcResult, inputs, padSettings])
+  }, [calcResult, inputs, padSettings, paperDataLookup])
 
   function resetForm() {
     setInputs(defaultPadInputs())

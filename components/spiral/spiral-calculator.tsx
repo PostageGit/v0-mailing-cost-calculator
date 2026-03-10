@@ -14,10 +14,12 @@ import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { Plus, ArrowDown, Save, Pencil, ExternalLink } from "lucide-react"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
+import { usePapersContext } from "@/lib/papers-context"
 
 export function SpiralCalculator() {
   const quote = useQuote()
   const mailing = useMailing()
+  const { paperDataLookup } = usePapersContext()
 
   // Spiral pieces from planner -- includes OHP so users can fill out full specs
   const spiralPieces = mailing.pieces.filter(
@@ -60,7 +62,7 @@ export function SpiralCalculator() {
       return
     }
 
-    const result = calculateSpiral(inputs)
+    const result = calculateSpiral(inputs, paperDataLookup)
     if ("error" in result) {
       setValidationError(result.error)
       setCalcResult(null)
@@ -69,16 +71,16 @@ export function SpiralCalculator() {
 
     setCalcResult(result)
     setActiveTab("inside")
-  }, [inputs, isFormValid])
+  }, [inputs, isFormValid, paperDataLookup])
 
   const handleBrokerChange = useCallback((val: boolean) => {
     const updated = { ...inputs, isBroker: val }
     setInputs(updated)
     if (calcResult) {
-      const newResult = calculateSpiral(updated)
+      const newResult = calculateSpiral(updated, paperDataLookup)
       if (!("error" in newResult)) setCalcResult(newResult)
     }
-  }, [inputs, calcResult])
+  }, [inputs, calcResult, paperDataLookup])
 
   // Change pricing level override
   const handleLevelChange = useCallback((delta: number) => {
@@ -87,11 +89,11 @@ export function SpiralCalculator() {
     const newLevel = Math.max(2, Math.min(10, currentNum + delta))
     if (newLevel === currentNum) return
     const updatedInputs = { ...inputs, customLevel: `Level ${newLevel}` }
-    const newResult = calculateSpiral(updatedInputs)
+    const newResult = calculateSpiral(updatedInputs, paperDataLookup)
     if ("error" in newResult) return
     setInputs(updatedInputs)
     setCalcResult(newResult)
-  }, [calcResult, inputs])
+  }, [calcResult, inputs, paperDataLookup])
 
   function resetForm() {
     setInputs(defaultSpiralInputs())
