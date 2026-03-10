@@ -14,13 +14,23 @@ import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pri
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
 import { createClient } from "@supabase/supabase-js"
+import { setDynamicPaperPrices, setDynamicPaperOptions, type DynamicPaperOption } from "@/lib/pricing-config"
 
 // Fallback paper lists (used if database is unavailable)
 const FALLBACK_FLAT_PAPERS = PAPER_OPTIONS.map((p: { name: string }) => p.name)
 const FALLBACK_INSIDE_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p: { isCardstock: boolean }) => !p.isCardstock).map((p: { name: string }) => p.name)
 const FALLBACK_COVER_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p: { isCardstock: boolean }) => p.isCardstock).map((p: { name: string }) => p.name)
 
-// Fetch papers from database dynamically
+// Paper type from database
+interface DbPaper {
+  name: string
+  is_cardstock: boolean
+  thickness: number
+  available_sizes: string[]
+  prices: Record<string, number>
+}
+
+// Fetch papers from database dynamically AND sync to pricing config
 async function fetchPaperLists() {
   try {
     const baseUrl = process.env.VERCEL_URL 
@@ -33,16 +43,46 @@ async function fetchPaperLists() {
       fetch(`${baseUrl}/api/papers?active=true&use_for=book_cover`),
     ])
     
-    const flatPapers = flatRes.ok ? await flatRes.json() : []
-    const insidePapers = insideRes.ok ? await insideRes.json() : []
-    const coverPapers = coverRes.ok ? await coverRes.json() : []
+    const flatPapers: DbPaper[] = flatRes.ok ? await flatRes.json() : []
+    const insidePapers: DbPaper[] = insideRes.ok ? await insideRes.json() : []
+    const coverPapers: DbPaper[] = coverRes.ok ? await coverRes.json() : []
+    
+    // Convert to DynamicPaperOption format
+    const toDynamicOption = (p: DbPaper): DynamicPaperOption => ({
+      name: p.name,
+      isCardstock: p.is_cardstock,
+      canLaminate: p.is_cardstock,
+      thickness: p.thickness,
+      availableSizes: p.available_sizes,
+    })
+    
+    // Sync paper OPTIONS to pricing config (so calculators use database papers)
+    if (flatPapers.length > 0 || insidePapers.length > 0 || coverPapers.length > 0) {
+      setDynamicPaperOptions({
+        flat: flatPapers.map(toDynamicOption),
+        bookInside: insidePapers.map(toDynamicOption),
+        bookCover: coverPapers.map(toDynamicOption),
+        spiralInside: insidePapers.map(toDynamicOption), // Spiral uses same as book
+        spiralCover: coverPapers.map(toDynamicOption),
+        pad: insidePapers.map(toDynamicOption),
+      })
+      
+      // Sync paper PRICES to pricing config
+      const allPapers = [...flatPapers, ...insidePapers, ...coverPapers]
+      const pricesMap = allPapers.reduce((acc, p) => {
+        acc[p.name] = p.prices
+        return acc
+      }, {} as Record<string, Record<string, number>>)
+      setDynamicPaperPrices(pricesMap)
+    }
     
     return {
-      flatPaperNames: flatPapers.length > 0 ? flatPapers.map((p: { name: string }) => p.name) : FALLBACK_FLAT_PAPERS,
-      insidePaperNames: insidePapers.length > 0 ? insidePapers.map((p: { name: string }) => p.name) : FALLBACK_INSIDE_PAPERS,
-      coverPaperNames: coverPapers.length > 0 ? coverPapers.map((p: { name: string }) => p.name) : FALLBACK_COVER_PAPERS,
+      flatPaperNames: flatPapers.length > 0 ? flatPapers.map((p) => p.name) : FALLBACK_FLAT_PAPERS,
+      insidePaperNames: insidePapers.length > 0 ? insidePapers.map((p) => p.name) : FALLBACK_INSIDE_PAPERS,
+      coverPaperNames: coverPapers.length > 0 ? coverPapers.map((p) => p.name) : FALLBACK_COVER_PAPERS,
     }
-  } catch {
+  } catch (e) {
+    console.error("[v0] fetchPaperLists error:", e)
     // Fallback to hardcoded lists if fetch fails
     return {
       flatPaperNames: FALLBACK_FLAT_PAPERS,
@@ -93,6 +133,41 @@ CRITICAL -- DO NOT INVENT RESTRICTIONS:
 ONE JOB AT A TIME:
 - Only quote one product at a time. Finish the current quote before starting another.
 - If the customer asks for multiple things ("I need flyers and booklets"), say "Let's start with [first one]. We can do the other after."
+
+WHICH CALCULATOR TOOL TO USE:
+
+1. FLAT PRINTING (calculate_printing) - For single sheets that get cut down:
+   - Flyers, postcards, business cards, door hangers, rack cards, sell sheets, letterheads
+   - Posters, signs, NCR forms
+   - Anything that is ONE flat piece (even if folded later)
+   - The tool finds the cheapest parent sheet automatically
+   - Parameters: qty, width, height, paperName, sidesValue, hasBleed, isBroker, lamination options
+   - Example: calculate_printing(1000, 8.5, 11, "80lb Text Gloss", "4/4", true, false, false, null, null)
+
+2. SCORE & FOLD (calculate_score_fold) - For folding flat printed pieces:
+   - ALWAYS use AFTER calculate_printing for folded items (brochures, mailers)
+   - Call printing first, then score_fold, then ADD the costs together
+   - Parameters: qty, width, height, paperName, finishType, foldType, isBroker
+   - Example for tri-fold brochure: 
+     Step 1: calculate_printing(1000, 8.5, 11, "10pt Gloss", "4/4", true, false, false, null, null)
+     Step 2: calculate_score_fold(1000, 8.5, 11, "10pt Gloss", "score_and_fold", "tri", false)
+     Step 3: Add both totals together for final price
+
+3. SADDLE-STITCH BOOKLET (calculate_booklet) - For stapled booklets:
+   - Magazines, programs, catalogs under 140 pages
+   - Minimum 8 pages, must be multiple of 4
+
+4. PERFECT BINDING (calculate_perfect_bound) - For glue-bound books:
+   - Paperback books, catalogs, manuals over 40 pages
+   - Supports multiple paper sections
+
+5. SPIRAL BINDING (calculate_spiral) - For coil-bound books:
+   - Manuals, cookbooks, planners, calendars
+   - Pages lay flat when open
+
+6. NOTEPADS (calculate_notepad) - For padded stacks:
+   - Notepads, to-do lists, memo pads
+   - Chipboard backing
 
 PRINTING SIDES CODES -- these are NOT the same! Understand the difference:
 
@@ -486,8 +561,24 @@ const tools = {
           levelOverride: customLevel,
         }
         const options = calculateAllSheetOptions(inputs)
+        console.log("[v0] calculateAllSheetOptions returned:", options.length, "options")
         if (!options.length) {
-          return { error: `Could not calculate for ${paperName} at ${width}x${height}. Check paper name and size.` }
+          // Get available papers for better error message
+          const { getFlatPaperOptions } = await import("@/lib/printing-pricing")
+          const availablePapers = getFlatPaperOptions()
+          const paperNames = availablePapers.map(p => p.name).join(", ")
+          const paper = availablePapers.find(p => p.name === paperName)
+          if (!paper) {
+            return { 
+              error: `Paper "${paperName}" not found. Available flat printing papers: ${paperNames}`,
+              availablePapers: paperNames
+            }
+          }
+          const availableSizes = paper.availableSizes.join(", ")
+          return { 
+            error: `Size ${width}x${height} not available for ${paperName}. Available sizes: ${availableSizes}`,
+            availableSizes
+          }
         }
         const best = options[0]
         const fullResult = buildFullResult(inputs, best.result)
