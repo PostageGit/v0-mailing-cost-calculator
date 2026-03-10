@@ -24,11 +24,17 @@ export function PerfectCalculator() {
   const { sendToChat } = useGlobalChat()
   const { papers } = usePapersContext()
   
-  // Build paper thickness lookup from database papers
-  const paperThicknesses = papers.reduce((acc, p) => {
-    acc[p.name] = p.thickness
+  // Build paper data lookup from database papers (includes thickness, prices, sizes)
+  const paperDataLookup = papers.reduce((acc, p) => {
+    acc[p.name] = {
+      name: p.name,
+      isCardstock: p.is_cardstock,
+      thickness: p.thickness,
+      availableSizes: p.available_sizes,
+      prices: p.prices,
+    }
     return acc
-  }, {} as Record<string, number>)
+  }, {} as Record<string, { name: string; isCardstock: boolean; thickness: number; availableSizes: string[]; prices: Record<string, number> }>)
 
   // Perfect-bound pieces from planner -- includes OHP so users can fill out full specs
   const perfectPieces = mailing.pieces.filter(
@@ -79,7 +85,7 @@ export function PerfectCalculator() {
       return
     }
 
-    const result = calculatePerfect(adjustForSingleSided(inputs), paperThicknesses)
+    const result = calculatePerfect(adjustForSingleSided(inputs), paperDataLookup)
     if ("error" in result) {
       setValidationError(result.error)
       setCalcResult(null)
@@ -88,16 +94,16 @@ export function PerfectCalculator() {
 
     setCalcResult(result)
     setActiveTab("cover")
-  }, [inputs, isFormValid, paperThicknesses])
+  }, [inputs, isFormValid, paperDataLookup])
 
   const handleBrokerChange = useCallback((val: boolean) => {
     const updated = { ...inputs, isBroker: val }
     setInputs(updated)
     if (calcResult) {
-      const newResult = calculatePerfect(adjustForSingleSided(updated), paperThicknesses)
+      const newResult = calculatePerfect(adjustForSingleSided(updated), paperDataLookup)
       if (!("error" in newResult)) setCalcResult(newResult)
     }
-  }, [inputs, calcResult, adjustForSingleSided, paperThicknesses])
+  }, [inputs, calcResult, adjustForSingleSided, paperDataLookup])
 
   // Change pricing level via the level bars
   const handleLevelChange = useCallback((delta: number) => {
@@ -106,11 +112,11 @@ export function PerfectCalculator() {
     const newLevel = Math.max(1, Math.min(10, currentLevel + delta))
     if (newLevel === currentLevel) return
     const updatedInputs = { ...inputs, customLevel: String(newLevel) }
-    const newResult = calculatePerfect(adjustForSingleSided(updatedInputs), paperThicknesses)
+    const newResult = calculatePerfect(adjustForSingleSided(updatedInputs), paperDataLookup)
     if ("error" in newResult) return
     setInputs(updatedInputs)
     setCalcResult(newResult)
-  }, [calcResult, inputs, adjustForSingleSided, paperThicknesses])
+  }, [calcResult, inputs, adjustForSingleSided, paperDataLookup])
 
   function resetForm() {
     setInputs(defaultPerfectInputs())

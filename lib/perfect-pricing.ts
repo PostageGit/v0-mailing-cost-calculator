@@ -132,6 +132,15 @@ export function calculateLayout(
   return { maxUps: Math.max(portrait, landscape), isRotated: landscape > portrait }
 }
 
+/** Paper data that can come from database or hardcoded options */
+interface PaperInfo {
+  name: string
+  isCardstock: boolean
+  thickness: number
+  availableSizes: string[]
+  prices: Record<string, number>
+}
+
 // ─── Part calculation ────────────────────────────────────
 function calculatePart(
   partName: "cover" | "inside",
@@ -141,10 +150,26 @@ function calculatePart(
   sheetsPerPart: number,
   hasLamination: boolean,
   forcedLevel: number | null,
+  paperLookup?: Record<string, PaperInfo>,  // optional database paper lookup
 ): PerfectPartResult | { error: string } {
   if (!part.paperName || !part.sides) return { error: `Please fill out the '${partName}' section completely.` }
 
-  const paperData = PAPER_OPTIONS.find(p => p.name === part.paperName)
+  // Try database paper first, fall back to hardcoded
+  let paperData: PaperInfo | undefined
+  if (paperLookup && paperLookup[part.paperName]) {
+    paperData = paperLookup[part.paperName]
+  } else {
+    const hardcoded = PAPER_OPTIONS.find(p => p.name === part.paperName)
+    if (hardcoded) {
+      paperData = {
+        name: hardcoded.name,
+        isCardstock: hardcoded.isCardstock,
+        thickness: hardcoded.thickness,
+        availableSizes: hardcoded.availableSizes,
+        prices: PAPER_PRICES[hardcoded.name] || {},
+      }
+    }
+  }
   if (!paperData) return { error: `Paper "${part.paperName}" not found.` }
 
   const rule = SIDES_RULES[part.sides]
@@ -158,7 +183,8 @@ function calculatePart(
     if (layout.maxUps === 0) return null
 
     const totalSheets = Math.ceil(bookQty / layout.maxUps) * sheetsPerPart
-    const paperCost = cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
+    // Use database prices first, then config, then hardcoded
+    const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
@@ -243,20 +269,20 @@ export { getLaminationPrice } from "./booklet-pricing"
 // ─── Main Calculate ──────────────────────────────────────
 /** 
  * @param inp - Perfect bind inputs
- * @param paperThicknesses - Optional map of paper name -> thickness (caliper). 
- *                           If provided, uses database values for spine calculation.
- *                           Falls back to PAPER_OPTIONS if not provided.
+ * @param paperData - Optional map of paper name -> paper info (thickness, prices, etc). 
+ *                    If provided, uses database values for spine and pricing.
+ *                    Falls back to PAPER_OPTIONS if not provided.
  */
 export function calculatePerfect(
   inp: PerfectInputs, 
-  paperThicknesses?: Record<string, number>
+  paperData?: Record<string, PaperInfo>
 ): PerfectCalcResult | { error: string } {
   const { bookQty, pagesPerBook, pageWidth, pageHeight, cover, inside, insideSections, laminationType, isBroker, customLevel } = inp
   
   // Helper to get paper thickness - prefer database values, fall back to hardcoded
   const getThickness = (paperName: string): number => {
-    if (paperThicknesses && paperThicknesses[paperName] !== undefined) {
-      return paperThicknesses[paperName]
+    if (paperData && paperData[paperName]?.thickness !== undefined) {
+      return paperData[paperName].thickness
     }
     const paper = PAPER_OPTIONS.find(p => p.name === paperName)
     return paper?.thickness ?? 0.004
@@ -306,7 +332,7 @@ export function calculatePerfect(
       const sidesForCalc = isDS ? 2 : 1
       const sheetsForSection = Math.ceil(section.pageCount / sidesForCalc)
       
-      const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, forcedLevel)
+      const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, forcedLevel, paperData)
       if ("error" in sectionRes) return { error: `Section "${section.paperName}": ${(sectionRes as {error: string}).error}` }
       
       sectionResults.push(sectionRes as PerfectPartResult)
@@ -324,7 +350,7 @@ export function calculatePerfect(
     const isDS = ["D/S", "4/4", "1/1"].includes(inside.sides)
     const sidesForCalc = isDS ? 2 : 1
     const finishedSheetsPerBook = Math.ceil(pagesPerBook / sidesForCalc)
-    insideRes = calculatePart("inside", inside, bookQty, pageWidth, pageHeight, finishedSheetsPerBook, false, forcedLevel)
+    insideRes = calculatePart("inside", inside, bookQty, pageWidth, pageHeight, finishedSheetsPerBook, false, forcedLevel, paperData)
   }
   
   if ("error" in insideRes) return insideRes
@@ -338,7 +364,7 @@ export function calculatePerfect(
 
   // Cover (forced to inside level)
   const coverForcedLevel = insideRes.level ?? forcedLevel ?? null
-  const coverRes = calculatePart("cover", cover, bookQty, coverPageWidth, coverPageHeight, 1, hasLamination, coverForcedLevel)
+  const coverRes = calculatePart("cover", cover, bookQty, coverPageWidth, coverPageHeight, 1, hasLamination, coverForcedLevel, paperData)
   if ("error" in coverRes) {
     // Add spine info to error message for clarity
     const errMsg = (coverRes as { error: string }).error
