@@ -14,13 +14,23 @@ import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pri
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
 import { createClient } from "@supabase/supabase-js"
+import { setDynamicPaperPrices, setDynamicPaperOptions, type DynamicPaperOption } from "@/lib/pricing-config"
 
 // Fallback paper lists (used if database is unavailable)
 const FALLBACK_FLAT_PAPERS = PAPER_OPTIONS.map((p: { name: string }) => p.name)
 const FALLBACK_INSIDE_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p: { isCardstock: boolean }) => !p.isCardstock).map((p: { name: string }) => p.name)
 const FALLBACK_COVER_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p: { isCardstock: boolean }) => p.isCardstock).map((p: { name: string }) => p.name)
 
-// Fetch papers from database dynamically
+// Paper type from database
+interface DbPaper {
+  name: string
+  is_cardstock: boolean
+  thickness: number
+  available_sizes: string[]
+  prices: Record<string, number>
+}
+
+// Fetch papers from database dynamically AND sync to pricing config
 async function fetchPaperLists() {
   try {
     const baseUrl = process.env.VERCEL_URL 
@@ -33,16 +43,46 @@ async function fetchPaperLists() {
       fetch(`${baseUrl}/api/papers?active=true&use_for=book_cover`),
     ])
     
-    const flatPapers = flatRes.ok ? await flatRes.json() : []
-    const insidePapers = insideRes.ok ? await insideRes.json() : []
-    const coverPapers = coverRes.ok ? await coverRes.json() : []
+    const flatPapers: DbPaper[] = flatRes.ok ? await flatRes.json() : []
+    const insidePapers: DbPaper[] = insideRes.ok ? await insideRes.json() : []
+    const coverPapers: DbPaper[] = coverRes.ok ? await coverRes.json() : []
+    
+    // Convert to DynamicPaperOption format
+    const toDynamicOption = (p: DbPaper): DynamicPaperOption => ({
+      name: p.name,
+      isCardstock: p.is_cardstock,
+      canLaminate: p.is_cardstock,
+      thickness: p.thickness,
+      availableSizes: p.available_sizes,
+    })
+    
+    // Sync paper OPTIONS to pricing config (so calculators use database papers)
+    if (flatPapers.length > 0 || insidePapers.length > 0 || coverPapers.length > 0) {
+      setDynamicPaperOptions({
+        flat: flatPapers.map(toDynamicOption),
+        bookInside: insidePapers.map(toDynamicOption),
+        bookCover: coverPapers.map(toDynamicOption),
+        spiralInside: insidePapers.map(toDynamicOption), // Spiral uses same as book
+        spiralCover: coverPapers.map(toDynamicOption),
+        pad: insidePapers.map(toDynamicOption),
+      })
+      
+      // Sync paper PRICES to pricing config
+      const allPapers = [...flatPapers, ...insidePapers, ...coverPapers]
+      const pricesMap = allPapers.reduce((acc, p) => {
+        acc[p.name] = p.prices
+        return acc
+      }, {} as Record<string, Record<string, number>>)
+      setDynamicPaperPrices(pricesMap)
+    }
     
     return {
-      flatPaperNames: flatPapers.length > 0 ? flatPapers.map((p: { name: string }) => p.name) : FALLBACK_FLAT_PAPERS,
-      insidePaperNames: insidePapers.length > 0 ? insidePapers.map((p: { name: string }) => p.name) : FALLBACK_INSIDE_PAPERS,
-      coverPaperNames: coverPapers.length > 0 ? coverPapers.map((p: { name: string }) => p.name) : FALLBACK_COVER_PAPERS,
+      flatPaperNames: flatPapers.length > 0 ? flatPapers.map((p) => p.name) : FALLBACK_FLAT_PAPERS,
+      insidePaperNames: insidePapers.length > 0 ? insidePapers.map((p) => p.name) : FALLBACK_INSIDE_PAPERS,
+      coverPaperNames: coverPapers.length > 0 ? coverPapers.map((p) => p.name) : FALLBACK_COVER_PAPERS,
     }
-  } catch {
+  } catch (e) {
+    console.error("[v0] fetchPaperLists error:", e)
     // Fallback to hardcoded lists if fetch fails
     return {
       flatPaperNames: FALLBACK_FLAT_PAPERS,
