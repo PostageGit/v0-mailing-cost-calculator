@@ -11,6 +11,7 @@ export interface PerfectPartInputs {
 export interface PerfectInsideSection extends PerfectPartInputs {
   id: string          // unique id for React key
   pageCount: number   // number of pages in this section
+  levelOverride?: number  // VIP: force a specific level (1-10) for this section only
 }
 
 export interface PerfectInputs {
@@ -23,7 +24,8 @@ export interface PerfectInputs {
   insideSections: PerfectInsideSection[]  // multiple sections with different papers
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   isBroker: boolean
-  customLevel: "auto" | string   // "auto" | "1"-"10"
+  customLevel: "auto" | string   // "auto" | "1"-"10" (applies to all unless overridden)
+  coverLevelOverride?: number    // VIP: force a specific level (1-10) for cover only
 }
 
 export interface PerfectPartResult {
