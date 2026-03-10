@@ -295,6 +295,21 @@ BROKER CUSTOMERS:
 - Never reveal discount amounts, levels, markup multipliers, or how broker pricing works internally.
 - Just say "broker pricing" or "trade pricing" -- never explain the mechanics.
 
+VIP MODE (internal testing mode):
+- If the customer types "VIP" (case-insensitive), enable VIP mode for this conversation. Respond with "VIP mode enabled - I'll show detailed pricing breakdown."
+- In VIP mode, after each quote, show the FULL internal details:
+  * Sheet count, parent sheet size, ups
+  * Pricing level and markup multiplier
+  * Paper cost breakdown ($/sheet, total paper cost)
+  * Click cost breakdown ($/click, total click cost)
+  * Cost per section (if multiple sections)
+  * Binding cost breakdown
+  * Lamination cost breakdown
+  * Any other internal calculation details
+- Format the VIP details clearly, separate from the customer quote.
+- VIP mode stays active for the rest of the conversation until they say "VIP off" or "disable VIP".
+- If VIP mode is NOT active, NEVER reveal internal pricing details like levels, markups, ups, sheet counts, paper costs, click costs. Just show the final price.
+
 PRESENTING THE QUOTE:
 - Lead with the total and per-unit price: "That'd be $X total ($X each)."
 - Then one short line about what's included.
@@ -433,6 +448,20 @@ const tools = {
           qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
           bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
           lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
+          // VIP details (only show if VIP mode is active)
+          _vipDetails: {
+            sheets: best.result.sheets,
+            ups: best.result.ups,
+            parentSheet: best.size,
+            level: best.result.level,
+            markup: best.result.markup,
+            paperCostPerSheet: best.result.pricePerSheet.toFixed(4),
+            totalPaperCost: fmt(best.result.totalPaperCost),
+            clickCostPerSheet: best.result.clickCostPerSheet?.toFixed(4) || "N/A",
+            totalClickCost: fmt(best.result.totalClickCost || 0),
+            basePrintingCost: fmt(best.result.cost),
+            printingCostWithMarkup: fmt(fullResult.printingCostPlus10),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_printing error:", e)
@@ -502,6 +531,34 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
           ...(pagesNote ? { note: pagesNote } : {}),
           ...(sidesWarning ? { sidesWarning } : {}),
+          // VIP details
+          _vipDetails: {
+            insideResult: {
+              sheets: result.insideResult.sheets,
+              ups: result.insideResult.maxUps,
+              parentSheet: result.insideResult.sheetSize,
+              level: result.insideResult.level,
+              markup: result.insideResult.markup,
+              paperCost: fmt(result.insideResult.totalPaperCost),
+              clickCost: fmt(result.insideResult.totalClickCost),
+              pricePerSheet: result.insideResult.pricePerSheet.toFixed(4),
+              totalCost: fmt(result.insideResult.cost),
+            },
+            coverResult: separateCover ? {
+              sheets: result.coverResult.sheets,
+              ups: result.coverResult.maxUps,
+              parentSheet: result.coverResult.sheetSize,
+              level: result.coverResult.level,
+              markup: result.coverResult.markup,
+              paperCost: fmt(result.coverResult.totalPaperCost),
+              clickCost: fmt(result.coverResult.totalClickCost),
+              pricePerSheet: result.coverResult.pricePerSheet.toFixed(4),
+              totalCost: fmt(result.coverResult.cost),
+            } : null,
+            totalSheets: result.totalSheets,
+            bindingCost: fmt(result.totalBindingPrice),
+            laminationCost: fmt(result.totalLaminationCost),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_booklet error:", e)
@@ -570,6 +627,36 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             binding: "Spiral (coil)", broker: isBroker,
           },
           costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice) },
+          // VIP details
+          _vipDetails: {
+            insideResult: {
+              sheets: result.insideResult.sheets,
+              ups: result.insideResult.maxUps,
+              parentSheet: result.insideResult.sheetSize,
+              level: result.insideResult.level,
+              markup: result.insideResult.markup,
+              paperCost: fmt(result.insideResult.totalPaperCost),
+              clickCost: fmt(result.insideResult.totalClickCost),
+              pricePerSheet: result.insideResult.pricePerSheet.toFixed(4),
+              totalCost: fmt(result.insideResult.cost),
+            },
+            frontCoverResult: useFrontCover && result.frontCoverResult ? {
+              sheets: result.frontCoverResult.sheets,
+              ups: result.frontCoverResult.maxUps,
+              level: result.frontCoverResult.level,
+              markup: result.frontCoverResult.markup,
+              totalCost: fmt(result.frontCoverResult.cost),
+            } : null,
+            backCoverResult: useBackCover && result.backCoverResult ? {
+              sheets: result.backCoverResult.sheets,
+              ups: result.backCoverResult.maxUps,
+              level: result.backCoverResult.level,
+              markup: result.backCoverResult.markup,
+              totalCost: fmt(result.backCoverResult.cost),
+            } : null,
+            totalSheets: result.totalSheets,
+            bindingCost: fmt(result.totalBindingPrice),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_spiral error:", e)
@@ -654,6 +741,36 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
               binding: fmt(result.totalBindingPrice), 
               lamination: fmt(result.totalLaminationCost),
             },
+            // VIP details for sections
+            _vipDetails: {
+              coverResult: {
+                sheets: result.coverResult.sheets,
+                ups: result.coverResult.maxUps,
+                parentSheet: result.coverResult.sheetSize,
+                level: result.coverResult.level,
+                markup: result.coverResult.markup,
+                paperCost: fmt(result.coverResult.totalPaperCost),
+                clickCost: fmt(result.coverResult.totalClickCost),
+                totalCost: fmt(result.coverResult.cost),
+              },
+              sections: result.insideSectionResults?.map((s, idx) => ({
+                sectionNum: idx + 1,
+                paper: s.paper,
+                pages: s.pagesInSection,
+                sheets: s.sheets,
+                ups: s.maxUps,
+                parentSheet: s.sheetSize,
+                level: s.level,
+                markup: s.markup,
+                paperCost: fmt(s.totalPaperCost),
+                clickCost: fmt(s.totalClickCost),
+                totalCost: fmt(s.cost),
+              })),
+              spineWidth: result.spineWidth?.toFixed(3) + '"',
+              totalSheets: result.totalSheets,
+              bindingCost: fmt(result.totalBindingPrice),
+              laminationCost: fmt(result.totalLaminationCost),
+            },
           }
         }
         
@@ -686,6 +803,33 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
           },
           costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
+          // VIP details
+          _vipDetails: {
+            coverResult: {
+              sheets: result.coverResult.sheets,
+              ups: result.coverResult.maxUps,
+              parentSheet: result.coverResult.sheetSize,
+              level: result.coverResult.level,
+              markup: result.coverResult.markup,
+              paperCost: fmt(result.coverResult.totalPaperCost),
+              clickCost: fmt(result.coverResult.totalClickCost),
+              totalCost: fmt(result.coverResult.cost),
+            },
+            insideResult: {
+              sheets: result.insideResult.sheets,
+              ups: result.insideResult.maxUps,
+              parentSheet: result.insideResult.sheetSize,
+              level: result.insideResult.level,
+              markup: result.insideResult.markup,
+              paperCost: fmt(result.insideResult.totalPaperCost),
+              clickCost: fmt(result.insideResult.totalClickCost),
+              totalCost: fmt(result.insideResult.cost),
+            },
+            spineWidth: result.spineWidth?.toFixed(3) + '"',
+            totalSheets: result.totalSheets,
+            bindingCost: fmt(result.totalBindingPrice),
+            laminationCost: fmt(result.totalLaminationCost),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_perfect error:", e)
