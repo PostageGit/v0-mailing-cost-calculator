@@ -118,13 +118,11 @@ export function calculateLayout(
   const ph = sh - bmy * 2
   if (pw < 0 || ph < 0) return { maxUps: 0, isRotated: false }
 
-  // How many items fit in the area? Gutter goes between items, not on edges.
-  // If area=18, item=9, gutter=0.2: we need 9 + 0.2 + 9 = 18.2 for 2-up
-  // Formula: floor((area - item) / (item + gutter)) + 1 when first item fits
+  // Fit formula: n items need n*item + (n-1)*gutter space
+  // Solving for max n: n = floor((area + gutter) / (item + gutter))
   const fit = (area: number, item: number, g: number) => {
     if (item > area) return 0
-    // First item takes 'item' space, each additional takes 'item + gutter'
-    return 1 + Math.floor((area - item) / (item + g))
+    return Math.floor((area + g) / (item + g))
   }
 
   const pws = Math.round(pageW * S)
