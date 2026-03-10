@@ -467,7 +467,8 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
 
     // Calculate each insert section
     if (hasInserts) {
-      for (const insert of insertSections) {
+      for (let i = 0; i < insertSections.length; i++) {
+        const insert = insertSections[i]
         const insertResult = calculatePartCost(
           insert.paperName, 
           insert.sides, 
@@ -479,9 +480,9 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
           insert.leafCount, // each insert leaf = 1 sheet to print
           false, 
           forcedLevel || insideResult.level, 
-          `insert-${insert.position}`
+          `insert-${i + 1}`
         )
-        if (insertResult.error) return invalidResult(`Insert (${insert.position}): ${insertResult.error}`)
+        if (insertResult.error) return invalidResult(`Insert ${i + 1}: ${insertResult.error}`)
         insertResults.push(insertResult)
       }
     }
@@ -500,7 +501,8 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
 
     // Calculate insert sections
     if (hasInserts) {
-      for (const insert of insertSections) {
+      for (let i = 0; i < insertSections.length; i++) {
+        const insert = insertSections[i]
         const insertResult = calculatePartCost(
           insert.paperName, 
           insert.sides, 
@@ -512,9 +514,9 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
           insert.leafCount,
           false, 
           forcedLevel || insideResult.level, 
-          `insert-${insert.position}`
+          `insert-${i + 1}`
         )
-        if (insertResult.error) return invalidResult(`Insert (${insert.position}): ${insertResult.error}`)
+        if (insertResult.error) return invalidResult(`Insert ${i + 1}: ${insertResult.error}`)
         insertResults.push(insertResult)
       }
     }
