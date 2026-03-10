@@ -564,11 +564,35 @@ const tools = {
       try {
         console.log("[v0] calculate_printing called:", { qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides })
         
-        // Check what papers are available
-        const { getFlatPaperOptions, PAPER_OPTIONS } = await import("@/lib/printing-pricing")
-        const dynamicPapers = getFlatPaperOptions()
-        console.log("[v0] Available papers - dynamic:", dynamicPapers.length, "hardcoded:", PAPER_OPTIONS.length)
-        console.log("[v0] First few papers:", dynamicPapers.slice(0, 3).map(p => p.name))
+        // Import printing functions - use hardcoded PAPER_OPTIONS directly for reliability
+        const { PAPER_OPTIONS, PAPER_PRICES, calculateAllSheetOptions: calcAllOpts, buildFullResult: buildFull } = await import("@/lib/printing-pricing")
+        
+        // Try to find paper - first exact match, then fuzzy match
+        let matchedPaperName = paperName
+        let paper = PAPER_OPTIONS.find(p => p.name === paperName)
+        
+        if (!paper) {
+          // Try case-insensitive match
+          paper = PAPER_OPTIONS.find(p => p.name.toLowerCase() === paperName.toLowerCase())
+          if (paper) matchedPaperName = paper.name
+        }
+        
+        if (!paper) {
+          // Try partial match (e.g., "10pt" matches "10pt Gloss")
+          const normalizedInput = paperName.toLowerCase().replace(/\s+/g, "")
+          paper = PAPER_OPTIONS.find(p => p.name.toLowerCase().replace(/\s+/g, "").includes(normalizedInput) || normalizedInput.includes(p.name.toLowerCase().replace(/\s+/g, "")))
+          if (paper) matchedPaperName = paper.name
+        }
+        
+        if (!paper) {
+          const availablePapers = PAPER_OPTIONS.map(p => p.name).join(", ")
+          return { 
+            error: `Paper "${paperName}" not found. Available papers: ${availablePapers}`,
+            availablePapers
+          }
+        }
+        
+        console.log("[v0] Matched paper:", matchedPaperName, "Sizes:", paper.availableSizes)
         
         const lamination: LaminationInputs = {
           enabled: laminationEnabled,
@@ -578,27 +602,23 @@ const tools = {
           brokerDiscountPct: 30,
         }
         const inputs: PrintingInputs = {
-          qty, width, height, paperName, sidesValue, hasBleed,
+          qty, width, height, paperName: matchedPaperName, sidesValue, hasBleed,
           addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker, lamination,
           levelOverride: customLevel,
         }
         const options = calculateAllSheetOptions(inputs)
         console.log("[v0] calculateAllSheetOptions returned:", options.length, "options")
         if (!options.length) {
-          // Get available papers for better error message
-          const { getFlatPaperOptions } = await import("@/lib/printing-pricing")
-          const availablePapers = getFlatPaperOptions()
-          const paperNames = availablePapers.map(p => p.name).join(", ")
-          const paper = availablePapers.find(p => p.name === paperName)
-          if (!paper) {
+          // Check if paper has no price for any size
+          const hasPrices = Object.keys(PAPER_PRICES[matchedPaperName] || {}).length > 0
+          if (!hasPrices) {
             return { 
-              error: `Paper "${paperName}" not found. Available flat printing papers: ${paperNames}`,
-              availablePapers: paperNames
+              error: `Paper "${matchedPaperName}" has no pricing configured. This paper may not be available for flat printing.`,
             }
           }
           const availableSizes = paper.availableSizes.join(", ")
           return { 
-            error: `Size ${width}x${height} not available for ${paperName}. Available sizes: ${availableSizes}`,
+            error: `Cannot fit ${width}x${height} on available sheet sizes for ${matchedPaperName}. Available parent sheets: ${availableSizes}. Check if size is correct.`,
             availableSizes
           }
         }
@@ -611,7 +631,7 @@ const tools = {
         console.log("[v0] calculate_printing result:", { total: fullResult.grandTotal, qty })
         return {
           total: fmt(fullResult.grandTotal), perUnit: fmt(fullResult.grandTotal / qty),
-          qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
+          qty, size: `${width}x${height}`, paper: matchedPaperName, sides: sidesValue,
           bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
           lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
           // VIP details (only show if VIP mode is active)
