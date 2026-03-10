@@ -299,9 +299,12 @@ VIP MODE (internal testing - USER HAS FINAL SAY):
 - If user types "VIP", enable VIP mode. Just say "VIP mode on." - keep it short.
 - VIP mode stays on until they say "VIP off".
 - In VIP mode, the user has ABSOLUTE CONTROL. Whatever they say, do it. No pushback.
-- User can set ANY level (1-10) for ANY part of the job: "use level 9", "price cover at level 5", "inside at level 8".
+- User can set ANY level (1-10) for ANY part of the job:
+  * "use level 9" = all parts at level 9
+  * "cover at level 5" = use coverLevel param
+  * "section 1 and 2 at level 9, section 3 at level 4" = use per-section level in sections array
+- The tool NOW SUPPORTS per-section levels. Each section can have its own level field.
 - ALWAYS obey the user's level choice. Never refuse or suggest a different level. User has final say.
-- User can mix levels: different level for cover vs inside, different for each section. Just do it.
 - Show internal details ONLY when asked. Keep quotes brief otherwise.
 - User can ask "show breakdown", "how many sheets?", "what level?", "explain pricing" - then give details.
 - If user says "auto level" go back to automatic level selection.
@@ -684,7 +687,9 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
         paperName: z.string().describe(`Paper for this section -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
         sides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe("Sides for this section"),
         hasBleed: z.boolean().describe("Bleed for this section"),
-      })).optional().describe("Optional: multiple inside sections with different papers. If provided, insidePaper/insideSides/insideBleed are ignored. Example: [{pageCount: 100, paperName: '20lb Offset', sides: 'D/S', hasBleed: false}, {pageCount: 16, paperName: '80lb Text Gloss', sides: '4/4', hasBleed: true}]"),
+        level: z.number().min(1).max(10).optional().describe("VIP ONLY: Force level for THIS section only (1-10). Omit for auto or global level."),
+      })).optional().describe("Optional: multiple inside sections with different papers. Each section can have its own level. Example: [{pageCount: 100, paperName: '20lb Offset', sides: 'D/S', hasBleed: false, level: 9}, {pageCount: 16, paperName: '80lb Text Gloss', sides: '4/4', hasBleed: true, level: 4}]"),
+      coverLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force level for COVER only (1-10). Omit to use customLevel or auto."),
       coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Perfect bound cover CAN be one-sided (4/0 = color front only, common) or both-sided (4/4). USE what the customer says. Default "4/4" only if they say nothing. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
@@ -693,7 +698,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       isBroker: z.boolean().describe("Broker/trade customer"),
       customLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force a specific pricing level (1-10). Level 1=highest margin, 10=broker. Omit for auto."),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, sections, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker, customLevel }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, sections, coverPaper, coverSides, coverLevel, laminationType, insideBleed, coverBleed, isBroker, customLevel }) => {
       try {
         console.log("[v0] calculate_perfect called:", { bookQty, pagesPerBook, pageWidth, pageHeight, sections: sections?.length || 0 })
         
@@ -708,7 +713,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           }
           if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you have ${pagesPerBook}). Suggest fold & staple booklet instead.` }
           
-          // Build section inputs for calculator
+          // Build section inputs for calculator with per-section levels
           const sectionInputs = sections.map((s, idx) => ({
             id: `section-${idx}`,
             pageCount: s.pageCount,
@@ -716,6 +721,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             sides: s.sides,
             hasBleed: s.hasBleed,
             sheetSize: "cheapest" as const,
+            levelOverride: s.level,  // VIP: per-section level
           }))
           
           const result = calculatePerfect({
@@ -724,6 +730,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             cover: { paperName: coverPaper || "80 Gloss", sides: coverSides || "4/4", hasBleed: coverBleed, sheetSize: "cheapest" },
             laminationType, customLevel: customLevel || "auto", isBroker,
             insideSections: sectionInputs,
+            coverLevelOverride: coverLevel,  // VIP: separate cover level
           })
           if ("error" in result) return { error: result.error }
           
@@ -793,6 +800,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
           cover: { paperName: coverPaper || "80 Gloss", sides: finalCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
           laminationType, customLevel: customLevel || "auto", isBroker,
+          coverLevelOverride: coverLevel,
         })
         if ("error" in result) return { error: result.error }
         return {

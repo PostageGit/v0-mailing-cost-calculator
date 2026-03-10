@@ -278,7 +278,7 @@ export function calculatePerfect(
   inp: PerfectInputs, 
   paperData?: Record<string, PaperInfo>
 ): PerfectCalcResult | { error: string } {
-  const { bookQty, pagesPerBook, pageWidth, pageHeight, cover, inside, insideSections, laminationType, isBroker, customLevel } = inp
+  const { bookQty, pagesPerBook, pageWidth, pageHeight, cover, inside, insideSections, laminationType, isBroker, customLevel, coverLevelOverride } = inp
   
   // Helper to get paper thickness - prefer database values, fall back to hardcoded
   const getThickness = (paperName: string): number => {
@@ -333,7 +333,10 @@ export function calculatePerfect(
       const sidesForCalc = isDS ? 2 : 1
       const sheetsForSection = Math.ceil(section.pageCount / sidesForCalc)
       
-      const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, forcedLevel, paperData)
+      // Use section-specific level if provided, otherwise use global forcedLevel
+      const sectionLevel = section.levelOverride ?? forcedLevel
+      
+      const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, sectionLevel, paperData)
       if ("error" in sectionRes) return { error: `Section "${section.paperName}": ${(sectionRes as {error: string}).error}` }
       
       const res = sectionRes as PerfectPartResult
@@ -367,8 +370,8 @@ export function calculatePerfect(
   // Additional height adjustment if both cover and inside have bleed
   if (cover.hasBleed && inside.hasBleed) coverPageHeight += 0.2
 
-  // Cover (forced to inside level)
-  const coverForcedLevel = insideRes.level ?? forcedLevel ?? null
+  // Cover (use cover override if provided, otherwise match inside level)
+  const coverForcedLevel = coverLevelOverride ?? insideRes.level ?? forcedLevel ?? null
   const coverRes = calculatePart("cover", cover, bookQty, coverPageWidth, coverPageHeight, 1, hasLamination, coverForcedLevel, paperData)
   if ("error" in coverRes) {
     // Add spine info to error message for clarity
