@@ -390,20 +390,36 @@ export interface PaperWeightEntry {
 export type PaperWeightConfig = Record<string, PaperWeightEntry>
 
 export const DEFAULT_PAPER_WEIGHT_CONFIG: PaperWeightConfig = {
-  "20lb Offset":            { size: "11x17", lbs: 24,  thicknessIn: 0.004  },
-  "60lb Offset":            { size: "11x17", lbs: 38,  thicknessIn: 0.005  },
-  "80lb Text Gloss":        { size: "11x17", lbs: 46,  thicknessIn: 0.005  },
-  "100lb Text Gloss":       { size: "11x17", lbs: 56,  thicknessIn: 0.006  },
-  "65 Cover (White)":       { size: "11x17", lbs: 68,  thicknessIn: 0.009  },
-  "67 Cover (White)":       { size: "11x17", lbs: 70,  thicknessIn: 0.009  },
-  "67 Cover (Off-White)":   { size: "11x17", lbs: 70,  thicknessIn: 0.009  },
-  "80 Cover Gloss":         { size: "11x17", lbs: 82,  thicknessIn: 0.010  },
-  "10pt Offset":            { size: "11x17", lbs: 95,  thicknessIn: 0.010  },
-  "10pt Gloss":             { size: "11x17", lbs: 100, thicknessIn: 0.010  },
-  "12pt Gloss":             { size: "11x17", lbs: 118, thicknessIn: 0.012  },
-  "14pt Gloss":             { size: "11x17", lbs: 135, thicknessIn: 0.014  },
-  "Sticker (Crack & Peel)": { size: "11x17", lbs: 70,  thicknessIn: 0.008  },
-}
+  // Text/Offset papers (measured weights)
+  "20lb Offset":            { size: "11x17", lbs: 20,   thicknessIn: 0.004  },  // 500 sht @ 11x17 = 10 lb
+  "60lb Offset":            { size: "11x17", lbs: 23,   thicknessIn: 0.005  },  // 500 sht @ 11x17 = 11.5 lb
+  "60 lb Cream":            { size: "11x17", lbs: 23,   thicknessIn: 0.005  },  // same as 60lb offset
+  "70lb Offset":            { size: "8.5x11", lbs: 14,  thicknessIn: 0.005  },  // 500 sht @ 8.5x11 = 7 lb
+  "80lb Text Gloss":        { size: "12x18", lbs: 36.5, thicknessIn: 0.005  },  // 500 sht @ 12x18 = 18.25 lb
+  "100lb Text Gloss":       { size: "12x18", lbs: 46,   thicknessIn: 0.006  },  // 500 sht @ 12x18 = 23 lb
+  
+  // Cover/Cardstock papers (measured weights)
+  "65 Cover Offset":        { size: "12x18", lbs: 52,   thicknessIn: 0.009  },  // 250 sht @ 12x18 = 13 lb
+  "67 Cover Offset":        { size: "11x17", lbs: 39,   thicknessIn: 0.009  },  // 250 sht @ 11x17 = 9.75 lb
+  "65 Cover (White)":       { size: "12x18", lbs: 52,   thicknessIn: 0.009  },  // alias
+  "67 Cover (White)":       { size: "11x17", lbs: 39,   thicknessIn: 0.009  },  // alias
+  "67 Cover (Off-White)":   { size: "11x17", lbs: 39,   thicknessIn: 0.009  },  // alias
+  "80 Cover Gloss":         { size: "13x19", lbs: 76,   thicknessIn: 0.010  },  // 250 sht @ 13x19 = 19 lb
+  "80 Gloss":               { size: "13x19", lbs: 76,   thicknessIn: 0.010  },  // alias for 80 Cover
+  
+  // Point stocks - Gloss (measured weights)
+  "10pt Gloss":             { size: "13x19", lbs: 93,   thicknessIn: 0.010  },  // 250 sht @ 13x19 = 23.25 lb
+  "12pt Gloss":             { size: "13x19", lbs: 92,   thicknessIn: 0.012  },  // 250 sht @ 13x19 = 23 lb
+  "14pt Gloss":             { size: "13x19", lbs: 120,  thicknessIn: 0.014  },  // 125 sht @ 13x19 = 15 lb
+  "16pt Gloss":             { size: "13x19", lbs: 118,  thicknessIn: 0.016  },  // 125 sht @ 13x19 = 14.75 lb
+  
+  // Point stocks - Offset (measured weights)
+  "10pt Offset":            { size: "13x19", lbs: 75,   thicknessIn: 0.010  },  // 200 sht @ 13x19 = 15 lb
+  "14pt Offset":            { size: "13x19", lbs: 95,   thicknessIn: 0.014  },  // 150 sht @ 13x19 = 14.25 lb
+  
+  // Specialty
+  "Sticker (Crack & Peel)": { size: "13x19", lbs: 70,   thicknessIn: 0.008  },  // 200 sht @ 13x19 = 14 lb
+  }
 
 // ==================== ENVELOPE WEIGHT CONFIG ====================
 
