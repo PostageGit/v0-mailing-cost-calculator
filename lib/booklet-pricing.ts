@@ -257,7 +257,9 @@ function calculatePartCost(
     const layout = calculateLayout(sheet.w, sheet.h, spreadWidth, spreadHeight, hasBleed, hasLamination)
     if (layout.maxUps === 0) return null
 
-    const totalSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
+    // Round up per book first since you can't share partial sheets across different books
+    const sheetsPerBook = Math.ceil(sheetsPerPart / layout.maxUps)
+    const totalSheets = sheetsPerBook * bookQty
     const paperCost = cfg.bookletPaperPrices[paperName]?.[sizeString] ?? BOOKLET_PAPER_PRICES[paperName]?.[sizeString] ?? 0
     if (paperCost === 0) return null
 
