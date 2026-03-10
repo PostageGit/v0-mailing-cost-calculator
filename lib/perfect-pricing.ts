@@ -241,8 +241,26 @@ function getBindingPrice(
 export { getLaminationPrice } from "./booklet-pricing"
 
 // ─── Main Calculate ──────────────────────────────────────
-export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { error: string } {
+/** 
+ * @param inp - Perfect bind inputs
+ * @param paperThicknesses - Optional map of paper name -> thickness (caliper). 
+ *                           If provided, uses database values for spine calculation.
+ *                           Falls back to PAPER_OPTIONS if not provided.
+ */
+export function calculatePerfect(
+  inp: PerfectInputs, 
+  paperThicknesses?: Record<string, number>
+): PerfectCalcResult | { error: string } {
   const { bookQty, pagesPerBook, pageWidth, pageHeight, cover, inside, insideSections, laminationType, isBroker, customLevel } = inp
+  
+  // Helper to get paper thickness - prefer database values, fall back to hardcoded
+  const getThickness = (paperName: string): number => {
+    if (paperThicknesses && paperThicknesses[paperName] !== undefined) {
+      return paperThicknesses[paperName]
+    }
+    const paper = PAPER_OPTIONS.find(p => p.name === paperName)
+    return paper?.thickness ?? 0.004
+  }
   if (bookQty <= 0 || pagesPerBook < 40) return { error: "Qty must be > 0, pages >= 40." }
   if (pageWidth < 2.5 || pageHeight < 2.5) return { error: "Page dimensions must be at least 2.5\"." }
 
@@ -266,14 +284,12 @@ export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { erro
   let spineWidth = 0
   if (useSections) {
     for (const section of insideSections) {
-      const sectionPaper = PAPER_OPTIONS.find(p => p.name === section.paperName)
-      const caliper = sectionPaper?.thickness ?? 0.004
+      const caliper = getThickness(section.paperName)
       const sheetsInSection = section.pageCount / 2  // pages to sheets
       spineWidth += sheetsInSection * caliper
     }
   } else {
-    const insidePaper = PAPER_OPTIONS.find(p => p.name === inside.paperName)
-    const caliper = insidePaper?.thickness ?? 0.004
+    const caliper = getThickness(inside.paperName)
     spineWidth = (pagesPerBook / 2) * caliper
   }
 
