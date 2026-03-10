@@ -12,12 +12,12 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Save, Plus, Trash2 } from "lucide-react"
+import { Save, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react"
 import { canLaminate, getLaminationPrice } from "@/lib/perfect-pricing"
 import { formatCurrency } from "@/lib/pricing"
 import { COVER_SIDES, INSIDE_SIDES, createInsideSection } from "@/lib/perfect-types"
 import { usePapersContext } from "@/lib/papers-context"
-import type { PerfectInputs, PerfectPartInputs, PerfectInsideSection } from "@/lib/perfect-types"
+import type { PerfectInputs, PerfectPartInputs, PerfectInsideSection, PerfectPartResult } from "@/lib/perfect-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
 
 interface PerfectFormProps {
@@ -28,6 +28,8 @@ interface PerfectFormProps {
   isEditing: boolean
   validationError: string | null
   ohpMode?: boolean
+  /** Section calculation results (after Calculate is pressed) */
+  sectionResults?: PerfectPartResult[]
 }
 
 export function PerfectForm({
@@ -38,7 +40,13 @@ export function PerfectForm({
   isEditing,
   validationError,
   ohpMode,
+  sectionResults,
 }: PerfectFormProps) {
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  
+  const toggleSectionExpanded = (sectionId: string) => {
+    setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }))
+  }
   const [showAllCoverPapers, setShowAllCoverPapers] = useState(false)
   const [showAllInsidePapers, setShowAllInsidePapers] = useState(false)
   const [showAllSectionPapers, setShowAllSectionPapers] = useState<Record<string, boolean>>({})
@@ -356,76 +364,137 @@ export function PerfectForm({
           </div>
 
           {/* Section rows */}
-          {inputs.insideSections?.map((section, idx) => (
-            <div key={section.id} className="grid grid-cols-1 md:grid-cols-[4rem_5rem_1fr_1fr_auto_auto] gap-2 mb-3 items-end">
-              <span className="text-xs font-medium text-muted-foreground pb-2">Sec {idx + 1}</span>
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-muted-foreground">Pages</label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={section.pageCount || ""}
-                  onChange={(e) => updateSection(section.id, { pageCount: parseInt(e.target.value) || 0 })}
-                  className="h-9 text-sm"
-                  placeholder="0"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] text-muted-foreground">Paper</label>
+          {inputs.insideSections?.map((section, idx) => {
+            const sectionResult = sectionResults?.[idx]
+            const isExpanded = expandedSections[section.id]
+            
+            return (
+              <div key={section.id} className="mb-3">
+                {/* Section input row */}
+                <div className="grid grid-cols-1 md:grid-cols-[4rem_5rem_1fr_1fr_auto_auto] gap-2 items-end">
+                  <span className="text-xs font-medium text-muted-foreground pb-2">Sec {idx + 1}</span>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-muted-foreground">Pages</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={section.pageCount || ""}
+                      onChange={(e) => updateSection(section.id, { pageCount: parseInt(e.target.value) || 0 })}
+                      className="h-9 text-sm"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] text-muted-foreground">Paper</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSectionPapers(prev => ({ ...prev, [section.id]: !prev[section.id] }))}
+                        className={`text-[9px] px-1.5 py-0.5 rounded transition-colors ${
+                          showAllSectionPapers[section.id] 
+                            ? "bg-primary text-primary-foreground" 
+                            : "text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        {showAllSectionPapers[section.id] ? "Filtered" : "All"}
+                      </button>
+                    </div>
+                    <Select
+                      value={section.paperName}
+                      onValueChange={(val) => updateSection(section.id, { paperName: val, sheetSize: "cheapest", sides: "" })}
+                    >
+                      <SelectTrigger className={`h-9 ${v.cls(!section.paperName)}`}><SelectValue placeholder="Paper" /></SelectTrigger>
+                      <SelectContent>
+                        {(showAllSectionPapers[section.id] ? allPaperOptions : insidePapers).map((p) => (
+                          <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Select
+                    value={section.sides}
+                    onValueChange={(val) => updateSection(section.id, { sides: val })}
+                  >
+                    <SelectTrigger className={`h-9 ${v.cls(!section.sides)}`}><SelectValue placeholder="Sides" /></SelectTrigger>
+                    <SelectContent>
+                      {INSIDE_SIDES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-1.5 h-9">
+                    <Checkbox
+                      id={`section-bleed-${section.id}`}
+                      checked={section.hasBleed}
+                      onCheckedChange={(checked) => updateSection(section.id, { hasBleed: checked === true })}
+                    />
+                    <label htmlFor={`section-bleed-${section.id}`} className="text-xs text-muted-foreground cursor-pointer">Bleed</label>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowAllSectionPapers(prev => ({ ...prev, [section.id]: !prev[section.id] }))}
-                    className={`text-[9px] px-1.5 py-0.5 rounded transition-colors ${
-                      showAllSectionPapers[section.id] 
-                        ? "bg-primary text-primary-foreground" 
-                        : "text-muted-foreground hover:bg-secondary"
-                    }`}
+                    onClick={() => removeSection(section.id)}
+                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors h-9"
+                    title="Remove section"
                   >
-                    {showAllSectionPapers[section.id] ? "Filtered" : "All"}
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <Select
-                  value={section.paperName}
-                  onValueChange={(val) => updateSection(section.id, { paperName: val, sheetSize: "cheapest", sides: "" })}
-                >
-                  <SelectTrigger className={`h-9 ${v.cls(!section.paperName)}`}><SelectValue placeholder="Paper" /></SelectTrigger>
-                  <SelectContent>
-                    {(showAllSectionPapers[section.id] ? allPaperOptions : insidePapers).map((p) => (
-                      <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                
+                {/* Section result details (after calculation) */}
+                {sectionResult && (
+                  <div className="mt-1 ml-16">
+                    <button
+                      type="button"
+                      onClick={() => toggleSectionExpanded(section.id)}
+                      className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium"
+                    >
+                      {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      {sectionResult.sheets.toLocaleString()} sheets · {sectionResult.sheetSize} · {sectionResult.maxUps} up · Lvl {sectionResult.level} · {formatCurrency(sectionResult.cost)}
+                    </button>
+                    
+                    {isExpanded && (
+                      <div className="mt-2 p-2 rounded-lg bg-muted/50 border border-muted">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">Sheets</div>
+                            <div className="font-semibold">{sectionResult.sheets.toLocaleString()}</div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">Ups</div>
+                            <div className="font-semibold">{sectionResult.maxUps} up</div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">Sheet Size</div>
+                            <div className="font-semibold">{sectionResult.sheetSize}</div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">Level</div>
+                            <div className="font-semibold">{sectionResult.level} <span className="text-muted-foreground text-[9px]">({sectionResult.markup.toFixed(2)}x)</span></div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">Paper Cost</div>
+                            <div className="font-semibold">{formatCurrency(sectionResult.totalPaperCost)}</div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">Click Cost</div>
+                            <div className="font-semibold">{formatCurrency(sectionResult.totalClickCost)}</div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border">
+                            <div className="text-muted-foreground text-[9px] uppercase">$/Sheet</div>
+                            <div className="font-semibold">{formatCurrency(sectionResult.pricePerSheet, 4)}</div>
+                          </div>
+                          <div className="bg-background rounded p-1.5 border border-primary/30 bg-primary/5">
+                            <div className="text-muted-foreground text-[9px] uppercase">Total</div>
+                            <div className="font-bold text-primary">{formatCurrency(sectionResult.cost)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <Select
-                value={section.sides}
-                onValueChange={(val) => updateSection(section.id, { sides: val })}
-              >
-                <SelectTrigger className={`h-9 ${v.cls(!section.sides)}`}><SelectValue placeholder="Sides" /></SelectTrigger>
-                <SelectContent>
-                  {INSIDE_SIDES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1.5 h-9">
-                <Checkbox
-                  id={`section-bleed-${section.id}`}
-                  checked={section.hasBleed}
-                  onCheckedChange={(checked) => updateSection(section.id, { hasBleed: checked === true })}
-                />
-                <label htmlFor={`section-bleed-${section.id}`} className="text-xs text-muted-foreground cursor-pointer">Bleed</label>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeSection(section.id)}
-                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors h-9"
-                title="Remove section"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+            )
+          })}
 
           {/* Add Section Button */}
           <button
