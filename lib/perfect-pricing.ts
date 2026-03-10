@@ -333,14 +333,13 @@ export function calculatePerfect(
       const sidesForCalc = isDS ? 2 : 1
       const sheetsForSection = Math.ceil(section.pageCount / sidesForCalc)
       
-      console.log("[v0] Section calc:", { paper: section.paperName, pageCount: section.pageCount, sides: section.sides, sidesForCalc, sheetsForSection, bookQty })
-      
       const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, forcedLevel, paperData)
       if ("error" in sectionRes) return { error: `Section "${section.paperName}": ${(sectionRes as {error: string}).error}` }
       
       const res = sectionRes as PerfectPartResult
-      console.log("[v0] Section result:", { paper: res.paper, sheets: res.sheets, maxUps: res.maxUps, cost: res.cost, pricePerSheet: res.pricePerSheet })
-      sectionResults.push(res)
+      // Add page count to the section result
+      const resWithPages = { ...res, pagesInSection: section.pageCount }
+      sectionResults.push(resWithPages)
       totalInsideCost += res.cost
       totalInsideSheets += res.sheets
     }
