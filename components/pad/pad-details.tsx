@@ -3,6 +3,7 @@
 import { CalcPriceCard, type CostLine, type PaperStat } from "@/components/calc-price-card"
 import { formatCurrency } from "@/lib/pricing"
 import type { PadCalcResult } from "@/lib/pad-types"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -43,6 +44,28 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBr
 
   const levelNum = parseLevelNum(result.levelName)
   const autoLevelNum = parseLevelNum(result.autoLevelName)
+
+  // Calculate weight per pad (sheets + chipboard backing)
+  const padWeightOz = (() => {
+    const { pageWidth, pageHeight } = result
+    if (!pageWidth || !pageHeight) return undefined
+    let totalOz = 0
+    
+    // Paper sheets weight
+    const sheetOz = calcSheetWeightOz(insideResult.paper, pageWidth, pageHeight)
+    if (sheetOz !== null) {
+      totalOz += sheetOz * sheetsPerPad
+    }
+    
+    // Chipboard backing (approximate: ~0.5 oz for a typical 8.5x11 chipboard)
+    // Scale by area ratio from 8.5x11
+    const refArea = 8.5 * 11
+    const padArea = pageWidth * pageHeight
+    const chipboardOz = 0.5 * (padArea / refArea)
+    totalOz += chipboardOz
+    
+    return totalOz > 0 ? Math.round(totalOz * 100) / 100 : undefined
+  })()
 
   const stats: PaperStat[] = [
     { label: "Sheet", value: insideResult.sheetSize },
@@ -156,6 +179,8 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBr
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
+      weightOz={padWeightOz}
+      weightLabel="/ pad"
     />
   )
 }

@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronDown, ChevronUp, Settings2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Settings2, Scale } from "lucide-react"
 import { formatCurrency } from "@/lib/pricing"
+import { formatWeight } from "@/lib/paper-weights"
 
 /* ─── Shared price card for all calculators ─── */
 
@@ -52,6 +53,10 @@ export interface CalcPriceCardProps {
   /** Broker pricing toggle */
   isBroker?: boolean
   onBrokerChange?: (value: boolean) => void
+  /** Weight per piece in ounces (for mailing weight display) */
+  weightOz?: number
+  /** Weight label e.g. "/ piece", "/ booklet" */
+  weightLabel?: string
 }
 
 export function CalcPriceCard({
@@ -68,6 +73,8 @@ export function CalcPriceCard({
   onEffectiveTotalChange,
   isBroker,
   onBrokerChange,
+  weightOz,
+  weightLabel = "/ piece",
 }: CalcPriceCardProps) {
   const [showDetails, setShowDetails] = useState(false)
 
@@ -197,6 +204,20 @@ export function CalcPriceCard({
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
         <span className="text-sm font-semibold text-foreground">{paperName}</span>
       </div>
+
+      {/* ── Weight display ── */}
+      {weightOz !== undefined && weightOz > 0 && (
+        <div className="rounded-xl border-2 border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Scale className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider">Weight</span>
+          </div>
+          <div className="text-right">
+            <span className="text-base font-bold text-amber-900 dark:text-amber-200 font-mono">{formatWeight(weightOz)}</span>
+            <span className="text-[10px] text-amber-700 dark:text-amber-400 ml-1.5">{weightLabel}</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Summary table (always visible, e.g. section breakdown) ── */}
       {summaryTable && (
