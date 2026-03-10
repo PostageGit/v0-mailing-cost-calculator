@@ -32,6 +32,7 @@ const EMPTY_INPUTS: BookletInputs = {
   insideSheetSize: "cheapest",
   insertSections: [],      // empty = no inserts, all leaves same paper
   insertFeePerSection: 25, // $25 per insert section
+  bindingType: "staple",   // staple (default), fold, or perfect
   laminationType: "none",
   customLevel: "auto",
   isBroker: false,

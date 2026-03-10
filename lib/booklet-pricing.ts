@@ -358,7 +358,8 @@ export function getSaddleStitchBindingPrice(
   pageWidth: number,
   pageHeight: number,
   hasSeparateCover: boolean,
-  isBroker: boolean
+  isBroker: boolean,
+  bindingType: "staple" | "fold" | "perfect" = "staple"
 ): number {
   if (quantity <= 0 || isNaN(quantity)) return 0
 
@@ -370,13 +371,18 @@ export function getSaddleStitchBindingPrice(
   const rateData = config.rates[sizeCategory]?.[thicknessCategory]?.[coverType]
   if (!rateData) {
     // Fallback to handheld thin self if lookup fails
-    return (0.18 * quantity + 45) / quantity
+    return (0.18 * quantity + 65) / quantity
   }
 
-  const { rate, setup } = rateData
-  const totalCost = setup + (rate * quantity)
+  // Get binding type surcharge (staple = base, fold/perfect add extra)
+  const bindingSurcharge = config.binding?.[bindingType] || { extraSetup: 0, extraRate: 0 }
 
-  // Apply broker discount (default 30% off, configurable)
+  const { rate, setup } = rateData
+  const totalRate = rate + bindingSurcharge.extraRate
+  const totalSetup = setup + bindingSurcharge.extraSetup
+  const totalCost = totalSetup + (totalRate * quantity)
+
+  // Apply broker discount (default 20% off, configurable)
   const brokerDiscount = config.brokerDiscountPercent / 100
   const finalCost = isBroker ? totalCost * (1 - brokerDiscount) : totalCost
 
@@ -432,6 +438,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     separateCover, coverPaper, coverSides, coverBleed, coverSheetSize,
     insidePaper, insideSides, insideBleed, insideSheetSize,
     insertSections, insertFeePerSection,
+    bindingType = "staple",
     laminationType, customLevel, isBroker,
   } = inputs
 
@@ -558,8 +565,8 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     }
   }
 
-  // Binding – uses rates based on size category, page count, and cover type
-  const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, pagesPerBook, pageWidth, pageHeight, separateCover, isBroker)
+  // Binding – uses rates based on size category, page count, cover type, and binding type
+  const bindingPricePerBook = getSaddleStitchBindingPrice(bookQty, pagesPerBook, pageWidth, pageHeight, separateCover, isBroker, bindingType)
   const totalBindingPrice = bindingPricePerBook * bookQty
 
   // Lamination – broker applies percentage discount on finishing
@@ -574,7 +581,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   if (isBroker) {
     const brokerDiscountRate = getActiveConfig().saddleStitchConfig.brokerDiscountPercent / 100
     // Calculate the pre-discount binding cost to show what was saved
-    const preDiscountBindingPerBook = getSaddleStitchBindingPrice(bookQty, pagesPerBook, pageWidth, pageHeight, separateCover, false)
+    const preDiscountBindingPerBook = getSaddleStitchBindingPrice(bookQty, pagesPerBook, pageWidth, pageHeight, separateCover, false, bindingType)
     const preDiscountBindingTotal = preDiscountBindingPerBook * bookQty
     brokerDiscountAmount = preDiscountBindingTotal - totalBindingPrice
   }

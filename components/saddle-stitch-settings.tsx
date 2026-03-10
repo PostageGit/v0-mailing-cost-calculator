@@ -11,6 +11,7 @@ import {
   DEFAULT_SADDLE_STITCH_CONFIG,
   type SaddleStitchConfig,
   type SaddleStitchRateEntry,
+  type SaddleStitchBindingSurcharge,
 } from "@/lib/pricing-config"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -30,6 +31,12 @@ const THICKNESS_LABELS: Record<string, string> = {
 const COVER_LABELS: Record<string, string> = {
   self: "Self-Cover",
   with: "With Cover",
+}
+
+const BINDING_TYPE_LABELS: Record<string, { name: string; desc: string }> = {
+  staple: { name: "Staple", desc: "Base price (no surcharge)" },
+  fold: { name: "Fold Only", desc: "Fold without stapling" },
+  perfect: { name: "Perfect Bind", desc: "Glued spine binding" },
 }
 
 export function SaddleStitchSettingsTab() {
@@ -79,6 +86,25 @@ export function SaddleStitchSettingsTab() {
   // Update broker discount
   const updateBrokerDiscount = (value: number) => {
     setConfig((prev) => ({ ...prev, brokerDiscountPercent: value }))
+    setHasChanges(true)
+  }
+
+  // Update binding surcharge
+  const updateBindingSurcharge = (
+    bindingType: "staple" | "fold" | "perfect",
+    field: keyof SaddleStitchBindingSurcharge,
+    value: number
+  ) => {
+    setConfig((prev) => ({
+      ...prev,
+      binding: {
+        ...prev.binding,
+        [bindingType]: {
+          ...prev.binding?.[bindingType],
+          [field]: value,
+        },
+      },
+    }))
     setHasChanges(true)
   }
 
@@ -161,6 +187,77 @@ export function SaddleStitchSettingsTab() {
               className="w-24 h-8"
             />
             <span className="text-sm text-muted-foreground">%</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Binding Type Surcharges */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Binding Type Surcharges</CardTitle>
+          <CardDescription className="text-xs">
+            Staple is the base price. Fold and Perfect Bind add extra setup fees and per-book rates.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Binding Type</th>
+                  <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Extra Setup</th>
+                  <th className="text-left py-2 font-medium text-muted-foreground">Extra Rate/Book</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(["staple", "fold", "perfect"] as const).map((bindingType) => {
+                  const entry = config.binding?.[bindingType] || { extraSetup: 0, extraRate: 0 }
+                  const label = BINDING_TYPE_LABELS[bindingType]
+                  return (
+                    <tr key={bindingType} className="border-b last:border-0">
+                      <td className="py-2 pr-4">
+                        <div>
+                          <span className="font-medium">{label.name}</span>
+                          <span className="text-xs text-muted-foreground block">{label.desc}</span>
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={entry.extraSetup}
+                            onChange={(e) =>
+                              updateBindingSurcharge(bindingType, "extraSetup", parseFloat(e.target.value) || 0)
+                            }
+                            className="w-20 h-7 text-sm"
+                            disabled={bindingType === "staple"}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={entry.extraRate}
+                            onChange={(e) =>
+                              updateBindingSurcharge(bindingType, "extraRate", parseFloat(e.target.value) || 0)
+                            }
+                            className="w-20 h-7 text-sm"
+                            disabled={bindingType === "staple"}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

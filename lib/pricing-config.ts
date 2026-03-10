@@ -494,23 +494,40 @@ export interface SaddleStitchRateEntry {
   setup: number  // setup fee
 }
 
+/** Binding type surcharge (added on top of base staple price) */
+export interface SaddleStitchBindingSurcharge {
+  extraSetup: number   // additional setup fee
+  extraRate: number    // additional per-book rate
+}
+
 export interface SaddleStitchConfig {
   /** Rates by size category -> thickness -> cover type */
   rates: Record<string, Record<string, Record<string, SaddleStitchRateEntry>>>
-  /** Broker discount percentage (0.30 = 30% off) */
+  /** Binding type surcharges - staple is base (0), fold and perfect add extra */
+  binding: {
+    staple: SaddleStitchBindingSurcharge
+    fold: SaddleStitchBindingSurcharge
+    perfect: SaddleStitchBindingSurcharge
+  }
+  /** Broker discount percentage (20 = 20% off) */
   brokerDiscountPercent: number
 }
 
 export const DEFAULT_SADDLE_STITCH_CONFIG: SaddleStitchConfig = {
   rates: {
     handheld: {
-      thin:  { self: { rate: 0.18, setup: 45 }, with: { rate: 0.23, setup: 60 } },
-      thick: { self: { rate: 0.34, setup: 55 }, with: { rate: 0.44, setup: 70 } },
+      thin:  { self: { rate: 0.18, setup: 65 }, with: { rate: 0.24, setup: 85 } },
+      thick: { self: { rate: 0.35, setup: 75 }, with: { rate: 0.46, setup: 100 } },
     },
     pocket: {
-      thin:  { self: { rate: 0.38, setup: 60 }, with: { rate: 0.43, setup: 75 } },
-      thick: { self: { rate: 0.54, setup: 65 }, with: { rate: 0.64, setup: 80 } },
+      thin:  { self: { rate: 0.35, setup: 85 }, with: { rate: 0.40, setup: 110 } },
+      thick: { self: { rate: 0.35, setup: 85 }, with: { rate: 0.40, setup: 110 } },
     },
+  },
+  binding: {
+    staple:  { extraSetup: 0, extraRate: 0 },      // base price (no surcharge)
+    fold:    { extraSetup: 0, extraRate: 0 },      // fold only (no staple)
+    perfect: { extraSetup: 30, extraRate: 0.10 },  // perfect binding surcharge
   },
   brokerDiscountPercent: 20, // Default 20% off for brokers
 }

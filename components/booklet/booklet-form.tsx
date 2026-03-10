@@ -479,6 +479,39 @@ export function BookletForm({
 
       <Separator className="my-4" />
 
+      {/* Binding Type */}
+      <div className="mb-6">
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+          Binding Type
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { value: "staple", label: "Staple", desc: "saddle stitch" },
+            { value: "fold", label: "Fold Only", desc: "no staple" },
+            { value: "perfect", label: "Perfect Bind", desc: "glue spine" },
+          ] as const).map((opt) => {
+            const selected = (inputs.bindingType || "staple") === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => updateInputs({ bindingType: opt.value })}
+                className={`flex flex-col items-center rounded-xl border-2 px-4 py-2.5 transition-all min-w-[100px] ${
+                  selected
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-card text-foreground hover:border-foreground/30"
+                }`}
+              >
+                <span className="text-[12px] font-bold">{opt.label}</span>
+                <span className={`text-[10px] font-mono mt-0.5 ${selected ? "text-background/70" : "text-muted-foreground"}`}>
+                  {opt.desc}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Lamination (on cover) */}
       {inputs.separateCover && canLam && (
         <div className="mb-6">
