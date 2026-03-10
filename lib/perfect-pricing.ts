@@ -399,22 +399,13 @@ export function calculatePerfect(
   const coverForcedLevel = coverLevelOverride ?? insideRes.level ?? forcedLevel ?? null
   const coverRes = calculatePart("cover", cover, bookQty, coverPageWidth, coverPageHeight, 1, hasLamination, coverForcedLevel, paperData)
   if ("error" in coverRes) {
-    // Add spine info to error message for clarity
     const errMsg = (coverRes as { error: string }).error
     if (errMsg.includes("does not fit")) {
-      // Check if paper has no pricing for large enough sheets
-      const paperName = cover.paperName
+      // Simple, clear error for new workers
       const neededWidth = Math.ceil(coverPageWidth * 10) / 10
       const neededHeight = Math.ceil(coverPageHeight * 10) / 10
-      
-      // Suggest similar papers (common cover stocks)
-      const suggestions = ["12pt Gloss", "10pt Gloss", "80 Gloss", "100 Gloss"]
-        .filter(p => p !== paperName)
-        .slice(0, 2)
-        .join(" or ")
-      
       return { 
-        error: `"${paperName}" does not have pricing for sheets large enough to fit the cover spread (${neededWidth}" x ${neededHeight}" with ${spineWidth.toFixed(3)}" spine). Try a different paper like ${suggestions}.` 
+        error: `"${cover.paperName}" doesn't have a sheet size large enough for this cover (${neededWidth}" x ${neededHeight}"). Try 12pt Gloss or 10pt Gloss instead.` 
       }
     }
     return coverRes
