@@ -9,85 +9,168 @@ interface SpiralLayoutSvgProps {
   label: string
 }
 
+const GUTTER_AMOUNT = 0.2
+const BLEED_MARGIN = 0.25
+
 export function SpiralLayoutSvg({ result, pageWidth, pageHeight, label }: SpiralLayoutSvgProps) {
-  const { finalSheetWidth: sheetW, finalSheetHeight: sheetH, isRotated, bleed, maxUps } = result
+  const { finalSheetWidth: sheetW, finalSheetHeight: sheetH, isRotated, bleed, maxUps, sheets } = result
 
-  const BLEED = 0.25
-  const GUTTER = bleed ? 0.2 : 0
-  const EPSILON = 1e-9
+  const drawPageW = isRotated ? pageHeight : pageWidth
+  const drawPageH = isRotated ? pageWidth : pageHeight
+  const gutter = bleed ? GUTTER_AMOUNT : 0
+  const bleedMargin = bleed ? BLEED_MARGIN : 0
 
-  // Draw dimensions
-  const pW = pageWidth
-  const pH = pageHeight
-  const drawW = isRotated ? pH : pW
-  const drawH = isRotated ? pW : pH
+  const epsilon = 0.01
 
-  const bleedTotal = bleed ? BLEED * 2 : 0
-  const printableW = sheetW - bleedTotal
-  const printableH = sheetH - bleedTotal
+  // Calculate rows and cols
+  const fitCount = (area: number, item: number, g: number) =>
+    item > area + epsilon ? 0 : 1 + Math.floor((area - item) / (item + g) + epsilon)
 
-  const fit = (area: number, item: number, g: number) =>
-    item > area + EPSILON ? 0 : 1 + Math.floor((area - item) / (item + g) + EPSILON)
+  const printableW = sheetW - bleedMargin * 2
+  const printableH = sheetH - bleedMargin * 2
+  const cols = fitCount(printableW, drawPageW, gutter)
+  const rows = fitCount(printableH, drawPageH, gutter)
 
-  const colCount = fit(printableW, drawW, GUTTER)
-  const rowCount = fit(printableH, drawH, GUTTER)
+  // Center the printed content
+  const totalPrintedWidth = cols * drawPageW + Math.max(0, cols - 1) * gutter
+  const totalPrintedHeight = rows * drawPageH + Math.max(0, rows - 1) * gutter
+  const xOffset = bleedMargin + (printableW - totalPrintedWidth) / 2
+  const yOffset = bleedMargin + (printableH - totalPrintedHeight) / 2
 
-  // SVG sizing
-  const scale = 30
-  const svgW = sheetW * scale
-  const svgH = sheetH * scale
+  const viewBoxW = sheetW + 1
+  const viewBoxH = sheetH + 1
+  const cutMarkLength = 0.4
+  const cutMarkOffset = -0.1
 
-  const bleedPx = bleed ? BLEED * scale : 0
-  const gutterPx = GUTTER * scale
-  const pageWpx = drawW * scale
-  const pageHpx = drawH * scale
+  // Build cut marks
+  const cutLines: { x1: number; y1: number; x2: number; y2: number }[] = []
+
+  // Horizontal Cut Marks (left side)
+  if (rows > 0) {
+    if (bleed || yOffset > epsilon) {
+      const y = yOffset
+      cutLines.push({ x1: cutMarkOffset, y1: y, x2: cutMarkOffset - cutMarkLength, y2: y })
+    }
+    for (let r = 1; r < rows; r++) {
+      const y1 = yOffset + r * drawPageH + (r - 1) * gutter
+      cutLines.push({ x1: cutMarkOffset, y1: y1, x2: cutMarkOffset - cutMarkLength, y2: y1 })
+      if (bleed) {
+        const y2 = y1 + gutter
+        cutLines.push({ x1: cutMarkOffset, y1: y2, x2: cutMarkOffset - cutMarkLength, y2: y2 })
+      }
+    }
+    const bottomEdgeY = yOffset + totalPrintedHeight
+    if (bleed || sheetH - bottomEdgeY > epsilon) {
+      cutLines.push({ x1: cutMarkOffset, y1: bottomEdgeY, x2: cutMarkOffset - cutMarkLength, y2: bottomEdgeY })
+    }
+  }
+
+  // Vertical Cut Marks (bottom side)
+  if (cols > 0) {
+    if (bleed || xOffset > epsilon) {
+      const x = xOffset
+      cutLines.push({ x1: x, y1: sheetH - cutMarkOffset, x2: x, y2: sheetH - cutMarkOffset + cutMarkLength })
+    }
+    for (let c = 1; c < cols; c++) {
+      const x1 = xOffset + c * drawPageW + (c - 1) * gutter
+      cutLines.push({ x1: x1, y1: sheetH - cutMarkOffset, x2: x1, y2: sheetH - cutMarkOffset + cutMarkLength })
+      if (bleed) {
+        const x2 = x1 + gutter
+        cutLines.push({ x1: x2, y1: sheetH - cutMarkOffset, x2: x2, y2: sheetH - cutMarkOffset + cutMarkLength })
+      }
+    }
+    const rightEdgeX = xOffset + totalPrintedWidth
+    if (bleed || sheetW - rightEdgeX > epsilon) {
+      cutLines.push({ x1: rightEdgeX, y1: sheetH - cutMarkOffset, x2: rightEdgeX, y2: sheetH - cutMarkOffset + cutMarkLength })
+    }
+  }
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <p className="text-xs font-semibold text-muted-foreground">{label} -- {result.sheetSize} ({maxUps} up)</p>
-      <svg
-        viewBox={`0 0 ${svgW} ${svgH}`}
-        className="w-full max-w-xs border border-border rounded-lg bg-card"
-        style={{ aspectRatio: `${svgW}/${svgH}` }}
-      >
-        {/* Sheet background */}
-        <rect x={0} y={0} width={svgW} height={svgH} fill="hsl(var(--muted))" rx={4} />
+    <div className="flex flex-col gap-3">
+      {/* Info Boxes */}
+      <div className="flex gap-2">
+        <div className="flex-1 text-center py-1.5 px-2 rounded-md bg-primary/10">
+          <p className="text-sm font-bold text-primary leading-tight">{maxUps} Up</p>
+        </div>
+        <div className="flex-1 text-center py-1.5 px-2 rounded-md bg-accent/10">
+          <p className="text-sm font-bold text-accent leading-tight">
+            {sheets.toLocaleString()} Sheets
+          </p>
+        </div>
+      </div>
 
-        {/* Printable area */}
-        {bleed && (
+      {/* Label */}
+      <p className="text-sm font-semibold text-muted-foreground text-center">
+        {label} - {result.sheetSize}
+      </p>
+
+      {/* SVG Sheet */}
+      <div className="bg-muted/30 border border-border rounded-lg p-4 flex items-center justify-center">
+        <svg
+          viewBox={`-0.5 -0.5 ${viewBoxW} ${viewBoxH}`}
+          className="w-full max-w-xs"
+          role="img"
+          aria-label={`Sheet layout showing ${cols}x${rows} pieces on ${result.sheetSize} sheet`}
+        >
+          {/* Sheet background */}
           <rect
-            x={bleedPx}
-            y={bleedPx}
-            width={svgW - bleedPx * 2}
-            height={svgH - bleedPx * 2}
-            fill="none"
-            stroke="hsl(var(--destructive))"
-            strokeWidth={0.5}
-            strokeDasharray="4 2"
+            x={0}
+            y={0}
+            width={sheetW}
+            height={sheetH}
+            fill="white"
+            stroke="hsl(var(--border))"
+            strokeWidth="0.1"
           />
-        )}
 
-        {/* Pages */}
-        {Array.from({ length: rowCount }, (_, r) =>
-          Array.from({ length: colCount }, (_, c) => {
-            const x = bleedPx + c * (pageWpx + gutterPx)
-            const y = bleedPx + r * (pageHpx + gutterPx)
-            return (
-              <rect
-                key={`${r}-${c}`}
-                x={x}
-                y={y}
-                width={pageWpx}
-                height={pageHpx}
-                fill="hsl(var(--primary) / 0.15)"
-                stroke="hsl(var(--primary))"
-                strokeWidth={1}
-                rx={2}
-              />
-            )
-          })
-        )}
-      </svg>
+          {/* Page pieces - centered */}
+          {Array.from({ length: rows }).map((_, r) =>
+            Array.from({ length: cols }).map((_, c) => {
+              const x = xOffset + c * (drawPageW + gutter)
+              const y = yOffset + r * (drawPageH + gutter)
+              return (
+                <rect
+                  key={`${r}-${c}`}
+                  x={x}
+                  y={y}
+                  width={drawPageW}
+                  height={drawPageH}
+                  fill="hsl(var(--primary) / 0.08)"
+                  stroke="hsl(var(--primary) / 0.3)"
+                  strokeWidth="0.05"
+                />
+              )
+            })
+          )}
+
+          {/* Bleed boundary */}
+          {bleed && (
+            <rect
+              x={bleedMargin}
+              y={bleedMargin}
+              width={sheetW - bleedMargin * 2}
+              height={sheetH - bleedMargin * 2}
+              fill="none"
+              stroke="hsl(var(--destructive))"
+              strokeWidth="0.05"
+              strokeDasharray="0.2 0.1"
+            />
+          )}
+
+          {/* Cut marks */}
+          {cutLines.map((line, i) => (
+            <line
+              key={i}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              stroke="hsl(var(--destructive))"
+              strokeWidth="0.05"
+            />
+          ))}
+        </svg>
+      </div>
     </div>
   )
 }
