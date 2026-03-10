@@ -59,19 +59,25 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
     <div className="text-xs space-y-1.5">
       <div className="flex justify-between items-center py-1 border-b border-muted/50">
         <span className="font-medium">Cover</span>
-        <span className="text-muted-foreground">{coverResult.sheets.toLocaleString()} sht · {coverResult.sheetSize} · {coverResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(coverResult.cost)}</span></span>
+        <span className="text-muted-foreground">
+          {coverResult.sheets.toLocaleString()} sht · {coverResult.sheetSize} · {coverResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(coverResult.cost)}</span>
+        </span>
       </div>
       {usingSections ? (
         insideSectionResults.map((section, idx) => (
           <div key={idx} className="flex justify-between items-center py-1 border-b border-muted/50">
             <span className="font-medium">Sec {idx + 1}: {section.paper}</span>
-            <span className="text-muted-foreground">{section.sheets.toLocaleString()} sht · {section.sheetSize} · {section.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(section.cost)}</span></span>
+            <span className="text-muted-foreground">
+              {section.sheets.toLocaleString()} sht · {section.sheetSize} · {section.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(section.cost)}</span>
+            </span>
           </div>
         ))
       ) : (
         <div className="flex justify-between items-center py-1 border-b border-muted/50">
           <span className="font-medium">Inside</span>
-          <span className="text-muted-foreground">{insideResult.sheets.toLocaleString()} sht · {insideResult.sheetSize} · {insideResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(insideResult.cost)}</span></span>
+          <span className="text-muted-foreground">
+            {insideResult.sheets.toLocaleString()} sht · {insideResult.sheetSize} · {insideResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(insideResult.cost)}</span>
+          </span>
         </div>
       )}
     </div>
