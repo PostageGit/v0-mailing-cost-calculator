@@ -192,14 +192,10 @@ function calculatePart(
     const layout = calculateLayout(sheet.w, sheet.h, pageW, pageH, part.hasBleed, partName, hasLamination)
     if (layout.maxUps === 0) return null
 
-    // Sheet calculation depends on part type:
-    // - COVER: Each book needs 1 cover, so total sheets = ceil(books / ups)
-    //   Example: 1450 books at 2-up = ceil(1450/2) = 725 sheets
-    // - INSIDE: Gang run (all pages printed together, then cut and collated)
-    const isCover = partName === "cover"
-    const totalSheets = isCover
-      ? Math.ceil(bookQty / layout.maxUps)  // 1 cover per book, grouped by ups
-      : Math.ceil((bookQty * sheetsPerPart) / layout.maxUps) // Gang run for insides
+    // Sheet calculation: ceil(books / ups) * sheetsPerPart
+    // Example: 1450 books, 75 sheets/book, 4-up = ceil(1450/4) * 75 = 363 * 75 = 27,225 sheets
+    // This works for both cover (sheetsPerPart=1) and inside (sheetsPerPart=75)
+    const totalSheets = Math.ceil(bookQty / layout.maxUps) * sheetsPerPart
     // Old system calculation (for comparison during transition)
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
@@ -401,7 +397,7 @@ export function calculatePerfect(
   if ("error" in coverRes) {
     const errMsg = (coverRes as { error: string }).error
     if (errMsg.includes("does not fit")) {
-      return { error: `This paper doesn't come in a large enough sheet. Try 12pt Gloss instead.` }
+      return { error: `The cover paper (${cover.paperName}) doesn't come in a large enough sheet. Try 12pt Gloss instead.` }
     }
     return coverRes
   }
