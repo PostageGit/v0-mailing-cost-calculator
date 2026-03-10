@@ -259,6 +259,10 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
   const [prices, setPrices] = useState<Record<string, string>>(
     paper?.prices ? Object.fromEntries(Object.entries(paper.prices).map(([k, v]) => [k, v.toString()])) : {}
   )
+  // Store raw input values separately to allow natural typing (decimals, etc.)
+  const [priceInputs, setPriceInputs] = useState<Record<string, string>>(
+    paper?.prices ? Object.fromEntries(Object.entries(paper.prices).map(([k, v]) => [k, (v * 1000).toString()])) : {}
+  )
   const [priceMode, setPriceMode] = useState<"per1000" | "perSheet">("per1000") // Default to per 1000 for easier entry
   const [usage, setUsage] = useState({
     use_in_flat_printing: paper?.use_in_flat_printing ?? true,
@@ -375,7 +379,16 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
           <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
             <button
               type="button"
-              onClick={() => setPriceMode("per1000")}
+              onClick={() => {
+                setPriceMode("per1000")
+                // Sync priceInputs from prices when switching to per1000 mode
+                const newInputs: Record<string, string> = {}
+                Object.entries(prices).forEach(([k, v]) => {
+                  const num = parseFloat(v)
+                  if (!isNaN(num)) newInputs[k] = (num * 1000).toString()
+                })
+                setPriceInputs(newInputs)
+              }}
               className={cn(
                 "px-2 py-1 text-[10px] font-medium rounded-md transition-colors",
                 priceMode === "per1000" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -404,8 +417,9 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
         <div className="grid grid-cols-3 gap-2">
           {sizes.map((size) => {
             const perSheetPrice = prices[size] ? parseFloat(prices[size]) : 0
+            // Use raw input value for display to allow natural typing
             const displayValue = priceMode === "per1000" 
-              ? (perSheetPrice ? (perSheetPrice * 1000).toFixed(2) : "")
+              ? (priceInputs[size] ?? "")
               : (prices[size] || "")
             
             return (
@@ -418,8 +432,11 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
                     onChange={(e) => {
                       const inputVal = e.target.value
                       if (priceMode === "per1000") {
-                        // Convert to per-sheet for storage
-                        const perSheet = inputVal ? (parseFloat(inputVal) / 1000).toFixed(6) : ""
+                        // Store raw input for display
+                        setPriceInputs({ ...priceInputs, [size]: inputVal })
+                        // Convert to per-sheet for actual storage
+                        const numVal = parseFloat(inputVal)
+                        const perSheet = !isNaN(numVal) ? (numVal / 1000).toString() : ""
                         setPrices({ ...prices, [size]: perSheet })
                       } else {
                         setPrices({ ...prices, [size]: inputVal })
