@@ -190,6 +190,7 @@ function calculatePart(
   const calcForSize = (sizeStr: string) => {
     const sheet = parseSheetSize(sizeStr)
     const layout = calculateLayout(sheet.w, sheet.h, pageW, pageH, part.hasBleed, partName, hasLamination)
+    console.log("[v0] calcForSize", { sizeStr, partName, pageW, pageH, maxUps: layout.maxUps, hasBleed: part.hasBleed })
     if (layout.maxUps === 0) return null
 
     // Sheet calculation depends on part type:
@@ -204,6 +205,7 @@ function calculatePart(
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
+    console.log("[v0] paperCost check", { sizeStr, paperName: part.paperName, paperCost, dbPrices: paperData.prices, cfgPrices: cfg.bookletPaperPrices[part.paperName] })
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
