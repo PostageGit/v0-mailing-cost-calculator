@@ -190,11 +190,14 @@ function calculatePart(
     const layout = calculateLayout(sheet.w, sheet.h, pageW, pageH, part.hasBleed, partName, hasLamination)
     if (layout.maxUps === 0) return null
 
-    // Total sheets = sheets per book (rounded up) * books
-    // Round up per book first since you can't share partial sheets across different books
-    const sheetsPerBook = Math.ceil(sheetsPerPart / layout.maxUps)
-    const totalSheets = sheetsPerBook * bookQty
-    // Old system calculation (for comparison during transition)
+    // Sheet calculation depends on part type:
+    // - COVER: Round per book (can't share covers between books)
+    // - INSIDE: Gang run (round once at end - old system is correct)
+    const isCover = partName === "cover"
+    const totalSheets = isCover
+      ? Math.ceil(sheetsPerPart / layout.maxUps) * bookQty  // Per-book rounding for covers
+      : Math.ceil((bookQty * sheetsPerPart) / layout.maxUps) // Gang run for insides
+    // Old system calculation (for comparison during transition - only differs for covers)
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
