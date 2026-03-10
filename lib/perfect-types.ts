@@ -137,7 +137,7 @@ export function defaultPerfectInputs(): PerfectInputs {
     pagesPerBook: 0,
     pageWidth: 0,
     pageHeight: 0,
-    cover: { paperName: "80 Gloss", sheetSize: "cheapest", sides: "4/4", hasBleed: false },
+    cover: { paperName: "10pt Gloss", sheetSize: "cheapest", sides: "4/0", hasBleed: false },
     inside: { paperName: "20lb Offset", sheetSize: "cheapest", sides: "D/S", hasBleed: false },
     insideSections: [],  // empty = use legacy single inside
     sectionFeePerSection: 25,  // $25 extra per additional section beyond first (can be $0)
