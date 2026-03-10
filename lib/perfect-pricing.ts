@@ -20,6 +20,7 @@ const PAPER_PRICES: Record<string, Record<string, number>> = {
   "12pt Gloss":       { "11x17": 0.1490, "12x18": 0.1490, "13x19": 0.1490, "13x26": 0.4470 },
   "12pt Matte":       { "11x17": 0.1601, "12x18": 0.1601, "13x19": 0.1601, "13x26": 0.4803 },
   "20lb Offset":      { "8.5x11": 0.0092, "11x17": 0.0174, "12x18": 0.0293, "12.5x19": 0.0270, "Short 11x17": 0.0184 },
+  "20 lb Cream":      { "8.5x11": 0.0110, "11x17": 0.0200, "12x18": 0.0350, "12.5x19": 0.0320 },  // cream variant of 20lb
   "60lb Offset":      { "8.5x11": 0.015, "11x17": 0.0295, "12x18": 0.0346, "12.5x19": 0.0320, "Short 12x18": 0.0360, "Short 12.5x19": 0.0410 },
   "60 lb Cream":      { "8.5x11": 0.018, "11x17": 0.035, "12x18": 0.042, "13x19": 0.050 },
   "80lb Text Gloss":  { "8.5x11": 0.025, "11x17": 0.0490, "12x18": 0.0490, "13x19": 0.0615, "Short 11x17": 0.0523, "Short 12x18": 0.0523 },
@@ -148,7 +149,7 @@ interface PaperInfo {
   prices: Record<string, number>
 }
 
-// ─��─ Part calculation ────────────────────────────────────
+// ─���─ Part calculation ────────────────────────────────────
 function calculatePart(
   partName: "cover" | "inside",
   part: PerfectPartInputs,
@@ -178,7 +179,6 @@ function calculatePart(
     }
   }
   if (!paperData) return { error: `Paper "${part.paperName}" not found.` }
-  console.log(`[v0] calculatePart: ${partName} paper=${part.paperName}, availableSizes=${paperData.availableSizes.join(",")}, prices=${JSON.stringify(paperData.prices)}`)
 
   const rule = SIDES_RULES[part.sides]
   if (!rule) return { error: `Printing rule for '${part.sides}' not found.` }
@@ -194,7 +194,6 @@ function calculatePart(
     const totalSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
-    console.log(`[v0] calcForSize: ${partName} ${part.paperName} @ ${sizeStr}: paperCost=${paperCost}, ups=${layout.maxUps}, sheets=${totalSheets}`)
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
