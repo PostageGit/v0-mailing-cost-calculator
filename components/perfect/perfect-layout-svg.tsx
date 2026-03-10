@@ -121,6 +121,16 @@ export function PerfectLayoutSvg({ result, pageWidth, pageHeight, label, spineWi
         )}
       </div>
 
+      {/* Spine thickness for covers */}
+      {isCover && spineWidth > 0 && (
+        <div className="text-center py-1.5 px-3 rounded-md bg-muted/50 border border-border">
+          <p className="text-xs text-muted-foreground">
+            Spine Thickness: <span className="font-bold text-foreground">{spineWidth.toFixed(3)}"</span>
+            <span className="text-[10px] ml-1">({(spineWidth * 25.4).toFixed(2)}mm)</span>
+          </p>
+        </div>
+      )}
+
       {/* Label */}
       <p className="text-sm font-semibold text-muted-foreground text-center">
         {label} - {displaySize}{isRotated ? " (rotated)" : ""}
