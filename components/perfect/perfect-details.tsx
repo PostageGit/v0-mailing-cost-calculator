@@ -30,17 +30,24 @@ interface PerfectDetailsProps {
 
 export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, onBrokerChange }: PerfectDetailsProps) {
   const {
-    coverResult, insideResult, finishedSheetsPerBook,
+    coverResult, insideResult, insideSectionResults, finishedSheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
     laminationCostPerBook, totalLaminationCost,
     brokerDiscountAmount, bookQty, isBroker,
   } = result
+  
+  const usingSections = insideSectionResults && insideSectionResults.length > 0
 
-  const stats: PaperStat[] = [
-    { label: "Sheet", value: insideResult.sheetSize },
-    { label: "Ups", value: String(insideResult.maxUps) },
-    { label: "Sheets", value: insideResult.sheets.toLocaleString() },
-  ]
+  const stats: PaperStat[] = usingSections
+    ? [
+        { label: "Sections", value: String(insideSectionResults.length) },
+        { label: "Total Sheets", value: insideSectionResults.reduce((sum, s) => sum + s.sheets, 0).toLocaleString() },
+      ]
+    : [
+        { label: "Sheet", value: insideResult.sheetSize },
+        { label: "Ups", value: String(insideResult.maxUps) },
+        { label: "Sheets", value: insideResult.sheets.toLocaleString() },
+      ]
 
   const costLines: CostLine[] = [
     { label: "Printing", value: totalPrintingCost },
@@ -54,8 +61,14 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
   }
 
   // Calculate totals for Production Material Cost section
-  const totalPaperCost = coverResult.totalPaperCost + insideResult.totalPaperCost
-  const totalClickCost = coverResult.totalClickCost + insideResult.totalClickCost
+  const insidePaperCost = usingSections 
+    ? insideSectionResults.reduce((sum, s) => sum + s.totalPaperCost, 0)
+    : insideResult.totalPaperCost
+  const insideClickCost = usingSections
+    ? insideSectionResults.reduce((sum, s) => sum + s.totalClickCost, 0)
+    : insideResult.totalClickCost
+  const totalPaperCost = coverResult.totalPaperCost + insidePaperCost
+  const totalClickCost = coverResult.totalClickCost + insideClickCost
   const totalMaterialCost = totalPaperCost + totalClickCost
 
   const expandedDetails = (
@@ -81,12 +94,24 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
               <td className="text-right">{formatCurrency(coverResult.totalClickCost)}</td>
               <td className="text-right font-medium">{formatCurrency(coverResult.totalPaperCost + coverResult.totalClickCost)}</td>
             </tr>
-            <tr className="border-b border-muted/50">
-              <td className="py-1">Inside ({insideResult.sheets.toLocaleString()} sht)</td>
-              <td className="text-right">{formatCurrency(insideResult.totalPaperCost)}</td>
-              <td className="text-right">{formatCurrency(insideResult.totalClickCost)}</td>
-              <td className="text-right font-medium">{formatCurrency(insideResult.totalPaperCost + insideResult.totalClickCost)}</td>
-            </tr>
+            {usingSections ? (
+              // Show each section separately
+              insideSectionResults.map((section, idx) => (
+                <tr key={idx} className="border-b border-muted/50">
+                  <td className="py-1">Sec {idx + 1}: {section.paper} ({section.sheets.toLocaleString()} sht)</td>
+                  <td className="text-right">{formatCurrency(section.totalPaperCost)}</td>
+                  <td className="text-right">{formatCurrency(section.totalClickCost)}</td>
+                  <td className="text-right font-medium">{formatCurrency(section.totalPaperCost + section.totalClickCost)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr className="border-b border-muted/50">
+                <td className="py-1">Inside ({insideResult.sheets.toLocaleString()} sht)</td>
+                <td className="text-right">{formatCurrency(insideResult.totalPaperCost)}</td>
+                <td className="text-right">{formatCurrency(insideResult.totalClickCost)}</td>
+                <td className="text-right font-medium">{formatCurrency(insideResult.totalPaperCost + insideResult.totalClickCost)}</td>
+              </tr>
+            )}
             <tr className="bg-primary/10 font-semibold">
               <td className="py-1.5">TOTAL</td>
               <td className="text-right">{formatCurrency(totalPaperCost)}</td>
@@ -115,17 +140,36 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
           </div>
         </div>
         
-        <div className="mb-2">
-          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Inside</div>
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div><span className="text-muted-foreground">Paper:</span> {insideResult.paper}</div>
-            <div><span className="text-muted-foreground">Size:</span> {insideResult.sheetSize}</div>
-            <div><span className="text-muted-foreground">Ups:</span> {insideResult.maxUps}</div>
-            <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(insideResult.pricePerSheet, 4)}</div>
-            <div><span className="text-muted-foreground">Markup:</span> {insideResult.markup.toFixed(2)}x</div>
-            <div><span className="text-muted-foreground">Total:</span> {formatCurrency(insideResult.cost)}</div>
+        {usingSections ? (
+          // Show each section's details
+          insideSectionResults.map((section, idx) => (
+            <div key={idx} className="mb-2 p-2 bg-secondary/30 rounded">
+              <div className="text-[10px] font-semibold text-muted-foreground mb-1">Section {idx + 1}</div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div><span className="text-muted-foreground">Paper:</span> {section.paper}</div>
+                <div><span className="text-muted-foreground">Size:</span> {section.sheetSize}</div>
+                <div><span className="text-muted-foreground">Ups:</span> {section.maxUps}</div>
+                <div><span className="text-muted-foreground">Level:</span> {section.level}</div>
+                <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(section.pricePerSheet, 4)}</div>
+                <div><span className="text-muted-foreground">Markup:</span> {section.markup.toFixed(2)}x</div>
+                <div><span className="text-muted-foreground">Sheets:</span> {section.sheets.toLocaleString()}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Total:</span> <span className="font-semibold">{formatCurrency(section.cost)}</span></div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="mb-2">
+            <div className="text-[10px] font-semibold text-muted-foreground mb-1">Inside</div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Paper:</span> {insideResult.paper}</div>
+              <div><span className="text-muted-foreground">Size:</span> {insideResult.sheetSize}</div>
+              <div><span className="text-muted-foreground">Ups:</span> {insideResult.maxUps}</div>
+              <div><span className="text-muted-foreground">$/sht:</span> {formatCurrency(insideResult.pricePerSheet, 4)}</div>
+              <div><span className="text-muted-foreground">Markup:</span> {insideResult.markup.toFixed(2)}x</div>
+              <div><span className="text-muted-foreground">Total:</span> {formatCurrency(insideResult.cost)}</div>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="border-t border-muted pt-2 mt-2">
           <div className="text-[10px] font-semibold text-muted-foreground mb-1">Per Book</div>
@@ -148,7 +192,9 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
       total={result.grandTotal}
       perUnitLabel="/ book"
       perUnitCost={result.pricePerBook}
-      paperName={`${coverResult.paper} / ${insideResult.paper}`}
+      paperName={usingSections 
+        ? `${coverResult.paper} / ${insideSectionResults.length} sections`
+        : `${coverResult.paper} / ${insideResult.paper}`}
       stats={stats}
       level={{
         level: insideResult.level,
