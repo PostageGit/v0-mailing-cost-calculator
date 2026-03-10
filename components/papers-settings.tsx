@@ -259,6 +259,7 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
   const [prices, setPrices] = useState<Record<string, string>>(
     paper?.prices ? Object.fromEntries(Object.entries(paper.prices).map(([k, v]) => [k, v.toString()])) : {}
   )
+  const [priceMode, setPriceMode] = useState<"per1000" | "perSheet">("per1000") // Default to per 1000 for easier entry
   const [usage, setUsage] = useState({
     use_in_flat_printing: paper?.use_in_flat_printing ?? true,
     use_in_book_cover: paper?.use_in_book_cover ?? false,
@@ -369,28 +370,79 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
       </div>
 
       <div>
-        <Label className="text-xs">Prices per Sheet (cost of ONE sheet)</Label>
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs">Paper Prices</Label>
+          <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setPriceMode("per1000")}
+              className={cn(
+                "px-2 py-1 text-[10px] font-medium rounded-md transition-colors",
+                priceMode === "per1000" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Per 1000
+            </button>
+            <button
+              type="button"
+              onClick={() => setPriceMode("perSheet")}
+              className={cn(
+                "px-2 py-1 text-[10px] font-medium rounded-md transition-colors",
+                priceMode === "perSheet" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Per Sheet
+            </button>
+          </div>
+        </div>
         <p className="text-[10px] text-muted-foreground mb-2">
-          Enter the cost per single sheet. Example: if paper costs $9.20 per 1000 sheets, enter <strong>0.0092</strong> (divide by 1000)
+          {priceMode === "per1000" 
+            ? "Enter price per 1000 sheets (e.g. $32.00). System will auto-calculate per-sheet cost."
+            : "Enter cost per single sheet (e.g. $0.032)."
+          }
         </p>
         <div className="grid grid-cols-3 gap-2">
-          {sizes.map((size) => (
-            <div key={size} className="flex items-center gap-1">
-              <span className="text-[10px] text-muted-foreground w-14">{size}</span>
-              <div className="relative flex-1">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
-                <Input
-                  value={prices[size] || ""}
-                  onChange={(e) => setPrices({ ...prices, [size]: e.target.value })}
-                  placeholder="0.0000"
-                  className="h-7 text-xs pl-5 font-mono"
-                />
+          {sizes.map((size) => {
+            const perSheetPrice = prices[size] ? parseFloat(prices[size]) : 0
+            const displayValue = priceMode === "per1000" 
+              ? (perSheetPrice ? (perSheetPrice * 1000).toFixed(2) : "")
+              : (prices[size] || "")
+            
+            return (
+              <div key={size} className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground">{size}</span>
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+                  <Input
+                    value={displayValue}
+                    onChange={(e) => {
+                      const inputVal = e.target.value
+                      if (priceMode === "per1000") {
+                        // Convert to per-sheet for storage
+                        const perSheet = inputVal ? (parseFloat(inputVal) / 1000).toFixed(6) : ""
+                        setPrices({ ...prices, [size]: perSheet })
+                      } else {
+                        setPrices({ ...prices, [size]: inputVal })
+                      }
+                    }}
+                    placeholder={priceMode === "per1000" ? "0.00" : "0.0000"}
+                    className="h-7 text-xs pl-5 font-mono"
+                  />
+                </div>
+                {priceMode === "per1000" && perSheetPrice > 0 && (
+                  <span className="text-[9px] text-muted-foreground">
+                    = ${perSheetPrice.toFixed(4)}/sheet
+                  </span>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">
-          Tip: Text weights are typically $0.01-0.05/sheet. Cardstock is typically $0.05-0.20/sheet.
+          {priceMode === "per1000"
+            ? "Typical: Text $10-50/M, Cardstock $50-200/M"
+            : "Typical: Text $0.01-0.05/sheet, Cardstock $0.05-0.20/sheet"
+          }
         </p>
       </div>
 
