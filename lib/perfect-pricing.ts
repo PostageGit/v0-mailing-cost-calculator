@@ -109,15 +109,17 @@ export function calculateLayout(
     if (partName === "inside") {
       if (sheetW > sheetH) { bmx = Math.round(0.25 * S); bmy = Math.round(0.15 * S) }
       else { bmx = Math.round(0.15 * S); bmy = Math.round(0.25 * S) }
-    } else {
-      bmx = Math.round(BLEED_MARGIN * S); bmy = Math.round(BLEED_MARGIN * S)
     }
+    // Cover: NO boundary margins - cover spread already includes bleed
+    // The bleed extends to sheet edge, cut off during trimming
   }
 
   const pw = sw - bmx * 2
   const ph = sh - bmy * 2
   if (pw < 0 || ph < 0) return { maxUps: 0, isRotated: false }
 
+  // Fit formula: n items need n*item + (n-1)*gutter space
+  // Solving for max n: n = floor((area + gutter) / (item + gutter))
   const fit = (area: number, item: number, g: number) => {
     if (item > area) return 0
     return Math.floor((area + g) / (item + g))
