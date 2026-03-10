@@ -242,25 +242,76 @@ export { getLaminationPrice } from "./booklet-pricing"
 
 // ─── Main Calculate ──────────────────────────────────────
 export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { error: string } {
-  const { bookQty, pagesPerBook, pageWidth, pageHeight, cover, inside, laminationType, isBroker, customLevel } = inp
+  const { bookQty, pagesPerBook, pageWidth, pageHeight, cover, inside, insideSections, laminationType, isBroker, customLevel } = inp
   if (bookQty <= 0 || pagesPerBook < 40) return { error: "Qty must be > 0, pages >= 40." }
   if (pageWidth < 2.5 || pageHeight < 2.5) return { error: "Page dimensions must be at least 2.5\"." }
 
   const hasLamination = laminationType !== "none"
   const forcedLevel = customLevel !== "auto" ? parseInt(customLevel, 10) : isBroker ? 10 : null
+  
+  // Determine if using sections mode
+  const useSections = insideSections && insideSections.length > 0
+  
+  // Validate sections total pages match
+  if (useSections) {
+    const totalSectionPages = insideSections.reduce((sum, s) => sum + (s.pageCount || 0), 0)
+    if (totalSectionPages !== pagesPerBook) {
+      return { error: `Section pages (${totalSectionPages}) must equal total pages (${pagesPerBook}).` }
+    }
+  }
 
-  const isDS = ["D/S", "4/4", "1/1"].includes(inside.sides)
-  const sidesForCalc = isDS ? 2 : 1
-  const finishedSheetsPerBook = Math.ceil(pagesPerBook / sidesForCalc)
+  // Calculate spine width from all inside papers
+  // Spine = sum of (sheets in section * paper thickness)
+  // Sheets = pages / 2 (since pages are printed double-sided)
+  let spineWidth = 0
+  if (useSections) {
+    for (const section of insideSections) {
+      const sectionPaper = PAPER_OPTIONS.find(p => p.name === section.paperName)
+      const caliper = sectionPaper?.thickness ?? 0.004
+      const sheetsInSection = section.pageCount / 2  // pages to sheets
+      spineWidth += sheetsInSection * caliper
+    }
+  } else {
+    const insidePaper = PAPER_OPTIONS.find(p => p.name === inside.paperName)
+    const caliper = insidePaper?.thickness ?? 0.004
+    spineWidth = (pagesPerBook / 2) * caliper
+  }
 
-  // Inside
-  const insideRes = calculatePart("inside", inside, bookQty, pageWidth, pageHeight, finishedSheetsPerBook, false, forcedLevel)
+  // Calculate inside cost (single or multi-section)
+  let insideRes: PerfectPartResult | { error: string }
+  let sectionResults: PerfectPartResult[] = []
+  
+  if (useSections) {
+    // Calculate each section separately
+    let totalInsideCost = 0
+    let totalInsideSheets = 0
+    for (const section of insideSections) {
+      const isDS = ["D/S", "4/4", "1/1"].includes(section.sides)
+      const sidesForCalc = isDS ? 2 : 1
+      const sheetsForSection = Math.ceil(section.pageCount / sidesForCalc)
+      
+      const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, forcedLevel)
+      if ("error" in sectionRes) return { error: `Section "${section.paperName}": ${(sectionRes as {error: string}).error}` }
+      
+      sectionResults.push(sectionRes as PerfectPartResult)
+      totalInsideCost += (sectionRes as PerfectPartResult).cost
+      totalInsideSheets += (sectionRes as PerfectPartResult).sheets
+    }
+    // Create combined inside result from first section but with totals
+    const firstSection = sectionResults[0]
+    insideRes = {
+      ...firstSection,
+      cost: totalInsideCost,
+      sheets: totalInsideSheets,
+    }
+  } else {
+    const isDS = ["D/S", "4/4", "1/1"].includes(inside.sides)
+    const sidesForCalc = isDS ? 2 : 1
+    const finishedSheetsPerBook = Math.ceil(pagesPerBook / sidesForCalc)
+    insideRes = calculatePart("inside", inside, bookQty, pageWidth, pageHeight, finishedSheetsPerBook, false, forcedLevel)
+  }
+  
   if ("error" in insideRes) return insideRes
-
-  // Cover spread dimensions (front + spine + back)
-  const insidePaper = PAPER_OPTIONS.find(p => p.name === inside.paperName)
-  const caliper = insidePaper?.thickness ?? 0.004
-  const spineWidth = (pagesPerBook / 2) * caliper
   // Cover wraps: front cover + spine + back cover
   // Add bleed margins if cover has bleed (0.125" on each side = 0.25" total per dimension)
   const bleedMargin = cover.hasBleed ? 0.25 : 0
@@ -298,9 +349,15 @@ export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { erro
   const subtotalRounded = Math.ceil(subtotal)
   const grandTotal = subtotalRounded
 
+  // Calculate finishedSheetsPerBook for backwards compat
+  const isDS = ["D/S", "4/4", "1/1"].includes(inside.sides)
+  const sidesForCalc = isDS ? 2 : 1
+  const finishedSheetsPerBook = Math.ceil(pagesPerBook / sidesForCalc)
+
   return {
     coverResult: coverRes as PerfectPartResult,
     insideResult: insideRes as PerfectPartResult,
+    insideSectionResults: sectionResults.length > 0 ? sectionResults : undefined,  // multi-section details
     finishedSheetsPerBook, 
     spineWidth, 
     coverSpreadWidth: coverPageWidth,  // full cover spread including spine

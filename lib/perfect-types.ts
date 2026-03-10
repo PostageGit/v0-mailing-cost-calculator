@@ -52,8 +52,11 @@ export interface PerfectPartResult {
 export interface PerfectCalcResult {
   coverResult: PerfectPartResult
   insideResult: PerfectPartResult
+  insideSectionResults?: PerfectPartResult[]  // details for each section in multi-section mode
   finishedSheetsPerBook: number
   spineWidth: number
+  coverSpreadWidth?: number   // full cover spread including spine
+  coverSpreadHeight?: number
   coverPageWidth: number
   coverPageHeight: number
   totalPrintingCost: number
