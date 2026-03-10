@@ -30,22 +30,34 @@ interface DbPaper {
   prices: Record<string, number>
 }
 
-// Fetch papers from database dynamically AND sync to pricing config
+// Fetch papers from database directly using Supabase client (more reliable than self-fetch)
 async function fetchPaperLists() {
   try {
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.log("[v0] No Supabase config, using fallback papers")
+      return {
+        flatPaperNames: FALLBACK_FLAT_PAPERS,
+        insidePaperNames: FALLBACK_INSIDE_PAPERS,
+        coverPaperNames: FALLBACK_COVER_PAPERS,
+      }
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey)
     
     const [flatRes, insideRes, coverRes] = await Promise.all([
-      fetch(`${baseUrl}/api/papers?active=true&use_for=flat_printing`),
-      fetch(`${baseUrl}/api/papers?active=true&use_for=book_inside`),
-      fetch(`${baseUrl}/api/papers?active=true&use_for=book_cover`),
+      supabase.from("papers").select("*").eq("active", true).eq("use_in_flat_printing", true).order("sort_order"),
+      supabase.from("papers").select("*").eq("active", true).eq("use_in_book_inside", true).order("sort_order"),
+      supabase.from("papers").select("*").eq("active", true).eq("use_in_book_cover", true).order("sort_order"),
     ])
     
-    const flatPapers: DbPaper[] = flatRes.ok ? await flatRes.json() : []
-    const insidePapers: DbPaper[] = insideRes.ok ? await insideRes.json() : []
-    const coverPapers: DbPaper[] = coverRes.ok ? await coverRes.json() : []
+    const flatPapers: DbPaper[] = flatRes.data || []
+    const insidePapers: DbPaper[] = insideRes.data || []
+    const coverPapers: DbPaper[] = coverRes.data || []
+    
+    console.log("[v0] Fetched papers from DB - flat:", flatPapers.length, "inside:", insidePapers.length, "cover:", coverPapers.length)
     
     // Convert to DynamicPaperOption format
     const toDynamicOption = (p: DbPaper): DynamicPaperOption => ({
