@@ -823,6 +823,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
           insidePaper, insideSides: correctedInsideSides, insideBleed, insideSheetSize: "cheapest",
           insertSections: [], insertFeePerSection: 25,  // No inserts via chat by default
+          bindingType: "staple",  // Default to staple binding via chat
           laminationType: separateCover ? laminationType : "none",
           customLevel: customLevel || "auto", isBroker, printingMarkupPct: 0,
         })

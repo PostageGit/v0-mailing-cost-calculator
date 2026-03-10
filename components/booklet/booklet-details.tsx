@@ -81,9 +81,14 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
     { label: "Sheets", value: insideResult.sheets.toLocaleString() },
   ]
 
+  // Binding type label
+  const bindingTypeLabel = inputs.bindingType === "fold" ? "Fold Only" 
+    : inputs.bindingType === "perfect" ? "Perfect Bind" 
+    : "Staple"
+
   const costLines: CostLine[] = [
     { label: "Printing", value: totalPrintingCost },
-    { label: "Binding", value: totalBindingPrice },
+    { label: `Binding (${bindingTypeLabel})`, value: totalBindingPrice },
   ]
   if (insertFeeTotal > 0) {
     costLines.push({ label: `Insert Fee (${insertResults?.length || 0} inserts)`, value: insertFeeTotal })

@@ -29,6 +29,9 @@ export function createInsertSection(leafCount = 1): BookletInsertSection {
   }
 }
 
+/** Binding type for saddle stitch: staple, fold only, or perfect binding */
+export type BookletBindingType = "staple" | "fold" | "perfect"
+
 export interface BookletInputs {
   bookQty: number
   pagesPerBook: number
@@ -48,6 +51,8 @@ export interface BookletInputs {
   // Insert sections (leaves with different paper)
   insertSections: BookletInsertSection[]
   insertFeePerSection: number  // extra fee per insert section (default $25)
+  // Binding type
+  bindingType: BookletBindingType  // staple (default), fold only, or perfect
   // Options
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   customLevel: string // "auto" or "1"-"10"
