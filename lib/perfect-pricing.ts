@@ -190,7 +190,6 @@ function calculatePart(
   const calcForSize = (sizeStr: string) => {
     const sheet = parseSheetSize(sizeStr)
     const layout = calculateLayout(sheet.w, sheet.h, pageW, pageH, part.hasBleed, partName, hasLamination)
-    console.log("[v0] calcForSize", { sizeStr, partName, pageW, pageH, maxUps: layout.maxUps, hasBleed: part.hasBleed })
     if (layout.maxUps === 0) return null
 
     // Sheet calculation depends on part type:
@@ -205,7 +204,6 @@ function calculatePart(
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
-    console.log("[v0] paperCost check", { sizeStr, paperName: part.paperName, paperCost, dbPrices: paperData.prices, cfgPrices: cfg.bookletPaperPrices[part.paperName] })
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
@@ -404,7 +402,20 @@ export function calculatePerfect(
     // Add spine info to error message for clarity
     const errMsg = (coverRes as { error: string }).error
     if (errMsg.includes("does not fit")) {
-      return { error: `Cover spread (${coverPageWidth.toFixed(2)}" x ${coverPageHeight.toFixed(2)}" including ${spineWidth.toFixed(3)}" spine) does not fit on available sheets.` }
+      // Check if paper has no pricing for large enough sheets
+      const paperName = cover.paperName
+      const neededWidth = Math.ceil(coverPageWidth * 10) / 10
+      const neededHeight = Math.ceil(coverPageHeight * 10) / 10
+      
+      // Suggest similar papers (common cover stocks)
+      const suggestions = ["12pt Gloss", "10pt Gloss", "80 Gloss", "100 Gloss"]
+        .filter(p => p !== paperName)
+        .slice(0, 2)
+        .join(" or ")
+      
+      return { 
+        error: `"${paperName}" does not have pricing for sheets large enough to fit the cover spread (${neededWidth}" x ${neededHeight}" with ${spineWidth.toFixed(3)}" spine). Try a different paper like ${suggestions}.` 
+      }
     }
     return coverRes
   }
