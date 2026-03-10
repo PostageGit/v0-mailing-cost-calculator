@@ -186,6 +186,7 @@ function calculatePart(
     const totalSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
+    console.log("[v0] Paper cost lookup:", { paper: part.paperName, size: sizeStr, paperDataPrices: paperData.prices, foundPrice: paperCost })
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
@@ -333,10 +334,14 @@ export function calculatePerfect(
       const sidesForCalc = isDS ? 2 : 1
       const sheetsForSection = Math.ceil(section.pageCount / sidesForCalc)
       
+      console.log("[v0] Section calc input:", { paper: section.paperName, pageCount: section.pageCount, sides: section.sides, sheetsForSection, bookQty })
+      
       const sectionRes = calculatePart("inside", section, bookQty, pageWidth, pageHeight, sheetsForSection, false, forcedLevel, paperData)
       if ("error" in sectionRes) return { error: `Section "${section.paperName}": ${(sectionRes as {error: string}).error}` }
       
       const res = sectionRes as PerfectPartResult
+      console.log("[v0] Section result:", { paper: res.paper, sheets: res.sheets, maxUps: res.maxUps, cost: res.cost, pricePerSheet: res.pricePerSheet, level: res.level })
+      
       // Add page count to the section result
       const resWithPages = { ...res, pagesInSection: section.pageCount }
       sectionResults.push(resWithPages)
