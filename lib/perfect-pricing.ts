@@ -257,18 +257,29 @@ export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { erro
   const insideRes = calculatePart("inside", inside, bookQty, pageWidth, pageHeight, finishedSheetsPerBook, false, forcedLevel)
   if ("error" in insideRes) return insideRes
 
-  // Cover spread dimensions
+  // Cover spread dimensions (front + spine + back)
   const insidePaper = PAPER_OPTIONS.find(p => p.name === inside.paperName)
   const caliper = insidePaper?.thickness ?? 0.004
   const spineWidth = (pagesPerBook / 2) * caliper
-  let coverPageWidth = pageWidth * 2 + spineWidth
-  let coverPageHeight = pageHeight
+  // Cover wraps: front cover + spine + back cover
+  // Add bleed margins if cover has bleed (0.125" on each side = 0.25" total per dimension)
+  const bleedMargin = cover.hasBleed ? 0.25 : 0
+  let coverPageWidth = (pageWidth * 2) + spineWidth + bleedMargin
+  let coverPageHeight = pageHeight + bleedMargin
+  // Additional height adjustment if both cover and inside have bleed
   if (cover.hasBleed && inside.hasBleed) coverPageHeight += 0.2
 
   // Cover (forced to inside level)
   const coverForcedLevel = insideRes.level ?? forcedLevel ?? null
   const coverRes = calculatePart("cover", cover, bookQty, coverPageWidth, coverPageHeight, 1, hasLamination, coverForcedLevel)
-  if ("error" in coverRes) return coverRes
+  if ("error" in coverRes) {
+    // Add spine info to error message for clarity
+    const errMsg = (coverRes as { error: string }).error
+    if (errMsg.includes("does not fit")) {
+      return { error: `Cover spread (${coverPageWidth.toFixed(2)}" x ${coverPageHeight.toFixed(2)}" including ${spineWidth.toFixed(3)}" spine) does not fit on available sheets.` }
+    }
+    return coverRes
+  }
 
   const totalPrintingCost = insideRes.cost + coverRes.cost
   // Broker applies percentage discount on finishing (binding + lamination)
@@ -290,7 +301,11 @@ export function calculatePerfect(inp: PerfectInputs): PerfectCalcResult | { erro
   return {
     coverResult: coverRes as PerfectPartResult,
     insideResult: insideRes as PerfectPartResult,
-    finishedSheetsPerBook, spineWidth, coverPageWidth, coverPageHeight,
+    finishedSheetsPerBook, 
+    spineWidth, 
+    coverSpreadWidth: coverPageWidth,  // full cover spread including spine
+    coverSpreadHeight: coverPageHeight,
+    coverPageWidth, coverPageHeight,  // keep for backwards compat
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
     laminationCostPerBook, totalLaminationCost,
     brokerDiscountAmount, subtotalRounded, grandTotal,
