@@ -431,6 +431,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     bookQty, pagesPerBook, pageWidth, pageHeight,
     separateCover, coverPaper, coverSides, coverBleed, coverSheetSize,
     insidePaper, insideSides, insideBleed, insideSheetSize,
+    insertSections, insertFeePerSection,
     laminationType, customLevel, isBroker,
   } = inputs
 
@@ -438,9 +439,20 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   const spreadHeight = pageHeight
   const hasLamination = separateCover && laminationType !== "none"
   const forcedLevel = customLevel !== "auto" ? parseInt(customLevel, 10) : isBroker ? 10 : null
+  const totalLeavesInBooklet = pagesPerBook / 4  // For saddle stitch, each leaf = 4 pages
+
+  // Calculate insert leaf counts
+  const hasInserts = insertSections && insertSections.length > 0
+  const insertLeafCount = hasInserts ? insertSections.reduce((sum, s) => sum + (s.leafCount || 0), 0) : 0
+  const mainLeafCount = totalLeavesInBooklet - insertLeafCount
+
+  if (hasInserts && mainLeafCount < 0) {
+    return invalidResult(`Insert sections have ${insertLeafCount} leaves but booklet only has ${totalLeavesInBooklet} leaves total.`)
+  }
 
   let insideResult: PartCalcResult
   let coverResult: PartCalcResult = emptyPartResult("cover", "")
+  let insertResults: PartCalcResult[] = []
   let totalSheetsPerBooklet: number
 
   if (separateCover) {
@@ -448,8 +460,31 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     const insideSheetsPerBooklet = pagesPerBook / 4
     totalSheetsPerBooklet = insideSheetsPerBooklet + 1  // +1 for the cover sheet
 
-    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, insideSheetsPerBooklet, false, forcedLevel, "inside")
+    // Calculate main inside pages (excluding insert leaves)
+    const mainSheetsPerBooklet = hasInserts ? mainLeafCount : insideSheetsPerBooklet
+    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, mainSheetsPerBooklet, false, forcedLevel, "inside")
     if (insideResult.error) return invalidResult("Inside Pages: " + insideResult.error)
+
+    // Calculate each insert section
+    if (hasInserts) {
+      for (const insert of insertSections) {
+        const insertResult = calculatePartCost(
+          insert.paperName, 
+          insert.sides, 
+          insert.hasBleed, 
+          insert.sheetSize, 
+          bookQty, 
+          spreadWidth, 
+          spreadHeight, 
+          insert.leafCount, // each insert leaf = 1 sheet to print
+          false, 
+          forcedLevel || insideResult.level, 
+          `insert-${insert.position}`
+        )
+        if (insertResult.error) return invalidResult(`Insert (${insert.position}): ${insertResult.error}`)
+        insertResults.push(insertResult)
+      }
+    }
 
     const coverForcedLevel = insideResult.level || forcedLevel
     coverResult = calculatePartCost(coverPaper, coverSides, coverBleed, coverSheetSize, bookQty, spreadWidth, spreadHeight, 1, hasLamination, coverForcedLevel, "cover")
@@ -457,14 +492,43 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   } else {
     // No separate cover: all pages (including cover) share the same stock
     totalSheetsPerBooklet = pagesPerBook / 4
-    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, totalSheetsPerBooklet, false, forcedLevel, "inside")
+    
+    // If using inserts in self-cover mode, main inside is reduced
+    const mainSheetsPerBooklet = hasInserts ? mainLeafCount : totalSheetsPerBooklet
+    insideResult = calculatePartCost(insidePaper, insideSides, insideBleed, insideSheetSize, bookQty, spreadWidth, spreadHeight, mainSheetsPerBooklet, false, forcedLevel, "inside")
     if (insideResult.error) return invalidResult(insideResult.error)
+
+    // Calculate insert sections
+    if (hasInserts) {
+      for (const insert of insertSections) {
+        const insertResult = calculatePartCost(
+          insert.paperName, 
+          insert.sides, 
+          insert.hasBleed, 
+          insert.sheetSize, 
+          bookQty, 
+          spreadWidth, 
+          spreadHeight, 
+          insert.leafCount,
+          false, 
+          forcedLevel || insideResult.level, 
+          `insert-${insert.position}`
+        )
+        if (insertResult.error) return invalidResult(`Insert (${insert.position}): ${insertResult.error}`)
+        insertResults.push(insertResult)
+      }
+    }
   }
 
   // Broker minimum logic
-  const rawPrintingCost = insideResult.cost + coverResult.cost
+  const insertCostTotal = insertResults.reduce((sum, r) => sum + r.cost, 0)
+  const rawPrintingCost = insideResult.cost + coverResult.cost + insertCostTotal
   const pctMultiplier = 1 + (inputs.printingMarkupPct ?? 0) / 100
   let totalPrintingCost = rawPrintingCost * pctMultiplier
+
+  // Insert fee: charge per insert section
+  const insertFee = insertFeePerSection ?? 25  // default $25
+  const insertFeeTotal = hasInserts ? insertFee * insertSections.length : 0
   let brokerMinimumApplied: string | null = null
 
   if (forcedLevel && forcedLevel > 5 && totalPrintingCost < 250) {
@@ -513,7 +577,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     brokerDiscountAmount = preDiscountBindingTotal - totalBindingPrice
   }
   
-  const subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
+  const subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost + insertFeeTotal
   const grandTotal = Math.ceil(subtotal)
   const pricePerBook = bookQty > 0 ? grandTotal / bookQty : 0
 
@@ -528,9 +592,12 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     warnings,
     insideResult,
     coverResult,
+    insertResults: insertResults.length > 0 ? insertResults : undefined,
     totalSheetsPerBooklet,
+    totalLeavesPerBooklet: totalLeavesInBooklet,
     bindingPricePerBook,
     totalBindingPrice,
+    insertFeeTotal,
     laminationCostPerBook,
     totalLaminationCost,
     brokerDiscountAmount,
@@ -552,8 +619,10 @@ function invalidResult(error: string): BookletCalcResult {
     insideResult: emptyPartResult("inside", ""),
     coverResult: emptyPartResult("cover", ""),
     totalSheetsPerBooklet: 0,
+    totalLeavesPerBooklet: 0,
     bindingPricePerBook: 0,
     totalBindingPrice: 0,
+    insertFeeTotal: 0,
     laminationCostPerBook: 0,
     totalLaminationCost: 0,
     brokerDiscountAmount: 0,

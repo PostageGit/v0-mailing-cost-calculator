@@ -33,11 +33,13 @@ function SectionHeader({ label }: { label: string }) {
 
 export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange, onBrokerChange }: BookletDetailsProps) {
   const {
-    insideResult, coverResult, totalSheetsPerBooklet,
-    bindingPricePerBook, totalBindingPrice, laminationCostPerBook,
-    totalLaminationCost, brokerDiscountAmount, brokerMinimumApplied,
-    totalPrintingCost,
+    insideResult, coverResult, insertResults, totalSheetsPerBooklet,
+    bindingPricePerBook, totalBindingPrice, insertFeeTotal,
+    laminationCostPerBook, totalLaminationCost, brokerDiscountAmount,
+    brokerMinimumApplied, totalPrintingCost,
   } = result
+
+  const hasInserts = insertResults && insertResults.length > 0
 
   const hasCover = coverResult.paper !== "N/A" && coverResult.cost > 0
   const primaryPaper = hasCover ? coverResult.paper : insideResult.paper
@@ -83,6 +85,9 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
     { label: "Printing", value: totalPrintingCost },
     { label: "Binding", value: totalBindingPrice },
   ]
+  if (insertFeeTotal > 0) {
+    costLines.push({ label: `Insert Fee (${insertResults?.length || 0} inserts)`, value: insertFeeTotal })
+  }
   if (totalLaminationCost > 0) {
     costLines.push({ label: "Lamination", value: totalLaminationCost })
   }
@@ -91,8 +96,10 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   }
 
   // Calculate totals for Production Material Cost section
-  const totalPaperCost = (hasCover ? coverResult.totalPaperCost : 0) + insideResult.totalPaperCost
-  const totalClickCost = (hasCover ? coverResult.totalClickCost : 0) + insideResult.totalClickCost
+  const insertPaperCost = hasInserts ? insertResults.reduce((sum, r) => sum + r.totalPaperCost, 0) : 0
+  const insertClickCost = hasInserts ? insertResults.reduce((sum, r) => sum + r.totalClickCost, 0) : 0
+  const totalPaperCost = (hasCover ? coverResult.totalPaperCost : 0) + insideResult.totalPaperCost + insertPaperCost
+  const totalClickCost = (hasCover ? coverResult.totalClickCost : 0) + insideResult.totalClickCost + insertClickCost
   const totalMaterialCost = totalPaperCost + totalClickCost
 
   const expandedDetails = (
@@ -126,6 +133,14 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
               <td className="text-right">{formatCurrency(insideResult.totalClickCost)}</td>
               <td className="text-right font-medium">{formatCurrency(insideResult.totalPaperCost + insideResult.totalClickCost)}</td>
             </tr>
+            {hasInserts && insertResults.map((ins, idx) => (
+              <tr key={idx} className="border-b border-muted/50">
+                <td className="py-1">{ins.name === "insert-outer" ? "Outer Insert" : "Center Insert"} ({ins.sheets.toLocaleString()} sht)</td>
+                <td className="text-right">{formatCurrency(ins.totalPaperCost)}</td>
+                <td className="text-right">{formatCurrency(ins.totalClickCost)}</td>
+                <td className="text-right font-medium">{formatCurrency(ins.totalPaperCost + ins.totalClickCost)}</td>
+              </tr>
+            ))}
             <tr className="bg-primary/10 font-semibold">
               <td className="py-1.5">TOTAL</td>
               <td className="text-right">{formatCurrency(totalPaperCost)}</td>

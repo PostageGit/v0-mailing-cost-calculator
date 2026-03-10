@@ -399,9 +399,14 @@ export function calculatePerfect(
   const totalLaminationCost = hasLamination ? getLaminationPrice(laminationType, coverRes.paper, coverRes.sheets, isBroker) : 0
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 
+  // Section fee: charge per additional section beyond the first
+  const sectionFeePerSection = inp.sectionFeePerSection ?? 25  // default $25 if not specified
+  const numSections = useSections ? insideSections.length : 0
+  const sectionFeeTotal = numSections > 1 ? sectionFeePerSection * (numSections - 1) : 0
+
   // Broker discount on non-printing costs (binding + lamination)
   let brokerDiscountAmount = 0
-  let subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost
+  let subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost + sectionFeeTotal
   if (isBroker) {
     brokerDiscountAmount = (totalBindingPrice + totalLaminationCost) * BROKER_DISCOUNT_RATE
     subtotal -= brokerDiscountAmount
@@ -423,7 +428,7 @@ export function calculatePerfect(
     coverSpreadWidth: coverPageWidth,  // full cover spread including spine
     coverSpreadHeight: coverPageHeight,
     coverPageWidth, coverPageHeight,  // keep for backwards compat
-    totalPrintingCost, bindingPricePerBook, totalBindingPrice,
+    totalPrintingCost, bindingPricePerBook, totalBindingPrice, sectionFeeTotal,
     laminationCostPerBook, totalLaminationCost,
     brokerDiscountAmount, subtotalRounded, grandTotal,
     pricePerBook: bookQty > 0 ? grandTotal / bookQty : 0,

@@ -350,17 +350,36 @@ export function PerfectForm({
       {/* Multiple Sections Mode */}
       {useSections && (
         <div className="border rounded-lg p-3 mb-4 bg-secondary/30">
-          {/* Page count summary */}
-          <div className={`text-xs mb-3 p-2 rounded ${
-            pagesRemaining === 0 
-              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
-              : pagesRemaining > 0 
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-          }`}>
-            <span className="font-semibold">{totalSectionPages}</span> of <span className="font-semibold">{inputs.pagesPerBook || 0}</span> pages assigned
-            {pagesRemaining > 0 && <span className="ml-2">({pagesRemaining} remaining)</span>}
-            {pagesRemaining < 0 && <span className="ml-2">({Math.abs(pagesRemaining)} over!)</span>}
+          {/* Page count summary and section fee */}
+          <div className="flex flex-wrap gap-3 items-center mb-3">
+            <div className={`flex-1 text-xs p-2 rounded ${
+              pagesRemaining === 0 
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+                : pagesRemaining > 0 
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            }`}>
+              <span className="font-semibold">{totalSectionPages}</span> of <span className="font-semibold">{inputs.pagesPerBook || 0}</span> pages assigned
+              {pagesRemaining > 0 && <span className="ml-2">({pagesRemaining} remaining)</span>}
+              {pagesRemaining < 0 && <span className="ml-2">({Math.abs(pagesRemaining)} over!)</span>}
+            </div>
+            {/* Section fee input */}
+            {(inputs.insideSections?.length || 0) > 1 && (
+              <div className="flex items-center gap-2 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 p-2 rounded">
+                <label className="font-medium whitespace-nowrap">Section Fee:</label>
+                <span className="text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={inputs.sectionFeePerSection ?? 25}
+                  onChange={(e) => update({ sectionFeePerSection: parseFloat(e.target.value) || 0 })}
+                  className="w-16 h-7 text-xs text-center"
+                />
+                <span className="text-muted-foreground">x {(inputs.insideSections?.length || 1) - 1} = </span>
+                <span className="font-bold">{formatCurrency((inputs.sectionFeePerSection ?? 25) * ((inputs.insideSections?.length || 1) - 1))}</span>
+              </div>
+            )}
           </div>
 
           {/* Section rows */}

@@ -22,6 +22,7 @@ export interface PerfectInputs {
   cover: PerfectPartInputs
   inside: PerfectPartInputs           // legacy single inside (used if no sections)
   insideSections: PerfectInsideSection[]  // multiple sections with different papers
+  sectionFeePerSection: number        // extra fee per additional section beyond first (default $25, can be $0)
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   isBroker: boolean
   customLevel: "auto" | string   // "auto" | "1"-"10" (applies to all unless overridden)
@@ -67,6 +68,7 @@ export interface PerfectCalcResult {
   totalPrintingCost: number
   bindingPricePerBook: number
   totalBindingPrice: number
+  sectionFeeTotal: number     // extra fee for additional sections (sectionFeePerSection * (numSections - 1))
   laminationCostPerBook: number
   totalLaminationCost: number
   brokerDiscountAmount: number
@@ -138,6 +140,7 @@ export function defaultPerfectInputs(): PerfectInputs {
     cover: { paperName: "80 Gloss", sheetSize: "cheapest", sides: "4/4", hasBleed: false },
     inside: { paperName: "20lb Offset", sheetSize: "cheapest", sides: "D/S", hasBleed: false },
     insideSections: [],  // empty = use legacy single inside
+    sectionFeePerSection: 25,  // $25 extra per additional section beyond first (can be $0)
     laminationType: "none",
     isBroker: false,
     customLevel: "auto",

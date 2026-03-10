@@ -30,6 +30,8 @@ const EMPTY_INPUTS: BookletInputs = {
   insideSides: "D/S",
   insideBleed: false,
   insideSheetSize: "cheapest",
+  insertSections: [],      // empty = no inserts, all leaves same paper
+  insertFeePerSection: 25, // $25 per insert section
   laminationType: "none",
   customLevel: "auto",
   isBroker: false,
