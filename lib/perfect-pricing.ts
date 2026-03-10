@@ -148,7 +148,7 @@ interface PaperInfo {
   prices: Record<string, number>
 }
 
-// ─── Part calculation ────────────────────────────────────
+// ─��─ Part calculation ────────────────────────────────────
 function calculatePart(
   partName: "cover" | "inside",
   part: PerfectPartInputs,
@@ -178,6 +178,7 @@ function calculatePart(
     }
   }
   if (!paperData) return { error: `Paper "${part.paperName}" not found.` }
+  console.log(`[v0] calculatePart: ${partName} paper=${part.paperName}, availableSizes=${paperData.availableSizes.join(",")}, prices=${JSON.stringify(paperData.prices)}`)
 
   const rule = SIDES_RULES[part.sides]
   if (!rule) return { error: `Printing rule for '${part.sides}' not found.` }
@@ -193,6 +194,7 @@ function calculatePart(
     const totalSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
+    console.log(`[v0] calcForSize: ${partName} ${part.paperName} @ ${sizeStr}: paperCost=${paperCost}, ups=${layout.maxUps}, sheets=${totalSheets}`)
     if (paperCost === 0) return null
 
     const clickPerSheet = (rule.clickAmount * clickData.regular) + (rule.machineClickAmount * clickData.machine)
