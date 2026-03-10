@@ -57,6 +57,8 @@ export interface CalcPriceCardProps {
   weightOz?: number
   /** Weight label e.g. "/ piece", "/ booklet" */
   weightLabel?: string
+  /** Footer note shown at the bottom (e.g. old system comparison) */
+  footerNote?: React.ReactNode
 }
 
 export function CalcPriceCard({
@@ -75,6 +77,7 @@ export function CalcPriceCard({
   onBrokerChange,
   weightOz,
   weightLabel = "/ piece",
+  footerNote,
 }: CalcPriceCardProps) {
   const [showDetails, setShowDetails] = useState(false)
 
@@ -256,6 +259,9 @@ export function CalcPriceCard({
           {details}
         </div>
       )}
+
+      {/* ── Footer note (e.g. old system comparison) ── */}
+      {footerNote}
     </div>
   )
 }

@@ -86,6 +86,9 @@ export interface PartCalcResult {
   clickCostPerSheet: number
   totalPaperCost: number
   totalClickCost: number
+  // Old system comparison (for transition period)
+  oldSystemSheets?: number
+  oldSystemCost?: number
 }
 
 export interface BookletCalcResult {

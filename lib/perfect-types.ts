@@ -53,6 +53,9 @@ export interface PerfectPartResult {
   totalClickCost: number
   // Section-specific (optional)
   pagesInSection?: number
+  // Old system comparison (for transition period)
+  oldSystemSheets?: number
+  oldSystemCost?: number
 }
 
 export interface PerfectCalcResult {

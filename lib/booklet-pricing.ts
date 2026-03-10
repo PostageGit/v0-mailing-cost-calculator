@@ -257,7 +257,12 @@ function calculatePartCost(
     const layout = calculateLayout(sheet.w, sheet.h, spreadWidth, spreadHeight, hasBleed, hasLamination)
     if (layout.maxUps === 0) return null
 
-    const totalSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
+    // Saddle stitch: each booklet has its own folded signatures, can't share between booklets
+    // Per-book rounding is correct here (unlike gang-run perfect binding insides)
+    const sheetsPerBook = Math.ceil(sheetsPerPart / layout.maxUps)
+    const totalSheets = sheetsPerBook * bookQty
+    // Old system calculation (for comparison during transition)
+    const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     const paperCost = cfg.bookletPaperPrices[paperName]?.[sizeString] ?? BOOKLET_PAPER_PRICES[paperName]?.[sizeString] ?? 0
     if (paperCost === 0) return null
 
@@ -299,6 +304,9 @@ function calculatePartCost(
       clickCostPerSheet: clickCost,
       totalPaperCost: paperCost * totalSheets,
       totalClickCost: clickCost * totalSheets,
+      // Old system comparison (for transition period)
+      oldSystemSheets,
+      oldSystemCost: pricePerSheet * oldSystemSheets,
     }
   }
 
