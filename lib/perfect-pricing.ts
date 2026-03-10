@@ -126,11 +126,18 @@ export function calculateLayout(
   const pws = Math.round(pageW * S)
   const phs = Math.round(pageH * S)
 
-  // Perfect Binding: NO rotation allowed for any part
-  // "Short" sizes provide the alternative orientation (e.g., "Short 12x18" = 18x12)
-  // The system checks ALL size options (regular + Short) and picks cheapest
-  const maxUps = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
-  return { maxUps, isRotated: false }
+  if (partName === "inside") {
+    // Inside pages: NO rotation allowed
+    // "Short" sizes provide the alternative orientation (e.g., "Short 12x18" = 18x12)
+    // The system checks ALL size options (regular + Short) and picks cheapest
+    const maxUps = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
+    return { maxUps, isRotated: false }
+  }
+  
+  // Covers: CAN rotate - try both orientations and pick the best
+  const portrait = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
+  const landscape = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
+  return { maxUps: Math.max(portrait, landscape), isRotated: landscape > portrait }
 }
 
 /** Paper data that can come from database or hardcoded options */
