@@ -295,11 +295,11 @@ BROKER CUSTOMERS:
 - Never reveal discount amounts, levels, markup multipliers, or how broker pricing works internally.
 - Just say "broker pricing" or "trade pricing" -- never explain the mechanics.
 
-VIP MODE (internal testing mode):
-- If the customer types "VIP" (case-insensitive), enable VIP mode for this conversation. Respond with "VIP mode enabled - I'll show detailed pricing breakdown."
+VIP MODE (internal testing mode - FULL CONTROL):
+- If the customer types "VIP" (case-insensitive), enable VIP mode for this conversation. Respond with "VIP mode enabled - Full control active. You can set levels, ask pricing questions, and see all details."
 - In VIP mode, after each quote, show the FULL internal details:
   * Sheet count, parent sheet size, ups
-  * Pricing level and markup multiplier
+  * Pricing level and markup multiplier (levels 1-10, where 10 is broker/lowest margin)
   * Paper cost breakdown ($/sheet, total paper cost)
   * Click cost breakdown ($/click, total click cost)
   * Cost per section (if multiple sections)
@@ -308,6 +308,27 @@ VIP MODE (internal testing mode):
   * Any other internal calculation details
 - Format the VIP details clearly, separate from the customer quote.
 - VIP mode stays active for the rest of the conversation until they say "VIP off" or "disable VIP".
+
+VIP MODE - LEVEL CONTROL:
+- In VIP mode, the user can specify a custom pricing level (1-10) for any quote.
+- Level 1 = highest margin (retail), Level 10 = lowest margin (broker/cost)
+- User can say things like: "use level 9", "set level to 5", "price at level 8", "give me level 10 pricing"
+- When a level is specified, pass it as the customLevel parameter to the calculator instead of "auto".
+- Always confirm which level you're using: "Calculating at Level 9..."
+- User can also say "auto level" or "normal pricing" to go back to automatic level selection.
+
+VIP MODE - DETAILED QUESTIONS:
+- In VIP mode, answer ANY question about how pricing works. Explain:
+  * How levels work (1-10 scale, each level has a different markup multiplier)
+  * How ups are calculated (fitting pages on parent sheets)
+  * How paper costs are calculated (price per sheet x total sheets)
+  * How click costs work (per-impression charges)
+  * How binding costs are calculated
+  * How lamination pricing works
+  * Parent sheet selection logic
+  * Any other internal pricing mechanics
+- Be completely transparent and educational in VIP mode.
+
 - If VIP mode is NOT active, NEVER reveal internal pricing details like levels, markups, ups, sheet counts, paper costs, click costs. Just show the final price.
 
 PRESENTING THE QUOTE:
@@ -417,8 +438,9 @@ const tools = {
       laminationEnabled: z.boolean().describe("Add lamination. Only on cardstock."),
       laminationType: z.enum(["Gloss", "Matte", "Silk", "Leather"]).nullable().describe("Lamination type if enabled"),
       laminationSides: z.enum(["S/S", "D/S"]).nullable().describe("Lamination sides: S/S=one side, D/S=both"),
+      customLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force a specific pricing level (1-10). Level 1=highest margin, 10=broker. Omit for auto."),
     }),
-    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides }) => {
+    execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, customLevel }) => {
       try {
         console.log("[v0] calculate_printing called:", { qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides })
         const lamination: LaminationInputs = {
@@ -431,6 +453,7 @@ const tools = {
         const inputs: PrintingInputs = {
           qty, width, height, paperName, sidesValue, hasBleed,
           addOnCharge: 0, addOnDescription: "", printingMarkupPct: 0, isBroker, lamination,
+          levelOverride: customLevel,
         }
         const options = calculateAllSheetOptions(inputs)
         if (!options.length) {
@@ -489,8 +512,9 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
       coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
       isBroker: z.boolean().describe("Broker/trade customer"),
+      customLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force a specific pricing level (1-10). Level 1=highest margin, 10=broker. Omit for auto."),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, separateCover, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker, customLevel }) => {
       try {
         console.log("[v0] calculate_booklet called:", { bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides })
         const finalCoverSides = coverSides || "4/4"
@@ -512,7 +536,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           coverBleed: separateCover ? coverBleed : false, coverSheetSize: "cheapest",
           insidePaper, insideSides: correctedInsideSides, insideBleed, insideSheetSize: "cheapest",
           laminationType: separateCover ? laminationType : "none",
-          customLevel: "auto", isBroker, printingMarkupPct: 0,
+          customLevel: customLevel || "auto", isBroker, printingMarkupPct: 0,
         })
 
         if (!result.isValid) return { error: result.error || "Could not calculate booklet. Check paper name and size." }
@@ -589,8 +613,9 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       clearPlastic: z.boolean().describe("Clear plastic front ($0.50/book). Default false."),
       blackVinyl: z.boolean().describe("Black vinyl back ($0.50/book). Default false."),
       isBroker: z.boolean().describe("Broker/trade customer"),
+      customLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force a specific pricing level (1-10). Level 1=highest margin, 10=broker. Omit for auto."),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, frontSides, backPaper, backSides, clearPlastic, blackVinyl, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, insideBleed, coverBleed, useFrontCover, useBackCover, frontPaper, frontSides, backPaper, backSides, clearPlastic, blackVinyl, isBroker, customLevel }) => {
       try {
         console.log("[v0] calculate_spiral called:", { bookQty, pagesPerBook, pageWidth, pageHeight })
         // Single-sided insides = double the pages
@@ -608,7 +633,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           front: { paperName: frontPaper || "80 Gloss", sides: frontSides || "4/4", hasBleed: useFrontCover ? coverBleed : false, sheetSize: "cheapest" },
           useBackCover,
           back: { paperName: backPaper || "80 Gloss", sides: backSides || "4/4", hasBleed: useBackCover ? coverBleed : false, sheetSize: "cheapest" },
-          clearPlastic, blackVinyl, customLevel: "auto", isBroker,
+          clearPlastic, blackVinyl, customLevel: customLevel || "auto", isBroker,
         })
         if ("error" in result) return { error: result.error }
         return {
@@ -688,8 +713,9 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books. Ignored if using sections."),
       coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
       isBroker: z.boolean().describe("Broker/trade customer"),
+      customLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force a specific pricing level (1-10). Level 1=highest margin, 10=broker. Omit for auto."),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, sections, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, sections, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker, customLevel }) => {
       try {
         console.log("[v0] calculate_perfect called:", { bookQty, pagesPerBook, pageWidth, pageHeight, sections: sections?.length || 0 })
         
@@ -718,7 +744,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             bookQty, pagesPerBook, pageWidth, pageHeight,
             inside: { paperName: sections[0].paperName, sides: sections[0].sides, hasBleed: sections[0].hasBleed, sheetSize: "cheapest" },
             cover: { paperName: coverPaper || "80 Gloss", sides: coverSides || "4/4", hasBleed: coverBleed, sheetSize: "cheapest" },
-            laminationType, customLevel: "auto", isBroker,
+            laminationType, customLevel: customLevel || "auto", isBroker,
             insideSections: sectionInputs,
           })
           if ("error" in result) return { error: result.error }
@@ -788,7 +814,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           bookQty, pagesPerBook: effectivePages, pageWidth, pageHeight,
           inside: { paperName: insidePaper, sides: calcInsideSides, hasBleed: insideBleed, sheetSize: "cheapest" },
           cover: { paperName: coverPaper || "80 Gloss", sides: finalCoverSides, hasBleed: coverBleed, sheetSize: "cheapest" },
-          laminationType, customLevel: "auto", isBroker,
+          laminationType, customLevel: customLevel || "auto", isBroker,
         })
         if ("error" in result) return { error: result.error }
         return {
