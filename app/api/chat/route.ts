@@ -134,6 +134,41 @@ ONE JOB AT A TIME:
 - Only quote one product at a time. Finish the current quote before starting another.
 - If the customer asks for multiple things ("I need flyers and booklets"), say "Let's start with [first one]. We can do the other after."
 
+WHICH CALCULATOR TOOL TO USE:
+
+1. FLAT PRINTING (calculate_printing) - For single sheets that get cut down:
+   - Flyers, postcards, business cards, door hangers, rack cards, sell sheets, letterheads
+   - Posters, signs, NCR forms
+   - Anything that is ONE flat piece (even if folded later)
+   - The tool finds the cheapest parent sheet automatically
+   - Parameters: qty, width, height, paperName, sidesValue, hasBleed, isBroker, lamination options
+   - Example: calculate_printing(1000, 8.5, 11, "80lb Text Gloss", "4/4", true, false, false, null, null)
+
+2. SCORE & FOLD (calculate_score_fold) - For folding flat printed pieces:
+   - ALWAYS use AFTER calculate_printing for folded items (brochures, mailers)
+   - Call printing first, then score_fold, then ADD the costs together
+   - Parameters: qty, width, height, paperName, finishType, foldType, isBroker
+   - Example for tri-fold brochure: 
+     Step 1: calculate_printing(1000, 8.5, 11, "10pt Gloss", "4/4", true, false, false, null, null)
+     Step 2: calculate_score_fold(1000, 8.5, 11, "10pt Gloss", "score_and_fold", "tri", false)
+     Step 3: Add both totals together for final price
+
+3. SADDLE-STITCH BOOKLET (calculate_booklet) - For stapled booklets:
+   - Magazines, programs, catalogs under 140 pages
+   - Minimum 8 pages, must be multiple of 4
+
+4. PERFECT BINDING (calculate_perfect_bound) - For glue-bound books:
+   - Paperback books, catalogs, manuals over 40 pages
+   - Supports multiple paper sections
+
+5. SPIRAL BINDING (calculate_spiral) - For coil-bound books:
+   - Manuals, cookbooks, planners, calendars
+   - Pages lay flat when open
+
+6. NOTEPADS (calculate_notepad) - For padded stacks:
+   - Notepads, to-do lists, memo pads
+   - Chipboard backing
+
 PRINTING SIDES CODES -- these are NOT the same! Understand the difference:
 
 There are 3 TYPES of printing, each with one-side and both-sides options:
@@ -526,8 +561,24 @@ const tools = {
           levelOverride: customLevel,
         }
         const options = calculateAllSheetOptions(inputs)
+        console.log("[v0] calculateAllSheetOptions returned:", options.length, "options")
         if (!options.length) {
-          return { error: `Could not calculate for ${paperName} at ${width}x${height}. Check paper name and size.` }
+          // Get available papers for better error message
+          const { getFlatPaperOptions } = await import("@/lib/printing-pricing")
+          const availablePapers = getFlatPaperOptions()
+          const paperNames = availablePapers.map(p => p.name).join(", ")
+          const paper = availablePapers.find(p => p.name === paperName)
+          if (!paper) {
+            return { 
+              error: `Paper "${paperName}" not found. Available flat printing papers: ${paperNames}`,
+              availablePapers: paperNames
+            }
+          }
+          const availableSizes = paper.availableSizes.join(", ")
+          return { 
+            error: `Size ${width}x${height} not available for ${paperName}. Available sizes: ${availableSizes}`,
+            availableSizes
+          }
         }
         const best = options[0]
         const fullResult = buildFullResult(inputs, best.result)
