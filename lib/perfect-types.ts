@@ -98,6 +98,7 @@ export const PAPER_OPTIONS: PaperOption[] = [
   { name: "12pt Gloss",       isCardstock: true,  canLaminate: true,  thickness: 0.00225, availableSizes: ["11x17", "12x18", "13x19", "13x26"] },
   { name: "12pt Matte",       isCardstock: true,  canLaminate: true,  thickness: 0.00225, availableSizes: ["11x17", "12x18", "13x19", "13x26"] },
   { name: "20lb Offset",      isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "12.5x19", "Short 11x17"] },
+  { name: "20 lb Cream",      isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "12.5x19"] },
   { name: "60lb Offset",      isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12.5x19", "Short 12x18", "Short 12.5x19"] },
   { name: "60 lb Cream",      isCardstock: false, canLaminate: false, thickness: 0.004,   availableSizes: ["8.5x11", "11x17", "12x18", "13x19"] },
   { name: "80lb Text Gloss",  isCardstock: false, canLaminate: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "13x19", "Short 11x17", "Short 12x18"] },

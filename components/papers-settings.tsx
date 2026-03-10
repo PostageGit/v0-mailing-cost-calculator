@@ -369,20 +369,29 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
       </div>
 
       <div>
-        <Label className="text-xs">Prices per Sheet</Label>
-        <div className="grid grid-cols-3 gap-2 mt-1">
+        <Label className="text-xs">Prices per Sheet (cost of ONE sheet)</Label>
+        <p className="text-[10px] text-muted-foreground mb-2">
+          Enter the cost per single sheet. Example: if paper costs $9.20 per 1000 sheets, enter <strong>0.0092</strong> (divide by 1000)
+        </p>
+        <div className="grid grid-cols-3 gap-2">
           {sizes.map((size) => (
             <div key={size} className="flex items-center gap-1">
               <span className="text-[10px] text-muted-foreground w-14">{size}</span>
-              <Input
-                value={prices[size] || ""}
-                onChange={(e) => setPrices({ ...prices, [size]: e.target.value })}
-                placeholder="$0.00"
-                className="h-7 text-xs flex-1"
-              />
+              <div className="relative flex-1">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+                <Input
+                  value={prices[size] || ""}
+                  onChange={(e) => setPrices({ ...prices, [size]: e.target.value })}
+                  placeholder="0.0000"
+                  className="h-7 text-xs pl-5 font-mono"
+                />
+              </div>
             </div>
           ))}
         </div>
+        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">
+          Tip: Text weights are typically $0.01-0.05/sheet. Cardstock is typically $0.05-0.20/sheet.
+        </p>
       </div>
 
       <div>

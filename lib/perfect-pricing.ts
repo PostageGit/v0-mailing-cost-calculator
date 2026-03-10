@@ -20,6 +20,7 @@ const PAPER_PRICES: Record<string, Record<string, number>> = {
   "12pt Gloss":       { "11x17": 0.1490, "12x18": 0.1490, "13x19": 0.1490, "13x26": 0.4470 },
   "12pt Matte":       { "11x17": 0.1601, "12x18": 0.1601, "13x19": 0.1601, "13x26": 0.4803 },
   "20lb Offset":      { "8.5x11": 0.0092, "11x17": 0.0174, "12x18": 0.0293, "12.5x19": 0.0270, "Short 11x17": 0.0184 },
+  "20 lb Cream":      { "8.5x11": 0.0110, "11x17": 0.0200, "12x18": 0.0350, "12.5x19": 0.0320 },  // cream variant of 20lb
   "60lb Offset":      { "8.5x11": 0.015, "11x17": 0.0295, "12x18": 0.0346, "12.5x19": 0.0320, "Short 12x18": 0.0360, "Short 12.5x19": 0.0410 },
   "60 lb Cream":      { "8.5x11": 0.018, "11x17": 0.035, "12x18": 0.042, "13x19": 0.050 },
   "80lb Text Gloss":  { "8.5x11": 0.025, "11x17": 0.0490, "12x18": 0.0490, "13x19": 0.0615, "Short 11x17": 0.0523, "Short 12x18": 0.0523 },
@@ -148,7 +149,7 @@ interface PaperInfo {
   prices: Record<string, number>
 }
 
-// ─── Part calculation ────────────────────────────────────
+// ─���─ Part calculation ────────────────────────────────────
 function calculatePart(
   partName: "cover" | "inside",
   part: PerfectPartInputs,
