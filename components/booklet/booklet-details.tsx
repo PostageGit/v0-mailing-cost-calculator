@@ -86,6 +86,18 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
     : inputs.bindingType === "perfect" ? "Perfect Bind" 
     : "Staple"
 
+  // Calculate old system total for comparison during transition
+  const oldSystemPrintingCost = (() => {
+    let total = hasCover ? (coverResult.oldSystemCost ?? coverResult.cost) : 0
+    total += insideResult.oldSystemCost ?? insideResult.cost
+    if (hasInserts) {
+      total += insertResults.reduce((sum, ins) => sum + (ins.oldSystemCost ?? ins.cost), 0)
+    }
+    return total
+  })()
+  const oldSystemDiff = totalPrintingCost - oldSystemPrintingCost
+  const hasOldSystemDiff = Math.abs(oldSystemDiff) > 0.01
+
   const costLines: CostLine[] = [
     { label: "Printing", value: totalPrintingCost },
     { label: `Binding (${bindingTypeLabel})`, value: totalBindingPrice },
@@ -203,6 +215,19 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
     </div>
   )
 
+  // Old system comparison note
+  const oldSystemNote = hasOldSystemDiff ? (
+    <div className="mt-2 px-3 py-2 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md text-xs">
+      <span className="font-semibold text-amber-800 dark:text-amber-300">Old System Price: </span>
+      <span className="text-amber-700 dark:text-amber-400">
+        {formatCurrency(result.grandTotal - oldSystemDiff)} 
+        <span className="ml-1 text-[10px] opacity-75">
+          (diff: {oldSystemDiff > 0 ? "+" : ""}{formatCurrency(oldSystemDiff)})
+        </span>
+      </span>
+    </div>
+  ) : null
+
   return (
     <CalcPriceCard
       total={result.grandTotal}
@@ -225,6 +250,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
       onBrokerChange={onBrokerChange}
       weightOz={bookletWeightOz}
       weightLabel="/ booklet"
+      footerNote={oldSystemNote}
     />
   )
 }

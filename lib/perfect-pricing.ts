@@ -194,6 +194,8 @@ function calculatePart(
     // Round up per book first since you can't share partial sheets across different books
     const sheetsPerBook = Math.ceil(sheetsPerPart / layout.maxUps)
     const totalSheets = sheetsPerBook * bookQty
+    // Old system calculation (for comparison during transition)
+    const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
     if (paperCost === 0) return null
@@ -209,6 +211,8 @@ function calculatePart(
     else price = Math.round(price * 10000) / 10000
 
     const isShort = sizeStr.startsWith("Short ")
+    // Old system cost for comparison (during transition)
+    const oldSystemCost = price * oldSystemSheets
     return {
       cost: price * totalSheets,
       sheets: totalSheets, sheetSize: sizeStr, paper: part.paperName,
@@ -221,6 +225,9 @@ function calculatePart(
       clickCostPerSheet: clickPerSheet,
       totalPaperCost: paperCost * totalSheets,
       totalClickCost: clickPerSheet * totalSheets,
+      // Old system comparison (for transition period)
+      oldSystemSheets,
+      oldSystemCost,
     }
   }
 

@@ -260,6 +260,8 @@ function calculatePartCost(
     // Round up per book first since you can't share partial sheets across different books
     const sheetsPerBook = Math.ceil(sheetsPerPart / layout.maxUps)
     const totalSheets = sheetsPerBook * bookQty
+    // Old system calculation (for comparison during transition)
+    const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     const paperCost = cfg.bookletPaperPrices[paperName]?.[sizeString] ?? BOOKLET_PAPER_PRICES[paperName]?.[sizeString] ?? 0
     if (paperCost === 0) return null
 
@@ -301,6 +303,9 @@ function calculatePartCost(
       clickCostPerSheet: clickCost,
       totalPaperCost: paperCost * totalSheets,
       totalClickCost: clickCost * totalSheets,
+      // Old system comparison (for transition period)
+      oldSystemSheets,
+      oldSystemCost: pricePerSheet * oldSystemSheets,
     }
   }
 
