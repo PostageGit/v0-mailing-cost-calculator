@@ -401,12 +401,7 @@ export function calculatePerfect(
   if ("error" in coverRes) {
     const errMsg = (coverRes as { error: string }).error
     if (errMsg.includes("does not fit")) {
-      // Simple, clear error for new workers
-      const neededWidth = Math.ceil(coverPageWidth * 10) / 10
-      const neededHeight = Math.ceil(coverPageHeight * 10) / 10
-      return { 
-        error: `"${cover.paperName}" doesn't have a sheet size large enough for this cover (${neededWidth}" x ${neededHeight}"). Try 12pt Gloss or 10pt Gloss instead.` 
-      }
+      return { error: `This paper doesn't come in a large enough sheet. Try 12pt Gloss instead.` }
     }
     return coverRes
   }
