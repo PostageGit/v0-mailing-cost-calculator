@@ -257,10 +257,10 @@ function calculatePartCost(
     const layout = calculateLayout(sheet.w, sheet.h, spreadWidth, spreadHeight, hasBleed, hasLamination)
     if (layout.maxUps === 0) return null
 
-    // Saddle stitch: each booklet has its own folded signatures, can't share between booklets
-    // Per-book rounding is correct here (unlike gang-run perfect binding insides)
-    const sheetsPerBook = Math.ceil(sheetsPerPart / layout.maxUps)
-    const totalSheets = sheetsPerBook * bookQty
+    // Total sheets = ceil(books / ups) * sheetsPerPart
+    // Example: 1450 books at 2-up with 1 sheet/book = ceil(1450/2) * 1 = 725 sheets
+    // This correctly handles both covers (1 sheet/book) and insides (multiple sheets/book)
+    const totalSheets = Math.ceil(bookQty / layout.maxUps) * sheetsPerPart
     // Old system calculation (for comparison during transition)
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     const paperCost = cfg.bookletPaperPrices[paperName]?.[sizeString] ?? BOOKLET_PAPER_PRICES[paperName]?.[sizeString] ?? 0

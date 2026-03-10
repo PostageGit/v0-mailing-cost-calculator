@@ -193,13 +193,14 @@ function calculatePart(
     if (layout.maxUps === 0) return null
 
     // Sheet calculation depends on part type:
-    // - COVER: Round per book (can't share covers between books)
-    // - INSIDE: Gang run (round once at end - old system is correct)
+    // - COVER: Each book needs 1 cover, so total sheets = ceil(books / ups)
+    //   Example: 1450 books at 2-up = ceil(1450/2) = 725 sheets
+    // - INSIDE: Gang run (all pages printed together, then cut and collated)
     const isCover = partName === "cover"
     const totalSheets = isCover
-      ? Math.ceil(sheetsPerPart / layout.maxUps) * bookQty  // Per-book rounding for covers
+      ? Math.ceil(bookQty / layout.maxUps)  // 1 cover per book, grouped by ups
       : Math.ceil((bookQty * sheetsPerPart) / layout.maxUps) // Gang run for insides
-    // Old system calculation (for comparison during transition - only differs for covers)
+    // Old system calculation (for comparison during transition)
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
     const paperCost = paperData.prices[sizeStr] ?? cfg.bookletPaperPrices[part.paperName]?.[sizeStr] ?? PAPER_PRICES[part.paperName]?.[sizeStr] ?? 0
@@ -401,7 +402,20 @@ export function calculatePerfect(
     // Add spine info to error message for clarity
     const errMsg = (coverRes as { error: string }).error
     if (errMsg.includes("does not fit")) {
-      return { error: `Cover spread (${coverPageWidth.toFixed(2)}" x ${coverPageHeight.toFixed(2)}" including ${spineWidth.toFixed(3)}" spine) does not fit on available sheets.` }
+      // Check if paper has no pricing for large enough sheets
+      const paperName = cover.paperName
+      const neededWidth = Math.ceil(coverPageWidth * 10) / 10
+      const neededHeight = Math.ceil(coverPageHeight * 10) / 10
+      
+      // Suggest similar papers (common cover stocks)
+      const suggestions = ["12pt Gloss", "10pt Gloss", "80 Gloss", "100 Gloss"]
+        .filter(p => p !== paperName)
+        .slice(0, 2)
+        .join(" or ")
+      
+      return { 
+        error: `"${paperName}" does not have pricing for sheets large enough to fit the cover spread (${neededWidth}" x ${neededHeight}" with ${spineWidth.toFixed(3)}" spine). Try a different paper like ${suggestions}.` 
+      }
     }
     return coverRes
   }

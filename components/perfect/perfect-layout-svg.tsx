@@ -22,14 +22,12 @@ export function PerfectLayoutSvg({ result, pageWidth, pageHeight, label, spineWi
   const drawH = isRotated ? pageWidth : pageHeight
 
   // Bleed margins differ for inside vs cover
+  // Cover: NO boundary margins - cover spread already includes bleed that extends to sheet edge
+  // Inside: Has margins because pages are gang-run and need cutting clearance
   let bleedX = 0, bleedY = 0
-  if (bleed) {
-    if (name === "inside") {
-      if (sheetW > sheetH) { bleedX = 0.25; bleedY = 0.15 }
-      else { bleedX = 0.15; bleedY = 0.25 }
-    } else {
-      bleedX = BLEED_MARGIN; bleedY = BLEED_MARGIN
-    }
+  if (bleed && name === "inside") {
+    if (sheetW > sheetH) { bleedX = 0.25; bleedY = 0.15 }
+    else { bleedX = 0.15; bleedY = 0.25 }
   }
 
   const printableW = sheetW - bleedX * 2
@@ -120,6 +118,15 @@ export function PerfectLayoutSvg({ result, pageWidth, pageHeight, label, spineWi
           </div>
         )}
       </div>
+
+      {/* Spine thickness for covers */}
+      {isCover && spineWidth > 0 && (
+        <div className="text-center py-1.5 px-3 rounded-md bg-muted/50 border border-border">
+          <p className="text-xs text-muted-foreground">
+            Spine Thickness: <span className="font-bold text-foreground">{spineWidth.toFixed(3)}"</span>
+          </p>
+        </div>
+      )}
 
       {/* Label */}
       <p className="text-sm font-semibold text-muted-foreground text-center">
