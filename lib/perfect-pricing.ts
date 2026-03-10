@@ -126,7 +126,13 @@ export function calculateLayout(
   const phs = Math.round(pageH * S)
 
   if (partName === "inside") {
-    return { maxUps: fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s), isRotated: false }
+  // Try both orientations and pick the best
+  const upsNormal = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
+  const upsRotated = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
+  if (upsRotated > upsNormal) {
+    return { maxUps: upsRotated, isRotated: true }
+  }
+  return { maxUps: upsNormal, isRotated: false }
   }
   const portrait = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
   const landscape = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
