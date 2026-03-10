@@ -15,10 +15,42 @@ import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
 import { createClient } from "@supabase/supabase-js"
 
-// Build paper name lists at module level so the AI can use them
-const FLAT_PAPER_NAMES = PAPER_OPTIONS.map((p) => p.name)
-const BOOKLET_INSIDE_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p) => !p.isCardstock).map((p) => p.name)
-const BOOKLET_COVER_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p) => p.isCardstock).map((p) => p.name)
+// Fallback paper lists (used if database is unavailable)
+const FALLBACK_FLAT_PAPERS = PAPER_OPTIONS.map((p: { name: string }) => p.name)
+const FALLBACK_INSIDE_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p: { isCardstock: boolean }) => !p.isCardstock).map((p: { name: string }) => p.name)
+const FALLBACK_COVER_PAPERS = BOOKLET_PAPER_OPTIONS.filter((p: { isCardstock: boolean }) => p.isCardstock).map((p: { name: string }) => p.name)
+
+// Fetch papers from database dynamically
+async function fetchPaperLists() {
+  try {
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    
+    const [flatRes, insideRes, coverRes] = await Promise.all([
+      fetch(`${baseUrl}/api/papers?active=true&use_for=flat_printing`),
+      fetch(`${baseUrl}/api/papers?active=true&use_for=book_inside`),
+      fetch(`${baseUrl}/api/papers?active=true&use_for=book_cover`),
+    ])
+    
+    const flatPapers = flatRes.ok ? await flatRes.json() : []
+    const insidePapers = insideRes.ok ? await insideRes.json() : []
+    const coverPapers = coverRes.ok ? await coverRes.json() : []
+    
+    return {
+      flatPaperNames: flatPapers.length > 0 ? flatPapers.map((p: { name: string }) => p.name) : FALLBACK_FLAT_PAPERS,
+      insidePaperNames: insidePapers.length > 0 ? insidePapers.map((p: { name: string }) => p.name) : FALLBACK_INSIDE_PAPERS,
+      coverPaperNames: coverPapers.length > 0 ? coverPapers.map((p: { name: string }) => p.name) : FALLBACK_COVER_PAPERS,
+    }
+  } catch {
+    // Fallback to hardcoded lists if fetch fails
+    return {
+      flatPaperNames: FALLBACK_FLAT_PAPERS,
+      insidePaperNames: FALLBACK_INSIDE_PAPERS,
+      coverPaperNames: FALLBACK_COVER_PAPERS,
+    }
+  }
+}
 
 function fmt(n: number) {
   return "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -333,13 +365,13 @@ NEVER DO:
 CRITICAL -- PAPER NAMES MUST BE EXACT (each calculator has its own paper list):
 
 FOR FLAT PRINTING (calculate_printing):
-  ${FLAT_PAPER_NAMES.join(", ")}
+  %%FLAT_PAPER_NAMES%%
 
 FOR BOOKLETS / SPIRAL / PERFECT / PADS -- inside pages:
-  ${BOOKLET_INSIDE_PAPERS.join(", ")}
+  %%BOOKLET_INSIDE_PAPERS%%
 
 FOR BOOKLETS / SPIRAL / PERFECT -- covers (cardstock):
-  ${BOOKLET_COVER_PAPERS.join(", ")}
+  %%BOOKLET_COVER_PAPERS%%
 
 Note: flat printing uses "80 Cover Gloss" but booklets use "80 Gloss". They are different names -- always use the exact name for the right calculator. If unsure, use the list_papers tool.
 
@@ -412,7 +444,7 @@ const tools = {
       qty: z.number().describe("Number of printed pieces"),
       width: z.number().describe("FINISHED piece width in inches"),
       height: z.number().describe("FINISHED piece height in inches"),
-      paperName: z.string().describe(`Paper -- MUST be one of: ${FLAT_PAPER_NAMES.join(", ")}`),
+      paperName: z.string().describe(`Paper -- MUST be one of the FLAT PRINTING papers listed in the system prompt`),
       sidesValue: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
       hasBleed: z.boolean().describe("Design bleeds to edge. True for postcards/business cards."),
       isBroker: z.boolean().describe("Broker/trade customer"),
@@ -484,10 +516,10 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pagesPerBook: z.number().describe("TOTAL page count including cover (multiple of 4, min 8). Tool auto-rounds."),
       pageWidth: z.number().describe("FINISHED page width (e.g. 8.5 for letter)"),
       pageHeight: z.number().describe("FINISHED page height (e.g. 11 for letter)"),
-      insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+      insidePaper: z.string().describe(`Inside paper -- MUST be one of the BOOKLET INSIDE papers listed in the system prompt`),
       insideSides: z.enum(["D/S", "4/4", "1/1"]).describe(`Saddle-stitch inside MUST be both-sided (folded signatures). ${SIDES_DESC}`),
       separateCover: z.boolean().describe("Use thicker cover stock? Default true."),
-      coverPaper: z.string().nullable().describe(`Cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      coverPaper: z.string().nullable().describe(`Cover paper -- MUST be one of the BOOKLET COVER papers listed in the system prompt. Default "80 Gloss".`),
       coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Cover sides. USE EXACTLY what the customer specified (e.g. if they say "4/0", pass "4/0"). Only default to "4/4" if they said NOTHING about cover sides. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
@@ -581,15 +613,15 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pagesPerBook: z.number().describe("Inside pages only (not counting covers)"),
       pageWidth: z.number().describe("FINISHED page width (e.g. 8.5)"),
       pageHeight: z.number().describe("FINISHED page height (e.g. 11)"),
-      insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+      insidePaper: z.string().describe(`Inside paper -- MUST be one of the BOOKLET INSIDE papers listed in the system prompt`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Spiral binds individual leaves. S/S is common (print one side, blank back) -- DOUBLES page count automatically. Default D/S. ${SIDES_DESC}`),
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
       coverBleed: z.boolean().describe("Covers bleed to edge? Default true if printed covers."),
       useFrontCover: z.boolean().describe("Printed front cover (cardstock). Default true."),
       useBackCover: z.boolean().describe("Printed back cover (cardstock). Default true."),
-      frontPaper: z.string().nullable().describe(`Front cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      frontPaper: z.string().nullable().describe(`Front cover paper -- MUST be one of the BOOKLET COVER papers listed in the system prompt. Default "80 Gloss".`),
       frontSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Front cover sides. Spiral covers CAN be one-sided (4/0) or both-sided (4/4). Default "4/4". ${SIDES_DESC}`),
-      backPaper: z.string().nullable().describe(`Back cover paper -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      backPaper: z.string().nullable().describe(`Back cover paper -- MUST be one of the BOOKLET COVER papers listed in the system prompt. Default "80 Gloss".`),
       backSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).nullable().describe(`Back cover sides. Spiral covers CAN be one-sided (4/0) or both-sided (4/4). Default "4/4". ${SIDES_DESC}`),
       clearPlastic: z.boolean().describe("Clear plastic front ($0.50/book). Default false."),
       blackVinyl: z.boolean().describe("Black vinyl back ($0.50/book). Default false."),
@@ -680,17 +712,17 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pagesPerBook: z.number().describe("TOTAL inside pages (sum of all sections). Minimum 40. If using sections, this should match the sum of section pageCount values."),
       pageWidth: z.number().describe("FINISHED page width (e.g. 8.5)"),
       pageHeight: z.number().describe("FINISHED page height (e.g. 11)"),
-      insidePaper: z.string().describe(`Inside paper (used when NOT using sections) -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+      insidePaper: z.string().describe(`Inside paper (used when NOT using sections) -- MUST be one of the BOOKLET INSIDE papers listed in the system prompt`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`S/S is rare for perfect binding but valid -- DOUBLES page count automatically. Default D/S. Warn customer it doubles paper cost. ${SIDES_DESC}`),
       sections: z.array(z.object({
         pageCount: z.number().describe("Number of pages in this section"),
-        paperName: z.string().describe(`Paper for this section -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+        paperName: z.string().describe(`Paper for this section -- MUST be one of the BOOKLET INSIDE papers listed in the system prompt`),
         sides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe("Sides for this section"),
         hasBleed: z.boolean().describe("Bleed for this section"),
         level: z.number().min(1).max(10).optional().describe("VIP ONLY: Force level for THIS section only (1-10). Omit for auto or global level."),
       })).optional().describe("Optional: multiple inside sections with different papers. Each section can have its own level. Example: [{pageCount: 100, paperName: '20lb Offset', sides: 'D/S', hasBleed: false, level: 9}, {pageCount: 16, paperName: '80lb Text Gloss', sides: '4/4', hasBleed: true, level: 4}]"),
       coverLevel: z.number().min(1).max(10).optional().describe("VIP ONLY: Force level for COVER only (1-10). Omit to use customLevel or auto."),
-      coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
+      coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of the BOOKLET COVER papers listed in the system prompt. Default "80 Gloss".`),
       coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Perfect bound cover CAN be one-sided (4/0 = color front only, common) or both-sided (4/4). USE what the customer says. Default "4/4" only if they say nothing. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
       insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books. Ignored if using sections."),
@@ -858,7 +890,7 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
       pagesPerPad: z.number().describe("Sheets per pad (min 25)"),
       pageWidth: z.number().describe("FINISHED width in inches"),
       pageHeight: z.number().describe("FINISHED height in inches"),
-      insidePaper: z.string().describe(`Paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+      insidePaper: z.string().describe(`Paper -- MUST be one of the BOOKLET INSIDE papers listed in the system prompt`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(SIDES_DESC),
       hasBleed: z.boolean().describe("Does the design bleed to the edge? Bleed adds ~0.25in per side so fewer pieces fit per parent sheet. Default false."),
       useChipBoard: z.boolean().describe("Include chipboard backing"),
@@ -1103,13 +1135,27 @@ export async function POST(req: Request) {
     console.log("[v0] RAW last msg:", JSON.stringify(messages[messages.length - 1])?.slice(0, 500))
     _currentMessages = messages
 
+    // Fetch dynamic paper lists from database
+    const paperLists = await fetchPaperLists()
+    console.log("[v0] Dynamic papers loaded:", { 
+      flat: paperLists.flatPaperNames.length, 
+      inside: paperLists.insidePaperNames.length, 
+      cover: paperLists.coverPaperNames.length 
+    })
+
+    // Build dynamic system prompt with current paper lists
+    const dynamicPrompt = SYSTEM_PROMPT
+      .replace(/%%FLAT_PAPER_NAMES%%/g, paperLists.flatPaperNames.join(", "))
+      .replace(/%%BOOKLET_INSIDE_PAPERS%%/g, paperLists.insidePaperNames.join(", "))
+      .replace(/%%BOOKLET_COVER_PAPERS%%/g, paperLists.coverPaperNames.join(", "))
+
     const anthropic = createAnthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     })
 
     const result = streamText({
       model: anthropic("claude-sonnet-4-20250514"),
-      system: SYSTEM_PROMPT,
+      system: dynamicPrompt,
       messages: await convertToModelMessages(messages),
       tools,
       stopWhen: stepCountIs(10),

@@ -501,6 +501,15 @@ export const DEFAULT_SADDLE_STITCH_CONFIG: SaddleStitchConfig = {
 
 // ==================== RUNTIME CONFIG ====================
 
+/** Paper option for dynamic paper system */
+export interface DynamicPaperOption {
+  name: string
+  isCardstock: boolean
+  canLaminate: boolean
+  thickness: number
+  availableSizes: string[]
+}
+
 export interface PricingConfig {
   clickCosts: Record<string, ClickCostEntry>
   paperPrices: Record<string, Record<string, number>>
@@ -515,12 +524,19 @@ export interface PricingConfig {
   envelopeWeightConfig: EnvelopeWeightConfig
   sortLevelMix: SortLevelMixConfig
   saddleStitchConfig: SaddleStitchConfig
-}
+  // Dynamic paper options from database
+  flatPaperOptions: DynamicPaperOption[]
+  bookInsidePaperOptions: DynamicPaperOption[]
+  bookCoverPaperOptions: DynamicPaperOption[]
+  spiralInsidePaperOptions: DynamicPaperOption[]
+  spiralCoverPaperOptions: DynamicPaperOption[]
+  padPaperOptions: DynamicPaperOption[]
+  }
 
 export type { EnvelopeSettings }
 
 /** The active runtime config. Starts as defaults, gets merged with DB overrides. */
-let _activeConfig: PricingConfig = {
+  let _activeConfig: PricingConfig = {
   clickCosts: { ...DEFAULT_CLICK_COSTS },
   paperPrices: deepClonePrices(DEFAULT_PAPER_PRICES),
   bookletPaperPrices: deepClonePrices(DEFAULT_BOOKLET_PAPER_PRICES),
@@ -532,6 +548,13 @@ let _activeConfig: PricingConfig = {
   tabbingConfig: structuredClone(DEFAULT_TABBING_CONFIG),
   paperWeightConfig: structuredClone(DEFAULT_PAPER_WEIGHT_CONFIG),
   envelopeWeightConfig: structuredClone(DEFAULT_ENVELOPE_WEIGHT_CONFIG),
+  // Dynamic paper options (empty until loaded from database)
+  flatPaperOptions: [],
+  bookInsidePaperOptions: [],
+  bookCoverPaperOptions: [],
+  spiralInsidePaperOptions: [],
+  spiralCoverPaperOptions: [],
+  padPaperOptions: [],
   sortLevelMix: structuredClone(DEFAULT_SORT_LEVEL_MIX),
   saddleStitchConfig: structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
 }
@@ -546,10 +569,44 @@ export function getActiveConfig(): PricingConfig {
  */
 export function setDynamicPaperPrices(prices: Record<string, Record<string, number>>) {
   _activeConfig = {
+  ..._activeConfig,
+  paperPrices: { ..._activeConfig.paperPrices, ...prices },
+  // Also apply to booklet paper prices so book calculators use database prices
+  bookletPaperPrices: { ..._activeConfig.bookletPaperPrices, ...prices },
+  }
+  }
+
+/** Set dynamic paper options from database - replaces hardcoded paper lists */
+export function setDynamicPaperOptions(options: {
+  flat?: DynamicPaperOption[]
+  bookInside?: DynamicPaperOption[]
+  bookCover?: DynamicPaperOption[]
+  spiralInside?: DynamicPaperOption[]
+  spiralCover?: DynamicPaperOption[]
+  pad?: DynamicPaperOption[]
+}) {
+  _activeConfig = {
     ..._activeConfig,
-    paperPrices: { ..._activeConfig.paperPrices, ...prices },
-    // Also apply to booklet paper prices so book calculators use database prices
-    bookletPaperPrices: { ..._activeConfig.bookletPaperPrices, ...prices },
+    flatPaperOptions: options.flat || _activeConfig.flatPaperOptions,
+    bookInsidePaperOptions: options.bookInside || _activeConfig.bookInsidePaperOptions,
+    bookCoverPaperOptions: options.bookCover || _activeConfig.bookCoverPaperOptions,
+    spiralInsidePaperOptions: options.spiralInside || _activeConfig.spiralInsidePaperOptions,
+    spiralCoverPaperOptions: options.spiralCover || _activeConfig.spiralCoverPaperOptions,
+    padPaperOptions: options.pad || _activeConfig.padPaperOptions,
+  }
+}
+
+/** Get dynamic paper options for a specific use case, with fallback to hardcoded list */
+export function getDynamicPaperOptions(useFor: "flat" | "bookInside" | "bookCover" | "spiralInside" | "spiralCover" | "pad"): DynamicPaperOption[] {
+  const cfg = getActiveConfig()
+  switch (useFor) {
+    case "flat": return cfg.flatPaperOptions
+    case "bookInside": return cfg.bookInsidePaperOptions
+    case "bookCover": return cfg.bookCoverPaperOptions
+    case "spiralInside": return cfg.spiralInsidePaperOptions
+    case "spiralCover": return cfg.spiralCoverPaperOptions
+    case "pad": return cfg.padPaperOptions
+    default: return []
   }
 }
 

@@ -21,6 +21,7 @@ const PAPER_PRICES: Record<string, Record<string, number>> = {
   "12pt Matte":       { "11x17": 0.1601, "12x18": 0.1601, "13x19": 0.1601, "13x26": 0.4803 },
   "20lb Offset":      { "8.5x11": 0.0092, "11x17": 0.0174, "12x18": 0.0293, "12.5x19": 0.0270, "Short 11x17": 0.0184 },
   "60lb Offset":      { "8.5x11": 0.015, "11x17": 0.0295, "12x18": 0.0346, "12.5x19": 0.0320, "Short 12x18": 0.0360, "Short 12.5x19": 0.0410 },
+  "60 lb Cream":      { "8.5x11": 0.018, "11x17": 0.035, "12x18": 0.042, "13x19": 0.050 },
   "80lb Text Gloss":  { "8.5x11": 0.025, "11x17": 0.0490, "12x18": 0.0490, "13x19": 0.0615, "Short 11x17": 0.0523, "Short 12x18": 0.0523 },
   "100lb Text Gloss": { "8.5x11": 0.03, "11x17": 0.0565, "12x18": 0.0565, "13x19": 0.0653, "Short 11x17": 0.0675, "Short 12x18": 0.0675 },
 }
@@ -422,12 +423,43 @@ export function calculatePerfect(
 }
 
 // ─── Available paper helpers ─────────────────────────────
+import { getDynamicPaperOptions, type DynamicPaperOption } from "./pricing-config"
+
 export function getCoverPapers(): PaperOption[] {
+  // Use dynamic options from database if available, fallback to hardcoded
+  const dynamic = getDynamicPaperOptions("bookCover")
+  if (dynamic.length > 0) {
+    return dynamic.map(d => ({
+      name: d.name,
+      isCardstock: d.isCardstock,
+      canLaminate: d.canLaminate,
+      thickness: d.thickness,
+      availableSizes: d.availableSizes,
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  }
   return PAPER_OPTIONS.filter(p => p.isCardstock).sort((a, b) => a.name.localeCompare(b.name))
 }
 export function getInsidePapers(): PaperOption[] {
+  // Use dynamic options from database if available, fallback to hardcoded
+  const dynamic = getDynamicPaperOptions("bookInside")
+  if (dynamic.length > 0) {
+    return dynamic.map(d => ({
+      name: d.name,
+      isCardstock: d.isCardstock,
+      canLaminate: d.canLaminate,
+      thickness: d.thickness,
+      availableSizes: d.availableSizes,
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  }
   return PAPER_OPTIONS.filter(p => !p.isCardstock).sort((a, b) => a.name.localeCompare(b.name))
 }
 export function canLaminate(paperName: string): boolean {
+  // Check dynamic options first
+  const coverDynamic = getDynamicPaperOptions("bookCover")
+  const insideDynamic = getDynamicPaperOptions("bookInside")
+  const allDynamic = [...coverDynamic, ...insideDynamic]
+  if (allDynamic.length > 0) {
+    return allDynamic.find(p => p.name === paperName)?.canLaminate ?? false
+  }
   return PAPER_OPTIONS.find(p => p.name === paperName)?.canLaminate ?? false
 }

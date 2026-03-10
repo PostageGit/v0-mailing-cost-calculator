@@ -3,7 +3,7 @@
 import { createContext, useContext, ReactNode, useEffect } from "react"
 import useSWR from "swr"
 import type { Paper } from "./use-papers"
-import { setDynamicPaperPrices } from "./pricing-config"
+import { setDynamicPaperPrices, setDynamicPaperOptions, type DynamicPaperOption } from "./pricing-config"
 
 type PaperUseFor = "flat_printing" | "book_cover" | "book_inside" | "coil_cover" | "coil_inside" | "spiral_cover" | "spiral_inside" | "pad"
 
@@ -36,18 +36,7 @@ export function PapersProvider({ children }: { children: ReactNode }) {
   
   const allPapers = papers || []
   
-  // Sync paper prices to the global pricing config when papers load
-  useEffect(() => {
-    if (allPapers.length > 0) {
-      const pricesMap = allPapers.reduce((acc, p) => {
-        acc[p.name] = p.prices
-        return acc
-      }, {} as Record<string, Record<string, number>>)
-      setDynamicPaperPrices(pricesMap)
-    }
-  }, [allPapers])
-  
-  // Filter papers by usage
+  // Filter papers by usage - MUST be defined before useEffect that references them
   const flatPrintingPapers = allPapers.filter((p) => p.use_in_flat_printing)
   const bookCoverPapers = allPapers.filter((p) => p.use_in_book_cover)
   const bookInsidePapers = allPapers.filter((p) => p.use_in_book_inside)
@@ -56,6 +45,37 @@ export function PapersProvider({ children }: { children: ReactNode }) {
   const spiralCoverPapers = allPapers.filter((p) => p.use_in_spiral_cover)
   const spiralInsidePapers = allPapers.filter((p) => p.use_in_spiral_inside)
   const padPapers = allPapers.filter((p) => p.use_in_pad)
+  
+  // Sync paper prices AND options to the global pricing config when papers load
+  useEffect(() => {
+    if (allPapers.length > 0) {
+      // Sync prices
+      const pricesMap = allPapers.reduce((acc, p) => {
+        acc[p.name] = p.prices
+        return acc
+      }, {} as Record<string, Record<string, number>>)
+      setDynamicPaperPrices(pricesMap)
+      
+      // Convert paper to DynamicPaperOption format
+      const toDynamicOption = (p: Paper): DynamicPaperOption => ({
+        name: p.name,
+        isCardstock: p.is_cardstock,
+        canLaminate: p.is_cardstock, // cardstock can be laminated
+        thickness: p.thickness,
+        availableSizes: p.available_sizes,
+      })
+      
+      // Sync paper options by usage type
+      setDynamicPaperOptions({
+        flat: flatPrintingPapers.map(toDynamicOption),
+        bookInside: bookInsidePapers.map(toDynamicOption),
+        bookCover: bookCoverPapers.map(toDynamicOption),
+        spiralInside: spiralInsidePapers.map(toDynamicOption),
+        spiralCover: spiralCoverPapers.map(toDynamicOption),
+        pad: padPapers.map(toDynamicOption),
+      })
+    }
+  }, [allPapers, flatPrintingPapers, bookInsidePapers, bookCoverPapers, spiralInsidePapers, spiralCoverPapers, padPapers])
 
   // Helper to get papers by usage type
   const getPapersByUseFor = (useFor: PaperUseFor) => {
