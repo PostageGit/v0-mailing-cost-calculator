@@ -200,6 +200,7 @@ function calculatePart(
     const totalSheets = isCover
       ? Math.ceil(bookQty / layout.maxUps)  // 1 cover per book, grouped by ups
       : Math.ceil((bookQty * sheetsPerPart) / layout.maxUps) // Gang run for insides
+    console.log("[v0] calculatePart sheets", { partName, bookQty, sheetsPerPart, maxUps: layout.maxUps, totalSheets, formula: isCover ? "cover" : "gang-run" })
     // Old system calculation (for comparison during transition)
     const oldSystemSheets = Math.ceil((bookQty * sheetsPerPart) / layout.maxUps)
     // Use database prices first, then config, then hardcoded
