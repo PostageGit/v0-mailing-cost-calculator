@@ -155,8 +155,8 @@ export function PerfectLayoutSvg({ result, pageWidth, pageHeight, label, spineWi
                     x={x} y={y} width={drawW} height={drawH}
                     fill="hsl(var(--primary) / 0.08)" stroke="hsl(var(--primary) / 0.3)" strokeWidth="0.05"
                   />
-                  {/* Spine lines for cover */}
-                  {isCover && spineWidth > 0 && !isRotated && (() => {
+                  {/* Spine lines for cover ONLY - never for inside pages */}
+                  {name === "cover" && spineWidth > 0 && !isRotated && (() => {
                     const singleCoverW = (drawW - spineWidth) / 2
                     return (
                       <>
@@ -167,7 +167,7 @@ export function PerfectLayoutSvg({ result, pageWidth, pageHeight, label, spineWi
                       </>
                     )
                   })()}
-                  {isCover && spineWidth > 0 && isRotated && (() => {
+                  {name === "cover" && spineWidth > 0 && isRotated && (() => {
                     const singleCoverH = (drawH - spineWidth) / 2
                     return (
                       <>
