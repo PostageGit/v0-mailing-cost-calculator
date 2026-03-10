@@ -13,7 +13,7 @@ import { calculatePad } from "@/lib/pad-pricing"
 import { calculateEnvelope, DEFAULT_ENVELOPE_SETTINGS } from "@/lib/envelope-pricing"
 import type { PrintingInputs } from "@/lib/printing-types"
 import type { LaminationInputs } from "@/lib/lamination-pricing"
-import { createClient } from "@supabase/supabase-js"
+import { createSafeClient } from "@/lib/supabase/server"
 import { setDynamicPaperPrices, setDynamicPaperOptions, type DynamicPaperOption } from "@/lib/pricing-config"
 
 // Fallback paper lists (used if database is unavailable)
@@ -30,14 +30,13 @@ interface DbPaper {
   prices: Record<string, number>
 }
 
-// Fetch papers from database directly using Supabase client (more reliable than self-fetch)
+// Fetch papers from database using the safe Supabase client
 async function fetchPaperLists() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabase = await createSafeClient()
     
-    if (!supabaseUrl || !supabaseKey) {
-      console.log("[v0] No Supabase config, using fallback papers")
+    if (!supabase) {
+      console.log("[v0] Supabase not available, using fallback papers")
       return {
         flatPaperNames: FALLBACK_FLAT_PAPERS,
         insidePaperNames: FALLBACK_INSIDE_PAPERS,
@@ -45,19 +44,23 @@ async function fetchPaperLists() {
       }
     }
     
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    
     const [flatRes, insideRes, coverRes] = await Promise.all([
       supabase.from("papers").select("*").eq("active", true).eq("use_in_flat_printing", true).order("sort_order"),
       supabase.from("papers").select("*").eq("active", true).eq("use_in_book_inside", true).order("sort_order"),
       supabase.from("papers").select("*").eq("active", true).eq("use_in_book_cover", true).order("sort_order"),
     ])
     
+    // Log any errors
+    if (flatRes.error) console.error("[v0] Flat papers query error:", flatRes.error)
+    if (insideRes.error) console.error("[v0] Inside papers query error:", insideRes.error)
+    if (coverRes.error) console.error("[v0] Cover papers query error:", coverRes.error)
+    
     const flatPapers: DbPaper[] = flatRes.data || []
     const insidePapers: DbPaper[] = insideRes.data || []
     const coverPapers: DbPaper[] = coverRes.data || []
     
     console.log("[v0] Fetched papers from DB - flat:", flatPapers.length, "inside:", insidePapers.length, "cover:", coverPapers.length)
+    if (flatPapers.length > 0) console.log("[v0] Sample flat paper:", flatPapers[0].name, "sizes:", flatPapers[0].available_sizes)
     
     // Convert to DynamicPaperOption format
     const toDynamicOption = (p: DbPaper): DynamicPaperOption => ({
@@ -560,6 +563,13 @@ const tools = {
     execute: async ({ qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides, customLevel }) => {
       try {
         console.log("[v0] calculate_printing called:", { qty, width, height, paperName, sidesValue, hasBleed, isBroker, laminationEnabled, laminationType, laminationSides })
+        
+        // Check what papers are available
+        const { getFlatPaperOptions, PAPER_OPTIONS } = await import("@/lib/printing-pricing")
+        const dynamicPapers = getFlatPaperOptions()
+        console.log("[v0] Available papers - dynamic:", dynamicPapers.length, "hardcoded:", PAPER_OPTIONS.length)
+        console.log("[v0] First few papers:", dynamicPapers.slice(0, 3).map(p => p.name))
+        
         const lamination: LaminationInputs = {
           enabled: laminationEnabled,
           type: (laminationType || "Gloss") as LaminationInputs["type"],
