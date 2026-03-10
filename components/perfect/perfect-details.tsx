@@ -71,79 +71,74 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
   const totalClickCost = coverResult.totalClickCost + insideClickCost
   const totalMaterialCost = totalPaperCost + totalClickCost
 
-  // Summary table - always visible section breakdown (like old system)
+  // Summary table - Production Material Cost breakdown like old system
   const summaryTable = (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b-2 border-primary/30">
-            <th className="text-left py-1.5 px-1 font-semibold">Part</th>
-            <th className="text-left py-1.5 px-1 font-semibold">Sides</th>
-            <th className="text-left py-1.5 px-1 font-semibold">Paper</th>
-            <th className="text-center py-1.5 px-1 font-semibold">Sheets / Size / Ups</th>
-            <th className="text-center py-1.5 px-1 font-semibold">Level</th>
-            <th className="text-right py-1.5 px-1 font-semibold">Price</th>
-            <th className="text-right py-1.5 px-1 font-semibold">Pgs</th>
-          </tr>
-        </thead>
-        <tbody>
-          {/* Cover Row */}
-          <tr className="border-b border-muted/50 bg-blue-50 dark:bg-blue-950/30">
-            <td className="py-1.5 px-1 font-medium">Cover</td>
-            <td className="py-1.5 px-1">{coverResult.sides || "4/0"}</td>
-            <td className="py-1.5 px-1">{coverResult.paper}</td>
-            <td className="py-1.5 px-1 text-center">
-              <span className="font-mono">{coverResult.sheets.toLocaleString()}</span>
-              <span className="text-muted-foreground mx-1">{coverResult.sheetSize}</span>
-              <span className="text-muted-foreground">/ {coverResult.maxUps} Up</span>
-            </td>
-            <td className="py-1.5 px-1 text-center">
-              <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{coverResult.level}</span>
-            </td>
-            <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(coverResult.cost)}</td>
-            <td className="py-1.5 px-1 text-right text-muted-foreground">-</td>
-          </tr>
-          
-          {/* Inside Rows */}
-          {usingSections ? (
-            insideSectionResults.map((section, idx) => (
-              <tr key={idx} className={`border-b border-muted/50 ${idx % 2 === 0 ? 'bg-secondary/20' : ''}`}>
-                <td className="py-1.5 px-1 font-medium">
-                  {idx === 0 ? "Inside" : "+ Section"}
-                </td>
-                <td className="py-1.5 px-1">{section.sides || "D/S"}</td>
-                <td className="py-1.5 px-1">{section.paper}</td>
-                <td className="py-1.5 px-1 text-center">
-                  <span className="font-mono">{section.sheets.toLocaleString()}</span>
-                  <span className="text-muted-foreground mx-1">{section.sheetSize}</span>
-                  <span className="text-muted-foreground">/ {section.maxUps} Up</span>
-                </td>
-                <td className="py-1.5 px-1 text-center">
-                  <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{section.level}</span>
-                </td>
-                <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(section.cost)}</td>
-                <td className="py-1.5 px-1 text-right">{section.pagesInSection || "-"}</td>
-              </tr>
-            ))
-          ) : (
-            <tr className="border-b border-muted/50 bg-secondary/20">
-              <td className="py-1.5 px-1 font-medium">Inside</td>
-              <td className="py-1.5 px-1">{insideResult.sides || "D/S"}</td>
-              <td className="py-1.5 px-1">{insideResult.paper}</td>
-              <td className="py-1.5 px-1 text-center">
-                <span className="font-mono">{insideResult.sheets.toLocaleString()}</span>
-                <span className="text-muted-foreground mx-1">{insideResult.sheetSize}</span>
-                <span className="text-muted-foreground">/ {insideResult.maxUps} Up</span>
-              </td>
-              <td className="py-1.5 px-1 text-center">
-                <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-medium">{insideResult.level}</span>
-              </td>
-              <td className="py-1.5 px-1 text-right font-semibold">{formatCurrency(insideResult.cost)}</td>
-              <td className="py-1.5 px-1 text-right text-muted-foreground">-</td>
+    <div className="space-y-2">
+      {/* Header */}
+      <div className="text-xs font-bold uppercase tracking-wider text-center text-muted-foreground">
+        Production Material Cost
+      </div>
+      
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b-2 border-muted">
+              <th className="text-left py-1.5 px-1.5 font-semibold">Item</th>
+              <th className="text-right py-1.5 px-1.5 font-semibold">Paper</th>
+              <th className="text-right py-1.5 px-1.5 font-semibold">Click</th>
+              <th className="text-right py-1.5 px-1.5 font-semibold">Total</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {/* Cover Row */}
+            <tr className="border-b border-muted/50">
+              <td className="py-1.5 px-1.5">
+                <span className="font-medium">Cover</span>
+                <span className="text-muted-foreground ml-1">({coverResult.sheets.toLocaleString()} sht)</span>
+              </td>
+              <td className="text-right py-1.5 px-1.5">{formatCurrency(coverResult.totalPaperCost)}</td>
+              <td className="text-right py-1.5 px-1.5">{formatCurrency(coverResult.totalClickCost)}</td>
+              <td className="text-right py-1.5 px-1.5 font-semibold">{formatCurrency(coverResult.totalPaperCost + coverResult.totalClickCost)}</td>
+            </tr>
+            
+            {/* Inside/Section Rows */}
+            {usingSections ? (
+              insideSectionResults.map((section, idx) => (
+                <tr key={idx} className="border-b border-muted/50">
+                  <td className="py-1.5 px-1.5">
+                    <span className="font-medium">Sec {idx + 1}:</span>
+                    <span className="ml-1">{section.paper}</span>
+                    <span className="text-muted-foreground ml-1">({section.sheets.toLocaleString()} sht)</span>
+                  </td>
+                  <td className="text-right py-1.5 px-1.5">{formatCurrency(section.totalPaperCost)}</td>
+                  <td className="text-right py-1.5 px-1.5">{formatCurrency(section.totalClickCost)}</td>
+                  <td className="text-right py-1.5 px-1.5 font-semibold">{formatCurrency(section.totalPaperCost + section.totalClickCost)}</td>
+                </tr>
+              ))
+            ) : (
+              <tr className="border-b border-muted/50">
+                <td className="py-1.5 px-1.5">
+                  <span className="font-medium">Inside:</span>
+                  <span className="ml-1">{insideResult.paper}</span>
+                  <span className="text-muted-foreground ml-1">({insideResult.sheets.toLocaleString()} sht)</span>
+                </td>
+                <td className="text-right py-1.5 px-1.5">{formatCurrency(insideResult.totalPaperCost)}</td>
+                <td className="text-right py-1.5 px-1.5">{formatCurrency(insideResult.totalClickCost)}</td>
+                <td className="text-right py-1.5 px-1.5 font-semibold">{formatCurrency(insideResult.totalPaperCost + insideResult.totalClickCost)}</td>
+              </tr>
+            )}
+            
+            {/* Total Row */}
+            <tr className="bg-muted/30 font-semibold">
+              <td className="py-2 px-1.5">TOTAL</td>
+              <td className="text-right py-2 px-1.5">{formatCurrency(totalPaperCost)}</td>
+              <td className="text-right py-2 px-1.5">{formatCurrency(totalClickCost)}</td>
+              <td className="text-right py-2 px-1.5">{formatCurrency(totalMaterialCost)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 
