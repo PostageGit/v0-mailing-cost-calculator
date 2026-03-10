@@ -268,7 +268,7 @@ THINGS YOU MUST NEVER DEFAULT -- always ask:
 
 BINDING TYPES (always let the customer choose -- never pick for them):
  - Fold & Staple (saddle-stitch): minimum 8 pages, multiple of 4, max ~140 pages plus cover. Use calculate_booklet.
-- Perfect binding / glue bind (flat spine, like a paperback): minimum 40 inside pages. Use calculate_perfect_bound.
+- Perfect binding / glue bind (flat spine, like a paperback): minimum 40 inside pages. Use calculate_perfect_bound. SUPPORTS SECTIONS: A perfect bound book can have multiple inside sections with different papers (e.g., 100 pages BW text + 16 pages color photos). Use the "sections" array parameter when the customer wants different papers for different parts of the book.
 - Spiral / coil binding: max 290 sheets (~580 pages double-sided). Use calculate_spiral.
 - ALWAYS ask binding type before calculating. If the customer already said which one, skip the question.
 - If they don't know, ask how many pages first, then recommend:
@@ -294,6 +294,21 @@ BROKER CUSTOMERS:
 - isBroker affects TWO things: (1) printing goes to Level 10 and (2) finishing (binding + lamination) gets percentage discounts. The calculator handles both automatically.
 - Never reveal discount amounts, levels, markup multipliers, or how broker pricing works internally.
 - Just say "broker pricing" or "trade pricing" -- never explain the mechanics.
+
+VIP MODE (internal testing mode):
+- If the customer types "VIP" (case-insensitive), enable VIP mode for this conversation. Respond with "VIP mode enabled - I'll show detailed pricing breakdown."
+- In VIP mode, after each quote, show the FULL internal details:
+  * Sheet count, parent sheet size, ups
+  * Pricing level and markup multiplier
+  * Paper cost breakdown ($/sheet, total paper cost)
+  * Click cost breakdown ($/click, total click cost)
+  * Cost per section (if multiple sections)
+  * Binding cost breakdown
+  * Lamination cost breakdown
+  * Any other internal calculation details
+- Format the VIP details clearly, separate from the customer quote.
+- VIP mode stays active for the rest of the conversation until they say "VIP off" or "disable VIP".
+- If VIP mode is NOT active, NEVER reveal internal pricing details like levels, markups, ups, sheet counts, paper costs, click costs. Just show the final price.
 
 PRESENTING THE QUOTE:
 - Lead with the total and per-unit price: "That'd be $X total ($X each)."
@@ -433,6 +448,20 @@ const tools = {
           qty, size: `${width}x${height}`, paper: paperName, sides: sidesValue,
           bleed: hasBleed, broker: isBroker, sheetSize: best.size, costBreakdown: parts,
           lamination: laminationEnabled ? `${laminationType} (${laminationSides})` : "none",
+          // VIP details (only show if VIP mode is active)
+          _vipDetails: {
+            sheets: best.result.sheets,
+            ups: best.result.ups,
+            parentSheet: best.size,
+            level: best.result.level,
+            markup: best.result.markup,
+            paperCostPerSheet: best.result.pricePerSheet.toFixed(4),
+            totalPaperCost: fmt(best.result.totalPaperCost),
+            clickCostPerSheet: best.result.clickCostPerSheet?.toFixed(4) || "N/A",
+            totalClickCost: fmt(best.result.totalClickCost || 0),
+            basePrintingCost: fmt(best.result.cost),
+            printingCostWithMarkup: fmt(fullResult.printingCostPlus10),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_printing error:", e)
@@ -502,6 +531,34 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
           costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
           ...(pagesNote ? { note: pagesNote } : {}),
           ...(sidesWarning ? { sidesWarning } : {}),
+          // VIP details
+          _vipDetails: {
+            insideResult: {
+              sheets: result.insideResult.sheets,
+              ups: result.insideResult.maxUps,
+              parentSheet: result.insideResult.sheetSize,
+              level: result.insideResult.level,
+              markup: result.insideResult.markup,
+              paperCost: fmt(result.insideResult.totalPaperCost),
+              clickCost: fmt(result.insideResult.totalClickCost),
+              pricePerSheet: result.insideResult.pricePerSheet.toFixed(4),
+              totalCost: fmt(result.insideResult.cost),
+            },
+            coverResult: separateCover ? {
+              sheets: result.coverResult.sheets,
+              ups: result.coverResult.maxUps,
+              parentSheet: result.coverResult.sheetSize,
+              level: result.coverResult.level,
+              markup: result.coverResult.markup,
+              paperCost: fmt(result.coverResult.totalPaperCost),
+              clickCost: fmt(result.coverResult.totalClickCost),
+              pricePerSheet: result.coverResult.pricePerSheet.toFixed(4),
+              totalCost: fmt(result.coverResult.cost),
+            } : null,
+            totalSheets: result.totalSheets,
+            bindingCost: fmt(result.totalBindingPrice),
+            laminationCost: fmt(result.totalLaminationCost),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_booklet error:", e)
@@ -570,6 +627,36 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             binding: "Spiral (coil)", broker: isBroker,
           },
           costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice) },
+          // VIP details
+          _vipDetails: {
+            insideResult: {
+              sheets: result.insideResult.sheets,
+              ups: result.insideResult.maxUps,
+              parentSheet: result.insideResult.sheetSize,
+              level: result.insideResult.level,
+              markup: result.insideResult.markup,
+              paperCost: fmt(result.insideResult.totalPaperCost),
+              clickCost: fmt(result.insideResult.totalClickCost),
+              pricePerSheet: result.insideResult.pricePerSheet.toFixed(4),
+              totalCost: fmt(result.insideResult.cost),
+            },
+            frontCoverResult: useFrontCover && result.frontCoverResult ? {
+              sheets: result.frontCoverResult.sheets,
+              ups: result.frontCoverResult.maxUps,
+              level: result.frontCoverResult.level,
+              markup: result.frontCoverResult.markup,
+              totalCost: fmt(result.frontCoverResult.cost),
+            } : null,
+            backCoverResult: useBackCover && result.backCoverResult ? {
+              sheets: result.backCoverResult.sheets,
+              ups: result.backCoverResult.maxUps,
+              level: result.backCoverResult.level,
+              markup: result.backCoverResult.markup,
+              totalCost: fmt(result.backCoverResult.cost),
+            } : null,
+            totalSheets: result.totalSheets,
+            bindingCost: fmt(result.totalBindingPrice),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_spiral error:", e)
@@ -581,24 +668,113 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
   // ============ PERFECT BINDING ============
   calculate_perfect_bound: tool({
     description:
-      `Calculate perfect-bound (glue spine, like a paperback) book cost. Minimum 40 inside pages. Cover wraps around spine (auto-calculated). Tool auto-picks cheapest parent sheet.`,
+      `Calculate perfect-bound (glue spine, like a paperback) book cost. Minimum 40 inside pages. Cover wraps around spine (auto-calculated). Tool auto-picks cheapest parent sheet. Supports multiple inside sections with different papers (e.g., color photo section + BW text section).`,
     inputSchema: z.object({
       bookQty: z.number().describe("Number of books"),
-      pagesPerBook: z.number().describe("INSIDE pages only (not counting cover). Minimum 40."),
+      pagesPerBook: z.number().describe("TOTAL inside pages (sum of all sections). Minimum 40. If using sections, this should match the sum of section pageCount values."),
       pageWidth: z.number().describe("FINISHED page width (e.g. 8.5)"),
       pageHeight: z.number().describe("FINISHED page height (e.g. 11)"),
-      insidePaper: z.string().describe(`Inside paper -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+      insidePaper: z.string().describe(`Inside paper (used when NOT using sections) -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
       insideSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`S/S is rare for perfect binding but valid -- DOUBLES page count automatically. Default D/S. Warn customer it doubles paper cost. ${SIDES_DESC}`),
+      sections: z.array(z.object({
+        pageCount: z.number().describe("Number of pages in this section"),
+        paperName: z.string().describe(`Paper for this section -- MUST be one of: ${BOOKLET_INSIDE_PAPERS.join(", ")}`),
+        sides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe("Sides for this section"),
+        hasBleed: z.boolean().describe("Bleed for this section"),
+      })).optional().describe("Optional: multiple inside sections with different papers. If provided, insidePaper/insideSides/insideBleed are ignored. Example: [{pageCount: 100, paperName: '20lb Offset', sides: 'D/S', hasBleed: false}, {pageCount: 16, paperName: '80lb Text Gloss', sides: '4/4', hasBleed: true}]"),
       coverPaper: z.string().describe(`Cover (cardstock) -- MUST be one of: ${BOOKLET_COVER_PAPERS.join(", ")}. Default "80 Gloss".`),
       coverSides: z.enum(["S/S", "D/S", "4/0", "4/4", "1/0", "1/1"]).describe(`Perfect bound cover CAN be one-sided (4/0 = color front only, common) or both-sided (4/4). USE what the customer says. Default "4/4" only if they say nothing. ${SIDES_DESC}`),
       laminationType: z.enum(["none", "Gloss", "Matte", "Silk", "Leather"]).describe("Cover lamination. Default none."),
-      insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books."),
+      insideBleed: z.boolean().describe("Inside pages bleed to edge? Default false for most books. Ignored if using sections."),
       coverBleed: z.boolean().describe("Cover bleeds to edge? Default true (most covers have full bleed)."),
       isBroker: z.boolean().describe("Broker/trade customer"),
     }),
-    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
+    execute: async ({ bookQty, pagesPerBook, pageWidth, pageHeight, insidePaper, insideSides, sections, coverPaper, coverSides, laminationType, insideBleed, coverBleed, isBroker }) => {
       try {
-        console.log("[v0] calculate_perfect called:", { bookQty, pagesPerBook, pageWidth, pageHeight })
+        console.log("[v0] calculate_perfect called:", { bookQty, pagesPerBook, pageWidth, pageHeight, sections: sections?.length || 0 })
+        
+        // Handle sections if provided
+        const useSections = sections && sections.length > 0
+        
+        if (useSections) {
+          // Validate sections total matches pagesPerBook
+          const sectionsTotal = sections.reduce((sum, s) => sum + s.pageCount, 0)
+          if (sectionsTotal !== pagesPerBook) {
+            return { error: `Section page counts (${sectionsTotal}) don't match total pages (${pagesPerBook}). Please verify.` }
+          }
+          if (pagesPerBook < 40) return { error: `Perfect binding needs at least 40 inside pages (you have ${pagesPerBook}). Suggest fold & staple booklet instead.` }
+          
+          // Build section inputs for calculator
+          const sectionInputs = sections.map((s, idx) => ({
+            id: `section-${idx}`,
+            pageCount: s.pageCount,
+            paperName: s.paperName,
+            sides: s.sides,
+            hasBleed: s.hasBleed,
+            sheetSize: "cheapest" as const,
+          }))
+          
+          const result = calculatePerfect({
+            bookQty, pagesPerBook, pageWidth, pageHeight,
+            inside: { paperName: sections[0].paperName, sides: sections[0].sides, hasBleed: sections[0].hasBleed, sheetSize: "cheapest" },
+            cover: { paperName: coverPaper || "80 Gloss", sides: coverSides || "4/4", hasBleed: coverBleed, sheetSize: "cheapest" },
+            laminationType, customLevel: "auto", isBroker,
+            insideSections: sectionInputs,
+          })
+          if ("error" in result) return { error: result.error }
+          
+          const sectionSpecs = sections.map((s, idx) => `Section ${idx + 1}: ${s.pageCount} pages on ${s.paperName} ${s.sides}${s.hasBleed ? " w/bleed" : ""}`).join("; ")
+          
+          return {
+            _instruction: "You MUST show the exactSpecs to the customer so they can verify every field is correct.",
+            total: fmt(result.grandTotal), perUnit: fmt(result.pricePerBook),
+            exactSpecs: {
+              qty: bookQty, size: `${pageWidth}x${pageHeight}`,
+              totalPages: pagesPerBook,
+              sections: sectionSpecs,
+              sectionCount: sections.length,
+              coverPaper: coverPaper || "80 Gloss", coverSides: coverSides || "4/4", coverBleed,
+              lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
+            },
+            costBreakdown: { 
+              printing: fmt(result.totalPrintingCost), 
+              binding: fmt(result.totalBindingPrice), 
+              lamination: fmt(result.totalLaminationCost),
+            },
+            // VIP details for sections
+            _vipDetails: {
+              coverResult: {
+                sheets: result.coverResult.sheets,
+                ups: result.coverResult.maxUps,
+                parentSheet: result.coverResult.sheetSize,
+                level: result.coverResult.level,
+                markup: result.coverResult.markup,
+                paperCost: fmt(result.coverResult.totalPaperCost),
+                clickCost: fmt(result.coverResult.totalClickCost),
+                totalCost: fmt(result.coverResult.cost),
+              },
+              sections: result.insideSectionResults?.map((s, idx) => ({
+                sectionNum: idx + 1,
+                paper: s.paper,
+                pages: s.pagesInSection,
+                sheets: s.sheets,
+                ups: s.maxUps,
+                parentSheet: s.sheetSize,
+                level: s.level,
+                markup: s.markup,
+                paperCost: fmt(s.totalPaperCost),
+                clickCost: fmt(s.totalClickCost),
+                totalCost: fmt(s.cost),
+              })),
+              spineWidth: result.spineWidth?.toFixed(3) + '"',
+              totalSheets: result.totalSheets,
+              bindingCost: fmt(result.totalBindingPrice),
+              laminationCost: fmt(result.totalLaminationCost),
+            },
+          }
+        }
+        
+        // Original single-paper logic
         const isSingleSidedInside = ["S/S", "4/0", "1/0"].includes(insideSides)
         const singleToBoth: Record<string, string> = { "4/0": "4/4", "1/0": "1/1", "S/S": "D/S" }
         const calcInsideSides = singleToBoth[insideSides] || insideSides
@@ -627,6 +803,33 @@ Pass TOTAL page count (e.g. customer says 20 pages = pass 20). Minimum 8, max ~1
             lamination: laminationType, binding: "Perfect-bound (glue bind)", broker: isBroker,
           },
           costBreakdown: { printing: fmt(result.totalPrintingCost), binding: fmt(result.totalBindingPrice), lamination: fmt(result.totalLaminationCost) },
+          // VIP details
+          _vipDetails: {
+            coverResult: {
+              sheets: result.coverResult.sheets,
+              ups: result.coverResult.maxUps,
+              parentSheet: result.coverResult.sheetSize,
+              level: result.coverResult.level,
+              markup: result.coverResult.markup,
+              paperCost: fmt(result.coverResult.totalPaperCost),
+              clickCost: fmt(result.coverResult.totalClickCost),
+              totalCost: fmt(result.coverResult.cost),
+            },
+            insideResult: {
+              sheets: result.insideResult.sheets,
+              ups: result.insideResult.maxUps,
+              parentSheet: result.insideResult.sheetSize,
+              level: result.insideResult.level,
+              markup: result.insideResult.markup,
+              paperCost: fmt(result.insideResult.totalPaperCost),
+              clickCost: fmt(result.insideResult.totalClickCost),
+              totalCost: fmt(result.insideResult.cost),
+            },
+            spineWidth: result.spineWidth?.toFixed(3) + '"',
+            totalSheets: result.totalSheets,
+            bindingCost: fmt(result.totalBindingPrice),
+            laminationCost: fmt(result.totalLaminationCost),
+          },
         }
       } catch (e: unknown) {
         console.error("[v0] calculate_perfect error:", e)

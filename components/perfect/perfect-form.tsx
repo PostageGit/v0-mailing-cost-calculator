@@ -390,13 +390,13 @@ export function PerfectForm({
                       <button
                         type="button"
                         onClick={() => setShowAllSectionPapers(prev => ({ ...prev, [section.id]: !prev[section.id] }))}
-                        className={`text-[9px] px-1.5 py-0.5 rounded transition-colors ${
+                        className={`text-[10px] px-2 py-0.5 rounded border font-medium transition-colors ${
                           showAllSectionPapers[section.id] 
-                            ? "bg-primary text-primary-foreground" 
-                            : "text-muted-foreground hover:bg-secondary"
+                            ? "bg-primary text-primary-foreground border-primary" 
+                            : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
                         }`}
                       >
-                        {showAllSectionPapers[section.id] ? "Filtered" : "All"}
+                        {showAllSectionPapers[section.id] ? "Filtered" : "Show All"}
                       </button>
                     </div>
                     <Select
