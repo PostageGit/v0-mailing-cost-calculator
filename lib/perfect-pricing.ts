@@ -401,7 +401,7 @@ export function calculatePerfect(
   if ("error" in coverRes) {
     const errMsg = (coverRes as { error: string }).error
     if (errMsg.includes("does not fit")) {
-      return { error: `Cover paper "${cover.paperName}" doesn't come in a large enough sheet. Try 12pt Gloss instead.` }
+      return { error: `The cover paper (${cover.paperName}) doesn't come in a large enough sheet. Try 12pt Gloss instead.` }
     }
     return coverRes
   }
