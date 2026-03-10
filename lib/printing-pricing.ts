@@ -18,6 +18,22 @@ import type { FoldFinishCostLine } from "./printing-types"
 
 // ==================== DATA CONSTANTS ====================
 
+import { getDynamicPaperOptions } from "./pricing-config"
+
+/** Get paper options - uses database papers if loaded, otherwise falls back to hardcoded */
+export function getFlatPaperOptions(): PaperOption[] {
+  const dynamic = getDynamicPaperOptions("flat")
+  if (dynamic.length > 0) {
+    return dynamic.map(d => ({
+      name: d.name,
+      isCardstock: d.isCardstock,
+      thickness: d.thickness,
+      availableSizes: d.availableSizes,
+    }))
+  }
+  return PAPER_OPTIONS
+}
+
 export const PAPER_OPTIONS: PaperOption[] = [
   // Text weight papers (books, flats, self-mailers)
   { name: "20lb Offset", isCardstock: false, thickness: 0.00225, availableSizes: ["8.5x11", "11x17", "12x18", "12.5x19"] },
@@ -125,8 +141,9 @@ const BLEED_MARGIN = 0.25
 // ==================== HELPER FUNCTIONS ====================
 
 export function getAvailableSides(paperName: string, paperInfo?: { isCardstock: boolean }): string[] {
-  // Use provided paper info, or look up from defaults
-  const paper = paperInfo || PAPER_OPTIONS.find((p) => p.name === paperName)
+  // Use provided paper info, or look up from dynamic options then defaults
+  const allPapers = getFlatPaperOptions()
+  const paper = paperInfo || allPapers.find((p) => p.name === paperName)
   if (!paper) {
     // If paper not found in defaults, check if it looks like cardstock by name
     const lowerName = paperName.toLowerCase()
@@ -265,7 +282,8 @@ export function calculateCuts(
 
 export function calculatePrintingCost(inputs: PrintingInputs, size: string): PrintingCalcResult | null {
   const { qty, width, height, paperName, sidesValue, hasBleed } = inputs
-  const paperData = PAPER_OPTIONS.find((p) => p.name === paperName)
+  const allPapers = getFlatPaperOptions()
+  const paperData = allPapers.find((p) => p.name === paperName)
   if (!paperData) return null
 
   const sidesRule = SIDES_RULES[sidesValue]
@@ -361,7 +379,8 @@ function getFinishingCosts(inputs: PrintingInputs, parentSheets: number): { line
 // OLD getScoreFoldCost removed - using new foldFinish engine instead
 
 export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow[] {
-  const paper = PAPER_OPTIONS.find((p) => p.name === inputs.paperName)
+  const allPapers = getFlatPaperOptions()
+  const paper = allPapers.find((p) => p.name === inputs.paperName)
   if (!paper) return []
 
   const results: SheetOptionRow[] = []

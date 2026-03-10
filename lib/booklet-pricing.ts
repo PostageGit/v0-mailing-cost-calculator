@@ -108,20 +108,59 @@ export function parseSheetSize(sizeString: string): { w: number; h: number } {
   return { w, h }
 }
 
+import { getDynamicPaperOptions } from "./pricing-config"
+
 export function getCoverPapers(): BookletPaperOption[] {
+  // Use dynamic options from database if available, fallback to hardcoded
+  const dynamic = getDynamicPaperOptions("bookCover")
+  if (dynamic.length > 0) {
+    return dynamic.map(d => ({
+      name: d.name,
+      isCardstock: d.isCardstock,
+      canLaminate: d.canLaminate,
+      thickness: d.thickness,
+      availableSizes: d.availableSizes,
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  }
   return BOOKLET_PAPER_OPTIONS.filter((p) => p.isCardstock).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function getInsidePapers(): BookletPaperOption[] {
+  // Use dynamic options from database if available, fallback to hardcoded
+  const dynamic = getDynamicPaperOptions("bookInside")
+  if (dynamic.length > 0) {
+    return dynamic.map(d => ({
+      name: d.name,
+      isCardstock: d.isCardstock,
+      canLaminate: d.canLaminate,
+      thickness: d.thickness,
+      availableSizes: d.availableSizes,
+    })).sort((a, b) => a.name.localeCompare(b.name))
+  }
   return BOOKLET_PAPER_OPTIONS.filter((p) => !p.isCardstock).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function canPaperLaminate(paperName: string): boolean {
+  // Check dynamic options first
+  const coverDynamic = getDynamicPaperOptions("bookCover")
+  const insideDynamic = getDynamicPaperOptions("bookInside")
+  const allDynamic = [...coverDynamic, ...insideDynamic]
+  if (allDynamic.length > 0) {
+    return allDynamic.find(p => p.name === paperName)?.canLaminate ?? false
+  }
   const paper = BOOKLET_PAPER_OPTIONS.find((p) => p.name === paperName)
   return paper?.canLaminate ?? false
 }
 
 export function getAvailableSizes(paperName: string): string[] {
+  // Check dynamic options first
+  const coverDynamic = getDynamicPaperOptions("bookCover")
+  const insideDynamic = getDynamicPaperOptions("bookInside")
+  const allDynamic = [...coverDynamic, ...insideDynamic]
+  if (allDynamic.length > 0) {
+    const paper = allDynamic.find(p => p.name === paperName)
+    if (paper) return paper.availableSizes
+  }
   const paper = BOOKLET_PAPER_OPTIONS.find((p) => p.name === paperName)
   return paper?.availableSizes ?? []
 }
