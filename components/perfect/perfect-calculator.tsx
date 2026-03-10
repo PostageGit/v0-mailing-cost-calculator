@@ -275,6 +275,7 @@ export function PerfectCalculator() {
           isEditing={false}
           validationError={validationError}
           ohpMode={isOhpMode}
+          sectionResults={calcResult?.insideSectionResults}
         />
           </>
         )}
