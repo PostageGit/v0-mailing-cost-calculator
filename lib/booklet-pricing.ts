@@ -235,7 +235,15 @@ function calculatePartCost(
   forcedLevel: number | null,
   partName: string,
 ): PartCalcResult {
-  const paperData = BOOKLET_PAPER_OPTIONS.find((p) => p.name === paperName)
+  // Try dynamic options from database first, fall back to hardcoded
+  const coverDynamic = getDynamicPaperOptions("bookCover")
+  const insideDynamic = getDynamicPaperOptions("bookInside")
+  const allDynamic = [...coverDynamic, ...insideDynamic]
+  let paperData = allDynamic.find((p) => p.name === paperName)
+  if (!paperData) {
+    // Fall back to hardcoded options
+    paperData = BOOKLET_PAPER_OPTIONS.find((p) => p.name === paperName)
+  }
   if (!paperData) return emptyPartResult(partName, "Selected paper not found.")
 
   const sidesRule = SIDES_RULES[sidesValue]

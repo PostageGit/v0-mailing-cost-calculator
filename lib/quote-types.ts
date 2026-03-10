@@ -31,6 +31,9 @@ export interface QuoteLineItem {
     sides?: string               // "S/S", "D/S"
     hasBleed?: boolean
     pageCount?: number           // for booklets/spiral/perfect
+    usesShortPaper?: boolean     // True when SHORT paper orientation is used
+    coverSheetSize?: string      // e.g., "12x18" or "Short 12x18"
+    insideSheetSize?: string     // e.g., "12.5x19" or "Short 12.5x19"
 
     // Envelope
     envelopeSize?: string        // "A2", "#10 Std", etc.

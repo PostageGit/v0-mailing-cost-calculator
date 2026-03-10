@@ -45,6 +45,7 @@ const PRINTING_USAGE_OPTIONS = [
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const ALL_SIZES = ["8.5x11", "11x17", "12x18", "12.5x19", "13x19", "13x26"]
+const SHORT_SIZES = ["Short 11x17", "Short 12x18", "Short 12.5x19"] // For booklet/perfect binding inside pages
 const CATEGORIES = [
   { value: "text", label: "Text Weight" },
   { value: "cover", label: "Cover / Cardstock" },
@@ -371,6 +372,26 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
             </button>
           ))}
         </div>
+        <div className="mt-2">
+          <span className="text-[10px] text-muted-foreground">Short sizes (for book inside pages):</span>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {SHORT_SIZES.map((size) => (
+              <button
+                key={size}
+                onClick={() => toggleSize(size)}
+                className={cn(
+                  "px-2 py-1 text-xs rounded-md border transition-colors",
+                  sizes.includes(size)
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-background text-muted-foreground border-border hover:border-amber-500"
+                )}
+              >
+                {size.replace("Short ", "")}
+                <span className="text-[9px] ml-0.5 opacity-70">S</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div>
@@ -414,10 +435,10 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
             : "Enter cost per single sheet (e.g. $0.032)."
           }
         </p>
+        {/* Regular sizes */}
         <div className="grid grid-cols-3 gap-2">
-          {sizes.map((size) => {
+          {sizes.filter(s => !s.startsWith("Short")).map((size) => {
             const perSheetPrice = prices[size] ? parseFloat(prices[size]) : 0
-            // Use raw input value for display to allow natural typing
             const displayValue = priceMode === "per1000" 
               ? (priceInputs[size] ?? "")
               : (prices[size] || "")
@@ -432,9 +453,7 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
                     onChange={(e) => {
                       const inputVal = e.target.value
                       if (priceMode === "per1000") {
-                        // Store raw input for display
                         setPriceInputs({ ...priceInputs, [size]: inputVal })
-                        // Convert to per-sheet for actual storage
                         const numVal = parseFloat(inputVal)
                         const perSheet = !isNaN(numVal) ? (numVal / 1000).toString() : ""
                         setPrices({ ...prices, [size]: perSheet })
@@ -455,6 +474,54 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
             )
           })}
         </div>
+        {/* Short sizes (if any selected) */}
+        {sizes.some(s => s.startsWith("Short")) && (
+          <>
+            <div className="flex items-center gap-2 mt-3 mb-1">
+              <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
+              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">Short Sizes (for books)</span>
+              <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {sizes.filter(s => s.startsWith("Short")).map((size) => {
+                const perSheetPrice = prices[size] ? parseFloat(prices[size]) : 0
+                const displayValue = priceMode === "per1000" 
+                  ? (priceInputs[size] ?? "")
+                  : (prices[size] || "")
+                
+                return (
+                  <div key={size} className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">{size}</span>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">$</span>
+                      <Input
+                        value={displayValue}
+                        onChange={(e) => {
+                          const inputVal = e.target.value
+                          if (priceMode === "per1000") {
+                            setPriceInputs({ ...priceInputs, [size]: inputVal })
+                            const numVal = parseFloat(inputVal)
+                            const perSheet = !isNaN(numVal) ? (numVal / 1000).toString() : ""
+                            setPrices({ ...prices, [size]: perSheet })
+                          } else {
+                            setPrices({ ...prices, [size]: inputVal })
+                          }
+                        }}
+                        placeholder={priceMode === "per1000" ? "0.00" : "0.0000"}
+                        className="h-7 text-xs pl-5 font-mono border-amber-300 dark:border-amber-700"
+                      />
+                    </div>
+                    {priceMode === "per1000" && perSheetPrice > 0 && (
+                      <span className="text-[9px] text-muted-foreground">
+                        = ${perSheetPrice.toFixed(4)}/sheet
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
         <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5">
           {priceMode === "per1000"
             ? "Typical: Text $10-50/M, Cardstock $50-200/M"

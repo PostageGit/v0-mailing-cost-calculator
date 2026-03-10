@@ -176,14 +176,17 @@ export function PerfectCalculator() {
     
     // Build description with sections support
     const usingSections = calcResult.insideSectionResults && calcResult.insideSectionResults.length > 0
+    // Check if any part uses SHORT paper
+    const coverShort = calcResult.coverResult.isShort ? " [SHORT]" : ""
+    const insideShort = calcResult.insideResult.isShort ? " [SHORT]" : ""
     let desc: string
     if (usingSections) {
       const sectionDescs = calcResult.insideSectionResults.map((s, i) => 
-        `Sec ${i + 1}: ${s.pagesInSection || "?"}pg ${s.paper} ${s.sides}`
+        `Sec ${i + 1}: ${s.pagesInSection || "?"}pg ${s.paper} ${s.sides}${s.isShort ? " [SHORT]" : ""}`
       ).join(" | ")
-      desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides} | ${sectionDescs}${extrasStr}`
+      desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides}${coverShort} | ${sectionDescs}${extrasStr}`
     } else {
-      desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides} | Pages: ${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${extrasStr}`
+      desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides}${coverShort} | Pages: ${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${insideShort}${extrasStr}`
     }
     
     quote.addItem({
@@ -207,6 +210,11 @@ export function PerfectCalculator() {
         sectionCount: usingSections ? calcResult.insideSectionResults.length : undefined,
         laminationEnabled: calcResult.laminationType !== "none" || undefined,
         laminationType: calcResult.laminationType !== "none" ? calcResult.laminationType : undefined,
+        // Track if SHORT paper orientation is used
+        usesShortPaper: calcResult.coverResult.isShort || calcResult.insideResult.isShort || 
+          (usingSections && calcResult.insideSectionResults.some(s => s.isShort)) || undefined,
+        coverSheetSize: calcResult.coverResult.sheetSize,
+        insideSheetSize: usingSections ? undefined : calcResult.insideResult.sheetSize,
       },
     })
   }, [calcResult, inputs, quote, effectiveTotal, perfectPiece])

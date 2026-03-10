@@ -127,14 +127,14 @@ export function calculateLayout(
   const phs = Math.round(pageH * S)
 
   if (partName === "inside") {
-  // Try both orientations and pick the best
-  const upsNormal = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
-  const upsRotated = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
-  if (upsRotated > upsNormal) {
-    return { maxUps: upsRotated, isRotated: true }
+    // Inside pages: NO rotation allowed
+    // "Short" sizes provide the alternative orientation (e.g., "Short 12x18" = 18x12)
+    // The system checks ALL size options (regular + Short) and picks cheapest
+    const maxUps = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
+    return { maxUps, isRotated: false }
   }
-  return { maxUps: upsNormal, isRotated: false }
-  }
+  
+  // Covers: CAN rotate - try both orientations and pick the best
   const portrait = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
   const landscape = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
   return { maxUps: Math.max(portrait, landscape), isRotated: landscape > portrait }
@@ -206,10 +206,12 @@ function calculatePart(
     else if (level === 7) price = Math.round(price * 1000) / 1000
     else price = Math.round(price * 10000) / 10000
 
+    const isShort = sizeStr.startsWith("Short ")
     return {
       cost: price * totalSheets,
       sheets: totalSheets, sheetSize: sizeStr, paper: part.paperName,
       sides: part.sides, bleed: part.hasBleed, isRotated: layout.isRotated,
+      isShort, // Flag when using Short paper orientation
       finalSheetWidth: sheet.w, finalSheetHeight: sheet.h,
       maxUps: layout.maxUps, pricePerSheet: price, level, autoLevel, markup,
       // P/L cost breakdown

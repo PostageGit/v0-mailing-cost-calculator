@@ -45,7 +45,7 @@ export function PadForm({
   onSettingsSave,
 }: PadFormProps) {
   const [showAllPapers, setShowAllPapers] = useState(false)
-  const { getPaperOptions, papers: allPapers } = usePapersContext()
+  const { getPaperOptions, papers: allPapers, paperDataLookup } = usePapersContext()
   const filteredPapers = getPaperOptions("pad")
   const allPaperOptions = allPapers.map((p) => ({ name: p.name }))
   const paperNames = (showAllPapers ? allPaperOptions : filteredPapers).map((p) => p.name)
@@ -71,8 +71,8 @@ export function PadForm({
   }
 
   const part = inputs.inside
-  const sizes = part.paperName ? getAvailableSizes(part.paperName) : []
-  const sides = part.paperName ? getAvailableSides(part.paperName, part.sheetSize !== "cheapest" ? part.sheetSize : undefined) : []
+  const sizes = part.paperName ? getAvailableSizes(part.paperName, paperDataLookup) : []
+  const sides = part.paperName ? getAvailableSides(part.paperName, part.sheetSize !== "cheapest" ? part.sheetSize : undefined, paperDataLookup) : []
 
   return (
     <form onSubmit={handleSubmit}>

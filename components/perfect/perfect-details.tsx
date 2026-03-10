@@ -83,29 +83,41 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
   const totalClickCost = coverResult.totalClickCost + insideClickCost
   const totalMaterialCost = totalPaperCost + totalClickCost
 
+  // Helper to render sheet size with SHORT badge
+  const SheetSizeDisplay = ({ sheetSize, isShort }: { sheetSize: string; isShort?: boolean }) => (
+    <span className="inline-flex items-center gap-1">
+      {isShort && (
+        <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase bg-amber-500 text-white rounded">
+          SHORT
+        </span>
+      )}
+      <span>{sheetSize.replace("Short ", "")}</span>
+    </span>
+  )
+
   // Simple summary - detailed section info is now in the form
   const summaryTable = (
     <div className="text-xs space-y-1.5">
       <div className="flex justify-between items-center py-1 border-b border-muted/50">
         <span className="font-medium">Cover</span>
-        <span className="text-muted-foreground">
-          {coverResult.sheets.toLocaleString()} sht · {coverResult.sheetSize} · {coverResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(coverResult.cost)}</span>
+        <span className="text-muted-foreground flex items-center gap-1">
+          {coverResult.sheets.toLocaleString()} sht · <SheetSizeDisplay sheetSize={coverResult.sheetSize} isShort={coverResult.isShort} /> · {coverResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(coverResult.cost)}</span>
         </span>
       </div>
       {usingSections ? (
         insideSectionResults.map((section, idx) => (
           <div key={idx} className="flex justify-between items-center py-1 border-b border-muted/50">
             <span className="font-medium">Sec {idx + 1}: {section.paper}</span>
-            <span className="text-muted-foreground">
-              {section.sheets.toLocaleString()} sht · {section.sheetSize} · {section.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(section.cost)}</span>
+            <span className="text-muted-foreground flex items-center gap-1">
+              {section.sheets.toLocaleString()} sht · <SheetSizeDisplay sheetSize={section.sheetSize} isShort={section.isShort} /> · {section.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(section.cost)}</span>
             </span>
           </div>
         ))
       ) : (
         <div className="flex justify-between items-center py-1 border-b border-muted/50">
           <span className="font-medium">Inside</span>
-          <span className="text-muted-foreground">
-            {insideResult.sheets.toLocaleString()} sht · {insideResult.sheetSize} · {insideResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(insideResult.cost)}</span>
+          <span className="text-muted-foreground flex items-center gap-1">
+            {insideResult.sheets.toLocaleString()} sht · <SheetSizeDisplay sheetSize={insideResult.sheetSize} isShort={insideResult.isShort} /> · {insideResult.maxUps} up · <span className="font-semibold text-foreground">{formatCurrency(insideResult.cost)}</span>
           </span>
         </div>
       )}
