@@ -298,6 +298,21 @@ THINGS YOU MUST NEVER DEFAULT -- always ask:
 - Page count (for any book/booklet/spiral/perfect)
 - Binding type (for books)
 
+SCORE & FOLD (for brochures, mailers, flyers):
+- Use calculate_score_fold AFTER calculate_printing when customer wants folding on flat printed pieces.
+- Fold types: half (fold in half), tri (tri-fold), z (z-fold), gate (gate fold), double_parallel/accordion (fold in 4), roll (roll fold)
+- Finish types:
+  * "fold" = fold only (for light papers like 60lb, 80lb text)
+  * "score_and_fold" = score then fold (for cardstock like 10pt, 12pt, 80 cover - the paper needs to be scored first or it'll crack)
+  * "score_only" = just add score lines, customer folds themselves
+- Paper rules:
+  * 20lb offset = too thin, can't fold
+  * 60lb/80lb text = fold only (no scoring needed)
+  * 100lb text = can fold OR score_and_fold
+  * Cardstock (10pt, 12pt, 14pt, 80 cover) = MUST score_and_fold (not just fold)
+- First call calculate_printing for the flat piece, then call calculate_score_fold to add folding. Add both costs together for the total.
+- Example: 1000 tri-fold brochures on 10pt gloss = calculate_printing(1000, 8.5, 11, "10pt Gloss", "4/4", true) THEN calculate_score_fold(1000, 8.5, 11, "10pt Gloss", "score_and_fold", "tri")
+
 BINDING TYPES (always let the customer choose -- never pick for them):
  - Fold & Staple (saddle-stitch): minimum 8 pages, multiple of 4, max ~140 pages plus cover. Use calculate_booklet.
 - Perfect binding / glue bind (flat spine, like a paperback): minimum 40 inside pages. Use calculate_perfect_bound. SUPPORTS SECTIONS: A perfect bound book can have multiple inside sections with different papers (e.g., 100 pages BW text + 16 pages color photos). Use the "sections" array parameter when the customer wants different papers for different parts of the book.
@@ -502,6 +517,130 @@ const tools = {
       } catch (e: unknown) {
         console.error("[v0] calculate_printing error:", e)
         return { error: `Calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
+      }
+    },
+  }),
+
+  // ============ SCORE & FOLD ============
+  calculate_score_fold: tool({
+    description:
+      `Calculate score and/or fold cost for brochures, mailers, etc. Use AFTER calculate_printing to add folding to a flat printing job. Paper must match what was used in printing.`,
+    inputSchema: z.object({
+      qty: z.number().describe("Number of pieces to fold"),
+      width: z.number().describe("FLAT/OPEN width in inches (before folding)"),
+      height: z.number().describe("FLAT/OPEN height in inches (before folding)"),
+      paperName: z.string().describe("Paper name - must match what was used for printing"),
+      finishType: z.enum(["fold", "score_and_fold", "score_only"]).describe("fold=fold only (light papers), score_and_fold=score then fold (cardstock/heavy), score_only=just score lines"),
+      foldType: z.enum(["half", "tri", "z", "gate", "double_parallel", "accordion", "roll"]).describe("half=fold in half, tri=tri-fold, z=z-fold, gate=gate fold, double_parallel/accordion=fold in 4, roll=roll fold"),
+      isBroker: z.boolean().describe("Broker/trade customer"),
+    }),
+    execute: async ({ qty, width, height, paperName, finishType, foldType, isBroker }) => {
+      try {
+        console.log("[v0] calculate_score_fold called:", { qty, width, height, paperName, finishType, foldType, isBroker })
+        
+        // Import the paper mapping function
+        const { mapPaperToFoldKey, mapFoldTypeToDataKey } = await import("@/lib/finishing-fold-engine")
+        
+        // Determine category and paper key
+        const cat = finishType === "fold" ? "folding" : "sf"
+        const { foldKey, sfKey } = mapPaperToFoldKey(paperName)
+        const paperKey = cat === "folding" ? foldKey : sfKey
+        
+        if (!paperKey) {
+          return { 
+            error: `${paperName} cannot be ${finishType === "fold" ? "folded" : "scored and folded"}. Try a different paper or finish type.`,
+            suggestion: finishType === "fold" ? "Try score_and_fold for cardstock" : "This paper may be too thin or not suitable for scoring"
+          }
+        }
+        
+        // Map fold type to data key
+        const foldDataKey = mapFoldTypeToDataKey(foldType)
+        const finish = cat === "sf" ? `Score & ${foldDataKey}` : foldDataKey
+        
+        // Call the fold-calc API
+        const baseUrl = process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+        
+        const response = await fetch(`${baseUrl}/api/fold-calc`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cat,
+            paperKey,
+            w: width,
+            h: height,
+            finish,
+            qty,
+            axis: "w", // default to folding along width
+          }),
+        })
+        
+        const result = await response.json()
+        
+        if (result.error) {
+          return { 
+            error: result.error,
+            suggestion: result.alt || result.availableFinishes?.length 
+              ? `Available options: ${result.availableFinishes?.join(", ") || "none"}`
+              : null
+          }
+        }
+        
+        if (result.resolution === "na") {
+          return {
+            error: `${foldType} ${finishType} not available for ${paperName} at ${width}x${height}`,
+            suggestion: result.alt || null,
+            availableFinishes: result.availableFinishes,
+          }
+        }
+        
+        if (result.resolution === "too_small") {
+          return {
+            error: result.error,
+            suggestion: result.alt,
+            minSize: result.minSize,
+          }
+        }
+        
+        if (result.resolution === "hand") {
+          return {
+            total: fmt(isBroker ? result.price.broker : result.price.retail),
+            perUnit: fmt(isBroker ? result.price.brokerPerPiece : result.price.perPiece),
+            method: "Hand Fold",
+            warning: "This requires hand folding - more expensive",
+            foldType,
+            finishType,
+            broker: isBroker,
+          }
+        }
+        
+        const price = result.price
+        const total = isBroker ? price.broker : price.retail
+        const perUnit = isBroker ? price.brokerPerPiece : price.perPiece
+        
+        return {
+          total: fmt(total),
+          perUnit: fmt(perUnit),
+          foldType,
+          finishType,
+          sizeCategory: result.sizeLabel,
+          broker: isBroker,
+          isScoreOnly: result.isScoreOnly || false,
+          upgraded: result.upgraded ? `Auto-upgraded to ${result.upgraded.toPaper} (saves ${fmt(result.upgraded.savings)})` : null,
+          alerts: result.alerts,
+          _vipDetails: {
+            level: price.level,
+            setupCost: fmt(price.setupCost),
+            runCost: fmt(price.runCost),
+            longFee: price.longFee > 0 ? fmt(price.longFee) : null,
+            batchSize: price.batchSize,
+            secondsPerBatch: price.secondsPerBatch,
+          },
+        }
+      } catch (e: unknown) {
+        console.error("[v0] calculate_score_fold error:", e)
+        return { error: `Score/fold calculator error: ${e instanceof Error ? e.message : "Unknown error"}. Please try again.` }
       }
     },
   }),
