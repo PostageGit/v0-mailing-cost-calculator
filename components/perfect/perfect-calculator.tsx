@@ -173,7 +173,19 @@ export function PerfectCalculator() {
     }
     if (calcResult.isBroker) extras.push("Broker")
     const extrasStr = extras.length > 0 ? ` (${extras.join(", ")})` : ""
-    const desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides} | Pages: ${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${extrasStr}`
+    
+    // Build description with sections support
+    const usingSections = calcResult.insideSectionResults && calcResult.insideSectionResults.length > 0
+    let desc: string
+    if (usingSections) {
+      const sectionDescs = calcResult.insideSectionResults.map((s, i) => 
+        `Sec ${i + 1}: ${s.pagesInSection || "?"}pg ${s.paper} ${s.sides}`
+      ).join(" | ")
+      desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides} | ${sectionDescs}${extrasStr}`
+    } else {
+      desc = `Cover: ${calcResult.coverResult.paper}, ${calcResult.coverResult.sides} | Pages: ${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${extrasStr}`
+    }
+    
     quote.addItem({
       category: "perfect",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
@@ -185,9 +197,14 @@ export function PerfectCalculator() {
         pieceDimensions: `${inputs.pageWidth}x${inputs.pageHeight}`,
         production: perfectPiece?.production || "inhouse",
         piecePosition: perfectPiece?.position || undefined,
-        paperName: calcResult.insideResult.paper,
-        sides: calcResult.insideResult.sides,
+        paperName: usingSections 
+          ? calcResult.insideSectionResults.map(s => s.paper).join(", ")
+          : calcResult.insideResult.paper,
+        sides: usingSections
+          ? calcResult.insideSectionResults.map(s => s.sides).join(", ")
+          : calcResult.insideResult.sides,
         pageCount: inputs.pagesPerBook,
+        sectionCount: usingSections ? calcResult.insideSectionResults.length : undefined,
         laminationEnabled: calcResult.laminationType !== "none" || undefined,
         laminationType: calcResult.laminationType !== "none" ? calcResult.laminationType : undefined,
       },

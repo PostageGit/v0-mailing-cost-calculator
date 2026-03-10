@@ -67,9 +67,27 @@ export function perfectSpecsToChat(inputs: {
   insideBleed: boolean
   laminationType: string
   isBroker: boolean
+  sections?: Array<{
+    pageCount: number
+    paperName: string
+    sides: string
+    hasBleed: boolean
+  }>
 }): string {
+  const usingSections = inputs.sections && inputs.sections.length > 0
+  
   let msg = `Hi, I need ${inputs.bookQty} perfect bound books, ${inputs.pageWidth}x${inputs.pageHeight}, ${inputs.pagesPerBook} inside pages.`
-  msg += ` Inside on ${inputs.insidePaper}, ${sidesHuman(inputs.insideSides)}, ${bleedHuman(inputs.insideBleed)}.`
+  
+  if (usingSections) {
+    // Describe each section
+    const sectionDescs = inputs.sections!.map((s, i) => 
+      `Section ${i + 1}: ${s.pageCount} pages on ${s.paperName}, ${sidesHuman(s.sides)}, ${bleedHuman(s.hasBleed)}`
+    ).join(". ")
+    msg += ` The book has ${inputs.sections!.length} sections: ${sectionDescs}.`
+  } else {
+    msg += ` Inside on ${inputs.insidePaper}, ${sidesHuman(inputs.insideSides)}, ${bleedHuman(inputs.insideBleed)}.`
+  }
+  
   msg += ` Cover on ${inputs.coverPaper}, ${sidesHuman(inputs.coverSides)}, ${bleedHuman(inputs.coverBleed)}.`
   const lam = lamHuman(inputs.laminationType)
   if (lam) msg += ` ${lam}`
