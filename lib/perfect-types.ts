@@ -7,13 +7,20 @@ export interface PerfectPartInputs {
   hasBleed: boolean
 }
 
+/** Inside section with its own paper and page count */
+export interface PerfectInsideSection extends PerfectPartInputs {
+  id: string          // unique id for React key
+  pageCount: number   // number of pages in this section
+}
+
 export interface PerfectInputs {
   bookQty: number
   pagesPerBook: number
   pageWidth: number
   pageHeight: number
   cover: PerfectPartInputs
-  inside: PerfectPartInputs
+  inside: PerfectPartInputs           // legacy single inside (used if no sections)
+  insideSections: PerfectInsideSection[]  // multiple sections with different papers
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   isBroker: boolean
   customLevel: "auto" | string   // "auto" | "1"-"10"
@@ -101,6 +108,17 @@ export const DEFAULT_PERFECT_PART: PerfectPartInputs = {
   hasBleed: false,
 }
 
+export function createInsideSection(pageCount = 0): PerfectInsideSection {
+  return {
+    id: crypto.randomUUID(),
+    pageCount,
+    paperName: "",
+    sheetSize: "cheapest",
+    sides: "",
+    hasBleed: false,
+  }
+}
+
 export function defaultPerfectInputs(): PerfectInputs {
   return {
     bookQty: 0,
@@ -109,6 +127,7 @@ export function defaultPerfectInputs(): PerfectInputs {
     pageHeight: 0,
     cover: { paperName: "80 Gloss", sheetSize: "cheapest", sides: "4/4", hasBleed: false },
     inside: { paperName: "20lb Offset", sheetSize: "cheapest", sides: "D/S", hasBleed: false },
+    insideSections: [],  // empty = use legacy single inside
     laminationType: "none",
     isBroker: false,
     customLevel: "auto",

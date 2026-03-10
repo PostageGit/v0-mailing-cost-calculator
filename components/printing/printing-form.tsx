@@ -154,13 +154,13 @@ export function PrintingForm({
             <button
               type="button"
               onClick={() => setShowAllPapers(!showAllPapers)}
-              className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${
+              className={`text-xs px-2.5 py-1 rounded-md font-semibold transition-colors shadow-sm ${
                 showAllPapers 
-                  ? "bg-primary text-primary-foreground border-primary" 
-                  : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
+                  ? "bg-blue-600 text-white border border-blue-700" 
+                  : "bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
               }`}
             >
-              {showAllPapers ? "Filtered" : "Show All"}
+              {showAllPapers ? "Showing All" : "Show All"}
             </button>
           </div>
           <Select value={inputs.paperName} onValueChange={handlePaperChange}>
