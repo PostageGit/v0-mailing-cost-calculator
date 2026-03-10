@@ -53,11 +53,8 @@ export function BookletForm({
   // Calculate total leaves from page count (pages / 4 for saddle stitch)
   const totalLeaves = inputs.pagesPerBook > 0 ? Math.ceil(inputs.pagesPerBook / 4) : 0
   const usesInserts = inputs.insertSections && inputs.insertSections.length > 0
-  const outerInserts = inputs.insertSections?.filter(s => s.position === "outer") || []
-  const centerInserts = inputs.insertSections?.filter(s => s.position === "center") || []
-  const outerLeafCount = outerInserts.reduce((sum, s) => sum + (s.leafCount || 0), 0)
-  const centerLeafCount = centerInserts.reduce((sum, s) => sum + (s.leafCount || 0), 0)
-  const mainLeaves = totalLeaves - outerLeafCount - centerLeafCount
+  const insertLeafCount = usesInserts ? inputs.insertSections.reduce((sum, s) => sum + (s.leafCount || 0), 0) : 0
+  const mainLeaves = totalLeaves - insertLeafCount
   const allPaperOptions = allPapers.map((p) => ({ name: p.name, isCardstock: p.is_cardstock, thickness: p.thickness, availableSizes: p.available_sizes }))
   const coverPapers = showAllCoverPapers ? allPaperOptions : getPaperOptions("book_cover")
   const insidePapers = showAllInsidePapers ? allPaperOptions : getPaperOptions("book_inside")
@@ -91,9 +88,9 @@ export function BookletForm({
   }
 
   // Insert section management
-  function addInsert(position: "outer" | "center") {
+  function addInsert() {
     const sections = [...(inputs.insertSections || [])]
-    sections.push(createInsertSection(position, 1))
+    sections.push(createInsertSection(1))
     onInputsChange({ ...inputs, insertSections: sections })
   }
 
@@ -114,8 +111,8 @@ export function BookletForm({
       // Switch back to no inserts
       onInputsChange({ ...inputs, insertSections: [] })
     } else {
-      // Start with one outer insert
-      onInputsChange({ ...inputs, insertSections: [createInsertSection("outer", 1)] })
+      // Start with one insert
+      onInputsChange({ ...inputs, insertSections: [createInsertSection(1)] })
     }
   }
 
@@ -343,10 +340,8 @@ export function BookletForm({
                   ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                   : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
             }`}>
-              {outerLeafCount > 0 && <span className="font-medium">Outer: {outerLeafCount} leaves</span>}
-              {outerLeafCount > 0 && centerLeafCount > 0 && <span className="mx-2">|</span>}
-              {centerLeafCount > 0 && <span className="font-medium">Center: {centerLeafCount} leaves</span>}
-              {(outerLeafCount > 0 || centerLeafCount > 0) && <span className="mx-2">|</span>}
+              <span className="font-medium">Inserts: {insertLeafCount} leaves</span>
+              <span className="mx-2">|</span>
               <span className="font-semibold">Main: {mainLeaves} leaves</span>
               {mainLeaves < 0 && <span className="ml-2 text-red-600 font-bold">(Too many insert leaves!)</span>}
             </div>
@@ -374,23 +369,15 @@ export function BookletForm({
             const insertPapers = showAllInsertPapers[insert.id] ? allPaperOptions : insidePapers
             const insertSizes = insert.paperName ? getAvailableSizes(insert.paperName) : []
             const pagesInInsert = insert.leafCount * 4
-            // Which pages? For outer: first & last pages, for center: middle pages
-            const pageRangeLabel = insert.position === "outer" 
-              ? `Pages 1-${insert.leafCount * 2}, ${inputs.pagesPerBook - insert.leafCount * 2 + 1}-${inputs.pagesPerBook}`
-              : `Middle ${pagesInInsert} pages`
             
             return (
               <div key={insert.id} className="mb-3 p-2 rounded bg-background/50 border">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      insert.position === "outer" 
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
-                        : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400"
-                    }`}>
-                      {insert.position === "outer" ? "OUTER" : "CENTER"} INSERT {idx + 1}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+                      INSERT {idx + 1}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{pageRangeLabel}</span>
+                    <span className="text-[10px] text-muted-foreground">({pagesInInsert} pages)</span>
                   </div>
                   <button
                     type="button"
@@ -474,28 +461,18 @@ export function BookletForm({
             )
           })}
 
-          {/* Add Insert Buttons */}
-          <div className="flex gap-2 mt-2">
-            <button
-              type="button"
-              onClick={() => addInsert("outer")}
-              className="flex-1 flex items-center justify-center gap-2 text-xs px-3 py-2 rounded-md border-2 border-dashed border-blue-400/40 text-blue-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-medium transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add Outer Insert
-            </button>
-            <button
-              type="button"
-              onClick={() => addInsert("center")}
-              className="flex-1 flex items-center justify-center gap-2 text-xs px-3 py-2 rounded-md border-2 border-dashed border-purple-400/40 text-purple-600 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add Center Insert
-            </button>
-          </div>
+          {/* Add Insert Button */}
+          <button
+            type="button"
+            onClick={addInsert}
+            className="w-full flex items-center justify-center gap-2 text-xs px-3 py-2 rounded-md border-2 border-dashed border-blue-400/40 text-blue-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-medium transition-colors mt-2"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Another Insert
+          </button>
 
-          {/* Helper text explaining leaf positions */}
+          {/* Helper text */}
           <p className="text-[10px] text-muted-foreground mt-3 italic">
-            In saddle stitch, leaves nest inside each other. Outer leaves wrap around everything (pages 1-2 + last pages). 
-            Center leaves are the innermost pages (middle of the booklet).
+            Each insert is a separate group of leaves with different paper. 1 leaf = 4 pages.
           </p>
         </div>
       )}

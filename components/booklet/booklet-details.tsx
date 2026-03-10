@@ -135,7 +135,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
             </tr>
             {hasInserts && insertResults.map((ins, idx) => (
               <tr key={idx} className="border-b border-muted/50">
-                <td className="py-1">{ins.name === "insert-outer" ? "Outer Insert" : "Center Insert"} ({ins.sheets.toLocaleString()} sht)</td>
+                <td className="py-1">Insert {idx + 1} ({ins.sheets.toLocaleString()} sht)</td>
                 <td className="text-right">{formatCurrency(ins.totalPaperCost)}</td>
                 <td className="text-right">{formatCurrency(ins.totalClickCost)}</td>
                 <td className="text-right font-medium">{formatCurrency(ins.totalPaperCost + ins.totalClickCost)}</td>

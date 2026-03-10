@@ -8,10 +8,9 @@ export interface BookletPaperOption {
   availableSizes: string[]
 }
 
-/** Insert section for saddle stitch - positioned by leaf from outer/center */
+/** Insert section for saddle stitch - just specify number of leaves with different paper */
 export interface BookletInsertSection {
   id: string                         // unique id for React key
-  position: "outer" | "center"       // outer = wraps everything, center = innermost
   leafCount: number                  // number of leaves in this insert (1 leaf = 4 pages)
   paperName: string
   sides: string                      // "4/4", "4/0", etc.
@@ -19,10 +18,9 @@ export interface BookletInsertSection {
   sheetSize: string                  // "cheapest" or specific size
 }
 
-export function createInsertSection(position: "outer" | "center" = "outer", leafCount = 1): BookletInsertSection {
+export function createInsertSection(leafCount = 1): BookletInsertSection {
   return {
     id: crypto.randomUUID(),
-    position,
     leafCount,
     paperName: "",
     sides: "",
@@ -47,7 +45,7 @@ export interface BookletInputs {
   insideSides: string
   insideBleed: boolean
   insideSheetSize: string // "cheapest" or specific size
-  // Insert sections (different paper for outer/center leaves)
+  // Insert sections (leaves with different paper)
   insertSections: BookletInsertSection[]
   insertFeePerSection: number  // extra fee per insert section (default $25)
   // Options
