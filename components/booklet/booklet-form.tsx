@@ -12,7 +12,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Save } from "lucide-react"
+import { Save, Plus, Trash2 } from "lucide-react"
 import {
   getAvailableSizes,
   canPaperLaminate,
@@ -22,7 +22,8 @@ import {
 } from "@/lib/booklet-pricing"
 import { usePapersContext } from "@/lib/papers-context"
 import { formatCurrency } from "@/lib/pricing"
-import type { BookletInputs } from "@/lib/booklet-types"
+import type { BookletInputs, BookletInsertSection } from "@/lib/booklet-types"
+import { createInsertSection } from "@/lib/booklet-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
 
 interface BookletFormProps {
@@ -46,7 +47,17 @@ export function BookletForm({
 }: BookletFormProps) {
   const [showAllCoverPapers, setShowAllCoverPapers] = useState(false)
   const [showAllInsidePapers, setShowAllInsidePapers] = useState(false)
+  const [showAllInsertPapers, setShowAllInsertPapers] = useState<Record<string, boolean>>({})
   const { getPaperOptions, papers: allPapers } = usePapersContext()
+
+  // Calculate total leaves from page count (pages / 4 for saddle stitch)
+  const totalLeaves = inputs.pagesPerBook > 0 ? Math.ceil(inputs.pagesPerBook / 4) : 0
+  const usesInserts = inputs.insertSections && inputs.insertSections.length > 0
+  const outerInserts = inputs.insertSections?.filter(s => s.position === "outer") || []
+  const centerInserts = inputs.insertSections?.filter(s => s.position === "center") || []
+  const outerLeafCount = outerInserts.reduce((sum, s) => sum + (s.leafCount || 0), 0)
+  const centerLeafCount = centerInserts.reduce((sum, s) => sum + (s.leafCount || 0), 0)
+  const mainLeaves = totalLeaves - outerLeafCount - centerLeafCount
   const allPaperOptions = allPapers.map((p) => ({ name: p.name, isCardstock: p.is_cardstock, thickness: p.thickness, availableSizes: p.available_sizes }))
   const coverPapers = showAllCoverPapers ? allPaperOptions : getPaperOptions("book_cover")
   const insidePapers = showAllInsidePapers ? allPaperOptions : getPaperOptions("book_inside")
@@ -77,6 +88,35 @@ export function BookletForm({
 
   function updateInputs(partial: Partial<BookletInputs>) {
     onInputsChange({ ...inputs, ...partial })
+  }
+
+  // Insert section management
+  function addInsert(position: "outer" | "center") {
+    const sections = [...(inputs.insertSections || [])]
+    sections.push(createInsertSection(position, 1))
+    onInputsChange({ ...inputs, insertSections: sections })
+  }
+
+  function removeInsert(id: string) {
+    const sections = (inputs.insertSections || []).filter(s => s.id !== id)
+    onInputsChange({ ...inputs, insertSections: sections })
+  }
+
+  function updateInsert(id: string, partial: Partial<BookletInsertSection>) {
+    const sections = (inputs.insertSections || []).map(s => 
+      s.id === id ? { ...s, ...partial } : s
+    )
+    onInputsChange({ ...inputs, insertSections: sections })
+  }
+
+  function toggleInsertsMode() {
+    if (usesInserts) {
+      // Switch back to no inserts
+      onInputsChange({ ...inputs, insertSections: [] })
+    } else {
+      // Start with one outer insert
+      onInputsChange({ ...inputs, insertSections: [createInsertSection("outer", 1)] })
+    }
   }
 
   return (
@@ -265,6 +305,200 @@ export function BookletForm({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Insert Sections Toggle */}
+      <div className="flex items-center justify-between mb-3 mt-4 pb-2 border-b">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">Leaf Inserts</span>
+          {totalLeaves > 0 && (
+            <span className="text-xs text-muted-foreground">({totalLeaves} leaves total)</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={toggleInsertsMode}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-semibold transition-colors shadow-sm ${
+            usesInserts 
+              ? "bg-amber-500 text-white border-amber-600 hover:bg-amber-600" 
+              : "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200"
+          }`}
+        >
+          {usesInserts ? (
+            <>Using Inserts</>
+          ) : (
+            <><Plus className="h-3.5 w-3.5" /> Add Leaf Inserts</>
+          )}
+        </button>
+      </div>
+
+      {/* Insert Sections UI */}
+      {usesInserts && (
+        <div className="border rounded-lg p-3 mb-4 bg-secondary/30">
+          {/* Leaf distribution summary */}
+          <div className="flex flex-wrap gap-3 items-center mb-3">
+            <div className={`flex-1 text-xs p-2 rounded ${
+              mainLeaves > 0 
+                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+                : mainLeaves === 0 
+                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+            }`}>
+              {outerLeafCount > 0 && <span className="font-medium">Outer: {outerLeafCount} leaves</span>}
+              {outerLeafCount > 0 && centerLeafCount > 0 && <span className="mx-2">|</span>}
+              {centerLeafCount > 0 && <span className="font-medium">Center: {centerLeafCount} leaves</span>}
+              {(outerLeafCount > 0 || centerLeafCount > 0) && <span className="mx-2">|</span>}
+              <span className="font-semibold">Main: {mainLeaves} leaves</span>
+              {mainLeaves < 0 && <span className="ml-2 text-red-600 font-bold">(Too many insert leaves!)</span>}
+            </div>
+            {/* Insert fee input */}
+            {inputs.insertSections && inputs.insertSections.length > 0 && (
+              <div className="flex items-center gap-2 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 p-2 rounded">
+                <label className="font-medium whitespace-nowrap">Insert Fee:</label>
+                <span className="text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={inputs.insertFeePerSection ?? 25}
+                  onChange={(e) => updateInputs({ insertFeePerSection: parseFloat(e.target.value) || 0 })}
+                  className="w-16 h-7 text-xs text-center"
+                />
+                <span className="text-muted-foreground">x {inputs.insertSections.length} = </span>
+                <span className="font-bold">{formatCurrency((inputs.insertFeePerSection ?? 25) * inputs.insertSections.length)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Insert section rows */}
+          {inputs.insertSections?.map((insert, idx) => {
+            const insertPapers = showAllInsertPapers[insert.id] ? allPaperOptions : insidePapers
+            const insertSizes = insert.paperName ? getAvailableSizes(insert.paperName) : []
+            const pagesInInsert = insert.leafCount * 4
+            // Which pages? For outer: first & last pages, for center: middle pages
+            const pageRangeLabel = insert.position === "outer" 
+              ? `Pages 1-${insert.leafCount * 2}, ${inputs.pagesPerBook - insert.leafCount * 2 + 1}-${inputs.pagesPerBook}`
+              : `Middle ${pagesInInsert} pages`
+            
+            return (
+              <div key={insert.id} className="mb-3 p-2 rounded bg-background/50 border">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      insert.position === "outer" 
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                        : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400"
+                    }`}>
+                      {insert.position === "outer" ? "OUTER" : "CENTER"} INSERT {idx + 1}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{pageRangeLabel}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeInsert(insert.id)}
+                    className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                    title="Remove insert"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-[4rem_1fr_1fr_auto_1fr] gap-2 items-end">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-muted-foreground">Leaves</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalLeaves - 1}
+                      value={insert.leafCount || ""}
+                      onChange={(e) => updateInsert(insert.id, { leafCount: parseInt(e.target.value) || 0 })}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] text-muted-foreground">Paper</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllInsertPapers(prev => ({ ...prev, [insert.id]: !prev[insert.id] }))}
+                        className={`text-[9px] px-1.5 py-0.5 rounded border font-medium transition-colors ${
+                          showAllInsertPapers[insert.id] 
+                            ? "bg-primary text-primary-foreground border-primary" 
+                            : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
+                        }`}
+                      >
+                        {showAllInsertPapers[insert.id] ? "Filtered" : "All"}
+                      </button>
+                    </div>
+                    <Select
+                      value={insert.paperName}
+                      onValueChange={(val) => updateInsert(insert.id, { paperName: val, sheetSize: "cheapest", sides: "" })}
+                    >
+                      <SelectTrigger className={`h-8 ${v.cls(!insert.paperName)}`}><SelectValue placeholder="Paper" /></SelectTrigger>
+                      <SelectContent>
+                        {insertPapers.map((p) => (
+                          <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Select
+                    value={insert.sides}
+                    onValueChange={(val) => updateInsert(insert.id, { sides: val })}
+                  >
+                    <SelectTrigger className={`h-8 ${v.cls(!insert.sides)}`}><SelectValue placeholder="Sides" /></SelectTrigger>
+                    <SelectContent>
+                      {INSIDE_SIDES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-1.5 h-8">
+                    <Checkbox
+                      id={`insert-bleed-${insert.id}`}
+                      checked={insert.hasBleed}
+                      onCheckedChange={(checked) => updateInsert(insert.id, { hasBleed: checked === true })}
+                    />
+                    <label htmlFor={`insert-bleed-${insert.id}`} className="text-xs text-muted-foreground cursor-pointer">Bleed</label>
+                  </div>
+                  <Select
+                    value={insert.sheetSize}
+                    onValueChange={(val) => updateInsert(insert.id, { sheetSize: val })}
+                  >
+                    <SelectTrigger className="h-8"><SelectValue placeholder="Sheet" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cheapest">Cheapest</SelectItem>
+                      {insertSizes.filter((s) => s !== "13x26").map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Add Insert Buttons */}
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => addInsert("outer")}
+              className="flex-1 flex items-center justify-center gap-2 text-xs px-3 py-2 rounded-md border-2 border-dashed border-blue-400/40 text-blue-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-medium transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Outer Insert
+            </button>
+            <button
+              type="button"
+              onClick={() => addInsert("center")}
+              className="flex-1 flex items-center justify-center gap-2 text-xs px-3 py-2 rounded-md border-2 border-dashed border-purple-400/40 text-purple-600 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Center Insert
+            </button>
+          </div>
+
+          {/* Helper text explaining leaf positions */}
+          <p className="text-[10px] text-muted-foreground mt-3 italic">
+            In saddle stitch, leaves nest inside each other. Outer leaves wrap around everything (pages 1-2 + last pages). 
+            Center leaves are the innermost pages (middle of the booklet).
+          </p>
+        </div>
+      )}
 
       <Separator className="my-4" />
 

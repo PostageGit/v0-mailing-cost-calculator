@@ -8,6 +8,29 @@ export interface BookletPaperOption {
   availableSizes: string[]
 }
 
+/** Insert section for saddle stitch - positioned by leaf from outer/center */
+export interface BookletInsertSection {
+  id: string                         // unique id for React key
+  position: "outer" | "center"       // outer = wraps everything, center = innermost
+  leafCount: number                  // number of leaves in this insert (1 leaf = 4 pages)
+  paperName: string
+  sides: string                      // "4/4", "4/0", etc.
+  hasBleed: boolean
+  sheetSize: string                  // "cheapest" or specific size
+}
+
+export function createInsertSection(position: "outer" | "center" = "outer", leafCount = 1): BookletInsertSection {
+  return {
+    id: crypto.randomUUID(),
+    position,
+    leafCount,
+    paperName: "",
+    sides: "",
+    hasBleed: false,
+    sheetSize: "cheapest",
+  }
+}
+
 export interface BookletInputs {
   bookQty: number
   pagesPerBook: number
@@ -24,6 +47,9 @@ export interface BookletInputs {
   insideSides: string
   insideBleed: boolean
   insideSheetSize: string // "cheapest" or specific size
+  // Insert sections (different paper for outer/center leaves)
+  insertSections: BookletInsertSection[]
+  insertFeePerSection: number  // extra fee per insert section (default $25)
   // Options
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   customLevel: string // "auto" or "1"-"10"
@@ -67,11 +93,14 @@ export interface BookletCalcResult {
   // Core results
   insideResult: PartCalcResult
   coverResult: PartCalcResult
+  insertResults?: PartCalcResult[]  // results for each insert section
 
   // Booklet info
   totalSheetsPerBooklet: number
+  totalLeavesPerBooklet: number     // for saddle stitch: total leaves (sheets folded)
   bindingPricePerBook: number
   totalBindingPrice: number
+  insertFeeTotal: number            // extra fee for insert sections
   laminationCostPerBook: number
   totalLaminationCost: number
   brokerDiscountAmount: number

@@ -15,7 +15,7 @@ interface PerfectDetailsProps {
 export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, onBrokerChange }: PerfectDetailsProps) {
   const {
     coverResult, insideResult, insideSectionResults, finishedSheetsPerBook,
-    totalPrintingCost, bindingPricePerBook, totalBindingPrice,
+    totalPrintingCost, bindingPricePerBook, totalBindingPrice, sectionFeeTotal,
     laminationCostPerBook, totalLaminationCost,
     brokerDiscountAmount, bookQty, isBroker,
   } = result
@@ -65,6 +65,9 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
     { label: "Printing", value: totalPrintingCost },
     { label: "Binding", value: totalBindingPrice },
   ]
+  if (sectionFeeTotal > 0) {
+    costLines.push({ label: `Section Fee (${insideSectionResults?.length || 0} sections)`, value: sectionFeeTotal })
+  }
   if (totalLaminationCost > 0) {
     costLines.push({ label: "Lamination", value: totalLaminationCost })
   }
