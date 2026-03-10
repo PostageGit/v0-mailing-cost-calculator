@@ -337,6 +337,7 @@ export function calculatePerfect(
       if ("error" in sectionRes) return { error: `Section "${section.paperName}": ${(sectionRes as {error: string}).error}` }
       
       const res = sectionRes as PerfectPartResult
+      
       // Add page count to the section result
       const resWithPages = { ...res, pagesInSection: section.pageCount }
       sectionResults.push(resWithPages)

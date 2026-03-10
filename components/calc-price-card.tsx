@@ -41,6 +41,8 @@ export interface CalcPriceCardProps {
   level?: LevelInfo
   /** Main cost lines shown in the breakdown */
   costLines: CostLine[]
+  /** Summary table shown above cost breakdown (always visible) - e.g. section breakdown */
+  summaryTable?: React.ReactNode
   /** Expandable details (all the nitty-gritty) */
   details?: React.ReactNode
   /** Optional "Change Size" handler */
@@ -60,6 +62,7 @@ export function CalcPriceCard({
   stats,
   level,
   costLines,
+  summaryTable,
   details,
   onChangeSize,
   onEffectiveTotalChange,
@@ -194,6 +197,13 @@ export function CalcPriceCard({
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
         <span className="text-sm font-semibold text-foreground">{paperName}</span>
       </div>
+
+      {/* ── Summary table (always visible, e.g. section breakdown) ── */}
+      {summaryTable && (
+        <div className="rounded-xl border border-border bg-card p-3">
+          {summaryTable}
+        </div>
+      )}
 
       {/* ── Cost lines ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
