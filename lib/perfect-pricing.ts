@@ -406,8 +406,8 @@ export function calculatePerfect(
   // │ Yes          │ Yes         │ 0.50" (same as Case 3 — cover bleed absorbed)  │
   // └──────────────┴─────────────┴────────────────────────────────────────────────┘
   //
-  // NOTE: In Case 4, cover bleed (0.25") is absorbed into the overhang. Both are
-  // measured from the same trim line — they occupy the same space, not additive.
+  // NOTE: In Case 4, cover bleed (0.25") is absorbed into the inside page bleed area.
+  // Both extend from the same trim line into the same physical space — not additive.
   //
   // Total Width  = (bookWidth × 2) + spineWidth + (extraPerSide × 2)
   // Total Height = bookHeight + (extraPerSide × 2)
@@ -421,8 +421,8 @@ export function calculatePerfect(
     // Case 2: Cover bleed only — cover bleed serves as overhang
     extraPerTrimmedSide = 0.25
   } else {
-    // Case 3 & 4: Inside has bleed (cover bleed doesn't matter — it's absorbed)
-    // Text block extends 0.25" past trim + 0.25" registration buffer = 0.50"
+    // Case 3 & 4: Inside has bleed (cover bleed is absorbed into inside bleed area)
+    // Inside bleed 0.25" past trim + 0.25" registration buffer = 0.50"
     extraPerTrimmedSide = 0.50
   }
   
