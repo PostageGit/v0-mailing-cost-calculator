@@ -63,6 +63,10 @@ export function ShippingCalcDialog({
   const [shippingCost, setShippingCost] = useState("")
   const [showLabels, setShowLabels] = useState(false)
   const [weightOverride, setWeightOverride] = useState("")
+  // Per-box pieces override: key = recommendation index, value = pieces per box string
+  const [perBoxOverrides, setPerBoxOverrides] = useState<Record<number, string>>({})
+  // Global per-box override (applies to all boxes unless individually overridden)
+  const [globalPerBox, setGlobalPerBox] = useState("")
 
   const thicknessPerPiece = sheetsPerPiece * 0.005
 
@@ -136,18 +140,68 @@ export function ShippingCalcDialog({
     computedPerPieceOz,
   ])
 
+  // Apply per-box overrides to produce the final adjusted estimate
+  const adjustedEstimate = useMemo<ShippingEstimate | null>(() => {
+    if (!estimate) return null
+
+    const globalPcs = globalPerBox ? parseInt(globalPerBox) : 0
+    const hasAnyOverride = globalPcs > 0 || Object.values(perBoxOverrides).some(v => v && parseInt(v) > 0)
+    if (!hasAnyOverride) return estimate
+
+    // Rebuild recommendations with overrides
+    const newRecs = estimate.recommendations.map((rec, i) => {
+      const individualOverride = perBoxOverrides[i] ? parseInt(perBoxOverrides[i]) : 0
+      const effectivePcs = individualOverride > 0 ? individualOverride : globalPcs > 0 ? globalPcs : rec.piecesPerBox
+
+      // Clamp: at least 1, can't exceed what physically fits
+      const maxFit = thicknessPerPiece > 0
+        ? Math.floor(rec.box.heightIn / thicknessPerPiece)
+        : effectivePcs
+      const piecesPerBox = Math.max(1, Math.min(effectivePcs, maxFit))
+
+      // Recalculate count, weight, fill
+      const totalForThisRec = rec.piecesPerBox * rec.count
+      const newCount = Math.ceil(totalForThisRec / piecesPerBox)
+      const weightPerBox = (computedPerPieceOz * piecesPerBox) + rec.box.boxWeightOz
+      const fillPercent = thicknessPerPiece > 0
+        ? Math.min(((piecesPerBox * thicknessPerPiece) / rec.box.heightIn) * 100, 100)
+        : 50
+
+      return {
+        ...rec,
+        piecesPerBox,
+        count: newCount,
+        weightPerBoxOz: weightPerBox,
+        fillPercent,
+      }
+    })
+
+    const totalShippingOz = newRecs.reduce((s, r) => s + r.weightPerBoxOz * r.count, 0)
+
+    return {
+      recommendations: newRecs,
+      totalBoxes: newRecs.reduce((s, r) => s + r.count, 0),
+      totalShippingWeightOz: totalShippingOz,
+      totalShippingWeightLbs: totalShippingOz / 16,
+      hasNonUPSBoxes: newRecs.some((r) => !r.box.upsEligible),
+    }
+  }, [estimate, globalPerBox, perBoxOverrides, computedPerPieceOz, thicknessPerPiece])
+
+  // Use the adjusted estimate for display
+  const displayEstimate = adjustedEstimate
+
   const handleAddShippingToQuote = () => {
     const cost = parseFloat(shippingCost)
-    if (!cost || cost <= 0 || !estimate) return
+    if (!cost || cost <= 0 || !displayEstimate) return
 
-    const boxNames = estimate.recommendations
+    const boxNames = displayEstimate.recommendations
       .map((r) => (r.count > 1 ? `${r.box.name} x${r.count}` : r.box.name))
       .join(", ")
 
     const desc = [
-      `${estimate.totalBoxes} box${estimate.totalBoxes !== 1 ? "es" : ""} (${boxNames})`,
+      `${displayEstimate.totalBoxes} box${displayEstimate.totalBoxes !== 1 ? "es" : ""} (${boxNames})`,
       hasWeight
-        ? `${formatShippingWeight(estimate.totalShippingWeightOz)} total`
+        ? `${formatShippingWeight(displayEstimate.totalShippingWeightOz)} total`
         : "",
       itemLabel || "",
     ]
@@ -156,15 +210,15 @@ export function ShippingCalcDialog({
 
     quote.addItem({
       category: "shipping",
-      label: `Shipping - ${estimate.totalBoxes} box${estimate.totalBoxes !== 1 ? "es" : ""}`,
+      label: `Shipping - ${displayEstimate.totalBoxes} box${displayEstimate.totalBoxes !== 1 ? "es" : ""}`,
       description: desc,
       amount: cost,
       metadata: {
-        totalBoxes: estimate.totalBoxes,
+        totalBoxes: displayEstimate.totalBoxes,
         boxNames,
-        totalShippingWeightOz: estimate.totalShippingWeightOz,
-        totalShippingWeightLbs: estimate.totalShippingWeightLbs,
-        hasNonUPSBoxes: estimate.hasNonUPSBoxes,
+        totalShippingWeightOz: displayEstimate.totalShippingWeightOz,
+        totalShippingWeightLbs: displayEstimate.totalShippingWeightLbs,
+        hasNonUPSBoxes: displayEstimate.hasNonUPSBoxes,
       },
     })
     onClose()
@@ -293,10 +347,44 @@ export function ShippingCalcDialog({
               </span>
             </label>
 
+            {/* Global per-box override */}
+            {displayEstimate && displayEstimate.recommendations.length > 0 && (
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                  Pieces per box (all boxes)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    placeholder={String(displayEstimate.recommendations[0].piecesPerBox)}
+                    value={globalPerBox}
+                    onChange={(e) => {
+                      setGlobalPerBox(e.target.value)
+                      setPerBoxOverrides({})
+                    }}
+                    className={cn(
+                      "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
+                      globalPerBox ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border"
+                    )}
+                  />
+                  {globalPerBox && (
+                    <button
+                      onClick={() => setGlobalPerBox("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground hover:text-foreground bg-secondary px-1.5 py-0.5 rounded"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Box recommendations */}
-            {estimate ? (
+            {displayEstimate ? (
               <div className="space-y-3">
-                {estimate.recommendations.map((rec, i) => (
+                {displayEstimate.recommendations.map((rec, i) => (
                   <div
                     key={i}
                     className="rounded-xl border border-border bg-card p-4"
@@ -358,6 +446,44 @@ export function ShippingCalcDialog({
                       </div>
                     </div>
 
+                    {/* Per-box override */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="text-[9px] text-muted-foreground font-medium whitespace-nowrap">
+                        Change pcs/box:
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        placeholder={String(rec.piecesPerBox)}
+                        value={perBoxOverrides[i] ?? ""}
+                        onChange={(e) =>
+                          setPerBoxOverrides((prev) => ({
+                            ...prev,
+                            [i]: e.target.value,
+                          }))
+                        }
+                        className={cn(
+                          "w-20 h-7 text-xs font-mono rounded-md border bg-background px-2 text-foreground tabular-nums",
+                          perBoxOverrides[i] ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border/50"
+                        )}
+                      />
+                      {perBoxOverrides[i] && (
+                        <button
+                          onClick={() =>
+                            setPerBoxOverrides((prev) => {
+                              const next = { ...prev }
+                              delete next[i]
+                              return next
+                            })
+                          }
+                          className="text-[9px] font-bold text-muted-foreground hover:text-foreground"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+
                     {/* Fill bar */}
                     <div className="mt-2.5 h-2 rounded-full bg-secondary overflow-hidden">
                       <div
@@ -383,7 +509,7 @@ export function ShippingCalcDialog({
                         Total Boxes
                       </p>
                       <p className="text-xl font-bold font-mono tabular-nums text-foreground">
-                        {estimate.totalBoxes}
+                        {displayEstimate.totalBoxes}
                       </p>
                     </div>
                     {hasWeight && (
@@ -393,7 +519,7 @@ export function ShippingCalcDialog({
                         </p>
                         <p className="text-xl font-bold font-mono tabular-nums text-foreground">
                           {formatShippingWeight(
-                            estimate.totalShippingWeightOz
+                            displayEstimate.totalShippingWeightOz
                           )}
                         </p>
                       </div>
@@ -410,7 +536,7 @@ export function ShippingCalcDialog({
                   </Button>
                 </div>
 
-                {estimate.hasNonUPSBoxes && (
+                {displayEstimate.hasNonUPSBoxes && (
                   <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-3">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
                     <span className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
@@ -466,11 +592,11 @@ export function ShippingCalcDialog({
       </Dialog>
 
       {/* Print labels sub-modal */}
-      {estimate && (
+      {displayEstimate && (
         <ShippingLabelModal
           open={showLabels}
           onClose={() => setShowLabels(false)}
-          estimate={estimate}
+          estimate={displayEstimate}
         />
       )}
     </>
