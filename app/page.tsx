@@ -288,12 +288,12 @@ function AppContent() {
         )}
         <aside className={cn(
           "hidden lg:flex flex-col bg-card border-r border-border shrink-0 z-50 transition-all duration-200 overflow-hidden",
-          sidebarOpen ? "w-52" : "w-14"
+          sidebarOpen ? "w-56" : "w-14"
         )}>
           {/* Logo + collapse */}
           <div className={cn(
             "flex items-center h-12 border-b border-border shrink-0",
-            sidebarOpen ? "justify-between px-3" : "justify-center"
+            sidebarOpen ? "justify-between px-4" : "justify-center"
           )}>
             {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -304,11 +304,11 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-3" : "px-[7px]")}>
+          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-4" : "px-[7px]")}>
             <Button onClick={handleNewJob}
               className={cn(
                 "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
-                sidebarOpen ? "w-full h-9 text-xs px-2.5 justify-start" : "h-9 w-full p-0 justify-center"
+                sidebarOpen ? "w-full h-9 text-xs px-3 justify-start" : "h-9 w-full p-0 justify-center"
               )}>
               <Plus className="h-4 w-4 shrink-0" />
               {sidebarOpen && "New Quote"}
@@ -318,12 +318,12 @@ function AppContent() {
           {/* Nav groups */}
           <nav className={cn(
             "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
-            sidebarOpen ? "px-3" : "px-[7px]"
+            sidebarOpen ? "px-4" : "px-[7px]"
           )} style={{ scrollbarWidth: "none" }}>
             {(["dashboards", "data"] as const).map((group) => (
               <div key={group}>
                 {sidebarOpen && (
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 px-3">
                     {group === "dashboards" ? "Boards" : "Manage"}
                   </p>
                 )}
@@ -334,7 +334,7 @@ function AppContent() {
                       <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
                         className={cn(
                           "flex items-center rounded-lg transition-all w-full",
-                          sidebarOpen ? "gap-2.5 px-2.5 py-2 text-sm min-h-[40px]" : "h-10 justify-center",
+                          sidebarOpen ? "gap-2.5 px-3 py-2 text-sm min-h-[40px]" : "h-10 justify-center",
                           active
                             ? "bg-foreground text-background font-semibold"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -351,11 +351,11 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "px-[7px]")}>
+          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-4" : "px-[7px]")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all w-full",
-                sidebarOpen ? "min-h-[40px] px-2.5 py-2 text-sm" : "h-10 justify-center"
+                sidebarOpen ? "min-h-[40px] px-3 py-2 text-sm" : "h-10 justify-center"
               )}>
               <Settings className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Settings</span>}
