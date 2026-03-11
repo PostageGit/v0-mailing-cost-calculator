@@ -44,6 +44,7 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
       return {
         company: customer.company_name,
         contact: customer.contact_name || contactName,
+        phone: customer.cell_phone || customer.office_phone || "",
         street: customer.street || "",
         city: customer.city || "",
         state: customer.state || "",
@@ -56,6 +57,7 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
     return {
       company: da.company_name || customer.company_name,
       contact: da.delivery_contact || customer.contact_name || contactName,
+      phone: da.delivery_phone || customer.cell_phone || customer.office_phone || "",
       street: da.street || "",
       city: da.city || "",
       state: da.state || "",
@@ -122,8 +124,14 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
             .to-section .contact {
               font-size: 11pt;
               font-weight: 600;
-              margin-bottom: 4pt;
+              margin-bottom: 1pt;
               color: #333;
+            }
+            .to-section .phone {
+              font-size: 10pt;
+              font-weight: 500;
+              margin-bottom: 4pt;
+              color: #444;
             }
             .to-section .address {
               font-size: 12pt;
@@ -291,6 +299,11 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
                         {addr.contact}
                       </p>
                     )}
+                    {addr?.phone && (
+                      <p className="text-[10px] font-medium text-muted-foreground">
+                        {addr.phone}
+                      </p>
+                    )}
                     {addr?.street && (
                       <p className="text-xs font-medium text-foreground mt-1">
                         {addr.street}
@@ -359,6 +372,9 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
                 {addr?.company && <p className="company">{addr.company}</p>}
                 {addr?.contact && addr.contact !== addr.company && (
                   <p className="contact">{addr.contact}</p>
+                )}
+                {addr?.phone && (
+                  <p className="phone">{addr.phone}</p>
                 )}
                 {addr?.street && <p className="address">{addr.street}</p>}
                 {(addr?.city || addr?.state || addr?.zip) && (

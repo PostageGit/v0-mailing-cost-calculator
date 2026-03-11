@@ -92,53 +92,104 @@ function boxFitsPiece(box: BoxSize, pieceW: number, pieceH: number): boolean {
 /** UPS weight limit per box */
 const UPS_MAX_WEIGHT_OZ = 50 * 16 // 50 lbs
 
+/** Max weight a person can comfortably carry (~35 lbs) */
+const CARRY_MAX_OZ = 35 * 16
+
+/**
+ * Group boxes by footprint family (same L x W).
+ * Returns the smallest footprint area for the given piece dimensions.
+ */
+function getSmallestFootprintArea(candidates: BoxSize[]): number {
+  let minArea = Infinity
+  for (const box of candidates) {
+    const area = box.lengthIn * box.widthIn
+    if (area < minArea) minArea = area
+  }
+  return minArea
+}
+
 /**
  * Score a candidate plan. Lower score = better.
  *
- * Factors (in priority order):
- * 1. Fewest total boxes (shipping cost is mostly per-box)
- * 2. Fewest box _types_ (practical: easier to order/stack one kind)
- * 3. Best fill utilisation (sweet spot 50-90%; penalise under-filled or over-stuffed)
- * 4. Prefer UPS-eligible boxes
- * 5. Smallest footprint waste (don't use a 17" box for an 8.5" piece)
+ * Philosophy: use the smallest footprint box that fits, stick to one box
+ * type as much as possible, keep boxes carriable, and find the sweet spot
+ * between "not too many boxes" and "not too heavy to carry".
+ *
+ * Factors (tuned for practical balance):
+ * 1. Smallest footprint (strongest factor -- don't use a 17" box for 8.5" pieces)
+ * 2. Single box type (consistency -- easier to stack, order, carry)
+ * 3. Reasonable box count (a few more small boxes is OK; too many is not)
+ * 4. Good fill (50-85% sweet spot -- room to close lid, not rattling around)
+ * 5. Carriable weight (penalise boxes over 35 lbs; hard-block over 50 lbs via UPS limit)
+ * 6. UPS eligibility
  */
 function scorePlan(
   recs: BoxRecommendation[],
   pieceWidthIn: number,
   pieceHeightIn: number,
+  smallestFootprint: number,
 ): number {
   const totalBoxes = recs.reduce((s, r) => s + r.count, 0)
   const uniqueTypes = new Set(recs.map((r) => r.box.name)).size
   const hasNonUPS = recs.some((r) => !r.box.upsEligible)
 
-  // Fill quality: penalise fills below 40% or above 95%
+  // ── 1. Footprint waste (STRONGEST factor) ──
+  // Heavily penalise using a bigger footprint than needed.
+  // Ratio of each box footprint to the smallest possible footprint.
+  let footprintScore = 0
+  for (const r of recs) {
+    const boxArea = r.box.lengthIn * r.box.widthIn
+    const ratio = boxArea / smallestFootprint  // 1.0 = perfect, 1.5 = 50% bigger
+    footprintScore += (ratio - 1) * r.count
+  }
+
+  // ── 2. Box type consistency ──
+  // Strongly prefer using one box type throughout.
+  const typePenalty = (uniqueTypes - 1) * 60
+
+  // ── 3. Box count ──
+  // Moderate penalty. We don't want 20 tiny boxes, but 3-5 medium ones is fine.
+  // Use a curve: first 4 boxes are "free", then it ramps up.
+  const countPenalty = totalBoxes <= 4
+    ? totalBoxes * 15
+    : 4 * 15 + (totalBoxes - 4) * 40
+
+  // ── 4. Fill quality ──
+  // Sweet spot is 50-85%. Under 35% is wasteful, over 92% is hard to close.
   let fillPenalty = 0
   for (const r of recs) {
     const f = r.fillPercent
-    if (f < 40) fillPenalty += (40 - f) * 0.5 * r.count
-    if (f > 95) fillPenalty += (f - 95) * 0.3 * r.count
+    if (f < 35) fillPenalty += (35 - f) * 0.8 * r.count
+    else if (f < 50) fillPenalty += (50 - f) * 0.2 * r.count
+    if (f > 92) fillPenalty += (f - 92) * 0.6 * r.count
   }
 
-  // Footprint waste: ratio of box footprint to piece footprint
-  const pieceArea = pieceWidthIn * pieceHeightIn
-  let footprintWaste = 0
+  // ── 5. Carry weight ──
+  // Penalise boxes over 35 lbs (hard for one person).
+  let carryPenalty = 0
   for (const r of recs) {
-    const boxArea = r.box.lengthIn * r.box.widthIn
-    footprintWaste += ((boxArea - pieceArea) / pieceArea) * r.count
+    if (r.weightPerBoxOz > CARRY_MAX_OZ) {
+      const overLbs = (r.weightPerBoxOz - CARRY_MAX_OZ) / 16
+      carryPenalty += overLbs * 8 * r.count
+    }
   }
+
+  // ── 6. UPS eligibility ──
+  const upsPenalty = hasNonUPS ? 80 : 0
 
   return (
-    totalBoxes * 100 +          // primary: fewer boxes
-    uniqueTypes * 30 +           // prefer same box type
-    fillPenalty * 2 +            // good fill
-    (hasNonUPS ? 50 : 0) +      // prefer UPS-eligible
-    footprintWaste * 3           // minimal wasted footprint
+    footprintScore * 120 +   // smallest footprint is king
+    typePenalty +              // stick with one box type
+    countPenalty +             // reasonable count (not too many)
+    fillPenalty * 2 +          // good fill
+    carryPenalty +             // carriable
+    upsPenalty                 // UPS eligible
   )
 }
 
 /**
  * Build a recommendation for a given primary box, optionally using
- * a different (smaller) box for the last partial batch.
+ * a same-footprint smaller box for the last partial batch.
  */
 function buildPlan(
   primaryBox: BoxSize,
@@ -150,10 +201,12 @@ function buildPlan(
   const maxPerBox = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
   if (maxPerBox <= 0) return null
 
-  // Enforce UPS weight limit: if the full box exceeds 50 lbs, reduce pieces
-  const effectiveMax = weightPerPieceOz > 0
-    ? Math.min(maxPerBox, Math.floor((UPS_MAX_WEIGHT_OZ - primaryBox.boxWeightOz) / weightPerPieceOz))
-    : maxPerBox
+  // Enforce UPS weight limit & carry weight: cap pieces per box
+  let effectiveMax = maxPerBox
+  if (weightPerPieceOz > 0) {
+    const upsMax = Math.floor((UPS_MAX_WEIGHT_OZ - primaryBox.boxWeightOz) / weightPerPieceOz)
+    effectiveMax = Math.min(effectiveMax, upsMax)
+  }
   if (effectiveMax <= 0) return null
 
   const fullBoxCount = Math.floor(quantity / effectiveMax)
@@ -174,15 +227,33 @@ function buildPlan(
   }
 
   if (remainder > 0) {
-    // Try to find a smaller box that still fits the remainder stack
     const remainderStack = remainder * thicknessPerPieceIn
+
+    // Prefer a same-footprint-family box first (same L x W, shorter height).
+    // This keeps the stacking uniform. Only fall back to a different footprint
+    // if no same-family box gives decent fill.
+    const primaryFootprint = `${primaryBox.lengthIn}x${primaryBox.widthIn}`
     let lastBox = primaryBox
+
+    // First pass: same footprint family, good fill (>=40%)
     for (const box of candidates) {
-      // Must fit the pieces AND the stack height, and be practical (>=40% fill)
+      const fp = `${box.lengthIn}x${box.widthIn}`
+      if (fp !== primaryFootprint) continue
       const fill = (remainderStack / box.heightIn) * 100
-      if (box.heightIn >= remainderStack && fill >= 30) {
+      if (box.heightIn >= remainderStack && fill >= 40) {
         lastBox = box
         break
+      }
+    }
+
+    // If same-family didn't work, try any candidate with >=30% fill
+    if (lastBox === primaryBox && remainderStack < primaryBox.heightIn * 0.35) {
+      for (const box of candidates) {
+        const fill = (remainderStack / box.heightIn) * 100
+        if (box.heightIn >= remainderStack && fill >= 30) {
+          lastBox = box
+          break
+        }
       }
     }
 
@@ -212,8 +283,13 @@ function buildPlan(
  * Strategy:
  * 1. Filter boxes that can fit the piece footprint (both orientations)
  * 2. Generate plans for EVERY candidate box as the "primary" box
- * 3. Score each plan on practicality (box count, fill %, footprint waste, UPS)
- * 4. Return the plan with the best score
+ * 3. Score each plan on practicality:
+ *    - Smallest footprint that fits (don't upsize unnecessarily)
+ *    - Same box type throughout (easy to stack/order)
+ *    - Reasonable count (a few more small boxes > one huge heavy box)
+ *    - Good fill (50-85% sweet spot)
+ *    - Carriable (<35 lbs per box ideal)
+ * 4. Return the plan with the best (lowest) score
  */
 export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | null {
   const {
@@ -235,6 +311,7 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
   if (candidates.length === 0) return null
 
   const weightPerPieceOz = quantity > 0 ? totalWeightOz / quantity : 0
+  const smallestFootprint = getSmallestFootprintArea(candidates)
 
   // Generate a plan for every candidate as the primary box
   let bestPlan: BoxRecommendation[] | null = null
@@ -244,7 +321,7 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
     const plan = buildPlan(primaryBox, candidates, quantity, thicknessPerPieceIn, weightPerPieceOz)
     if (!plan) continue
 
-    const score = scorePlan(plan, pieceWidthIn, pieceHeightIn)
+    const score = scorePlan(plan, pieceWidthIn, pieceHeightIn, smallestFootprint)
     if (score < bestScore) {
       bestScore = score
       bestPlan = plan
