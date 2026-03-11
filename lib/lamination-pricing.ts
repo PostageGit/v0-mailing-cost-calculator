@@ -1,10 +1,12 @@
 // ==================== LAMINATION PRICING ENGINE ====================
 // Uses config from pricing-config.ts (Settings -> Finishing)
+// Fully dynamic - add as many lamination types as you want in Settings
 // Priced per parent sheet in the flat-printing flow.
 
 import { getActiveConfig, type FinishingOption } from "./pricing-config"
 
-export type LaminationType = "Gloss" | "Matte" | "Silk" | "Leather" | "Linen"
+// Lamination type is now fully dynamic - any string from config
+export type LaminationType = string
 export type LaminationSides = "S/S" | "D/S"
 export type LaminationPaperCategory = "100 Text/80 Cover" | "Card Stock"
 
@@ -31,6 +33,14 @@ export interface LaminationResult {
   timeMinutes: number
 }
 
+// Get available lamination types from config (dynamic)
+export function getLaminationTypes(): string[] {
+  const cfg = getActiveConfig()
+  return cfg.finishings
+    .filter(f => f.category === "lamination")
+    .map(f => f.name.replace(" Lamination", ""))
+}
+
 export const LAMINATION_DEFAULTS: LaminationInputs = {
   enabled: false,
   type: "Gloss",
@@ -39,14 +49,18 @@ export const LAMINATION_DEFAULTS: LaminationInputs = {
   brokerDiscountPct: 30,
 }
 
-export const LAMINATION_TYPES: LaminationType[] = ["Gloss", "Matte", "Silk", "Leather", "Linen"]
+// For backward compatibility - now pulls from config dynamically
+export const LAMINATION_TYPES: string[] = getLaminationTypes()
 
 // ---- Helper to get finishing option from config ----
 
-function getLaminationConfig(type: LaminationType): FinishingOption | null {
+function getLaminationConfig(type: string): FinishingOption | null {
   const cfg = getActiveConfig()
-  const id = `${type.toLowerCase()}_lamination`
-  return cfg.finishings.find(f => f.id === id) || null
+  // Try to find by name match (e.g., "Gloss" matches "Gloss Lamination")
+  return cfg.finishings.find(f => 
+    f.category === "lamination" && 
+    (f.name.replace(" Lamination", "") === type || f.name === type || f.id === type)
+  ) || null
 }
 
 // ---- Paper category mapper ----

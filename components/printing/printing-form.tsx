@@ -19,8 +19,8 @@ import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
 import { FinishingAddOns } from "@/components/finishing-add-ons"
 import { FoldFinishSection } from "@/components/printing/fold-finish-section"
 import { useFormValidation } from "@/hooks/use-form-validation"
-import { LAMINATION_TYPES, LAMINATION_DEFAULTS, toLaminationPaperCategory } from "@/lib/lamination-pricing"
-import type { LaminationType, LaminationSides } from "@/lib/lamination-pricing"
+import { getLaminationTypes, LAMINATION_DEFAULTS, toLaminationPaperCategory } from "@/lib/lamination-pricing"
+import type { LaminationSides } from "@/lib/lamination-pricing"
 
 interface PrintingFormProps {
   inputs: PrintingInputs
@@ -364,13 +364,13 @@ function FinishingsSection({
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-medium text-muted-foreground">Type</label>
               <div className="flex flex-wrap gap-1.5">
-                {LAMINATION_TYPES.map((t) => {
+                {getLaminationTypes().map((t) => {
                   const selected = lam.type === t
                   return (
                     <button
                       key={t}
                       type="button"
-                      onClick={() => updateLam({ type: t as LaminationType })}
+                      onClick={() => updateLam({ type: t })}
                       className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all ${
                         selected
                           ? "border-foreground bg-foreground text-background"

@@ -2722,17 +2722,31 @@ function FinishingsSettingsTab() {
   }
 
   const addFinishing = () => {
-  const id = "custom_" + Date.now()
-  const newF: FinishingOption = {
-  id, name: "New Finishing", category: "finishing", setupCost: 10,
-  runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
-  rollCost: 50, rollLengthFt: 500, sheetCoverageFt: 1, rollCostPerSheet: 0.10,
-  rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
-  markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: false,
+    const id = "custom_finishing_" + Date.now()
+    const newF: FinishingOption = {
+      id, name: "New Finishing", category: "finishing", setupCost: 10,
+      runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
+      rollCost: 50, rollLengthFt: 500, sheetCoverageFt: 1, rollCostPerSheet: 0.10,
+      rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
+      markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: false,
+    }
+    setFinishings((prev) => [...prev, newF])
+    setExpandedId(id)
+    setSheetDirty(true)
   }
-  setFinishings((prev) => [...prev, newF])
-  setExpandedId(id)
-  setSheetDirty(true)
+
+  const addLamination = () => {
+    const id = "custom_lamination_" + Date.now()
+    const newF: FinishingOption = {
+      id, name: "New Lamination", category: "lamination", setupCost: 10,
+      runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+      rollCost: 50, rollLengthFt: 500, sheetCoverageFt: 1, rollCostPerSheet: 0.10,
+      rollChangeFee: 10, wastePercent: 0.05, minSheets: 5,
+      markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: true,
+    }
+    setFinishings((prev) => [...prev, newF])
+    setExpandedId(id)
+    setSheetDirty(true)
   }
 
   const removeFinishing = (id: string) => { setFinishings((prev) => prev.filter((f) => f.id !== id)); setSheetDirty(true) }
@@ -2816,10 +2830,13 @@ function FinishingsSettingsTab() {
             <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveSheetFinishings(finishings)} disabled={saving}>
               <Save className="h-3 w-3" /> {saving ? "Saving..." : "Save"}
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
-              <Plus className="h-3 w-3" /> Add
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSheetDefaults}>Reset Defaults</Button>
+<Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
+  <Plus className="h-3 w-3" /> Add Finishing
+  </Button>
+  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addLamination}>
+  <Plus className="h-3 w-3" /> Add Lamination
+  </Button>
+  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSheetDefaults}>Reset Defaults</Button>
             {sheetDirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved</span>}
           </div>
 

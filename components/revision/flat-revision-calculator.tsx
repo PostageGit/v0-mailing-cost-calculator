@@ -19,8 +19,8 @@ import {
   PAPER_OPTIONS,
   getAvailableSides,
 } from "@/lib/printing-pricing"
-import { LAMINATION_TYPES, LAMINATION_DEFAULTS } from "@/lib/lamination-pricing"
-import type { LaminationType, LaminationSides } from "@/lib/lamination-pricing"
+import { getLaminationTypes, LAMINATION_DEFAULTS } from "@/lib/lamination-pricing"
+import type { LaminationSides } from "@/lib/lamination-pricing"
 import type { PrintingInputs, FullPrintingResult, SheetOptionRow } from "@/lib/printing-types"
 
 // Default inputs for flat printing
@@ -444,11 +444,11 @@ export function FlatRevisionCalculator({
         {lam.enabled && (
           <div className="flex flex-wrap gap-2 pl-1">
             <div className="flex gap-1">
-              {LAMINATION_TYPES.map((t) => (
+              {getLaminationTypes().map((t) => (
                 <button
                   key={t}
                   type="button"
-                  onClick={() => updateLam({ type: t as LaminationType })}
+                  onClick={() => updateLam({ type: t })}
                   className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
                     lam.type === t
                       ? "border-foreground bg-foreground text-background"
