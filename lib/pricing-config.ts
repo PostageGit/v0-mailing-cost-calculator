@@ -573,6 +573,23 @@ export interface DynamicPaperOption {
   availableSizes: string[]
 }
 
+// Perfect binding production rules config
+export interface PerfectBindingProductionConfig {
+  coverExtraNoBleed: number         // Case 1: No bleed on either (default 0.20")
+  coverExtraCoverBleedOnly: number  // Case 2: Cover bleed only (default 0.25")
+  coverExtraInsideBleed: number     // Case 3 & 4: Inside has bleed (default 0.50")
+  maxCoverUps: number               // Max ups for perfect binding covers (default 2)
+  maxLaminationWidth: number        // Max width laminator can handle in inches (default 12.45")
+}
+
+export const DEFAULT_PERFECT_BINDING_PRODUCTION: PerfectBindingProductionConfig = {
+  coverExtraNoBleed: 0.20,
+  coverExtraCoverBleedOnly: 0.25,
+  coverExtraInsideBleed: 0.50,
+  maxCoverUps: 2,
+  maxLaminationWidth: 12.45,
+}
+
 export interface PricingConfig {
   clickCosts: Record<string, ClickCostEntry>
   paperPrices: Record<string, Record<string, number>>
@@ -587,6 +604,7 @@ export interface PricingConfig {
   envelopeWeightConfig: EnvelopeWeightConfig
   sortLevelMix: SortLevelMixConfig
   saddleStitchConfig: SaddleStitchConfig
+  perfectBindingProduction: PerfectBindingProductionConfig
   // Dynamic paper options from database
   flatPaperOptions: DynamicPaperOption[]
   bookInsidePaperOptions: DynamicPaperOption[]
@@ -620,6 +638,7 @@ export type { EnvelopeSettings }
   padPaperOptions: [],
   sortLevelMix: structuredClone(DEFAULT_SORT_LEVEL_MIX),
   saddleStitchConfig: structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
+  perfectBindingProduction: structuredClone(DEFAULT_PERFECT_BINDING_PRODUCTION),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -732,6 +751,9 @@ export function applyOverrides(overrides: Partial<{
     saddleStitchConfig: overrides.saddle_stitch_config
       ? structuredClone(overrides.saddle_stitch_config)
       : structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
+    perfectBindingProduction: overrides.perfect_binding_production
+      ? { ...structuredClone(DEFAULT_PERFECT_BINDING_PRODUCTION), ...overrides.perfect_binding_production }
+      : structuredClone(DEFAULT_PERFECT_BINDING_PRODUCTION),
   }
 }
 

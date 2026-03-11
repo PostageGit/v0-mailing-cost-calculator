@@ -24,6 +24,19 @@ export interface PerfectBindingConfig {
   highPageSurchargeRetail: number // per book if pages >= 600 (retail)
   highPageSurchargeBroker: number // per book if pages >= 600 (broker)
   brokerDiscountRate: number // percentage discount on finishing
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRODUCTION RULES — Cover Size Calculation
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Extra size per trimmed side (top, bottom, fore-edge) based on bleed settings.
+  // The trim line is the reference point: "How far past trim does cover need to reach?"
+  coverExtraNoBleed: number         // Case 1: No bleed on either — overhang only (default 0.20")
+  coverExtraCoverBleedOnly: number  // Case 2: Cover bleed only — cover bleed serves as overhang (default 0.25")
+  coverExtraInsideBleed: number     // Case 3 & 4: Inside has bleed — 0.25 bleed + 0.25 buffer (default 0.50")
+  
+  // Production limits
+  maxCoverUps: number               // Max ups for perfect binding covers (default 2)
+  maxLaminationWidth: number        // Max width laminator can handle in inches (default 12.45")
 }
 
 export const DEFAULT_PERFECT_BINDING_CONFIG: PerfectBindingConfig = {
@@ -39,6 +52,13 @@ export const DEFAULT_PERFECT_BINDING_CONFIG: PerfectBindingConfig = {
   highPageSurchargeRetail: 0.20,
   highPageSurchargeBroker: 0.15,
   brokerDiscountRate: 15,
+  
+  // Production rules
+  coverExtraNoBleed: 0.20,
+  coverExtraCoverBleedOnly: 0.25,
+  coverExtraInsideBleed: 0.50,
+  maxCoverUps: 2,
+  maxLaminationWidth: 12.45,
 }
 
 export function PerfectBindingSettingsTab() {
@@ -266,6 +286,101 @@ export function PerfectBindingSettingsTab() {
             className="h-8"
           />
           <p className="text-[10px] text-muted-foreground">Discount on binding + lamination for brokers</p>
+        </div>
+      </div>
+
+      {/* Production Rules - Cover Size Calculation */}
+      <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 p-4 space-y-4">
+        <div>
+          <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-200">Production Rules — Cover Size Calculation</h4>
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+            These values determine how much extra size is added per trimmed side (top, bottom, fore-edge) based on bleed settings.
+          </p>
+        </div>
+        
+        {/* Visual explanation */}
+        <div className="bg-white dark:bg-card rounded border p-3 text-xs space-y-2">
+          <p className="font-medium">How it works:</p>
+          <p className="text-muted-foreground">
+            The <strong>trim line</strong> is the reference point. The extra size is how far past the trim line the cover extends.
+          </p>
+          <ul className="list-disc list-inside text-muted-foreground space-y-1 ml-2">
+            <li><strong>No bleed</strong>: Only overhang needed (default 0.20&quot;)</li>
+            <li><strong>Cover bleed only</strong>: Cover bleed serves as the overhang (default 0.25&quot;)</li>
+            <li><strong>Inside bleed</strong>: 0.25&quot; inside bleed + 0.25&quot; registration buffer = 0.50&quot;</li>
+            <li>If <em>both</em> have bleed, cover bleed is absorbed into inside bleed area (still 0.50&quot;)</li>
+          </ul>
+          <p className="text-muted-foreground pt-2 border-t mt-2">
+            <strong>Formula:</strong> Cover Width = (BookWidth × 2) + Spine + (Extra × 2) | Cover Height = BookHeight + (Extra × 2)
+          </p>
+        </div>
+
+        {/* Editable values */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Case 1: No Bleed (&quot;)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={config.coverExtraNoBleed}
+              onChange={(e) => updateField("coverExtraNoBleed", parseFloat(e.target.value) || 0)}
+              className="h-8"
+            />
+            <p className="text-[10px] text-muted-foreground">Neither inside nor cover has bleed</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Case 2: Cover Bleed Only (&quot;)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={config.coverExtraCoverBleedOnly}
+              onChange={(e) => updateField("coverExtraCoverBleedOnly", parseFloat(e.target.value) || 0)}
+              className="h-8"
+            />
+            <p className="text-[10px] text-muted-foreground">Only cover has bleed</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Case 3 & 4: Inside Bleed (&quot;)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={config.coverExtraInsideBleed}
+              onChange={(e) => updateField("coverExtraInsideBleed", parseFloat(e.target.value) || 0)}
+              className="h-8"
+            />
+            <p className="text-[10px] text-muted-foreground">Inside has bleed (cover bleed absorbed)</p>
+          </div>
+        </div>
+
+        {/* Production Limits */}
+        <div className="pt-3 border-t border-amber-200 dark:border-amber-700">
+          <h5 className="font-medium text-xs text-amber-900 dark:text-amber-200 mb-3">Production Limits</h5>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Max Cover Ups</Label>
+              <Input
+                type="number"
+                step="1"
+                min="1"
+                max="4"
+                value={config.maxCoverUps}
+                onChange={(e) => updateField("maxCoverUps", parseInt(e.target.value) || 2)}
+                className="h-8"
+              />
+              <p className="text-[10px] text-muted-foreground">Maximum impositions for covers (typically 2)</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Max Lamination Width (&quot;)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={config.maxLaminationWidth}
+                onChange={(e) => updateField("maxLaminationWidth", parseFloat(e.target.value) || 12.45)}
+                className="h-8"
+              />
+              <p className="text-[10px] text-muted-foreground">Covers wider than this cannot be laminated</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
