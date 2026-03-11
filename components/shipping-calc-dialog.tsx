@@ -62,11 +62,12 @@ export function ShippingCalcDialog({
   const [overrideBox, setOverrideBox] = useState<string | null>(null)
   const [shippingCost, setShippingCost] = useState("")
   const [showLabels, setShowLabels] = useState(false)
+  const [weightOverride, setWeightOverride] = useState("")
 
   const thicknessPerPiece = sheetsPerPiece * 0.005
 
-  // Calculate per-piece weight: use explicit override, or compute from paperName
-  const computedPerPieceOz = useMemo(() => {
+  // Calculate per-piece weight: manual override > explicit prop > computed from paperName
+  const autoPerPieceOz = useMemo(() => {
     if (perPieceWeightOz && perPieceWeightOz > 0) return perPieceWeightOz
     if (paperName && pieceWidth > 0 && pieceHeight > 0) {
       const sheetOz = calcSheetWeightOz(paperName, pieceWidth, pieceHeight)
@@ -75,6 +76,9 @@ export function ShippingCalcDialog({
     return 0
   }, [perPieceWeightOz, paperName, pieceWidth, pieceHeight, sheetsPerPiece])
 
+  // Manual weight override takes priority (entered in oz per piece)
+  const manualOz = weightOverride ? parseFloat(weightOverride) : 0
+  const computedPerPieceOz = manualOz > 0 ? manualOz : autoPerPieceOz
   const totalWeightOz = computedPerPieceOz * quantity
   const hasWeight = computedPerPieceOz > 0
 
@@ -211,40 +215,83 @@ export function ShippingCalcDialog({
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={upsOnly}
-                  onChange={(e) => {
-                    setUpsOnly(e.target.checked)
-                    setOverrideBox(null)
-                  }}
-                  className="h-3.5 w-3.5 rounded border-border accent-foreground"
-                />
-                <span className="text-xs font-medium text-muted-foreground">
-                  UPS-safe boxes only
-                </span>
-              </label>
-
-              <select
-                value={overrideBox || ""}
-                onChange={(e) => setOverrideBox(e.target.value || null)}
-                className="h-8 text-xs rounded-lg border border-border bg-background px-2.5 text-foreground min-w-[160px]"
-              >
-                <option value="">Auto-select best box</option>
-                {BOX_SIZES.filter((b) => !upsOnly || b.upsEligible).map(
-                  (b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name} ({b.lengthIn}&quot;x{b.widthIn}&quot;x
-                      {b.heightIn}&quot;)
-                      {!b.upsEligible ? " - NOT UPS" : ""}
-                    </option>
-                  )
+            {/* Override controls */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Weight override */}
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                  Weight per piece (oz)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={autoPerPieceOz > 0 ? autoPerPieceOz.toFixed(2) : "Enter oz"}
+                    value={weightOverride}
+                    onChange={(e) => setWeightOverride(e.target.value)}
+                    className={cn(
+                      "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
+                      manualOz > 0 ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border"
+                    )}
+                  />
+                  {manualOz > 0 && (
+                    <button
+                      onClick={() => setWeightOverride("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground hover:text-foreground bg-secondary px-1.5 py-0.5 rounded"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                {!hasWeight && !manualOz && (
+                  <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                    Could not auto-detect weight. Enter manually.
+                  </p>
                 )}
-              </select>
+              </div>
+
+              {/* Box override */}
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                  Box selection
+                </label>
+                <select
+                  value={overrideBox || ""}
+                  onChange={(e) => setOverrideBox(e.target.value || null)}
+                  className={cn(
+                    "w-full h-9 text-sm rounded-lg border bg-background px-2.5 text-foreground",
+                    overrideBox ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border"
+                  )}
+                >
+                  <option value="">Auto-select best box</option>
+                  {BOX_SIZES.filter((b) => !upsOnly || b.upsEligible).map(
+                    (b) => (
+                      <option key={b.name} value={b.name}>
+                        {b.name} ({b.lengthIn}&quot;x{b.widthIn}&quot;x
+                        {b.heightIn}&quot;)
+                        {!b.upsEligible ? " - NOT UPS" : ""}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
             </div>
+
+            {/* UPS filter */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={upsOnly}
+                onChange={(e) => {
+                  setUpsOnly(e.target.checked)
+                  setOverrideBox(null)
+                }}
+                className="h-3.5 w-3.5 rounded border-border accent-foreground"
+              />
+              <span className="text-xs font-medium text-muted-foreground">
+                UPS-safe boxes only
+              </span>
+            </label>
 
             {/* Box recommendations */}
             {estimate ? (
