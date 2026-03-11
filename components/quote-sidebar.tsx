@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 import { calcMailPieceWeightOz, formatWeight, getEnvelopeWeightOz } from "@/lib/paper-weights"
 import { buildQuoteText } from "@/lib/build-quote-text"
 import { BOX_SIZES, selectBestBoxes, formatShippingWeight, type BoxSize, type ShippingEstimate } from "@/lib/shipping-boxes"
+import { ShippingLabelModal } from "@/components/shipping-label"
 import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { Download } from "lucide-react"
 
@@ -589,7 +590,7 @@ function timeSince(ts: number): string {
 }
 
 /* ── Weight Estimate Panel ─────────────────────────────── */
-import { Scale, Package, AlertTriangle, Box as BoxIcon } from "lucide-react"
+import { Scale, Package, AlertTriangle, Box as BoxIcon, Printer } from "lucide-react"
 
 function WeightEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; quantity: number }) {
   const [expanded, setExpanded] = useState(false)
@@ -711,6 +712,7 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
   const [expanded, setExpanded] = useState(false)
   const [overrideBox, setOverrideBox] = useState<string | null>(null)
   const [upsOnly, setUpsOnly] = useState(false)
+  const [showLabels, setShowLabels] = useState(false)
 
   // Extract piece dimensions and weight info from items
   const pieces: Array<{
@@ -979,7 +981,29 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
               ))}
             </select>
           </div>
+
+          {/* Print labels button */}
+          {estimate && (
+            <Button
+              onClick={() => setShowLabels(true)}
+              variant="outline"
+              size="sm"
+              className="w-full gap-1.5 h-8 text-[10px] font-semibold"
+            >
+              <Printer className="h-3 w-3" />
+              Print Shipping Labels ({estimate.totalBoxes})
+            </Button>
+          )}
         </div>
+      )}
+
+      {/* Shipping label print modal */}
+      {estimate && (
+        <ShippingLabelModal
+          open={showLabels}
+          onClose={() => setShowLabels(false)}
+          estimate={estimate}
+        />
       )}
     </div>
   )
