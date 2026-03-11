@@ -286,18 +286,13 @@ function AppContent() {
         {sidebarOpen && (
           <div className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
         )}
-        <aside className={cn(
-          "flex flex-col bg-card border-r border-border shrink-0 z-50 transition-all duration-200",
-          // Desktop
-          "hidden lg:flex",
-          sidebarOpen ? "w-52" : "w-14 items-center",
-          // Mobile overlay
-        )}>
+        <aside
+          style={{ width: sidebarOpen ? 208 : 56 }}
+          className="flex flex-col bg-card border-r border-border shrink-0 z-50 transition-all duration-200 overflow-hidden hidden lg:flex"
+        >
           {/* Logo + collapse */}
-          <div className={cn(
-            "flex items-center h-12 border-b border-border shrink-0 w-full",
-            sidebarOpen ? "justify-between px-3" : "justify-center"
-          )}>
+          <div className="flex items-center h-12 border-b border-border shrink-0 justify-center"
+            style={sidebarOpen ? { justifyContent: "space-between", padding: "0 12px" } : undefined}>
             {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -307,7 +302,8 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className={cn("pt-3 pb-1 flex w-full", sidebarOpen ? "px-3" : "justify-center")}>
+          <div className="pt-3 pb-1 flex justify-center"
+            style={sidebarOpen ? { padding: "12px 12px 4px", justifyContent: "stretch" } : undefined}>
             <Button onClick={handleNewJob}
               className={cn(
                 "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -319,25 +315,26 @@ function AppContent() {
           </div>
 
           {/* Nav groups */}
-          <nav className={cn(
-            "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
-            sidebarOpen ? "px-3" : "px-0"
-          )}>
+          <nav className="flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4"
+            style={sidebarOpen ? { padding: "8px 12px 16px" } : undefined}>
             {(["dashboards", "data"] as const).map((group) => (
-              <div key={group} className={cn("flex flex-col", sidebarOpen ? "w-full" : "w-full items-center")}>
+              <div key={group} className="flex flex-col"
+                style={!sidebarOpen ? { alignItems: "center" } : undefined}>
                 {sidebarOpen && (
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
                     {group === "dashboards" ? "Boards" : "Manage"}
                   </p>
                 )}
-                <div className={cn("flex flex-col gap-0.5", sidebarOpen ? "w-full" : "items-center")}>
+                <div className="flex flex-col gap-0.5"
+                  style={!sidebarOpen ? { alignItems: "center" } : { width: "100%" }}>
                   {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
                     const active = section === nav.id
                     return (
                       <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
+                        style={!sidebarOpen ? { width: 40, height: 40, justifyContent: "center" } : undefined}
                         className={cn(
                           "flex items-center rounded-lg transition-all",
-                          sidebarOpen ? "w-full gap-2.5 px-2.5 py-2 text-sm min-h-[40px]" : "w-10 h-10 justify-center",
+                          sidebarOpen && "w-full gap-2.5 px-2.5 py-2 text-sm min-h-[40px]",
                           active
                             ? "bg-foreground text-background font-semibold"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -354,11 +351,13 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2 flex w-full", sidebarOpen ? "px-3" : "justify-center")}>
+          <div className="pb-3 border-t border-border pt-2 flex justify-center"
+            style={sidebarOpen ? { padding: "8px 12px 12px", justifyContent: "stretch" } : undefined}>
             <button onClick={() => setShowSettings(true)}
+              style={!sidebarOpen ? { width: 40, height: 40, justifyContent: "center" } : undefined}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
-                sidebarOpen ? "w-full min-h-[40px] px-2.5 py-2 text-sm" : "w-10 h-10 justify-center"
+                sidebarOpen && "w-full min-h-[40px] px-2.5 py-2 text-sm"
               )}>
               <Settings className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Settings</span>}
