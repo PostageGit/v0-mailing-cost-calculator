@@ -17,6 +17,7 @@ export type SupplyCategory =
   | "ink"
   | "paper_stock"
   | "binding"
+  | "shipping_box"
   | "list_rental"
   | "other"
 
@@ -27,6 +28,7 @@ export const SUPPLY_CATEGORY_LABELS: Record<SupplyCategory, string> = {
   ink: "Ink / Toner",
   paper_stock: "Paper Stock",
   binding: "Binding Supplies",
+  shipping_box: "Shipping Boxes",
   list_rental: "List Rentals",
   other: "Other",
 }
@@ -160,8 +162,29 @@ export const DEFAULT_SUPPLIERS_CONFIG: SuppliersConfig = {
       email: "",
       notes: "Shidduchim / Simcha list supplier",
     },
+    {
+      id: "box-supplier",
+      name: "Shipping Boxes",
+      phone: "",
+      contactName: "",
+      email: "",
+      notes: "Shipping box inventory",
+    },
   ],
   supplyItems: [
+    // ── Shipping Boxes ──
+    { id: "box-p3",    supplierId: "box-supplier", sku: "P3",    name: "P3 - 11.75 x 8.75 x 3",       category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-p6",    supplierId: "box-supplier", sku: "P6",    name: "P6 - 11.75 x 8.75 x 6",       category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-p9",    supplierId: "box-supplier", sku: "P9",    name: "P9 - 11.75 x 8.75 x 9",       category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-p12",   supplierId: "box-supplier", sku: "P12",   name: "P12 - 11.75 x 8.75 x 12 (NOT UPS)",  category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-d1",    supplierId: "box-supplier", sku: "D1",    name: "D1 - 12.5 x 9.5 x 13.5 (NOT UPS)",   category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-b30",   supplierId: "box-supplier", sku: "B30",   name: "B30 - 12 x 10 x 8",           category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-12104", supplierId: "box-supplier", sku: "12104", name: "12104 - 12 x 10 x 4",         category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-14-8",  supplierId: "box-supplier", sku: "14-8",  name: "14-8 - 14 x 10.5 x 8",        category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-14-4",  supplierId: "box-supplier", sku: "14-4",  name: "14-4 - 14 x 10.5 x 4",        category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-t176",  supplierId: "box-supplier", sku: "T-17-6", name: "T-17-6 - 17.25 x 11.25 x 6", category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-1710",  supplierId: "box-supplier", sku: "17-10", name: "17-10 - 17.25 x 11.25 x 10",  category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
+    { id: "box-t186",  supplierId: "box-supplier", sku: "T-18-6", name: "T-18-6 - 18.25 x 12.25 x 6", category: "shipping_box", costPerUnit: 0, markupPercent: 0, sellPrice: 0 },
     // ── Clear Plastics envelopes ──
     { id: "cp-b59",   supplierId: "clearplastics", sku: "B59",   name: "5.5 x 8.5 Clear Bag",  category: "plastic_envelope", costPerUnit: 0, markupPercent: 0, sellPrice: 0, fitsWidth: 5.5,  fitsHeight: 8.5,  actualWidth: 5.9375, actualHeight: 8.75,   linkedEnvelopeId: "p-5.5x8.5" },
     { id: "cp-b6x9",  supplierId: "clearplastics", sku: "B6x9",  name: "6 x 9 Clear Bag",      category: "plastic_envelope", costPerUnit: 0, markupPercent: 0, sellPrice: 0, fitsWidth: 6,    fitsHeight: 9,    actualWidth: 6.4375, actualHeight: 9,      linkedEnvelopeId: "p-6x9" },

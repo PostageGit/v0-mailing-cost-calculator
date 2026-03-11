@@ -373,6 +373,7 @@ export function PerfectCalculator() {
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
                 quantity={inputs.bookQty}
+                paperName={inputs.inside.paperName}
                 sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + 1}
                 itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind`}
               />

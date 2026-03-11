@@ -363,6 +363,7 @@ export function BookletCalculator() {
                   pieceWidth={inputs.pageWidth}
                   pieceHeight={inputs.pageHeight}
                   quantity={inputs.bookQty}
+                  paperName={inputs.insidePaper}
                   sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.separateCover ? 1 : 0)}
                   itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet`}
                 />

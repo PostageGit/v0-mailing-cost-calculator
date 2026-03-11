@@ -16,6 +16,7 @@ import {
   formatShippingWeight,
   type ShippingEstimate,
 } from "@/lib/shipping-boxes"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useQuote } from "@/lib/quote-context"
 import {
   Package,
@@ -51,6 +52,7 @@ export function ShippingCalcDialog({
   pieceWidth,
   pieceHeight,
   quantity,
+  paperName,
   perPieceWeightOz,
   sheetsPerPiece = 1,
   itemLabel,
@@ -62,8 +64,19 @@ export function ShippingCalcDialog({
   const [showLabels, setShowLabels] = useState(false)
 
   const thicknessPerPiece = sheetsPerPiece * 0.005
-  const totalWeightOz = (perPieceWeightOz ?? 0) * quantity
-  const hasWeight = (perPieceWeightOz ?? 0) > 0
+
+  // Calculate per-piece weight: use explicit override, or compute from paperName
+  const computedPerPieceOz = useMemo(() => {
+    if (perPieceWeightOz && perPieceWeightOz > 0) return perPieceWeightOz
+    if (paperName && pieceWidth > 0 && pieceHeight > 0) {
+      const sheetOz = calcSheetWeightOz(paperName, pieceWidth, pieceHeight)
+      if (sheetOz !== null) return sheetOz * sheetsPerPiece
+    }
+    return 0
+  }, [perPieceWeightOz, paperName, pieceWidth, pieceHeight, sheetsPerPiece])
+
+  const totalWeightOz = computedPerPieceOz * quantity
+  const hasWeight = computedPerPieceOz > 0
 
   const estimate = useMemo<ShippingEstimate | null>(() => {
     if (pieceWidth <= 0 || pieceHeight <= 0 || quantity <= 0) return null
@@ -77,7 +90,7 @@ export function ShippingCalcDialog({
       const boxCount = maxPerBox > 0 ? Math.ceil(quantity / maxPerBox) : 1
       const piecesPerBox = maxPerBox > 0 ? Math.min(quantity, maxPerBox) : quantity
       const weightPerBox =
-        ((perPieceWeightOz ?? 0) * piecesPerBox) + box.boxWeightOz
+        (computedPerPieceOz * piecesPerBox) + box.boxWeightOz
       return {
         recommendations: [
           {
@@ -116,7 +129,7 @@ export function ShippingCalcDialog({
     totalWeightOz,
     upsOnly,
     overrideBox,
-    perPieceWeightOz,
+    computedPerPieceOz,
   ])
 
   const handleAddShippingToQuote = () => {
