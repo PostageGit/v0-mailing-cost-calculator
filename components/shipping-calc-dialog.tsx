@@ -27,6 +27,8 @@ import {
   Truck,
   Settings2,
   Sparkles,
+  Copy,
+  Check,
 } from "lucide-react"
 import { ShippingLabelModal } from "@/components/shipping-label"
 
@@ -87,6 +89,33 @@ export function ShippingCalcDialog({
   const [manualBoxes, setManualBoxes] = useState<ManualBoxEntry[]>([
     { id: "1", boxName: "", customDims: null, count: "1", piecesPerBox: "", weightPerBoxLbs: "" },
   ])
+  const [copied, setCopied] = useState(false)
+
+  // Generate email-ready text summary
+  const generateEmailSummary = (est: ShippingEstimate): string => {
+    const lines: string[] = []
+
+    for (const rec of est.recommendations) {
+      const weightLbs = (rec.weightPerBoxOz / 16).toFixed(1)
+      if (rec.count > 1) {
+        lines.push(`${rec.count} boxes @ ${rec.piecesPerBox} pcs each, ${weightLbs} lbs/box`)
+      } else {
+        lines.push(`1 box @ ${rec.piecesPerBox} pcs, ${weightLbs} lbs`)
+      }
+    }
+
+    lines.push(`Total: ${est.totalBoxes} box${est.totalBoxes !== 1 ? "es" : ""}, ${est.totalShippingWeightLbs.toFixed(1)} lbs`)
+
+    return lines.join("\n")
+  }
+
+  const handleCopyForEmail = async () => {
+    if (!displayEstimate) return
+    const text = generateEmailSummary(displayEstimate)
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const thicknessPerPiece = sheetsPerPiece * 0.005
 
@@ -683,15 +712,30 @@ export function ShippingCalcDialog({
                       </div>
                     )}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setShowLabels(true)}
-                  >
-                    <Package className="h-3.5 w-3.5" />
-                    Print Labels
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={handleCopyForEmail}
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      {copied ? "Copied!" : "Copy for Email"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() => setShowLabels(true)}
+                    >
+                      <Package className="h-3.5 w-3.5" />
+                      Print Labels
+                    </Button>
+                  </div>
                 </div>
 
                 {displayEstimate.hasNonUPSBoxes && (
@@ -957,15 +1001,30 @@ export function ShippingCalcDialog({
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => setShowLabels(true)}
-                      >
-                        <Package className="h-3.5 w-3.5" />
-                        Print Labels
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={handleCopyForEmail}
+                        >
+                          {copied ? (
+                            <Check className="h-3.5 w-3.5 text-green-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                          {copied ? "Copied!" : "Copy for Email"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => setShowLabels(true)}
+                        >
+                          <Package className="h-3.5 w-3.5" />
+                          Print Labels
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Shipping cost input + add to quote */}
