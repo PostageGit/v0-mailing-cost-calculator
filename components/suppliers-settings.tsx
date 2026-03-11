@@ -19,7 +19,7 @@ import {
   computeSellPrice,
 } from "@/lib/suppliers"
 
-type FilterMode = "all" | "supplies" | "list_rental"
+type FilterMode = "all" | "supplies" | "shipping_box" | "list_rental"
 
 export function SuppliersSettings() {
   const [config, setConfig] = useState<SuppliersConfig>(DEFAULT_SUPPLIERS_CONFIG)
@@ -163,7 +163,8 @@ export function SuppliersSettings() {
     if (filter === "all") return true
     const items = config.supplyItems.filter((i) => i.supplierId === sup.id)
     if (filter === "list_rental") return items.some((i) => i.category === "list_rental")
-    return items.some((i) => i.category !== "list_rental")
+    if (filter === "shipping_box") return items.some((i) => i.category === "shipping_box")
+    return items.some((i) => i.category !== "list_rental" && i.category !== "shipping_box")
   })
 
   return (
@@ -191,6 +192,7 @@ export function SuppliersSettings() {
         {([
           { key: "all", label: "All" },
           { key: "supplies", label: "Supplies" },
+          { key: "shipping_box", label: "Shipping Boxes" },
           { key: "list_rental", label: "List Rentals" },
         ] as const).map(({ key, label }) => (
           <button
@@ -210,7 +212,9 @@ export function SuppliersSettings() {
                 ? config.suppliers.length
                 : key === "list_rental"
                 ? config.supplyItems.filter((i) => i.category === "list_rental").length
-                : config.supplyItems.filter((i) => i.category !== "list_rental").length}
+                : key === "shipping_box"
+                ? config.supplyItems.filter((i) => i.category === "shipping_box").length
+                : config.supplyItems.filter((i) => i.category !== "list_rental" && i.category !== "shipping_box").length}
             </span>
           </button>
         ))}
@@ -221,10 +225,13 @@ export function SuppliersSettings() {
         const allItems = config.supplyItems.filter((i) => i.supplierId === supplier.id)
         const items = filter === "list_rental"
           ? allItems.filter((i) => i.category === "list_rental")
+          : filter === "shipping_box"
+          ? allItems.filter((i) => i.category === "shipping_box")
           : filter === "supplies"
-          ? allItems.filter((i) => i.category !== "list_rental")
+          ? allItems.filter((i) => i.category !== "list_rental" && i.category !== "shipping_box")
           : allItems
         const hasListRentals = allItems.some((i) => i.category === "list_rental")
+        const hasShippingBoxes = allItems.some((i) => i.category === "shipping_box")
 
         return (
           <div key={supplier.id} className="rounded-xl border bg-card overflow-hidden">

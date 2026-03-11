@@ -330,6 +330,7 @@ export function SpiralCalculator() {
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
                 quantity={inputs.bookQty}
+                paperName={inputs.inside.paperName}
                 sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.useFrontCover ? 1 : 0) + (inputs.useBackCover ? 1 : 0)}
                 itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book`}
               />

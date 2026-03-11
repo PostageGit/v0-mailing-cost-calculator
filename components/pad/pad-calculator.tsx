@@ -178,6 +178,7 @@ export function PadCalculator() {
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
                 quantity={inputs.padQty}
+                paperName={inputs.inside.paperName}
                 sheetsPerPiece={inputs.pagesPerPad + (inputs.useChipBoard ? 1 : 0)}
                 itemLabel={`${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad`}
               />
