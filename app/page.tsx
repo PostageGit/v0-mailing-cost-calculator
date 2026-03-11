@@ -294,7 +294,7 @@ function AppContent() {
           // Mobile overlay
         )}>
           {/* Logo + collapse */}
-          <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
+          <div className="flex items-center justify-between h-12 px-2.5 border-b border-border shrink-0">
             {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -304,7 +304,7 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className="px-2 pt-3 pb-1">
+          <div className="px-2.5 pt-3 pb-1">
             <Button onClick={handleNewJob}
               className={cn(
                 "w-full gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -316,7 +316,7 @@ function AppContent() {
           </div>
 
           {/* Nav groups */}
-          <nav className="flex-1 overflow-y-auto px-2 pt-2 pb-4 flex flex-col gap-4">
+          <nav className="flex-1 overflow-y-auto px-2.5 pt-2 pb-4 flex flex-col gap-4">
             {(["dashboards", "data"] as const).map((group) => (
               <div key={group}>
                 {sidebarOpen && (
@@ -348,7 +348,7 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className="px-2 pb-3 border-t border-border pt-2">
+          <div className="px-2.5 pb-3 border-t border-border pt-2">
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
