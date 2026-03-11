@@ -137,9 +137,12 @@ export function calculateLayout(
   }
   
   // Covers: CAN rotate - try both orientations and pick the best
+  // PRODUCTION RULE: Perfect binding covers can be MAX 2-UP only (no 3-up or more)
   const portrait = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
   const landscape = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
-  return { maxUps: Math.max(portrait, landscape), isRotated: landscape > portrait }
+  const rawMaxUps = Math.max(portrait, landscape)
+  const maxUps = Math.min(rawMaxUps, 2) // Enforce 2-up maximum for perfect binding covers
+  return { maxUps, isRotated: landscape > portrait }
 }
 
 /** Paper data that can come from database or hardcoded options */
@@ -383,13 +386,49 @@ export function calculatePerfect(
   }
   
   if ("error" in insideRes) return insideRes
-  // Cover wraps: front cover + spine + back cover
-  // Add bleed margins if cover has bleed (0.125" on each side = 0.25" total per dimension)
-  const bleedMargin = cover.hasBleed ? 0.25 : 0
-  let coverPageWidth = (pageWidth * 2) + spineWidth + bleedMargin
-  let coverPageHeight = pageHeight + bleedMargin
-  // Additional height adjustment if both cover and inside have bleed
-  if (cover.hasBleed && inside.hasBleed) coverPageHeight += 0.2
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PERFECT BINDING COVER SIZE CALCULATION — Production Rules
+  // ═══════════════════════════════════════════════════════════════════════════
+  // The cover wraps: back cover + spine + front cover (as one flat sheet)
+  // Extra size is added to 3 trimmed sides (top, bottom, fore-edge), NOT the spine
+  // 
+  // The trim line is the reference point. All measurements ask:
+  // "How far past the trim line does the cover need to reach?"
+  //
+  // 4 CASES based on bleed settings:
+  // ┌──────────────┬─────────────┬────────────────────────────────────────────────┐
+  // │ Inside Bleed │ Cover Bleed │ Extra Per Trimmed Side                         │
+  // ├──────────────┼─────────────┼────────────────────────────────────────────────┤
+  // │ No           │ No          │ 0.20" (overhang only)                          │
+  // │ No           │ Yes         │ 0.25" (cover bleed serves as overhang)         │
+  // │ Yes          │ No          │ 0.50" (0.25 inside bleed + 0.25 reg buffer)    │
+  // │ Yes          │ Yes         │ 0.50" (same as Case 3 — cover bleed absorbed)  │
+  // └──────────────┴─────────────┴────────────────────────────────────────────────┘
+  //
+  // NOTE: In Case 4, cover bleed (0.25") is absorbed into the inside page bleed area.
+  // Both extend from the same trim line into the same physical space — not additive.
+  //
+  // Total Width  = (bookWidth × 2) + spineWidth + (extraPerSide × 2)
+  // Total Height = bookHeight + (extraPerSide × 2)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  let extraPerTrimmedSide: number
+  if (!inside.hasBleed && !cover.hasBleed) {
+    // Case 1: No bleed on either — overhang only
+    extraPerTrimmedSide = 0.20
+  } else if (!inside.hasBleed && cover.hasBleed) {
+    // Case 2: Cover bleed only — cover bleed serves as overhang
+    extraPerTrimmedSide = 0.25
+  } else {
+    // Case 3 & 4: Inside has bleed (cover bleed is absorbed into inside bleed area)
+    // Inside bleed 0.25" past trim + 0.25" registration buffer = 0.50"
+    extraPerTrimmedSide = 0.50
+  }
+  
+  // Cover spread dimensions (flat unfolded cover)
+  const coverPageWidth = (pageWidth * 2) + spineWidth + (extraPerTrimmedSide * 2)
+  const coverPageHeight = pageHeight + (extraPerTrimmedSide * 2)
 
   // Cover (use cover override if provided, otherwise match inside level)
   const coverForcedLevel = coverLevelOverride ?? insideRes.level ?? forcedLevel ?? null
@@ -431,6 +470,14 @@ export function calculatePerfect(
   const sidesForCalc = isDS ? 2 : 1
   const finishedSheetsPerBook = Math.ceil(pagesPerBook / sidesForCalc)
 
+  // PRODUCTION RULE: Maximum laminated width is 12.45"
+  // Covers wider than this cannot go through the laminator
+  const MAX_LAMINATION_WIDTH = 12.45
+  const canLaminate = coverPageWidth <= MAX_LAMINATION_WIDTH
+  const laminationWarning = hasLamination && !canLaminate
+    ? `Cover width (${coverPageWidth.toFixed(2)}") exceeds laminator max width of ${MAX_LAMINATION_WIDTH}". Lamination not possible.`
+    : undefined
+
   return {
     coverResult: coverRes as PerfectPartResult,
     insideResult: insideRes as PerfectPartResult,
@@ -440,6 +487,8 @@ export function calculatePerfect(
     coverSpreadWidth: coverPageWidth,  // full cover spread including spine
     coverSpreadHeight: coverPageHeight,
     coverPageWidth, coverPageHeight,  // keep for backwards compat
+    canLaminate,  // true if cover width <= 12.45"
+    laminationWarning,  // warning message if lamination requested but not possible
     totalPrintingCost, bindingPricePerBook, totalBindingPrice, sectionFeeTotal,
     laminationCostPerBook, totalLaminationCost,
     brokerDiscountAmount, subtotalRounded, grandTotal,
