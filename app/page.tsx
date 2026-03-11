@@ -290,7 +290,7 @@ function AppContent() {
           "flex flex-col bg-card border-r border-border shrink-0 z-50 transition-all duration-200",
           // Desktop
           "hidden lg:flex",
-          sidebarOpen ? "w-52" : "w-14",
+          sidebarOpen ? "w-52" : "w-14 items-center",
           // Mobile overlay
         )}>
           {/* Logo + collapse */}
