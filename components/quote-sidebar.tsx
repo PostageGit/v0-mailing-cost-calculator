@@ -19,6 +19,8 @@ import { formatCurrency } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { calcMailPieceWeightOz, formatWeight, getEnvelopeWeightOz } from "@/lib/paper-weights"
 import { buildQuoteText } from "@/lib/build-quote-text"
+import { BOX_SIZES, selectBestBoxes, formatShippingWeight, type BoxSize, type ShippingEstimate } from "@/lib/shipping-boxes"
+import { ShippingLabelModal } from "@/components/shipping-label"
 import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { Download } from "lucide-react"
 
@@ -457,6 +459,9 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
       {/* ── Weight Estimate ── */}
       {hasItems && <WeightEstimatePanel items={items} quantity={quantity} />}
 
+      {/* ── Shipping Estimate ── */}
+      {hasItems && <ShippingEstimatePanel items={items} quantity={quantity} />}
+
       {/* ── Footer with total ── */}
       {hasItems && (
         <div className="shrink-0 border-t border-border/50 px-4 py-4">
@@ -585,7 +590,7 @@ function timeSince(ts: number): string {
 }
 
 /* ── Weight Estimate Panel ─────────────────────────────── */
-import { Scale } from "lucide-react"
+import { Scale, Package, AlertTriangle, Box as BoxIcon, Printer } from "lucide-react"
 
 function WeightEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; quantity: number }) {
   const [expanded, setExpanded] = useState(false)
@@ -696,6 +701,309 @@ function WeightEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; quan
             </div>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Shipping Estimate Panel ─────────────────────────────── */
+
+function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; quantity: number }) {
+  const [expanded, setExpanded] = useState(false)
+  const [overrideBox, setOverrideBox] = useState<string | null>(null)
+  const [upsOnly, setUpsOnly] = useState(false)
+  const [showLabels, setShowLabels] = useState(false)
+
+  // Extract piece dimensions and weight info from items
+  const pieces: Array<{
+    paperName: string
+    widthIn: number
+    heightIn: number
+    sheetsPerPiece: number
+    label: string
+  }> = []
+
+  let maxPieceW = 0
+  let maxPieceH = 0
+
+  for (const item of items) {
+    const m = item.metadata
+    if (!m) continue
+
+    if (m.paperName && m.pieceDimensions) {
+      const dimStr = String(m.pieceDimensions)
+      const parts = dimStr.split("x").map((s: string) => parseFloat(s.trim()))
+      if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
+        const sheets = m.pageCount ? Math.ceil(Number(m.pageCount) / 2) : 1
+        pieces.push({
+          paperName: String(m.paperName),
+          widthIn: parts[0],
+          heightIn: parts[1],
+          sheetsPerPiece: sheets,
+          label: item.label,
+        })
+        maxPieceW = Math.max(maxPieceW, parts[0])
+        maxPieceH = Math.max(maxPieceH, parts[1])
+      }
+    }
+  }
+
+  if (pieces.length === 0 || quantity <= 0) return null
+
+  // Calculate total weight
+  const weightResult = calcMailPieceWeightOz({ pieces })
+  if (!weightResult) return null
+
+  const perPieceOz = weightResult.totalOz
+  const totalWeightOz = perPieceOz * quantity
+
+  // Estimate thickness per piece (based on sheet count and paper type)
+  // Standard paper ~0.004", card stock ~0.012", booklets multiply by sheets
+  const avgSheetsPerPiece = pieces.reduce((s, p) => s + p.sheetsPerPiece, 0) / pieces.length
+  const thicknessPerPiece = avgSheetsPerPiece * 0.005 // ~5mil per sheet average
+
+  // Get box recommendation
+  let estimate: ShippingEstimate | null = null
+
+  if (overrideBox) {
+    // Manual override - use the selected box
+    const box = BOX_SIZES.find((b) => b.name === overrideBox)
+    if (box) {
+      const maxPerBox = Math.floor(box.heightIn / thicknessPerPiece)
+      const boxCount = maxPerBox > 0 ? Math.ceil(quantity / maxPerBox) : 1
+      const piecesPerBox = maxPerBox > 0 ? Math.min(quantity, maxPerBox) : quantity
+      const weightPerBox = (perPieceOz * piecesPerBox) + box.boxWeightOz
+      estimate = {
+        recommendations: [{
+          box,
+          count: boxCount,
+          piecesPerBox,
+          weightPerBoxOz: weightPerBox,
+          fillPercent: Math.min(((piecesPerBox * thicknessPerPiece) / box.heightIn) * 100, 100),
+        }],
+        totalBoxes: boxCount,
+        totalShippingWeightOz: weightPerBox * boxCount,
+        totalShippingWeightLbs: (weightPerBox * boxCount) / 16,
+        hasNonUPSBoxes: !box.upsEligible,
+      }
+    }
+  } else {
+    estimate = selectBestBoxes({
+      pieceWidthIn: maxPieceW,
+      pieceHeightIn: maxPieceH,
+      thicknessPerPieceIn: thicknessPerPiece,
+      quantity,
+      totalWeightOz,
+      upsOnly,
+    })
+  }
+
+  return (
+    <div className="shrink-0 border-t border-border/40 px-5 py-3">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between group"
+      >
+        <div className="flex items-center gap-2">
+          <Package className="h-3.5 w-3.5 text-muted-foreground/60" />
+          <span className="text-[11px] font-semibold text-foreground/70">Shipping</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {estimate ? (
+            <>
+              <span className="text-[12px] font-mono font-semibold text-foreground/80 tabular-nums">
+                {estimate.totalBoxes} box{estimate.totalBoxes !== 1 ? "es" : ""}
+              </span>
+              <span className="text-[10px] font-medium text-muted-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">
+                {formatShippingWeight(estimate.totalShippingWeightOz)}
+              </span>
+            </>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/50">No fit</span>
+          )}
+          {expanded ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground/40" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-2.5 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          {/* Order summary */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground/60 font-medium">Pieces</span>
+              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+                {quantity.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground/60 font-medium">Piece size</span>
+              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+                {maxPieceW}&quot; x {maxPieceH}&quot;
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground/60 font-medium">Total piece weight</span>
+              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+                {formatShippingWeight(totalWeightOz)}
+              </span>
+            </div>
+          </div>
+
+          {/* UPS filter */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={upsOnly}
+              onChange={(e) => { setUpsOnly(e.target.checked); setOverrideBox(null) }}
+              className="h-3 w-3 rounded border-border accent-foreground"
+            />
+            <span className="text-[10px] font-medium text-muted-foreground/70">UPS-safe boxes only</span>
+          </label>
+
+          {/* Box recommendations */}
+          {estimate ? (
+            <div className="space-y-2">
+              {estimate.recommendations.map((rec, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-border/50 bg-secondary/20 p-2.5"
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <BoxIcon className="h-3.5 w-3.5 text-foreground/60" />
+                      <span className="text-[11px] font-bold text-foreground">
+                        {rec.box.name}
+                      </span>
+                      {rec.count > 1 && (
+                        <span className="text-[10px] font-semibold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">
+                          x{rec.count}
+                        </span>
+                      )}
+                    </div>
+                    {!rec.box.upsEligible && (
+                      <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded uppercase">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        Not UPS
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-muted-foreground/60">Dimensions</span>
+                      <span className="text-[9px] font-mono text-muted-foreground/70">
+                        {rec.box.lengthIn}&quot; x {rec.box.widthIn}&quot; x {rec.box.heightIn}&quot;
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-muted-foreground/60">Pieces/box</span>
+                      <span className="text-[9px] font-mono text-muted-foreground/70">
+                        {rec.piecesPerBox.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-muted-foreground/60">Weight/box</span>
+                      <span className="text-[9px] font-mono text-muted-foreground/70">
+                        {formatShippingWeight(rec.weightPerBoxOz)}
+                      </span>
+                    </div>
+                    {/* Fill bar */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            rec.fillPercent > 90 ? "bg-amber-500" : "bg-foreground/40"
+                          )}
+                          style={{ width: `${Math.min(rec.fillPercent, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[8px] font-mono text-muted-foreground/50 tabular-nums w-7 text-right">
+                        {Math.round(rec.fillPercent)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Totals */}
+              <div className="pt-1.5 border-t border-dashed border-border/30 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-foreground/70">Total boxes</span>
+                  <span className="text-[11px] font-mono font-semibold text-foreground/80 tabular-nums">
+                    {estimate.totalBoxes}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-foreground/70">Shipping weight</span>
+                  <span className="text-[11px] font-mono font-semibold text-foreground/80 tabular-nums">
+                    {formatShippingWeight(estimate.totalShippingWeightOz)}
+                  </span>
+                </div>
+              </div>
+
+              {estimate.hasNonUPSBoxes && (
+                <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-2">
+                  <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                  <span className="text-[9px] text-amber-700 dark:text-amber-400 leading-tight">
+                    Selected box(es) are not strong enough for UPS shipping. Consider upgrading or switching to a UPS-safe box.
+                  </span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border/50 p-3 text-center">
+              <span className="text-[10px] text-muted-foreground/50">
+                No box fits the piece dimensions ({maxPieceW}&quot; x {maxPieceH}&quot;)
+              </span>
+            </div>
+          )}
+
+          {/* Manual override */}
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground/60 mb-1 block">
+              Override box
+            </label>
+            <select
+              value={overrideBox || ""}
+              onChange={(e) => setOverrideBox(e.target.value || null)}
+              className="w-full h-7 text-[10px] rounded-md border border-border/50 bg-background px-2 text-foreground"
+            >
+              <option value="">Auto-select</option>
+              {BOX_SIZES.filter((b) => !upsOnly || b.upsEligible).map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name} ({b.lengthIn}&quot;x{b.widthIn}&quot;x{b.heightIn}&quot;)
+                  {!b.upsEligible ? " - NOT UPS" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Print labels button */}
+          {estimate && (
+            <Button
+              onClick={() => setShowLabels(true)}
+              variant="outline"
+              size="sm"
+              className="w-full gap-1.5 h-8 text-[10px] font-semibold"
+            >
+              <Printer className="h-3 w-3" />
+              Print Shipping Labels ({estimate.totalBoxes})
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Shipping label print modal */}
+      {estimate && (
+        <ShippingLabelModal
+          open={showLabels}
+          onClose={() => setShowLabels(false)}
+          estimate={estimate}
+        />
       )}
     </div>
   )
