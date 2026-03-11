@@ -15,7 +15,8 @@ import { usePapersContext } from "@/lib/papers-context"
 import { formatCurrency } from "@/lib/pricing"
 import { useGlobalChat } from "@/lib/chat-context"
 import { perfectSpecsToChat } from "@/lib/specs-to-chat"
-import { Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle } from "lucide-react"
+import { Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck } from "lucide-react"
+import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 export function PerfectCalculator() {
@@ -358,7 +359,7 @@ export function PerfectCalculator() {
               </div>
             </div>
 
-            {/* Add to Quote + Compare with Chat */}
+            {/* Add to Quote + Shipping + Compare with Chat */}
             <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleAddToQuote}
@@ -368,6 +369,13 @@ export function PerfectCalculator() {
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
+              <ShippingCalcButton
+                pieceWidth={inputs.pageWidth}
+                pieceHeight={inputs.pageHeight}
+                quantity={inputs.bookQty}
+                sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + 1}
+                itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind`}
+              />
               <Button
                 onClick={() => sendToChat(perfectSpecsToChat({
                   bookQty: inputs.bookQty, pagesPerBook: inputs.pagesPerBook,

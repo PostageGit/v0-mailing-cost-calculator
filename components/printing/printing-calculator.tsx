@@ -27,7 +27,8 @@ import type {
 
 } from "@/lib/printing-types"
 import { useQuote } from "@/lib/quote-context"
-import { Plus, ArrowDown, Save, Pencil, ExternalLink } from "lucide-react"
+import { Plus, ArrowDown, Save, Pencil, ExternalLink, Truck } from "lucide-react"
+import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import type { FinishingCalculator, FinishingGlobalRates } from "@/lib/finishing-calculator-types"
@@ -599,7 +600,7 @@ export function PrintingCalculator() {
                 </div>
               </div>
 
-              {/* Add to Quote + Compare with Chat */}
+              {/* Add to Quote + Compare with Chat + Shipping */}
               <div className="flex gap-2 mt-4">
               <Button
                 onClick={handleAddToQuote}
@@ -609,6 +610,14 @@ export function PrintingCalculator() {
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
               </Button>
+              <ShippingCalcButton
+                pieceWidth={inputs.width}
+                pieceHeight={inputs.height}
+                quantity={inputs.qty}
+                paperName={inputs.paperName}
+                sheetsPerPiece={1}
+                itemLabel={`${inputs.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`}
+              />
               <Button
                 onClick={() => sendToChat(flatSpecsToChat({
                   qty: inputs.qty, width: inputs.width, height: inputs.height,

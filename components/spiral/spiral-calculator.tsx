@@ -12,7 +12,8 @@ import { defaultSpiralInputs } from "@/lib/spiral-types"
 import type { SpiralInputs, SpiralCalcResult } from "@/lib/spiral-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus, ArrowDown, Save, Pencil, ExternalLink } from "lucide-react"
+import { Plus, ArrowDown, Save, Pencil, ExternalLink, Truck } from "lucide-react"
+import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 import { usePapersContext } from "@/lib/papers-context"
 
@@ -315,15 +316,24 @@ export function SpiralCalculator() {
               </div>
             </div>
 
-            {/* Add to Quote -- full width below results */}
-            <Button
-              onClick={handleAddToQuote}
-              className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
-              size="lg"
-            >
-              <Plus className="h-4 w-4" />
-              Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-            </Button>
+            {/* Add to Quote + Shipping -- below results */}
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={handleAddToQuote}
+                className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                size="lg"
+              >
+                <Plus className="h-4 w-4" />
+                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
+              </Button>
+              <ShippingCalcButton
+                pieceWidth={inputs.pageWidth}
+                pieceHeight={inputs.pageHeight}
+                quantity={inputs.bookQty}
+                sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.useFrontCover ? 1 : 0) + (inputs.useBackCover ? 1 : 0)}
+                itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book`}
+              />
+            </div>
           </div>
         )}
       </div>

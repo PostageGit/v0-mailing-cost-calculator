@@ -13,7 +13,8 @@ import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { useGlobalChat } from "@/lib/chat-context"
 import { bookletSpecsToChat } from "@/lib/specs-to-chat"
-import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle } from "lucide-react"
+import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck } from "lucide-react"
+import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 const EMPTY_INPUTS: BookletInputs = {
@@ -348,7 +349,7 @@ export function BookletCalculator() {
                 </div>
               </div>
 
-              {/* Add to Quote + Compare with Chat */}
+              {/* Add to Quote + Shipping + Compare with Chat */}
               <div className="flex gap-2 mt-4">
                 <Button
                   onClick={handleAddToQuote}
@@ -358,6 +359,13 @@ export function BookletCalculator() {
                   <Plus className="h-4 w-4" />
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
                 </Button>
+                <ShippingCalcButton
+                  pieceWidth={inputs.pageWidth}
+                  pieceHeight={inputs.pageHeight}
+                  quantity={inputs.bookQty}
+                  sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.separateCover ? 1 : 0)}
+                  itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet`}
+                />
                 <Button
                   onClick={() => sendToChat(bookletSpecsToChat(inputs))}
                   variant="outline"
