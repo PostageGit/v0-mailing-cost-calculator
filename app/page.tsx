@@ -321,23 +321,23 @@ function AppContent() {
           {/* Nav groups */}
           <nav className={cn(
             "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
-            sidebarOpen ? "px-3" : "px-2"
+            sidebarOpen ? "px-3" : "items-center"
           )}>
             {(["dashboards", "data"] as const).map((group) => (
-              <div key={group}>
+              <div key={group} className={cn(!sidebarOpen && "flex flex-col items-center")}>
                 {sidebarOpen && (
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
                     {group === "dashboards" ? "Boards" : "Manage"}
                   </p>
                 )}
-                <div className="flex flex-col gap-0.5">
+                <div className={cn("flex flex-col gap-0.5", !sidebarOpen && "items-center")}>
                   {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
                     const active = section === nav.id
                     return (
                       <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
                         className={cn(
                           "flex items-center rounded-lg transition-all min-h-[40px]",
-                          sidebarOpen ? "w-full gap-2.5 px-3 py-2 text-sm" : "w-10 justify-center py-2 mx-auto",
+                          sidebarOpen ? "w-full gap-2.5 px-3 py-2 text-sm" : "w-10 h-10 justify-center",
                           active
                             ? "bg-foreground text-background font-semibold"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -354,11 +354,11 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "px-2")}>
+          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "flex justify-center")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
-                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px]",
-                sidebarOpen ? "w-full px-3 py-2 text-sm" : "w-10 justify-center py-2 mx-auto"
+                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
+                sidebarOpen ? "w-full min-h-[40px] px-3 py-2 text-sm" : "w-10 h-10 justify-center"
               )}>
               <Settings className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Settings</span>}
