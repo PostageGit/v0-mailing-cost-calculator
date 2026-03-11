@@ -580,7 +580,6 @@ export interface PerfectBindingProductionConfig {
   coverExtraInsideBleed: number     // Case 3 & 4: Inside has bleed (default 0.50")
   maxCoverUps: number               // Max ups for perfect binding covers (default 2)
   maxLaminationWidth: number        // Max width laminator can handle in inches (default 12.45")
-  coverGutter: number               // Gutter between 2-up covers (default 0.50" = 0.25" overhang per book)
 }
 
 export const DEFAULT_PERFECT_BINDING_PRODUCTION: PerfectBindingProductionConfig = {
@@ -589,7 +588,6 @@ export const DEFAULT_PERFECT_BINDING_PRODUCTION: PerfectBindingProductionConfig 
   coverExtraInsideBleed: 0.50,
   maxCoverUps: 2,
   maxLaminationWidth: 12.45,
-  coverGutter: 0.50,
 }
 
 export interface PricingConfig {

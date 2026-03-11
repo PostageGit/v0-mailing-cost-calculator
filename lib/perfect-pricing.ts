@@ -7,7 +7,7 @@ import { getLaminationPrice } from "./booklet-pricing"
 
 // ─── Constants ───────────────────────────────────────────
 const BLEED_MARGIN = 0.25
-const GUTTER_AMOUNT = 0.2       // Inside pages gutter
+const GUTTER_AMOUNT = 0.2
 const BROKER_DISCOUNT_RATE = 0.15
 
 // ─── Paper Prices ────────────────────────────────────────
@@ -94,13 +94,7 @@ export function calculateLayout(
   hasLamination: boolean
 ): { maxUps: number; isRotated: boolean } {
   const S = 10000
-  const productionConfig = getActiveConfig().perfectBindingProduction
-  
-  // Different gutter for covers vs inside pages
-  // Covers: 0.5" gutter when 2-up (0.25" overhang per book after cutting) - configurable in Settings
-  // Inside: standard gutter when has bleed
-  const gutterAmount = partName === "cover" ? productionConfig.coverGutter : (hasBleed ? GUTTER_AMOUNT : 0)
-  const gutter_s = Math.round(gutterAmount * S)
+  const gutter_s = Math.round((hasBleed ? GUTTER_AMOUNT : 0) * S)
 
   let sw = Math.round(sheetW * S)
   let sh = Math.round(sheetH * S)
@@ -144,7 +138,7 @@ export function calculateLayout(
   
   // Covers: CAN rotate - try both orientations and pick the best
   // PRODUCTION RULE: Perfect binding covers can be MAX 2-UP only (configurable in Settings)
-  // PRODUCTION RULE: Cover gutter between 2-up covers for overhang per book (default 0.5" = 0.25" each)
+  const productionConfig = getActiveConfig().perfectBindingProduction
   const portrait = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
   const landscape = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
   const rawMaxUps = Math.max(portrait, landscape)
