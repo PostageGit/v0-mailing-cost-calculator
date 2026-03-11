@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -161,6 +162,9 @@ export function ShippingCalcDialog({
               <Truck className="h-4.5 w-4.5" />
               Shipping Calculator
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Calculate box sizes and shipping weight for this order
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 mt-1">
