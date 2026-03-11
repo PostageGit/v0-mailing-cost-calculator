@@ -15,6 +15,7 @@ import {
   selectBestBoxes,
   formatShippingWeight,
   type ShippingEstimate,
+  type BoxRecommendation,
 } from "@/lib/shipping-boxes"
 import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useQuote } from "@/lib/quote-context"
@@ -24,8 +25,23 @@ import {
   Box as BoxIcon,
   Plus,
   Truck,
+  Settings2,
+  Sparkles,
+  Copy,
+  Check,
 } from "lucide-react"
 import { ShippingLabelModal } from "@/components/shipping-label"
+
+type TabMode = "auto" | "manual"
+
+interface ManualBoxEntry {
+  id: string
+  boxName: string
+  customDims: { l: string; w: string; h: string } | null
+  count: string
+  piecesPerBox: string
+  weightPerBoxLbs: string
+}
 
 interface ShippingCalcDialogProps {
   open: boolean
@@ -58,6 +74,7 @@ export function ShippingCalcDialog({
   itemLabel,
 }: ShippingCalcDialogProps) {
   const quote = useQuote()
+  const [tabMode, setTabMode] = useState<TabMode>("auto")
   const [upsOnly, setUpsOnly] = useState(false)
   const [overrideBox, setOverrideBox] = useState<string | null>(null)
   const [shippingCost, setShippingCost] = useState("")
@@ -67,6 +84,38 @@ export function ShippingCalcDialog({
   const [perBoxOverrides, setPerBoxOverrides] = useState<Record<number, string>>({})
   // Global per-box override (applies to all boxes unless individually overridden)
   const [globalPerBox, setGlobalPerBox] = useState("")
+
+  // Manual mode state
+  const [manualBoxes, setManualBoxes] = useState<ManualBoxEntry[]>([
+    { id: "1", boxName: "", customDims: null, count: "1", piecesPerBox: "", weightPerBoxLbs: "" },
+  ])
+  const [copied, setCopied] = useState(false)
+
+  // Generate email-ready text summary
+  const generateEmailSummary = (est: ShippingEstimate): string => {
+    const lines: string[] = []
+
+    for (const rec of est.recommendations) {
+      const weightLbs = (rec.weightPerBoxOz / 16).toFixed(1)
+      if (rec.count > 1) {
+        lines.push(`${rec.count} boxes @ ${rec.piecesPerBox} pcs each, ${weightLbs} lbs/box`)
+      } else {
+        lines.push(`1 box @ ${rec.piecesPerBox} pcs, ${weightLbs} lbs`)
+      }
+    }
+
+    lines.push(`Total: ${est.totalBoxes} box${est.totalBoxes !== 1 ? "es" : ""}, ${est.totalShippingWeightLbs.toFixed(1)} lbs`)
+
+    return lines.join("\n")
+  }
+
+  const handleCopyForEmail = async () => {
+    if (!displayEstimate) return
+    const text = generateEmailSummary(displayEstimate)
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const thicknessPerPiece = sheetsPerPiece * 0.005
 
@@ -187,8 +236,96 @@ export function ShippingCalcDialog({
     }
   }, [estimate, globalPerBox, perBoxOverrides, computedPerPieceOz, thicknessPerPiece])
 
+  // Check for capacity warnings in auto mode
+  const capacityWarnings = useMemo(() => {
+    if (!estimate) return {}
+    const warnings: Record<number, string> = {}
+
+    estimate.recommendations.forEach((rec, i) => {
+      const maxFit = thicknessPerPiece > 0
+        ? Math.floor(rec.box.heightIn / thicknessPerPiece)
+        : Infinity
+
+      // Check global override
+      const globalPcs = globalPerBox ? parseInt(globalPerBox) : 0
+      // Check individual override
+      const individualPcs = perBoxOverrides[i] ? parseInt(perBoxOverrides[i]) : 0
+      const requestedPcs = individualPcs > 0 ? individualPcs : globalPcs > 0 ? globalPcs : 0
+
+      if (requestedPcs > 0 && requestedPcs > maxFit) {
+        warnings[i] = `Max ${maxFit} pcs fit in this box (${rec.box.heightIn}" height)`
+      }
+    })
+
+    return warnings
+  }, [estimate, globalPerBox, perBoxOverrides, thicknessPerPiece])
+
+  // Build manual mode estimate
+  const manualEstimate = useMemo<ShippingEstimate | null>(() => {
+    if (tabMode !== "manual") return null
+
+    const recs: BoxRecommendation[] = []
+    let hasNonUPS = false
+
+    for (const entry of manualBoxes) {
+      const count = parseInt(entry.count) || 0
+      if (count <= 0) continue
+
+      let box = BOX_SIZES.find((b) => b.name === entry.boxName)
+
+      // Custom dimensions
+      if (entry.customDims) {
+        const l = parseFloat(entry.customDims.l) || 0
+        const w = parseFloat(entry.customDims.w) || 0
+        const h = parseFloat(entry.customDims.h) || 0
+        if (l > 0 && w > 0 && h > 0) {
+          box = {
+            name: `Custom (${l}x${w}x${h})`,
+            lengthIn: l,
+            widthIn: w,
+            heightIn: h,
+            boxWeightOz: 16, // ~1 lb default for custom
+            upsEligible: l + w + h <= 165 && Math.max(l, w, h) <= 108,
+          }
+        }
+      }
+
+      if (!box) continue
+
+      const piecesPerBox = parseInt(entry.piecesPerBox) || 0
+      const weightLbs = parseFloat(entry.weightPerBoxLbs) || 0
+      const weightOz = weightLbs * 16
+
+      if (!box.upsEligible) hasNonUPS = true
+
+      const fillPercent = thicknessPerPiece > 0 && piecesPerBox > 0
+        ? Math.min(((piecesPerBox * thicknessPerPiece) / box.heightIn) * 100, 100)
+        : 50
+
+      recs.push({
+        box,
+        count,
+        piecesPerBox,
+        weightPerBoxOz: weightOz > 0 ? weightOz : (computedPerPieceOz * piecesPerBox) + box.boxWeightOz,
+        fillPercent,
+      })
+    }
+
+    if (recs.length === 0) return null
+
+    const totalShippingOz = recs.reduce((s, r) => s + r.weightPerBoxOz * r.count, 0)
+
+    return {
+      recommendations: recs,
+      totalBoxes: recs.reduce((s, r) => s + r.count, 0),
+      totalShippingWeightOz: totalShippingOz,
+      totalShippingWeightLbs: totalShippingOz / 16,
+      hasNonUPSBoxes: hasNonUPS,
+    }
+  }, [tabMode, manualBoxes, thicknessPerPiece, computedPerPieceOz])
+
   // Use the adjusted estimate for display
-  const displayEstimate = adjustedEstimate
+  const displayEstimate = tabMode === "manual" ? manualEstimate : adjustedEstimate
 
   const handleAddShippingToQuote = () => {
     const cost = parseFloat(shippingCost)
@@ -269,6 +406,36 @@ export function ShippingCalcDialog({
               </div>
             </div>
 
+            {/* Mode tabs */}
+            <div className="flex gap-1 p-1 rounded-lg bg-secondary/50">
+              <button
+                onClick={() => setTabMode("auto")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all",
+                  tabMode === "auto"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Auto Calculate
+              </button>
+              <button
+                onClick={() => setTabMode("manual")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all",
+                  tabMode === "manual"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Manual Entry
+              </button>
+            </div>
+
+            {tabMode === "auto" && (
+            <>
             {/* Override controls */}
             <div className="grid grid-cols-2 gap-3">
               {/* Weight override */}
@@ -366,7 +533,11 @@ export function ShippingCalcDialog({
                     }}
                     className={cn(
                       "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
-                      globalPerBox ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border"
+                      Object.keys(capacityWarnings).length > 0
+                        ? "border-red-500 ring-1 ring-red-200"
+                        : globalPerBox
+                        ? "border-foreground/40 ring-1 ring-foreground/10"
+                        : "border-border"
                     )}
                   />
                   {globalPerBox && (
@@ -378,6 +549,12 @@ export function ShippingCalcDialog({
                     </button>
                   )}
                 </div>
+                {Object.keys(capacityWarnings).length > 0 && (
+                  <p className="text-[9px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Some boxes cannot fit this many pieces
+                  </p>
+                )}
               </div>
             )}
 
@@ -447,7 +624,7 @@ export function ShippingCalcDialog({
                     </div>
 
                     {/* Per-box override */}
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
                       <label className="text-[9px] text-muted-foreground font-medium whitespace-nowrap">
                         Change pcs/box:
                       </label>
@@ -465,7 +642,11 @@ export function ShippingCalcDialog({
                         }
                         className={cn(
                           "w-20 h-7 text-xs font-mono rounded-md border bg-background px-2 text-foreground tabular-nums",
-                          perBoxOverrides[i] ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border/50"
+                          capacityWarnings[i]
+                            ? "border-red-500 ring-1 ring-red-200"
+                            : perBoxOverrides[i]
+                            ? "border-foreground/40 ring-1 ring-foreground/10"
+                            : "border-border/50"
                         )}
                       />
                       {perBoxOverrides[i] && (
@@ -481,6 +662,12 @@ export function ShippingCalcDialog({
                         >
                           Reset
                         </button>
+                      )}
+                      {capacityWarnings[i] && (
+                        <span className="w-full text-[9px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          {capacityWarnings[i]}
+                        </span>
                       )}
                     </div>
 
@@ -536,6 +723,24 @@ export function ShippingCalcDialog({
                   </Button>
                 </div>
 
+                {/* Copy for email - quick summary */}
+                <button
+                  onClick={handleCopyForEmail}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary/30 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-green-600" />
+                      <span className="text-green-600">Copied to clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy shipping info for email
+                    </>
+                  )}
+                </button>
+
                 {displayEstimate.hasNonUPSBoxes && (
                   <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-3">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -585,6 +790,280 @@ export function ShippingCalcDialog({
                   No box fits the piece dimensions ({pieceWidth}&quot; x{" "}
                   {pieceHeight}&quot;)
                 </p>
+              </div>
+            )}
+            </>
+            )}
+
+            {/* ═══════════ MANUAL TAB ═══════════ */}
+            {tabMode === "manual" && (
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Fully customize box sizes, quantities, and weights manually.
+                </p>
+
+                {manualBoxes.map((entry, idx) => (
+                  <div key={entry.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground">Box {idx + 1}</span>
+                      {manualBoxes.length > 1 && (
+                        <button
+                          onClick={() => setManualBoxes((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-[10px] font-bold text-red-500 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Box selection or custom */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                          Box Type
+                        </label>
+                        <select
+                          value={entry.boxName}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setManualBoxes((prev) =>
+                              prev.map((b, i) =>
+                                i === idx
+                                  ? { ...b, boxName: val, customDims: val === "custom" ? { l: "", w: "", h: "" } : null }
+                                  : b
+                              )
+                            )
+                          }}
+                          className="w-full h-9 text-sm rounded-lg border border-border bg-background px-2 text-foreground"
+                        >
+                          <option value="">Select box...</option>
+                          <option value="custom">Custom dimensions</option>
+                          {BOX_SIZES.map((b) => (
+                            <option key={b.name} value={b.name}>
+                              {b.name} ({b.lengthIn}x{b.widthIn}x{b.heightIn})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                          # of Boxes
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={entry.count}
+                          onChange={(e) =>
+                            setManualBoxes((prev) =>
+                              prev.map((b, i) => (i === idx ? { ...b, count: e.target.value } : b))
+                            )
+                          }
+                          className="w-full h-9 text-sm font-mono rounded-lg border border-border bg-background px-3 text-foreground tabular-nums"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Custom dimensions */}
+                    {entry.customDims && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[9px] text-muted-foreground font-medium">Length (in)</label>
+                          <input
+                            type="number"
+                            step="0.25"
+                            placeholder="L"
+                            value={entry.customDims.l}
+                            onChange={(e) =>
+                              setManualBoxes((prev) =>
+                                prev.map((b, i) =>
+                                  i === idx && b.customDims
+                                    ? { ...b, customDims: { ...b.customDims, l: e.target.value } }
+                                    : b
+                                )
+                              )
+                            }
+                            className="w-full h-8 text-xs font-mono rounded-md border border-border bg-background px-2 text-foreground tabular-nums"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-muted-foreground font-medium">Width (in)</label>
+                          <input
+                            type="number"
+                            step="0.25"
+                            placeholder="W"
+                            value={entry.customDims.w}
+                            onChange={(e) =>
+                              setManualBoxes((prev) =>
+                                prev.map((b, i) =>
+                                  i === idx && b.customDims
+                                    ? { ...b, customDims: { ...b.customDims, w: e.target.value } }
+                                    : b
+                                )
+                              )
+                            }
+                            className="w-full h-8 text-xs font-mono rounded-md border border-border bg-background px-2 text-foreground tabular-nums"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-muted-foreground font-medium">Height (in)</label>
+                          <input
+                            type="number"
+                            step="0.25"
+                            placeholder="H"
+                            value={entry.customDims.h}
+                            onChange={(e) =>
+                              setManualBoxes((prev) =>
+                                prev.map((b, i) =>
+                                  i === idx && b.customDims
+                                    ? { ...b, customDims: { ...b.customDims, h: e.target.value } }
+                                    : b
+                                )
+                              )
+                            }
+                            className="w-full h-8 text-xs font-mono rounded-md border border-border bg-background px-2 text-foreground tabular-nums"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pieces per box + Weight */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                          Pieces per box
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={entry.piecesPerBox}
+                          onChange={(e) =>
+                            setManualBoxes((prev) =>
+                              prev.map((b, i) => (i === idx ? { ...b, piecesPerBox: e.target.value } : b))
+                            )
+                          }
+                          className="w-full h-9 text-sm font-mono rounded-lg border border-border bg-background px-3 text-foreground tabular-nums"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
+                          Weight per box (lbs)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="Auto"
+                          value={entry.weightPerBoxLbs}
+                          onChange={(e) =>
+                            setManualBoxes((prev) =>
+                              prev.map((b, i) => (i === idx ? { ...b, weightPerBoxLbs: e.target.value } : b))
+                            )
+                          }
+                          className="w-full h-9 text-sm font-mono rounded-lg border border-border bg-background px-3 text-foreground tabular-nums"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add another box */}
+                <button
+                  onClick={() =>
+                    setManualBoxes((prev) => [
+                      ...prev,
+                      { id: String(Date.now()), boxName: "", customDims: null, count: "1", piecesPerBox: "", weightPerBoxLbs: "" },
+                    ])
+                  }
+                  className="w-full h-10 rounded-lg border border-dashed border-border text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Another Box Type
+                </button>
+
+                {/* Manual totals */}
+                {displayEstimate && (
+                  <>
+                    <div className="rounded-xl border border-foreground/10 bg-foreground/[0.03] p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
+                            Total Boxes
+                          </p>
+                          <p className="text-xl font-bold font-mono tabular-nums text-foreground">
+                            {displayEstimate.totalBoxes}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
+                            Total Weight
+                          </p>
+                          <p className="text-xl font-bold font-mono tabular-nums text-foreground">
+                            {formatShippingWeight(displayEstimate.totalShippingWeightOz)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => setShowLabels(true)}
+                      >
+                        <Package className="h-3.5 w-3.5" />
+                        Print Labels
+                      </Button>
+                    </div>
+
+                    {/* Copy for email - quick summary */}
+                    <button
+                      onClick={handleCopyForEmail}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary/30 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-green-600" />
+                          <span className="text-green-600">Copied to clipboard!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy shipping info for email
+                        </>
+                      )}
+                    </button>
+
+                    {/* Shipping cost input + add to quote */}
+                    <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 space-y-3">
+                      <p className="text-xs font-semibold text-foreground">
+                        Add shipping cost to quote
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                            $
+                          </span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={shippingCost}
+                            onChange={(e) => setShippingCost(e.target.value)}
+                            className="w-full h-10 text-sm font-mono rounded-lg border border-border bg-background pl-7 pr-3 text-foreground tabular-nums"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleAddShippingToQuote}
+                          disabled={!shippingCost || parseFloat(shippingCost) <= 0}
+                          className="gap-1.5 h-10 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add to Quote
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
