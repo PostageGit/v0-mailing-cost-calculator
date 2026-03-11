@@ -309,18 +309,22 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
                     )}
                   </div>
 
+                  {/* Job name - BIG */}
+                  {projectName && (
+                    <div className="border-t border-border/50 pt-1.5 mt-auto">
+                      <p className="text-xl font-black tracking-tight text-foreground leading-tight truncate" title={projectName}>
+                        {projectName}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Bottom bar */}
-                  <div className="mt-auto border-t-2 border-foreground pt-2">
+                  <div className={cn("border-t-2 border-foreground pt-2", !projectName && "mt-auto")}>
                     <div className="flex items-end justify-between">
                       <div>
                         <p className="text-lg font-black tracking-tight text-foreground leading-none">
                           {jobId}
                         </p>
-                        {projectName && (
-                          <p className="text-[8px] font-semibold text-muted-foreground mt-0.5 truncate max-w-[140px]">
-                            {projectName}
-                          </p>
-                        )}
                       </div>
                       <div className="bg-foreground text-background text-sm font-black px-2 py-0.5 rounded">
                         {boxIndex}/{totalBoxes}
@@ -366,10 +370,16 @@ export function ShippingLabelModal({ open, onClose, estimate }: ShippingLabelMod
               </div>
 
               <div>
+                {projectName && (
+                  <div style={{ borderTop: "1px solid #ccc", paddingTop: "4pt", marginBottom: "4pt" }}>
+                    <p style={{ fontSize: "22pt", fontWeight: 900, fontFamily: "'Arial Black', Arial, sans-serif", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+                      {projectName}
+                    </p>
+                  </div>
+                )}
                 <div className="job-bar">
                   <div>
                     <span className="job-number">{jobId}</span>
-                    {projectName && <p className="project-name">{projectName}</p>}
                     <p className="pieces-info">{rec.piecesPerBox.toLocaleString()} pieces</p>
                   </div>
                   <span className="box-count">{boxIndex} / {totalBoxes}</span>

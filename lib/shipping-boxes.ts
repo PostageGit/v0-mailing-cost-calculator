@@ -89,13 +89,131 @@ function boxFitsPiece(box: BoxSize, pieceW: number, pieceH: number): boolean {
   return false
 }
 
+/** UPS weight limit per box */
+const UPS_MAX_WEIGHT_OZ = 50 * 16 // 50 lbs
+
 /**
- * Select the best box(es) for an order.
+ * Score a candidate plan. Lower score = better.
+ *
+ * Factors (in priority order):
+ * 1. Fewest total boxes (shipping cost is mostly per-box)
+ * 2. Fewest box _types_ (practical: easier to order/stack one kind)
+ * 3. Best fill utilisation (sweet spot 50-90%; penalise under-filled or over-stuffed)
+ * 4. Prefer UPS-eligible boxes
+ * 5. Smallest footprint waste (don't use a 17" box for an 8.5" piece)
+ */
+function scorePlan(
+  recs: BoxRecommendation[],
+  pieceWidthIn: number,
+  pieceHeightIn: number,
+): number {
+  const totalBoxes = recs.reduce((s, r) => s + r.count, 0)
+  const uniqueTypes = new Set(recs.map((r) => r.box.name)).size
+  const hasNonUPS = recs.some((r) => !r.box.upsEligible)
+
+  // Fill quality: penalise fills below 40% or above 95%
+  let fillPenalty = 0
+  for (const r of recs) {
+    const f = r.fillPercent
+    if (f < 40) fillPenalty += (40 - f) * 0.5 * r.count
+    if (f > 95) fillPenalty += (f - 95) * 0.3 * r.count
+  }
+
+  // Footprint waste: ratio of box footprint to piece footprint
+  const pieceArea = pieceWidthIn * pieceHeightIn
+  let footprintWaste = 0
+  for (const r of recs) {
+    const boxArea = r.box.lengthIn * r.box.widthIn
+    footprintWaste += ((boxArea - pieceArea) / pieceArea) * r.count
+  }
+
+  return (
+    totalBoxes * 100 +          // primary: fewer boxes
+    uniqueTypes * 30 +           // prefer same box type
+    fillPenalty * 2 +            // good fill
+    (hasNonUPS ? 50 : 0) +      // prefer UPS-eligible
+    footprintWaste * 3           // minimal wasted footprint
+  )
+}
+
+/**
+ * Build a recommendation for a given primary box, optionally using
+ * a different (smaller) box for the last partial batch.
+ */
+function buildPlan(
+  primaryBox: BoxSize,
+  candidates: BoxSize[],
+  quantity: number,
+  thicknessPerPieceIn: number,
+  weightPerPieceOz: number,
+): BoxRecommendation[] | null {
+  const maxPerBox = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
+  if (maxPerBox <= 0) return null
+
+  // Enforce UPS weight limit: if the full box exceeds 50 lbs, reduce pieces
+  const effectiveMax = weightPerPieceOz > 0
+    ? Math.min(maxPerBox, Math.floor((UPS_MAX_WEIGHT_OZ - primaryBox.boxWeightOz) / weightPerPieceOz))
+    : maxPerBox
+  if (effectiveMax <= 0) return null
+
+  const fullBoxCount = Math.floor(quantity / effectiveMax)
+  const remainder = quantity - fullBoxCount * effectiveMax
+
+  const recs: BoxRecommendation[] = []
+
+  if (fullBoxCount > 0) {
+    const weightFull = (weightPerPieceOz * effectiveMax) + primaryBox.boxWeightOz
+    const fillFull = ((effectiveMax * thicknessPerPieceIn) / primaryBox.heightIn) * 100
+    recs.push({
+      box: primaryBox,
+      count: fullBoxCount,
+      piecesPerBox: effectiveMax,
+      weightPerBoxOz: weightFull,
+      fillPercent: Math.min(fillFull, 100),
+    })
+  }
+
+  if (remainder > 0) {
+    // Try to find a smaller box that still fits the remainder stack
+    const remainderStack = remainder * thicknessPerPieceIn
+    let lastBox = primaryBox
+    for (const box of candidates) {
+      // Must fit the pieces AND the stack height, and be practical (>=40% fill)
+      const fill = (remainderStack / box.heightIn) * 100
+      if (box.heightIn >= remainderStack && fill >= 30) {
+        lastBox = box
+        break
+      }
+    }
+
+    const lastWeight = (weightPerPieceOz * remainder) + lastBox.boxWeightOz
+    const lastFill = (remainderStack / lastBox.heightIn) * 100
+
+    if (lastBox.name === primaryBox.name && fullBoxCount > 0) {
+      // Same box type -- merge into one entry
+      recs[0].count = fullBoxCount + 1
+    } else {
+      recs.push({
+        box: lastBox,
+        count: 1,
+        piecesPerBox: remainder,
+        weightPerBoxOz: lastWeight,
+        fillPercent: Math.min(lastFill, 100),
+      })
+    }
+  }
+
+  return recs
+}
+
+/**
+ * Select the most practical box(es) for an order.
  *
  * Strategy:
- * 1. Filter boxes that can fit the piece footprint
- * 2. For each candidate box, calculate how many pieces stack (by height)
- * 3. Pick the smallest box that fits everything, or split across multiple if needed
+ * 1. Filter boxes that can fit the piece footprint (both orientations)
+ * 2. Generate plans for EVERY candidate box as the "primary" box
+ * 3. Score each plan on practicality (box count, fill %, footprint waste, UPS)
+ * 4. Return the plan with the best score
  */
 export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | null {
   const {
@@ -116,95 +234,35 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
 
   if (candidates.length === 0) return null
 
-  const weightPerPieceOz = totalWeightOz / quantity
-  const totalStackHeight = quantity * thicknessPerPieceIn
+  const weightPerPieceOz = quantity > 0 ? totalWeightOz / quantity : 0
 
-  // Try to find a single box that fits everything
-  for (const box of candidates) {
-    const maxPiecesInBox = Math.floor(box.heightIn / thicknessPerPieceIn)
-    if (maxPiecesInBox >= quantity) {
-      const fillPercent = (totalStackHeight / box.heightIn) * 100
-      return {
-        recommendations: [{
-          box,
-          count: 1,
-          piecesPerBox: quantity,
-          weightPerBoxOz: totalWeightOz + box.boxWeightOz,
-          fillPercent: Math.min(fillPercent, 100),
-        }],
-        totalBoxes: 1,
-        totalShippingWeightOz: totalWeightOz + box.boxWeightOz,
-        totalShippingWeightLbs: (totalWeightOz + box.boxWeightOz) / 16,
-        hasNonUPSBoxes: !box.upsEligible,
-      }
+  // Generate a plan for every candidate as the primary box
+  let bestPlan: BoxRecommendation[] | null = null
+  let bestScore = Infinity
+
+  for (const primaryBox of candidates) {
+    const plan = buildPlan(primaryBox, candidates, quantity, thicknessPerPieceIn, weightPerPieceOz)
+    if (!plan) continue
+
+    const score = scorePlan(plan, pieceWidthIn, pieceHeightIn)
+    if (score < bestScore) {
+      bestScore = score
+      bestPlan = plan
     }
   }
 
-  // Need multiple boxes -- pick the largest candidate
-  // Use the biggest fitting box to minimize box count
-  const bestBox = candidates[candidates.length - 1]
-  const maxPerBox = Math.floor(bestBox.heightIn / thicknessPerPieceIn)
+  if (!bestPlan) return null
 
-  if (maxPerBox <= 0) return null
-
-  const boxCount = Math.ceil(quantity / maxPerBox)
-  const piecesInLastBox = quantity - (boxCount - 1) * maxPerBox
-  const weightPerFullBox = (weightPerPieceOz * maxPerBox) + bestBox.boxWeightOz
-  const weightLastBox = (weightPerPieceOz * piecesInLastBox) + bestBox.boxWeightOz
-  const totalShippingWeight = (weightPerFullBox * (boxCount - 1)) + weightLastBox
-
-  const fillPercentFull = ((maxPerBox * thicknessPerPieceIn) / bestBox.heightIn) * 100
-  const fillPercentLast = ((piecesInLastBox * thicknessPerPieceIn) / bestBox.heightIn) * 100
-
-  const recommendations: BoxRecommendation[] = []
-
-  if (boxCount > 1) {
-    recommendations.push({
-      box: bestBox,
-      count: boxCount - 1,
-      piecesPerBox: maxPerBox,
-      weightPerBoxOz: weightPerFullBox,
-      fillPercent: Math.min(fillPercentFull, 100),
-    })
-  }
-
-  // Last (potentially partial) box -- could be a smaller box
-  // Try to find a smaller box for the remaining pieces
-  const lastStackHeight = piecesInLastBox * thicknessPerPieceIn
-  let lastBox = bestBox
-  for (const box of candidates) {
-    if (box.heightIn >= lastStackHeight) {
-      lastBox = box
-      break
-    }
-  }
-
-  const lastBoxWeight = (weightPerPieceOz * piecesInLastBox) + lastBox.boxWeightOz
-  const lastFill = (lastStackHeight / lastBox.heightIn) * 100
-
-  if (lastBox.name === bestBox.name && boxCount > 1) {
-    // Same box type, merge into one entry
-    recommendations[0].count = boxCount
-  } else {
-    recommendations.push({
-      box: lastBox,
-      count: 1,
-      piecesPerBox: piecesInLastBox,
-      weightPerBoxOz: lastBoxWeight,
-      fillPercent: Math.min(lastFill, 100),
-    })
-  }
-
-  const recalcTotal = recommendations.reduce(
+  const recalcTotal = bestPlan.reduce(
     (sum, r) => sum + r.weightPerBoxOz * r.count, 0
   )
 
   return {
-    recommendations,
-    totalBoxes: recommendations.reduce((s, r) => s + r.count, 0),
+    recommendations: bestPlan,
+    totalBoxes: bestPlan.reduce((s, r) => s + r.count, 0),
     totalShippingWeightOz: recalcTotal,
     totalShippingWeightLbs: recalcTotal / 16,
-    hasNonUPSBoxes: recommendations.some((r) => !r.box.upsEligible),
+    hasNonUPSBoxes: bestPlan.some((r) => !r.box.upsEligible),
   }
 }
 
