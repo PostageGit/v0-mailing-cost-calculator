@@ -294,8 +294,11 @@ function AppContent() {
           // Mobile overlay
         )}>
           {/* Logo + collapse */}
-          <div className="flex items-center justify-between h-12 px-3 border-b border-border shrink-0">
-            {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
+          <div className={cn(
+            "flex items-center h-12 border-b border-border shrink-0",
+            sidebarOpen ? "justify-between mx-2" : "justify-center"
+          )}>
+            {sidebarOpen && <span className="text-sm font-bold text-foreground truncate px-2.5">Postage Plus</span>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
@@ -304,11 +307,11 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className="px-3 pt-3 pb-1">
+          <div className={cn("pt-3 pb-1", sidebarOpen ? "mx-2" : "flex justify-center")}>
             <Button onClick={handleNewJob}
               className={cn(
-                "w-full gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
-                sidebarOpen ? "h-9 text-xs px-3 justify-start" : "h-9 w-9 p-0 justify-center mx-auto"
+                "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
+                sidebarOpen ? "w-full h-9 text-xs px-2.5 justify-start" : "h-9 w-9 p-0 justify-center"
               )}>
               <Plus className="h-4 w-4 shrink-0" />
               {sidebarOpen && "New Quote"}
@@ -316,22 +319,25 @@ function AppContent() {
           </div>
 
           {/* Nav groups */}
-          <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4 flex flex-col gap-4">
+          <nav className={cn(
+            "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
+            sidebarOpen ? "mx-2" : "items-center"
+          )}>
             {(["dashboards", "data"] as const).map((group) => (
-              <div key={group}>
+              <div key={group} className={cn("w-full", !sidebarOpen && "flex flex-col items-center w-auto")}>
                 {sidebarOpen && (
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 px-2.5">
                     {group === "dashboards" ? "Boards" : "Manage"}
                   </p>
                 )}
-                <div className="flex flex-col gap-0.5">
+                <div className={cn("flex flex-col gap-0.5 w-full", !sidebarOpen && "items-center w-auto")}>
                   {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
                     const active = section === nav.id
                     return (
                       <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
                         className={cn(
-                          "flex items-center rounded-lg transition-all min-h-[40px] w-full",
-                          sidebarOpen ? "gap-2.5 px-3 py-2 text-sm" : "justify-center py-2",
+                          "flex items-center rounded-lg transition-all min-h-[40px]",
+                          sidebarOpen ? "w-full gap-2.5 px-2.5 py-2 text-sm" : "w-10 h-10 justify-center",
                           active
                             ? "bg-foreground text-background font-semibold"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -348,11 +354,11 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className="px-3 pb-3 border-t border-border pt-2">
+          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "mx-2" : "flex justify-center")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
-                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all min-h-[40px] w-full",
-                sidebarOpen ? "px-3 py-2 text-sm" : "justify-center py-2"
+                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
+                sidebarOpen ? "w-full min-h-[40px] px-2.5 py-2 text-sm" : "w-10 h-10 justify-center"
               )}>
               <Settings className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Settings</span>}
