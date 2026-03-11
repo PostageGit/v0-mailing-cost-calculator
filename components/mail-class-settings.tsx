@@ -212,13 +212,90 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   system: () => <SystemDashboardTab />,
 }
 
+// ---------- passcode gate ----------
+const SETTINGS_PASSCODE = "1234"
+
+function PasscodeGate({ onSuccess, onClose }: { onSuccess: () => void; onClose: () => void }) {
+  const [code, setCode] = useState("")
+  const [error, setError] = useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (code === SETTINGS_PASSCODE) {
+      onSuccess()
+    } else {
+      setError(true)
+      setCode("")
+      inputRef.current?.focus()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex items-center justify-center">
+      <div className="w-full max-w-sm mx-4">
+        <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
+          <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-foreground mx-auto mb-4">
+            <Lock className="h-5 w-5 text-background" />
+          </div>
+          <h2 className="text-lg font-bold text-center mb-1">Settings Locked</h2>
+          <p className="text-sm text-muted-foreground text-center mb-6">Enter passcode to access settings</p>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Input
+                ref={inputRef}
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={code}
+                onChange={(e) => {
+                  setCode(e.target.value.replace(/\D/g, ""))
+                  setError(false)
+                }}
+                placeholder="Enter 4-digit code"
+                className={cn(
+                  "h-12 text-center text-xl tracking-[0.5em] font-mono",
+                  error && "border-red-500 focus-visible:ring-red-500"
+                )}
+              />
+              {error && (
+                <p className="text-xs text-red-500 text-center mt-2">Incorrect passcode. Try again.</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-10">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={code.length < 4} className="flex-1 h-10">
+                Unlock
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---------- main panel ----------
 export function MailClassSettingsPanel({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("pricing")
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [unlocked, setUnlocked] = useState(false)
 
   // Find the active item metadata for the header
   const activeItem = SETTINGS_NAV.flatMap((g) => g.items).find((i) => i.id === activeTab)
+
+  // Show passcode gate if not unlocked
+  if (!unlocked) {
+    return <PasscodeGate onSuccess={() => setUnlocked(true)} onClose={onClose} />
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">

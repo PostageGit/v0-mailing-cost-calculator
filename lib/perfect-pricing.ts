@@ -137,11 +137,12 @@ export function calculateLayout(
   }
   
   // Covers: CAN rotate - try both orientations and pick the best
-  // PRODUCTION RULE: Perfect binding covers can be MAX 2-UP only (no 3-up or more)
+  // PRODUCTION RULE: Perfect binding covers can be MAX 2-UP only (configurable in Settings)
+  const productionConfig = getActiveConfig().perfectBindingProduction
   const portrait = fit(pw, pws, gutter_s) * fit(ph, phs, gutter_s)
   const landscape = fit(pw, phs, gutter_s) * fit(ph, pws, gutter_s)
   const rawMaxUps = Math.max(portrait, landscape)
-  const maxUps = Math.min(rawMaxUps, 2) // Enforce 2-up maximum for perfect binding covers
+  const maxUps = Math.min(rawMaxUps, productionConfig.maxCoverUps)
   return { maxUps, isRotated: landscape > portrait }
 }
 
@@ -388,7 +389,7 @@ export function calculatePerfect(
   if ("error" in insideRes) return insideRes
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // PERFECT BINDING COVER SIZE CALCULATION — Production Rules
+  // PERFECT BINDING COVER SIZE CALCULATION — Production Rules (from Settings)
   // ═══════════════════════════════════════════════════════════════════════════
   // The cover wraps: back cover + spine + front cover (as one flat sheet)
   // Extra size is added to 3 trimmed sides (top, bottom, fore-edge), NOT the spine
@@ -396,34 +397,34 @@ export function calculatePerfect(
   // The trim line is the reference point. All measurements ask:
   // "How far past the trim line does the cover need to reach?"
   //
-  // 4 CASES based on bleed settings:
+  // 4 CASES based on bleed settings (configurable in Settings → Perfect Binding):
   // ┌──────────────┬─────────────┬────────────────────────────────────────────────┐
   // │ Inside Bleed │ Cover Bleed │ Extra Per Trimmed Side                         │
   // ├──────────────┼─────────────┼────────────────────────────────────────────────┤
-  // │ No           │ No          │ 0.20" (overhang only)                          │
-  // │ No           │ Yes         │ 0.25" (cover bleed serves as overhang)         │
-  // │ Yes          │ No          │ 0.50" (0.25 inside bleed + 0.25 reg buffer)    │
-  // │ Yes          │ Yes         │ 0.50" (same as Case 3 — cover bleed absorbed)  │
+  // │ No           │ No          │ coverExtraNoBleed (default 0.20")              │
+  // │ No           │ Yes         │ coverExtraCoverBleedOnly (default 0.25")       │
+  // │ Yes          │ No          │ coverExtraInsideBleed (default 0.50")          │
+  // │ Yes          │ Yes         │ coverExtraInsideBleed (same — bleed absorbed)  │
   // └──────────────┴─────────────┴────────────────────────────────────────────────┘
   //
-  // NOTE: In Case 4, cover bleed (0.25") is absorbed into the inside page bleed area.
+  // NOTE: In Case 4, cover bleed is absorbed into the inside page bleed area.
   // Both extend from the same trim line into the same physical space — not additive.
   //
   // Total Width  = (bookWidth × 2) + spineWidth + (extraPerSide × 2)
   // Total Height = bookHeight + (extraPerSide × 2)
   // ═══════════════════════════════════════════════════════════════════════════
   
+  const productionConfig = getActiveConfig().perfectBindingProduction
   let extraPerTrimmedSide: number
   if (!inside.hasBleed && !cover.hasBleed) {
     // Case 1: No bleed on either — overhang only
-    extraPerTrimmedSide = 0.20
+    extraPerTrimmedSide = productionConfig.coverExtraNoBleed
   } else if (!inside.hasBleed && cover.hasBleed) {
     // Case 2: Cover bleed only — cover bleed serves as overhang
-    extraPerTrimmedSide = 0.25
+    extraPerTrimmedSide = productionConfig.coverExtraCoverBleedOnly
   } else {
     // Case 3 & 4: Inside has bleed (cover bleed is absorbed into inside bleed area)
-    // Inside bleed 0.25" past trim + 0.25" registration buffer = 0.50"
-    extraPerTrimmedSide = 0.50
+    extraPerTrimmedSide = productionConfig.coverExtraInsideBleed
   }
   
   // Cover spread dimensions (flat unfolded cover)
@@ -470,12 +471,12 @@ export function calculatePerfect(
   const sidesForCalc = isDS ? 2 : 1
   const finishedSheetsPerBook = Math.ceil(pagesPerBook / sidesForCalc)
 
-  // PRODUCTION RULE: Maximum laminated width is 12.45"
+  // PRODUCTION RULE: Maximum laminated width (configurable in Settings → Perfect Binding)
   // Covers wider than this cannot go through the laminator
-  const MAX_LAMINATION_WIDTH = 12.45
-  const canLaminate = coverPageWidth <= MAX_LAMINATION_WIDTH
+  const maxLamWidth = productionConfig.maxLaminationWidth
+  const canLaminate = coverPageWidth <= maxLamWidth
   const laminationWarning = hasLamination && !canLaminate
-    ? `Cover width (${coverPageWidth.toFixed(2)}") exceeds laminator max width of ${MAX_LAMINATION_WIDTH}". Lamination not possible.`
+    ? `Cover width (${coverPageWidth.toFixed(2)}") exceeds laminator max width of ${maxLamWidth}". Lamination not possible.`
     : undefined
 
   return {
