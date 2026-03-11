@@ -2,7 +2,7 @@
 import type { PerfectInputs, PerfectPartInputs, PerfectPartResult, PerfectCalcResult, PaperOption } from "./perfect-types"
 import { PAPER_OPTIONS } from "./perfect-types"
 import { SPECIALTY_SHEET_SIZES } from "./printing-pricing"
-import { getActiveConfig } from "./pricing-config"
+import { getActiveConfig, getDynamicPaperOptions, type DynamicPaperOption } from "./pricing-config"
 import { getLaminationPrice } from "./booklet-pricing"
 
 // ─── Constants ───────────────────────────────────────────
@@ -449,7 +449,6 @@ export function calculatePerfect(
 }
 
 // ─── Available paper helpers ─────────────────────────────
-import { getDynamicPaperOptions, type DynamicPaperOption } from "./pricing-config"
 
 export function getCoverPapers(): PaperOption[] {
   // Use dynamic options from database if available, fallback to hardcoded
