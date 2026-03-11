@@ -295,10 +295,10 @@ function AppContent() {
         )}>
           {/* Logo + collapse */}
           <div className={cn(
-            "flex items-center h-12 border-b border-border shrink-0",
-            sidebarOpen ? "justify-between px-3" : "justify-center"
+            "flex items-center h-12 border-b border-border shrink-0 px-2",
+            sidebarOpen ? "justify-between" : "justify-center"
           )}>
-            {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
+            {sidebarOpen && <span className="text-sm font-bold text-foreground truncate pl-1">Postage Plus</span>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
@@ -307,7 +307,7 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-3" : "flex justify-center")}>
+          <div className={cn("pt-3 pb-1 px-2", !sidebarOpen && "flex justify-center")}>
             <Button onClick={handleNewJob}
               className={cn(
                 "gap-2 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -320,17 +320,17 @@ function AppContent() {
 
           {/* Nav groups */}
           <nav className={cn(
-            "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
-            sidebarOpen ? "px-3" : "items-center"
+            "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4 px-2",
+            !sidebarOpen && "items-center"
           )}>
             {(["dashboards", "data"] as const).map((group) => (
-              <div key={group} className={cn(!sidebarOpen && "flex flex-col items-center")}>
+              <div key={group} className={cn("w-full", !sidebarOpen && "flex flex-col items-center w-auto")}>
                 {sidebarOpen && (
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 px-1">
                     {group === "dashboards" ? "Boards" : "Manage"}
                   </p>
                 )}
-                <div className={cn("flex flex-col gap-0.5", !sidebarOpen && "items-center")}>
+                <div className={cn("flex flex-col gap-0.5 w-full", !sidebarOpen && "items-center w-auto")}>
                   {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
                     const active = section === nav.id
                     return (
@@ -354,7 +354,7 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "flex justify-center")}>
+          <div className={cn("pb-3 border-t border-border pt-2 px-2", !sidebarOpen && "flex justify-center")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
