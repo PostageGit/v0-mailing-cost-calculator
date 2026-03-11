@@ -287,79 +287,84 @@ function AppContent() {
           <div className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
         )}
         <aside className={cn(
-          "bg-card border-r border-border shrink-0 z-50 transition-all duration-200 overflow-hidden hidden lg:flex",
-          sidebarOpen ? "w-52 flex flex-col" : "w-14 flex flex-col items-center"
+          "hidden lg:block bg-card border-r border-border shrink-0 z-50 transition-all duration-200 overflow-hidden",
+          sidebarOpen ? "w-52" : "w-14"
         )}>
-          {/* Logo + collapse */}
           <div className={cn(
-            "flex items-center h-12 border-b border-border shrink-0",
-            sidebarOpen ? "justify-between px-3 self-stretch" : "justify-center self-stretch"
+            "h-full flex flex-col",
+            !sidebarOpen && "items-center"
           )}>
-            {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
-            <button onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-              {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
-          </div>
+            {/* Logo + collapse */}
+            <div className={cn(
+              "flex items-center h-12 border-b border-border shrink-0 w-full",
+              sidebarOpen ? "justify-between px-3" : "justify-center"
+            )}>
+              {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
+              <button onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+                {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </button>
+            </div>
 
-          {/* New Job button */}
-          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-3 self-stretch" : "")}>
-            <Button onClick={handleNewJob}
-              className={cn(
-                "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
-                sidebarOpen ? "w-full h-9 text-xs px-2.5 justify-start" : "h-9 w-9 p-0 justify-center"
-              )}>
-              <Plus className="h-4 w-4 shrink-0" />
-              {sidebarOpen && "New Quote"}
-            </Button>
-          </div>
+            {/* New Job button */}
+            <div className={cn("pt-3 pb-1 w-full", sidebarOpen ? "px-3" : "flex justify-center")}>
+              <Button onClick={handleNewJob}
+                className={cn(
+                  "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
+                  sidebarOpen ? "w-full h-9 text-xs px-2.5 justify-start" : "h-9 w-9 p-0 justify-center"
+                )}>
+                <Plus className="h-4 w-4 shrink-0" />
+                {sidebarOpen && "New Quote"}
+              </Button>
+            </div>
 
-          {/* Nav groups */}
-          <nav className={cn(
-            "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4 scrollbar-none",
-            sidebarOpen ? "px-3 self-stretch" : ""
-          )} style={{ scrollbarWidth: "none" }}>
-            {(["dashboards", "data"] as const).map((group) => (
-              <div key={group} className={cn("flex flex-col", !sidebarOpen && "items-center")}>
-                {sidebarOpen && (
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
-                    {group === "dashboards" ? "Boards" : "Manage"}
-                  </p>
-                )}
-                <div className={cn("flex flex-col gap-0.5", sidebarOpen ? "w-full" : "items-center")}>
-                  {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
-                    const active = section === nav.id
-                    return (
-                      <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
-                        className={cn(
-                          "flex items-center rounded-lg transition-all",
-                          sidebarOpen ? "w-full gap-2.5 px-2.5 py-2 text-sm min-h-[40px]" : "w-10 h-10 justify-center",
-                          active
-                            ? "bg-foreground text-background font-semibold"
-                            : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                        )}
-                        title={!sidebarOpen ? nav.label : undefined}>
-                        {nav.icon}
-                        {sidebarOpen && <span className="truncate">{nav.label}</span>}
-                      </button>
-                    )
-                  })}
+            {/* Nav groups */}
+            <nav className={cn(
+              "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4 w-full",
+              sidebarOpen ? "px-3" : "items-center"
+            )} style={{ scrollbarWidth: "none" }}>
+              {(["dashboards", "data"] as const).map((group) => (
+                <div key={group} className={cn("flex flex-col w-full", !sidebarOpen && "items-center")}>
+                  {sidebarOpen && (
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
+                      {group === "dashboards" ? "Boards" : "Manage"}
+                    </p>
+                  )}
+                  <div className={cn("flex flex-col gap-0.5", sidebarOpen ? "w-full" : "items-center")}>
+                    {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
+                      const active = section === nav.id
+                      return (
+                        <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
+                          className={cn(
+                            "flex items-center rounded-lg transition-all",
+                            sidebarOpen ? "w-full gap-2.5 px-2.5 py-2 text-sm min-h-[40px]" : "w-10 h-10 justify-center",
+                            active
+                              ? "bg-foreground text-background font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          )}
+                          title={!sidebarOpen ? nav.label : undefined}>
+                          {nav.icon}
+                          {sidebarOpen && <span className="truncate">{nav.label}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </nav>
+              ))}
+            </nav>
 
-          {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3 self-stretch" : "")}>
-            <button onClick={() => setShowSettings(true)}
-              className={cn(
-                "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
-                sidebarOpen ? "w-full min-h-[40px] px-2.5 py-2 text-sm" : "w-10 h-10 justify-center"
-              )}>
-              <Settings className="h-4 w-4 shrink-0" />
-              {sidebarOpen && <span>Settings</span>}
-            </button>
+            {/* Settings footer */}
+            <div className={cn("pb-3 border-t border-border pt-2 w-full", sidebarOpen ? "px-3" : "flex justify-center")}>
+              <button onClick={() => setShowSettings(true)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
+                  sidebarOpen ? "w-full min-h-[40px] px-2.5 py-2 text-sm" : "w-10 h-10 justify-center"
+                )}>
+                <Settings className="h-4 w-4 shrink-0" />
+                {sidebarOpen && <span>Settings</span>}
+              </button>
+            </div>
           </div>
         </aside>
 
