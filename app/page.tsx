@@ -330,8 +330,8 @@ function AppContent() {
                     return (
                       <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-lg transition-all min-h-[40px]",
-                          sidebarOpen ? "px-2.5 py-2 text-sm" : "px-0 py-2 justify-center",
+                          "flex items-center rounded-lg transition-all min-h-[40px]",
+                          sidebarOpen ? "gap-2.5 px-2.5 py-2 text-sm" : "justify-center px-2 py-2",
                           active
                             ? "bg-foreground text-background font-semibold"
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary"
