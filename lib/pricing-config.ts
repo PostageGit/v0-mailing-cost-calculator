@@ -115,6 +115,13 @@ export interface FinishingOption {
   setupCost: number
   /** Per-sheet runtime cost by paper weight category */
   runtimeCosts: Record<string, Record<string, number>>
+  /** Roll cost in dollars (e.g., $150 per roll) */
+  rollCost: number
+  /** Roll length in feet (e.g., 500 ft per roll) */
+  rollLengthFt: number
+  /** Sheet coverage in feet (how many feet of roll per sheet, e.g., 1.5 ft) */
+  sheetCoverageFt: number
+  /** Calculated: rollCost / rollLengthFt * sheetCoverageFt */
   rollCostPerSheet: number
   rollChangeFee: number
   wastePercent: number
@@ -133,7 +140,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1058,
+    rollCost: 52.90,           // Cost per roll
+    rollLengthFt: 500,         // Feet per roll
+    sheetCoverageFt: 1.0,      // Feet of roll used per sheet (13x19 sheet ≈ 1 ft)
+    rollCostPerSheet: 0.1058,  // = 52.90 / 500 * 1.0
     rollChangeFee: 0,
     wastePercent: 0.05,
     minSheets: 5,
@@ -148,7 +158,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1045,
+    rollCost: 52.25,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1045,  // = 52.25 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.05,
     minSheets: 5,
@@ -163,7 +176,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { Silk: 0.1333, default: 0.1333 }, Cardstock: { Silk: 0.05, default: 0.05 } },
-    rollCostPerSheet: 0.1009,
+    rollCost: 50.45,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1009,  // = 50.45 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.10,
     minSheets: 10,
@@ -178,7 +194,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1045,
+    rollCost: 52.25,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1045,  // = 52.25 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.05,
     minSheets: 5,
@@ -193,7 +212,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1045,
+    rollCost: 52.25,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1045,  // = 52.25 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.05,
     minSheets: 5,

@@ -2722,16 +2722,17 @@ function FinishingsSettingsTab() {
   }
 
   const addFinishing = () => {
-    const id = "custom_" + Date.now()
-    const newF: FinishingOption = {
-      id, name: "New Finishing", category: "finishing", setupCost: 10,
-      runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
-      rollCostPerSheet: 0, rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
-      markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: false,
-    }
-    setFinishings((prev) => [...prev, newF])
-    setExpandedId(id)
-    setSheetDirty(true)
+  const id = "custom_" + Date.now()
+  const newF: FinishingOption = {
+  id, name: "New Finishing", category: "finishing", setupCost: 10,
+  runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
+  rollCost: 50, rollLengthFt: 500, sheetCoverageFt: 1, rollCostPerSheet: 0.10,
+  rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
+  markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: false,
+  }
+  setFinishings((prev) => [...prev, newF])
+  setExpandedId(id)
+  setSheetDirty(true)
   }
 
   const removeFinishing = (id: string) => { setFinishings((prev) => prev.filter((f) => f.id !== id)); setSheetDirty(true) }
@@ -2870,11 +2871,38 @@ function FinishingsSettingsTab() {
                           <Input type="number" step="0.01" value={f.minimumJobPrice} onChange={(e) => updateFinishing(f.id, { minimumJobPrice: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
                         </div>
                       </div>
+                      {/* Roll Cost Breakdown */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-medium text-muted-foreground">Roll Cost / Sheet ($)</label>
-                          <Input type="number" step="0.0001" value={f.rollCostPerSheet} onChange={(e) => updateFinishing(f.id, { rollCostPerSheet: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                          <label className="text-[10px] font-medium text-muted-foreground">Roll Cost ($)</label>
+                          <Input type="number" step="0.01" value={f.rollCost ?? 0} onChange={(e) => {
+                            const rollCost = parseFloat(e.target.value) || 0
+                            const rollCostPerSheet = rollCost / (f.rollLengthFt || 500) * (f.sheetCoverageFt || 1)
+                            updateFinishing(f.id, { rollCost, rollCostPerSheet })
+                          }} className="h-7 text-xs" />
                         </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Roll Length (ft)</label>
+                          <Input type="number" step="1" value={f.rollLengthFt ?? 500} onChange={(e) => {
+                            const rollLengthFt = parseFloat(e.target.value) || 500
+                            const rollCostPerSheet = (f.rollCost || 0) / rollLengthFt * (f.sheetCoverageFt || 1)
+                            updateFinishing(f.id, { rollLengthFt, rollCostPerSheet })
+                          }} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Sheet Coverage (ft)</label>
+                          <Input type="number" step="0.1" value={f.sheetCoverageFt ?? 1} onChange={(e) => {
+                            const sheetCoverageFt = parseFloat(e.target.value) || 1
+                            const rollCostPerSheet = (f.rollCost || 0) / (f.rollLengthFt || 500) * sheetCoverageFt
+                            updateFinishing(f.id, { sheetCoverageFt, rollCostPerSheet })
+                          }} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Cost/Sheet (auto)</label>
+                          <Input type="text" readOnly value={`$${(f.rollCostPerSheet || 0).toFixed(4)}`} className="h-7 text-xs bg-muted" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="flex flex-col gap-1">
                           <label className="text-[10px] font-medium text-muted-foreground">Roll Change Fee ($)</label>
                           <Input type="number" step="0.01" value={f.rollChangeFee} onChange={(e) => updateFinishing(f.id, { rollChangeFee: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
