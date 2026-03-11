@@ -712,31 +712,34 @@ export function ShippingCalcDialog({
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs"
-                      onClick={handleCopyForEmail}
-                    >
-                      {copied ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      {copied ? "Copied!" : "Copy for Email"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs"
-                      onClick={() => setShowLabels(true)}
-                    >
-                      <Package className="h-3.5 w-3.5" />
-                      Print Labels
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setShowLabels(true)}
+                  >
+                    <Package className="h-3.5 w-3.5" />
+                    Print Labels
+                  </Button>
                 </div>
+
+                {/* Copy for email - quick summary */}
+                <button
+                  onClick={handleCopyForEmail}
+                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary/30 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-green-600" />
+                      <span className="text-green-600">Copied to clipboard!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy shipping info for email
+                    </>
+                  )}
+                </button>
 
                 {displayEstimate.hasNonUPSBoxes && (
                   <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-3">
@@ -1001,31 +1004,34 @@ export function ShippingCalcDialog({
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 text-xs"
-                          onClick={handleCopyForEmail}
-                        >
-                          {copied ? (
-                            <Check className="h-3.5 w-3.5 text-green-600" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                          {copied ? "Copied!" : "Copy for Email"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 text-xs"
-                          onClick={() => setShowLabels(true)}
-                        >
-                          <Package className="h-3.5 w-3.5" />
-                          Print Labels
-                        </Button>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => setShowLabels(true)}
+                      >
+                        <Package className="h-3.5 w-3.5" />
+                        Print Labels
+                      </Button>
                     </div>
+
+                    {/* Copy for email - quick summary */}
+                    <button
+                      onClick={handleCopyForEmail}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary/30 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-green-600" />
+                          <span className="text-green-600">Copied to clipboard!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy shipping info for email
+                        </>
+                      )}
+                    </button>
 
                     {/* Shipping cost input + add to quote */}
                     <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 space-y-3">
