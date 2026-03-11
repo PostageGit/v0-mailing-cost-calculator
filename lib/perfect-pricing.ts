@@ -406,7 +406,9 @@ export function calculatePerfect(
   // Broker applies percentage discount on finishing (binding + lamination)
   const bindingPricePerBook = getBindingPrice(bookQty, pagesPerBook, inside.paperName, pageWidth, pageHeight, isBroker)
   const totalBindingPrice = bindingPricePerBook * bookQty
-  const totalLaminationCost = hasLamination ? getLaminationPrice(laminationType, coverRes.paper, coverRes.sheets, isBroker) : 0
+  // Pass sheet length (longer dimension) for accurate material cost calculation
+  const coverSheetLength = Math.max(coverRes.finalSheetWidth || 0, coverRes.finalSheetHeight || 0)
+  const totalLaminationCost = hasLamination ? getLaminationPrice(laminationType, coverRes.paper, coverRes.sheets, isBroker, coverSheetLength) : 0
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 
   // Section fee: charge per additional section beyond the first

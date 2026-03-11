@@ -394,7 +394,9 @@ export function calculateAllSheetOptions(inputs: PrintingInputs): SheetOptionRow
     const { total: finishTotal } = getFinishingCosts(inputs, result.sheets)
     // Score/fold cost now handled by new foldFinish engine in buildFullPrintingResult
     const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
-    const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
+    // Pass sheet length (longer dimension) for accurate material cost calculation
+    const sheetLength = Math.max(result.sheetDimensions.w, result.sheetDimensions.h)
+    const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false, sheetLength)
     const lamCost = lamResult?.total || 0
     const price = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + finishTotal + lamCost
     const totalJobCuts = result.cuts.total > 0 ? result.cuts.total * result.numberOfStacks : 0
@@ -432,9 +434,10 @@ export function buildFullResult(
   const { lines: finishingCosts, total: totalFinishing } = getFinishingCosts(inputs, result.sheets)
   // OLD score/fold system removed - using new foldFinish engine instead
   const scoreFoldCost: ScoreFoldCostLine | null = null
-  // Lamination cost (per parent sheet)
+  // Lamination cost (per parent sheet) - uses actual sheet length for accurate material cost
   const lamInputs = inputs.lamination || LAMINATION_DEFAULTS
-  const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false)
+  const sheetLength = Math.max(result.sheetDimensions.w, result.sheetDimensions.h)
+  const lamResult = calculateLamination(result.sheets, inputs.paperName, lamInputs, inputs.isBroker || false, sheetLength)
   const laminationCost: LaminationCostLine | null = lamResult
     ? { type: lamInputs.type, sides: lamInputs.sides, cost: lamResult.total, isMinimumApplied: lamResult.isMinimumApplied, timeMinutes: lamResult.timeMinutes }
     : null

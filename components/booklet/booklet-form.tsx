@@ -20,6 +20,7 @@ import {
   INSIDE_SIDES,
   getLaminationPrice,
 } from "@/lib/booklet-pricing"
+import { getLaminationTypes } from "@/lib/lamination-pricing"
 import { usePapersContext } from "@/lib/papers-context"
 import { formatCurrency } from "@/lib/pricing"
 import type { BookletInputs, BookletInsertSection } from "@/lib/booklet-types"
@@ -519,8 +520,8 @@ export function BookletForm({
             Lamination <span className="font-normal normal-case text-muted-foreground/70">on cover</span>
           </label>
           <div className="flex flex-wrap gap-2">
-            {(["none", "gloss", "matte", "silk", "leather"] as const).map((t) => {
-              const selected = inputs.laminationType === t
+            {["none", ...getLaminationTypes()].map((t) => {
+              const selected = inputs.laminationType === t.toLowerCase()
               const isNone = t === "none"
               // Compute live price for this lamination type (needs cover sheets from a quick calc)
               let price: number | null = null
@@ -533,14 +534,14 @@ export function BookletForm({
                 <button
                   key={t}
                   type="button"
-                  onClick={() => updateInputs({ laminationType: t })}
+                  onClick={() => updateInputs({ laminationType: t.toLowerCase() })}
                   className={`flex flex-col items-center rounded-xl border-2 px-4 py-2.5 transition-all min-w-[80px] ${
                     selected
                       ? "border-foreground bg-foreground text-background"
                       : "border-border bg-card text-foreground hover:border-foreground/30"
                   }`}
                 >
-                  <span className="text-[12px] font-bold">{isNone ? "None" : t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                  <span className="text-[12px] font-bold">{isNone ? "None" : t}</span>
                   {price !== null && price > 0 && (
                     <span className={`text-[10px] font-mono font-semibold mt-0.5 ${selected ? "text-background/70" : "text-muted-foreground"}`}>
                       +{formatCurrency(price)}

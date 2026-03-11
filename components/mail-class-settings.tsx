@@ -24,7 +24,7 @@ import { SuppliersSettings } from "@/components/suppliers-settings"
 import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
 import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
 import { PerfectBindingSettingsTab } from "@/components/perfect-binding-settings"
-import { LaminationSettingsTab } from "@/components/lamination-settings"
+
 import { PapersSettings } from "@/components/papers-settings"
 import {
   DEFAULT_CLICK_COSTS,
@@ -127,7 +127,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- nav config ----------
 type SettingsTab =
-  | "pricing" | "papers" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding" | "lamination"
+  | "pricing" | "papers" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix" | "dont-forget"
   | "items" | "supplies" | "steps"
   | "fields" | "terms" | "team" | "system"
@@ -148,9 +148,8 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
       { id: "fold-score", label: "Fold & Score", icon: <Wrench className="h-4 w-4" />, description: "Fold and score pricing parameters" },
       { id: "saddle-stitch", label: "Saddle Stitch", icon: <Wrench className="h-4 w-4" />, description: "Saddle stitch binding rates" },
-      { id: "perfect-binding", label: "Perfect Binding", icon: <Wrench className="h-4 w-4" />, description: "Perfect bound book binding rates" },
-      { id: "lamination", label: "Lamination", icon: <Wrench className="h-4 w-4" />, description: "Lamination pricing by type" },
-    ],
+{ id: "perfect-binding", label: "Perfect Binding", icon: <Wrench className="h-4 w-4" />, description: "Perfect bound book binding rates" },
+],
   },
   {
     label: "Operations",
@@ -190,8 +189,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   "finishing-calcs": () => <FinishingCalculatorsSettingsTab />,
   "fold-score": () => <FoldScoreSettingsTab />,
   "saddle-stitch": () => <SaddleStitchSettingsTab />,
-  "perfect-binding": () => <PerfectBindingSettingsTab />,
-  "lamination": () => <LaminationSettingsTab />,
+"perfect-binding": () => <PerfectBindingSettingsTab />,
   labor: () => <LaborRatesTab />,
   departments: () => <DepartmentsTab />,
   envelopes: () => <EnvelopeSettingsTab />,
@@ -2724,12 +2722,27 @@ function FinishingsSettingsTab() {
   }
 
   const addFinishing = () => {
-    const id = "custom_" + Date.now()
+    const id = "custom_finishing_" + Date.now()
     const newF: FinishingOption = {
       id, name: "New Finishing", category: "finishing", setupCost: 10,
       runtimeCosts: { "80Cover": { default: 0.05 }, Cardstock: { default: 0.025 } },
-      rollCostPerSheet: 0, rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
+      rollCost: 50, rollLengthFt: 500, sheetCoverageFt: 1, rollCostPerSheet: 0.10,
+      rollChangeFee: 0, wastePercent: 0.05, minSheets: 5,
       markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: false,
+    }
+    setFinishings((prev) => [...prev, newF])
+    setExpandedId(id)
+    setSheetDirty(true)
+  }
+
+  const addLamination = () => {
+    const id = "custom_lamination_" + Date.now()
+    const newF: FinishingOption = {
+      id, name: "New Lamination", category: "lamination", setupCost: 10,
+      runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+      rollCost: 50, rollLengthFt: 500, sheetCoverageFt: 1, rollCostPerSheet: 0.10,
+      rollChangeFee: 10, wastePercent: 0.05, minSheets: 5,
+      markupPercent: 225, brokerDiscountPercent: 30, minimumJobPrice: 45, reducesSheetArea: true,
     }
     setFinishings((prev) => [...prev, newF])
     setExpandedId(id)
@@ -2817,10 +2830,13 @@ function FinishingsSettingsTab() {
             <Button size="sm" className="h-7 text-xs gap-1" onClick={() => saveSheetFinishings(finishings)} disabled={saving}>
               <Save className="h-3 w-3" /> {saving ? "Saving..." : "Save"}
             </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
-              <Plus className="h-3 w-3" /> Add
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSheetDefaults}>Reset Defaults</Button>
+<Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addFinishing}>
+  <Plus className="h-3 w-3" /> Add Finishing
+  </Button>
+  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addLamination}>
+  <Plus className="h-3 w-3" /> Add Lamination
+  </Button>
+  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetSheetDefaults}>Reset Defaults</Button>
             {sheetDirty && <span className="text-[10px] text-amber-500 font-medium">Unsaved</span>}
           </div>
 
@@ -2872,11 +2888,38 @@ function FinishingsSettingsTab() {
                           <Input type="number" step="0.01" value={f.minimumJobPrice} onChange={(e) => updateFinishing(f.id, { minimumJobPrice: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
                         </div>
                       </div>
+                      {/* Roll Cost Breakdown */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-medium text-muted-foreground">Roll Cost / Sheet ($)</label>
-                          <Input type="number" step="0.0001" value={f.rollCostPerSheet} onChange={(e) => updateFinishing(f.id, { rollCostPerSheet: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />
+                          <label className="text-[10px] font-medium text-muted-foreground">Roll Cost ($)</label>
+                          <Input type="number" step="0.01" value={f.rollCost ?? 0} onChange={(e) => {
+                            const rollCost = parseFloat(e.target.value) || 0
+                            const rollCostPerSheet = rollCost / (f.rollLengthFt || 500) * (f.sheetCoverageFt || 1)
+                            updateFinishing(f.id, { rollCost, rollCostPerSheet })
+                          }} className="h-7 text-xs" />
                         </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Roll Length (ft)</label>
+                          <Input type="number" step="1" value={f.rollLengthFt ?? 500} onChange={(e) => {
+                            const rollLengthFt = parseFloat(e.target.value) || 500
+                            const rollCostPerSheet = (f.rollCost || 0) / rollLengthFt * (f.sheetCoverageFt || 1)
+                            updateFinishing(f.id, { rollLengthFt, rollCostPerSheet })
+                          }} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Sheet Coverage (ft)</label>
+                          <Input type="number" step="0.1" value={f.sheetCoverageFt ?? 1} onChange={(e) => {
+                            const sheetCoverageFt = parseFloat(e.target.value) || 1
+                            const rollCostPerSheet = (f.rollCost || 0) / (f.rollLengthFt || 500) * sheetCoverageFt
+                            updateFinishing(f.id, { sheetCoverageFt, rollCostPerSheet })
+                          }} className="h-7 text-xs" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-medium text-muted-foreground">Cost/Sheet (auto)</label>
+                          <Input type="text" readOnly value={`$${(f.rollCostPerSheet || 0).toFixed(4)}`} className="h-7 text-xs bg-muted" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="flex flex-col gap-1">
                           <label className="text-[10px] font-medium text-muted-foreground">Roll Change Fee ($)</label>
                           <Input type="number" step="0.01" value={f.rollChangeFee} onChange={(e) => updateFinishing(f.id, { rollChangeFee: parseFloat(e.target.value) || 0 })} className="h-7 text-xs" />

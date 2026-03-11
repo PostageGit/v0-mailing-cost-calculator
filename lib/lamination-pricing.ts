@@ -1,8 +1,12 @@
 // ==================== LAMINATION PRICING ENGINE ====================
-// Ported from the Lamination.html calculator.
+// Uses config from pricing-config.ts (Settings -> Finishing)
+// Fully dynamic - add as many lamination types as you want in Settings
 // Priced per parent sheet in the flat-printing flow.
 
-export type LaminationType = "Gloss" | "Matte" | "Silk" | "Leather" | "Linen"
+import { getActiveConfig, type FinishingOption } from "./pricing-config"
+
+// Lamination type is now fully dynamic - any string from config
+export type LaminationType = string
 export type LaminationSides = "S/S" | "D/S"
 export type LaminationPaperCategory = "100 Text/80 Cover" | "Card Stock"
 
@@ -29,6 +33,14 @@ export interface LaminationResult {
   timeMinutes: number
 }
 
+// Get available lamination types from config (dynamic)
+export function getLaminationTypes(): string[] {
+  const cfg = getActiveConfig()
+  return cfg.finishings
+    .filter(f => f.category === "lamination")
+    .map(f => f.name.replace(" Lamination", ""))
+}
+
 export const LAMINATION_DEFAULTS: LaminationInputs = {
   enabled: false,
   type: "Gloss",
@@ -37,56 +49,19 @@ export const LAMINATION_DEFAULTS: LaminationInputs = {
   brokerDiscountPct: 30,
 }
 
-export const LAMINATION_TYPES: LaminationType[] = ["Gloss", "Matte", "Silk", "Leather", "Linen"]
+// For backward compatibility - now pulls from config dynamically
+export const LAMINATION_TYPES: string[] = getLaminationTypes()
 
-// ---- Constants ----
+// ---- Helper to get finishing option from config ----
 
-const ROLL_COSTS: Record<LaminationType, number> = {
-  Gloss: 0.1058,
-  Matte: 0.1045,
-  Silk: 0.1009,
-  Leather: 0.1045,
-  Linen: 0.1045,
+function getLaminationConfig(type: string): FinishingOption | null {
+  const cfg = getActiveConfig()
+  // Try to find by name match (e.g., "Gloss" matches "Gloss Lamination")
+  return cfg.finishings.find(f => 
+    f.category === "lamination" && 
+    (f.name.replace(" Lamination", "") === type || f.name === type || f.id === type)
+  ) || null
 }
-
-const ROLL_CHANGE_FEES: Record<LaminationType, number> = {
-  Gloss: 0,
-  Matte: 10,
-  Silk: 10,
-  Leather: 10,
-  Linen: 10,
-}
-
-const WASTE_PCT: Record<LaminationType, number> = {
-  Gloss: 0.05,
-  Matte: 0.05,
-  Silk: 0.10,
-  Leather: 0.05,
-  Linen: 0.05,
-}
-
-const MIN_SHEETS: Record<LaminationType, number> = {
-  Gloss: 5,
-  Matte: 5,
-  Silk: 10,
-  Leather: 5,
-  Linen: 5,
-}
-
-// Runtime cost per sheet (1st side)
-const RUNTIME_COST: Record<LaminationPaperCategory, Record<"silk" | "other", number>> = {
-  "100 Text/80 Cover": { silk: 0.1333, other: 0.0667 },
-  "Card Stock":        { silk: 0.05,   other: 0.025 },
-}
-
-// Runtime cost per sheet (2nd side -- only used for D/S)
-const RUNTIME_COST_2ND: Record<LaminationPaperCategory, Record<"silk" | "other", number>> = {
-  "100 Text/80 Cover": { silk: 0.30, other: 0.15 },
-  "Card Stock":        { silk: 0.10, other: 0.05 },
-}
-
-const SETUP_COST = 10  // $10 per job
-const MINIMUM_ORDER = 45 // $45 minimum
 
 // ---- Paper category mapper ----
 
@@ -110,42 +85,69 @@ export function calculateLamination(
   paperName: string,
   lam: LaminationInputs,
   isBroker: boolean,
+  sheetLengthInches?: number, // Length of the parent sheet in inches (e.g., 19 for 13x19)
 ): LaminationResult | null {
   if (!lam.enabled || parentSheets <= 0) return null
 
   const type = lam.type
   const sides = lam.sides
   const paperCat = toLaminationPaperCategory(paperName)
-  const isSilk = type === "Silk"
-  const runtimeKey = isSilk ? "silk" : "other"
-
-  // Sheets with waste and minimum
-  const sheets = Math.max(parentSheets, MIN_SHEETS[type])
-  const sheetsWithWaste = sheets * (1 + WASTE_PCT[type])
-  const sideCount = sides === "D/S" ? 2 : 1
-
-  // Setup
-  const setupCost = SETUP_COST
-
-  // Labor (runtime)
-  let laborCost = sheetsWithWaste * RUNTIME_COST[paperCat][runtimeKey] * sideCount
-  if (sides === "D/S") {
-    laborCost += sheetsWithWaste * RUNTIME_COST_2ND[paperCat][runtimeKey]
+  const isSilk = type.toLowerCase() === "silk"
+  
+  // Get config from database/settings
+  const config = getLaminationConfig(type)
+  if (!config) {
+    return null
   }
 
-  // Material (roll)
-  const materialCost = sheetsWithWaste * ROLL_COSTS[type] * sideCount
+  // Get values from config
+  const rollChangeFee = config.rollChangeFee
+  const wastePct = config.wastePercent
+  const minSheets = config.minSheets
+  const setupCost = config.setupCost
+  const minimumJobPrice = config.minimumJobPrice
 
-  // Roll change fee
-  const rollChangeFee = ROLL_CHANGE_FEES[type]
+  // Calculate material cost per sheet based on actual sheet size
+  // If sheet length is provided, calculate feet per sheet; otherwise use config default
+  let rollCostPerSheet: number
+  if (sheetLengthInches && config.rollCost && config.rollLengthFt) {
+    // Convert sheet length from inches to feet, then calculate cost
+    const sheetLengthFt = sheetLengthInches / 12
+    const costPerFoot = config.rollCost / config.rollLengthFt
+    rollCostPerSheet = costPerFoot * sheetLengthFt
+  } else {
+    // Use the pre-calculated rollCostPerSheet from config
+    rollCostPerSheet = config.rollCostPerSheet
+  }
+
+  // Get runtime costs from config
+  const runtimeKey = paperCat === "Card Stock" ? "Cardstock" : "80Cover"
+  const runtimeCosts = config.runtimeCosts[runtimeKey] || config.runtimeCosts["Cardstock"] || {}
+  const runtimeCostPerSheet = runtimeCosts.default || (isSilk ? 0.05 : 0.025)
+
+  // Sheets with waste and minimum
+  const sheets = Math.max(parentSheets, minSheets)
+  const sheetsWithWaste = sheets * (1 + wastePct)
+  const sideCount = sides === "D/S" ? 2 : 1
+
+  // Labor (runtime)
+  let laborCost = sheetsWithWaste * runtimeCostPerSheet * sideCount
+  if (sides === "D/S") {
+    // 2nd side costs more
+    const secondSideCost = runtimeCostPerSheet * 2.25
+    laborCost += sheetsWithWaste * secondSideCost
+  }
+
+  // Material (roll) - now uses actual sheet size if provided
+  const materialCost = sheetsWithWaste * rollCostPerSheet * sideCount
 
   // Base total before markup
   const baseTotal = setupCost + laborCost + materialCost + rollChangeFee
 
   // Markup with optional broker discount
-  let effectiveMarkup = lam.markupPct
+  let effectiveMarkup = config.markupPercent
   if (isBroker) {
-    effectiveMarkup *= (1 - lam.brokerDiscountPct / 100)
+    effectiveMarkup *= (1 - config.brokerDiscountPercent / 100)
   }
   // 225% markup means selling price = base * 2.25 (NOT base + base*2.25)
   const total_before_min = baseTotal * (effectiveMarkup / 100)
@@ -155,8 +157,8 @@ export function calculateLamination(
 
   // Minimum order
   let isMinimumApplied = false
-  if (total < MINIMUM_ORDER) {
-    total = MINIMUM_ORDER
+  if (total < minimumJobPrice) {
+    total = minimumJobPrice
     isMinimumApplied = true
   }
 

@@ -115,6 +115,13 @@ export interface FinishingOption {
   setupCost: number
   /** Per-sheet runtime cost by paper weight category */
   runtimeCosts: Record<string, Record<string, number>>
+  /** Roll cost in dollars (e.g., $150 per roll) */
+  rollCost: number
+  /** Roll length in feet (e.g., 500 ft per roll) */
+  rollLengthFt: number
+  /** Sheet coverage in feet (how many feet of roll per sheet, e.g., 1.5 ft) */
+  sheetCoverageFt: number
+  /** Calculated: rollCost / rollLengthFt * sheetCoverageFt */
   rollCostPerSheet: number
   rollChangeFee: number
   wastePercent: number
@@ -133,7 +140,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1058,
+    rollCost: 52.90,           // Cost per roll
+    rollLengthFt: 500,         // Feet per roll
+    sheetCoverageFt: 1.0,      // Feet of roll used per sheet (13x19 sheet ≈ 1 ft)
+    rollCostPerSheet: 0.1058,  // = 52.90 / 500 * 1.0
     rollChangeFee: 0,
     wastePercent: 0.05,
     minSheets: 5,
@@ -148,7 +158,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1045,
+    rollCost: 52.25,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1045,  // = 52.25 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.05,
     minSheets: 5,
@@ -163,7 +176,10 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { Silk: 0.1333, default: 0.1333 }, Cardstock: { Silk: 0.05, default: 0.05 } },
-    rollCostPerSheet: 0.1009,
+    rollCost: 50.45,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1009,  // = 50.45 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.10,
     minSheets: 10,
@@ -178,7 +194,28 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     category: "lamination",
     setupCost: 10,
     runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
-    rollCostPerSheet: 0.1045,
+    rollCost: 52.25,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1045,  // = 52.25 / 500 * 1.0
+    rollChangeFee: 10,
+    wastePercent: 0.05,
+    minSheets: 5,
+    markupPercent: 225,
+    brokerDiscountPercent: 30,
+    minimumJobPrice: 45,
+    reducesSheetArea: true,
+  },
+  {
+    id: "linen_lamination",
+    name: "Linen Lamination",
+    category: "lamination",
+    setupCost: 10,
+    runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+    rollCost: 52.25,
+    rollLengthFt: 500,
+    sheetCoverageFt: 1.0,
+    rollCostPerSheet: 0.1045,  // = 52.25 / 500 * 1.0
     rollChangeFee: 10,
     wastePercent: 0.05,
     minSheets: 5,
@@ -711,6 +748,7 @@ export function calculateFinishingCost(
   paperName: string,
   parentSheets: number,
   isBroker: boolean,
+  sheetLengthInches?: number, // Length of the parent sheet in inches for accurate material cost
 ): number {
   if (parentSheets <= 0) return 0
 
@@ -719,9 +757,21 @@ export function calculateFinishingCost(
   const catCosts = finishing.runtimeCosts[category] || finishing.runtimeCosts["Cardstock"] || {}
   const runtimeCostPerSheet = catCosts[finishing.name] || catCosts["default"] || Object.values(catCosts)[0] || 0
 
+  // Calculate material cost per sheet based on actual sheet size if available
+  let rollCostPerSheet: number
+  if (sheetLengthInches && finishing.rollCost && finishing.rollLengthFt) {
+    // Convert sheet length from inches to feet, then calculate cost
+    const sheetLengthFt = sheetLengthInches / 12
+    const costPerFoot = finishing.rollCost / finishing.rollLengthFt
+    rollCostPerSheet = costPerFoot * sheetLengthFt
+  } else {
+    // Use the pre-calculated rollCostPerSheet from config
+    rollCostPerSheet = finishing.rollCostPerSheet
+  }
+
   const sheets = Math.max(parentSheets, finishing.minSheets)
   const sheetsWithWaste = sheets * (1 + finishing.wastePercent)
-  const totalBaseCost = finishing.setupCost + sheetsWithWaste * runtimeCostPerSheet + sheetsWithWaste * finishing.rollCostPerSheet + finishing.rollChangeFee
+  const totalBaseCost = finishing.setupCost + sheetsWithWaste * runtimeCostPerSheet + sheetsWithWaste * rollCostPerSheet + finishing.rollChangeFee
 
   // 225% markup means selling price = base * 2.25 (NOT base + base*2.25)
   let effectiveMarkup = finishing.markupPercent
