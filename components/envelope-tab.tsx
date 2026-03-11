@@ -24,7 +24,8 @@ import {
   type LaserPrintType,
 } from "@/lib/envelope-pricing"
 import { getActiveConfig } from "@/lib/pricing-config"
-import { Plus, RotateCcw, AlertTriangle } from "lucide-react"
+import { Plus, RotateCcw, AlertTriangle, Truck } from "lucide-react"
+import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { STANDARD_ENVELOPES } from "@/lib/mailing-context"
 
 /** Match a planner envelope piece to the best envelope pricing item name */
@@ -413,14 +414,35 @@ export function EnvelopeTab() {
               settings={settings}
               onEffectiveTotalChange={setEffectiveTotal}
             />
-            <Button
-              onClick={handleAddToQuote}
-              className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-              size="sm"
-            >
-              <Plus className="h-4 w-4" />
-              Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleAddToQuote}
+                className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                size="sm"
+              >
+                <Plus className="h-4 w-4" />
+                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
+              </Button>
+              {(() => {
+                // Derive approximate dimensions from envelope name for shipping calc
+                const envDims: Record<string, [number, number]> = {
+                  "#6": [3.625, 6.5], "#9": [3.875, 8.875],
+                  "#10 no window": [4.125, 9.5], "#10 with window": [4.125, 9.5],
+                  "6x9": [6, 9], "6x9.5": [6, 9.5], "9x12": [9, 12], "10x13": [10, 13],
+                }
+                const dims = envDims[inputs.itemName]
+                if (!dims) return null
+                return (
+                  <ShippingCalcButton
+                    pieceWidth={dims[0]}
+                    pieceHeight={dims[1]}
+                    quantity={inputs.amount}
+                    sheetsPerPiece={1}
+                    itemLabel={`${inputs.amount.toLocaleString()} - ${inputs.itemName} Envelopes`}
+                  />
+                )
+              })()}
+            </div>
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border bg-secondary/20 flex flex-col items-center justify-center py-16 px-6 text-center">

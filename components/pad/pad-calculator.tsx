@@ -12,7 +12,8 @@ import type { PadInputs, PadCalcResult, PadSettings } from "@/lib/pad-types"
 import { DEFAULT_PAD_SETTINGS } from "@/lib/pad-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus } from "lucide-react"
+import { Plus, Truck } from "lucide-react"
+import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import useSWR from "swr"
 import { usePapersContext } from "@/lib/papers-context"
 
@@ -163,15 +164,24 @@ export function PadCalculator() {
               </div>
             </div>
 
-            {/* Add to Quote -- full width below results */}
-            <Button
-              onClick={handleAddToQuote}
-              className="w-full gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90 mt-4"
-              size="lg"
-            >
-              <Plus className="h-4 w-4" />
-              Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-            </Button>
+            {/* Add to Quote + Shipping -- below results */}
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={handleAddToQuote}
+                className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                size="lg"
+              >
+                <Plus className="h-4 w-4" />
+                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
+              </Button>
+              <ShippingCalcButton
+                pieceWidth={inputs.pageWidth}
+                pieceHeight={inputs.pageHeight}
+                quantity={inputs.padQty}
+                sheetsPerPiece={inputs.pagesPerPad + (inputs.useChipBoard ? 1 : 0)}
+                itemLabel={`${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad`}
+              />
+            </div>
           </div>
         )}
       </div>
