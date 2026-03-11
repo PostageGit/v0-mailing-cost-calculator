@@ -393,15 +393,21 @@ export function calculatePerfect(
   // The cover wraps: back cover + spine + front cover (as one flat sheet)
   // Extra size is added to 3 trimmed sides (top, bottom, fore-edge), NOT the spine
   // 
+  // The trim line is the reference point. All measurements ask:
+  // "How far past the trim line does the cover need to reach?"
+  //
   // 4 CASES based on bleed settings:
-  // ┌──────────────┬─────────────┬───────────────────────────────────────────────┐
-  // │ Inside Bleed │ Cover Bleed │ Extra Per Trimmed Side                        │
-  // ├──────────────┼─────────────┼───────────────────────────────────────────────┤
-  // │ No           │ No          │ 0.20" (overhang only)                         │
-  // │ No           │ Yes         │ 0.25" (cover bleed = overhang)                │
-  // │ Yes          │ No          │ 0.50" (0.25 bleed + 0.25 overhang)            │
-  // │ Yes          │ Yes         │ 0.75" (0.25 bleed + 0.25 overhang + 0.25 cov) │
-  // └──────────────┴─────────────┴───────────────────────────────────────────────┘
+  // ┌──────────────┬─────────────┬────────────────────────────────────────────────┐
+  // │ Inside Bleed │ Cover Bleed │ Extra Per Trimmed Side                         │
+  // ├──────────────┼─────────────┼────────────────────────────────────────────────┤
+  // │ No           │ No          │ 0.20" (overhang only)                          │
+  // │ No           │ Yes         │ 0.25" (cover bleed serves as overhang)         │
+  // │ Yes          │ No          │ 0.50" (0.25 inside bleed + 0.25 reg buffer)    │
+  // │ Yes          │ Yes         │ 0.50" (same as Case 3 — cover bleed absorbed)  │
+  // └──────────────┴─────────────┴────────────────────────────────────────────────┘
+  //
+  // NOTE: In Case 4, cover bleed (0.25") is absorbed into the overhang. Both are
+  // measured from the same trim line — they occupy the same space, not additive.
   //
   // Total Width  = (bookWidth × 2) + spineWidth + (extraPerSide × 2)
   // Total Height = bookHeight + (extraPerSide × 2)
@@ -414,12 +420,10 @@ export function calculatePerfect(
   } else if (!inside.hasBleed && cover.hasBleed) {
     // Case 2: Cover bleed only — cover bleed serves as overhang
     extraPerTrimmedSide = 0.25
-  } else if (inside.hasBleed && !cover.hasBleed) {
-    // Case 3: Inside bleed only — 0.25 inside bleed + 0.25 overhang
-    extraPerTrimmedSide = 0.50
   } else {
-    // Case 4: Both have bleed — 0.25 inside bleed + 0.25 overhang + 0.25 cover bleed
-    extraPerTrimmedSide = 0.75
+    // Case 3 & 4: Inside has bleed (cover bleed doesn't matter — it's absorbed)
+    // Text block extends 0.25" past trim + 0.25" registration buffer = 0.50"
+    extraPerTrimmedSide = 0.50
   }
   
   // Cover spread dimensions (flat unfolded cover)
