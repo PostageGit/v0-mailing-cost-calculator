@@ -307,7 +307,7 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-3" : "w-full flex justify-center")}>
+          <div className={cn("pt-3 pb-1 flex", sidebarOpen ? "px-3" : "justify-center")}>
             <Button onClick={handleNewJob}
               className={cn(
                 "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -321,16 +321,16 @@ function AppContent() {
           {/* Nav groups */}
           <nav className={cn(
             "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
-            sidebarOpen ? "px-3" : "w-full items-center"
+            sidebarOpen ? "px-3" : "items-center"
           )}>
             {(["dashboards", "data"] as const).map((group) => (
-              <div key={group} className={cn(sidebarOpen ? "w-full" : "w-full flex flex-col items-center")}>
+              <div key={group} className={cn(sidebarOpen && "w-full")}>
                 {sidebarOpen && (
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
                     {group === "dashboards" ? "Boards" : "Manage"}
                   </p>
                 )}
-                <div className={cn("flex flex-col gap-0.5", sidebarOpen ? "w-full" : "items-center")}>
+                <div className={cn("flex flex-col gap-0.5", sidebarOpen && "w-full")}>
                   {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
                     const active = section === nav.id
                     return (
@@ -354,7 +354,7 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "w-full flex justify-center")}>
+          <div className={cn("pb-3 border-t border-border pt-2 flex", sidebarOpen ? "px-3" : "justify-center")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
