@@ -187,6 +187,21 @@ export const DEFAULT_FINISHING_OPTIONS: FinishingOption[] = [
     minimumJobPrice: 45,
     reducesSheetArea: true,
   },
+  {
+    id: "linen_lamination",
+    name: "Linen Lamination",
+    category: "lamination",
+    setupCost: 10,
+    runtimeCosts: { "80Cover": { default: 0.0667 }, Cardstock: { default: 0.025 } },
+    rollCostPerSheet: 0.1045,
+    rollChangeFee: 10,
+    wastePercent: 0.05,
+    minSheets: 5,
+    markupPercent: 225,
+    brokerDiscountPercent: 30,
+    minimumJobPrice: 45,
+    reducesSheetArea: true,
+  },
 ]
 
 // ==================== SCORE & FOLD (per-piece finishing) ====================
