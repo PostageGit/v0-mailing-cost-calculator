@@ -748,6 +748,7 @@ export function calculateFinishingCost(
   paperName: string,
   parentSheets: number,
   isBroker: boolean,
+  sheetLengthInches?: number, // Length of the parent sheet in inches for accurate material cost
 ): number {
   if (parentSheets <= 0) return 0
 
@@ -756,9 +757,21 @@ export function calculateFinishingCost(
   const catCosts = finishing.runtimeCosts[category] || finishing.runtimeCosts["Cardstock"] || {}
   const runtimeCostPerSheet = catCosts[finishing.name] || catCosts["default"] || Object.values(catCosts)[0] || 0
 
+  // Calculate material cost per sheet based on actual sheet size if available
+  let rollCostPerSheet: number
+  if (sheetLengthInches && finishing.rollCost && finishing.rollLengthFt) {
+    // Convert sheet length from inches to feet, then calculate cost
+    const sheetLengthFt = sheetLengthInches / 12
+    const costPerFoot = finishing.rollCost / finishing.rollLengthFt
+    rollCostPerSheet = costPerFoot * sheetLengthFt
+  } else {
+    // Use the pre-calculated rollCostPerSheet from config
+    rollCostPerSheet = finishing.rollCostPerSheet
+  }
+
   const sheets = Math.max(parentSheets, finishing.minSheets)
   const sheetsWithWaste = sheets * (1 + finishing.wastePercent)
-  const totalBaseCost = finishing.setupCost + sheetsWithWaste * runtimeCostPerSheet + sheetsWithWaste * finishing.rollCostPerSheet + finishing.rollChangeFee
+  const totalBaseCost = finishing.setupCost + sheetsWithWaste * runtimeCostPerSheet + sheetsWithWaste * rollCostPerSheet + finishing.rollChangeFee
 
   // 225% markup means selling price = base * 2.25 (NOT base + base*2.25)
   let effectiveMarkup = finishing.markupPercent

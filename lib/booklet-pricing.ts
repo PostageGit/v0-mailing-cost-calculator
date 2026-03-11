@@ -417,6 +417,7 @@ export function getLaminationPrice(
   coverPaperName: string,
   quantity: number,
   isBroker: boolean,
+  sheetLengthInches?: number, // Length of the parent sheet in inches for accurate material cost
 ): number {
   if (!coverPaperName || laminationType === "none") return 0
 
@@ -426,13 +427,13 @@ export function getLaminationPrice(
   const finishing = cfg.finishings.find((f) => f.id === lamId)
 
   if (finishing) {
-    return calculateFinishingCost(finishing, coverPaperName, quantity, isBroker)
+    return calculateFinishingCost(finishing, coverPaperName, quantity, isBroker, sheetLengthInches)
   }
 
   // Fallback: if someone typed a custom name, try partial match
   const byName = cfg.finishings.find((f) => f.name.toLowerCase().includes(laminationType.toLowerCase()))
   if (byName) {
-    return calculateFinishingCost(byName, coverPaperName, quantity, isBroker)
+    return calculateFinishingCost(byName, coverPaperName, quantity, isBroker, sheetLengthInches)
   }
 
   return 0
@@ -578,8 +579,10 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   const totalBindingPrice = bindingPricePerBook * bookQty
 
   // Lamination – broker applies percentage discount on finishing
+  // Pass sheet length (longer dimension) for accurate material cost calculation
+  const coverSheetLength = Math.max(coverResult.finalSheetWidth || 0, coverResult.finalSheetHeight || 0)
   const totalLaminationCost = (separateCover && hasLamination)
-    ? getLaminationPrice(laminationType, coverResult.paper, coverResult.sheets, isBroker)
+    ? getLaminationPrice(laminationType, coverResult.paper, coverResult.sheets, isBroker, coverSheetLength)
     : 0
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 

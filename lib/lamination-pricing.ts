@@ -85,13 +85,14 @@ export function calculateLamination(
   paperName: string,
   lam: LaminationInputs,
   isBroker: boolean,
+  sheetLengthInches?: number, // Length of the parent sheet in inches (e.g., 19 for 13x19)
 ): LaminationResult | null {
   if (!lam.enabled || parentSheets <= 0) return null
 
   const type = lam.type
   const sides = lam.sides
   const paperCat = toLaminationPaperCategory(paperName)
-  const isSilk = type === "Silk"
+  const isSilk = type.toLowerCase() === "silk"
   
   // Get config from database/settings
   const config = getLaminationConfig(type)
@@ -100,12 +101,24 @@ export function calculateLamination(
   }
 
   // Get values from config
-  const rollCost = config.rollCostPerSheet
   const rollChangeFee = config.rollChangeFee
   const wastePct = config.wastePercent
   const minSheets = config.minSheets
   const setupCost = config.setupCost
   const minimumJobPrice = config.minimumJobPrice
+
+  // Calculate material cost per sheet based on actual sheet size
+  // If sheet length is provided, calculate feet per sheet; otherwise use config default
+  let rollCostPerSheet: number
+  if (sheetLengthInches && config.rollCost && config.rollLengthFt) {
+    // Convert sheet length from inches to feet, then calculate cost
+    const sheetLengthFt = sheetLengthInches / 12
+    const costPerFoot = config.rollCost / config.rollLengthFt
+    rollCostPerSheet = costPerFoot * sheetLengthFt
+  } else {
+    // Use the pre-calculated rollCostPerSheet from config
+    rollCostPerSheet = config.rollCostPerSheet
+  }
 
   // Get runtime costs from config
   const runtimeKey = paperCat === "Card Stock" ? "Cardstock" : "80Cover"
@@ -125,8 +138,8 @@ export function calculateLamination(
     laborCost += sheetsWithWaste * secondSideCost
   }
 
-  // Material (roll)
-  const materialCost = sheetsWithWaste * rollCost * sideCount
+  // Material (roll) - now uses actual sheet size if provided
+  const materialCost = sheetsWithWaste * rollCostPerSheet * sideCount
 
   // Base total before markup
   const baseTotal = setupCost + laborCost + materialCost + rollChangeFee
