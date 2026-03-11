@@ -288,12 +288,12 @@ function AppContent() {
         )}
         <aside className={cn(
           "hidden lg:flex flex-col bg-card border-r border-border shrink-0 z-50 transition-all duration-200 overflow-hidden",
-          sidebarOpen ? "w-56" : "w-14"
+          sidebarOpen ? "w-52" : "w-14"
         )}>
           {/* Logo + collapse */}
           <div className={cn(
             "flex items-center h-12 border-b border-border shrink-0",
-            sidebarOpen ? "justify-between px-4" : "justify-center"
+            sidebarOpen ? "justify-between px-3" : "justify-center"
           )}>
             {sidebarOpen && <span className="text-sm font-bold text-foreground truncate">Postage Plus</span>}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -304,7 +304,7 @@ function AppContent() {
           </div>
 
           {/* New Job button */}
-          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-4" : "px-[7px]")}>
+          <div className={cn("pt-3 pb-1", sidebarOpen ? "px-3" : "px-[7px]")}>
             <Button onClick={handleNewJob}
               className={cn(
                 "gap-2.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 font-semibold",
@@ -317,9 +317,9 @@ function AppContent() {
 
           {/* Nav groups */}
           <nav className={cn(
-            "flex-1 overflow-y-auto pt-2 pb-4 flex flex-col gap-4",
-            sidebarOpen ? "px-4" : "px-[7px]"
-          )} style={{ scrollbarWidth: "none" }}>
+            "flex-1 pt-2 pb-4 flex flex-col gap-4 overflow-y-auto overflow-x-hidden",
+            sidebarOpen ? "px-3" : "px-[7px]"
+          )} style={{ scrollbarWidth: "none", scrollbarGutter: "stable" }}>
             {(["dashboards", "data"] as const).map((group) => (
               <div key={group}>
                 {sidebarOpen && (
@@ -351,7 +351,7 @@ function AppContent() {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-4" : "px-[7px]")}>
+          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "px-[7px]")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all w-full",
