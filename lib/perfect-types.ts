@@ -68,6 +68,8 @@ export interface PerfectCalcResult {
   coverSpreadHeight?: number
   coverPageWidth: number
   coverPageHeight: number
+  canLaminate: boolean        // true if cover width <= 12.45"
+  laminationWarning?: string  // warning if lamination requested but cover too wide
   totalPrintingCost: number
   bindingPricePerBook: number
   totalBindingPrice: number

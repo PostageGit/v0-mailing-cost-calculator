@@ -18,6 +18,7 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
     totalPrintingCost, bindingPricePerBook, totalBindingPrice, sectionFeeTotal,
     laminationCostPerBook, totalLaminationCost,
     brokerDiscountAmount, bookQty, isBroker,
+    laminationWarning, coverSpreadWidth, coverSpreadHeight,
   } = result
   
   const usingSections = insideSectionResults && insideSectionResults.length > 0
@@ -199,7 +200,15 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
             <div><span className="text-muted-foreground">Lamination:</span> {formatCurrency(laminationCostPerBook)}</div>
           )}
           <div><span className="text-muted-foreground">Spine:</span> {result.spineWidth.toFixed(3)}{'"'}</div>
+          {coverSpreadWidth && coverSpreadHeight && (
+            <div className="col-span-2"><span className="text-muted-foreground">Cover Spread:</span> {coverSpreadWidth.toFixed(2)}" × {coverSpreadHeight.toFixed(2)}"</div>
+          )}
         </div>
+        {laminationWarning && (
+          <div className="mt-2 px-2 py-1.5 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded text-xs text-red-700 dark:text-red-300">
+            <strong>Warning:</strong> {laminationWarning}
+          </div>
+        )}
       </div>
     </div>
   )
