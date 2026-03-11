@@ -713,6 +713,10 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
   const [overrideBox, setOverrideBox] = useState<string | null>(null)
   const [upsOnly, setUpsOnly] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
+  const [manualW, setManualW] = useState("")
+  const [manualH, setManualH] = useState("")
+
+  if (quantity <= 0 || items.length === 0) return null
 
   // Extract piece dimensions and weight info from items
   const pieces: Array<{
@@ -730,13 +734,14 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
     const m = item.metadata
     if (!m) continue
 
-    if (m.paperName && m.pieceDimensions) {
+    // Try to get dimensions from pieceDimensions
+    if (m.pieceDimensions) {
       const dimStr = String(m.pieceDimensions)
       const parts = dimStr.split("x").map((s: string) => parseFloat(s.trim()))
       if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
         const sheets = m.pageCount ? Math.ceil(Number(m.pageCount) / 2) : 1
         pieces.push({
-          paperName: String(m.paperName),
+          paperName: m.paperName ? String(m.paperName) : "Unknown",
           widthIn: parts[0],
           heightIn: parts[1],
           sheetsPerPiece: sheets,
@@ -748,54 +753,58 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
     }
   }
 
-  if (pieces.length === 0 || quantity <= 0) return null
+  // Allow manual dimension override when no dimensions detected
+  const useManualDims = pieces.length === 0 && manualW && manualH
+  const effectiveW = useManualDims ? parseFloat(manualW) : maxPieceW
+  const effectiveH = useManualDims ? parseFloat(manualH) : maxPieceH
 
-  // Calculate total weight
-  const weightResult = calcMailPieceWeightOz({ pieces })
-  if (!weightResult) return null
-
-  const perPieceOz = weightResult.totalOz
+  // Calculate total weight (may return null if paper not found - that's OK)
+  const weightResult = pieces.length > 0 ? calcMailPieceWeightOz({ pieces }) : null
+  const perPieceOz = weightResult?.totalOz ?? 0
   const totalWeightOz = perPieceOz * quantity
+  const hasWeight = weightResult !== null
 
-  // Estimate thickness per piece (based on sheet count and paper type)
-  // Standard paper ~0.004", card stock ~0.012", booklets multiply by sheets
-  const avgSheetsPerPiece = pieces.reduce((s, p) => s + p.sheetsPerPiece, 0) / pieces.length
-  const thicknessPerPiece = avgSheetsPerPiece * 0.005 // ~5mil per sheet average
+  // Estimate thickness per piece
+  const avgSheetsPerPiece = pieces.length > 0
+    ? pieces.reduce((s, p) => s + p.sheetsPerPiece, 0) / pieces.length
+    : 1
+  const thicknessPerPiece = avgSheetsPerPiece * 0.005
 
-  // Get box recommendation
+  // Get box recommendation (only if we have dimensions)
   let estimate: ShippingEstimate | null = null
 
-  if (overrideBox) {
-    // Manual override - use the selected box
-    const box = BOX_SIZES.find((b) => b.name === overrideBox)
-    if (box) {
-      const maxPerBox = Math.floor(box.heightIn / thicknessPerPiece)
-      const boxCount = maxPerBox > 0 ? Math.ceil(quantity / maxPerBox) : 1
-      const piecesPerBox = maxPerBox > 0 ? Math.min(quantity, maxPerBox) : quantity
-      const weightPerBox = (perPieceOz * piecesPerBox) + box.boxWeightOz
-      estimate = {
-        recommendations: [{
-          box,
-          count: boxCount,
-          piecesPerBox,
-          weightPerBoxOz: weightPerBox,
-          fillPercent: Math.min(((piecesPerBox * thicknessPerPiece) / box.heightIn) * 100, 100),
-        }],
-        totalBoxes: boxCount,
-        totalShippingWeightOz: weightPerBox * boxCount,
-        totalShippingWeightLbs: (weightPerBox * boxCount) / 16,
-        hasNonUPSBoxes: !box.upsEligible,
+  if (effectiveW > 0 && effectiveH > 0) {
+    if (overrideBox) {
+      const box = BOX_SIZES.find((b) => b.name === overrideBox)
+      if (box) {
+        const maxPerBox = Math.floor(box.heightIn / thicknessPerPiece)
+        const boxCount = maxPerBox > 0 ? Math.ceil(quantity / maxPerBox) : 1
+        const piecesPerBox = maxPerBox > 0 ? Math.min(quantity, maxPerBox) : quantity
+        const weightPerBox = (perPieceOz * piecesPerBox) + box.boxWeightOz
+        estimate = {
+          recommendations: [{
+            box,
+            count: boxCount,
+            piecesPerBox,
+            weightPerBoxOz: weightPerBox,
+            fillPercent: Math.min(((piecesPerBox * thicknessPerPiece) / box.heightIn) * 100, 100),
+          }],
+          totalBoxes: boxCount,
+          totalShippingWeightOz: weightPerBox * boxCount,
+          totalShippingWeightLbs: (weightPerBox * boxCount) / 16,
+          hasNonUPSBoxes: !box.upsEligible,
+        }
       }
+    } else {
+      estimate = selectBestBoxes({
+        pieceWidthIn: effectiveW,
+        pieceHeightIn: effectiveH,
+        thicknessPerPieceIn: thicknessPerPiece,
+        quantity,
+        totalWeightOz,
+        upsOnly,
+      })
     }
-  } else {
-    estimate = selectBestBoxes({
-      pieceWidthIn: maxPieceW,
-      pieceHeightIn: maxPieceH,
-      thicknessPerPieceIn: thicknessPerPiece,
-      quantity,
-      totalWeightOz,
-      upsOnly,
-    })
   }
 
   return (
@@ -814,12 +823,16 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
               <span className="text-[12px] font-mono font-semibold text-foreground/80 tabular-nums">
                 {estimate.totalBoxes} box{estimate.totalBoxes !== 1 ? "es" : ""}
               </span>
-              <span className="text-[10px] font-medium text-muted-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">
-                {formatShippingWeight(estimate.totalShippingWeightOz)}
-              </span>
+              {hasWeight && (
+                <span className="text-[10px] font-medium text-muted-foreground/50 bg-secondary/60 px-1.5 py-0.5 rounded">
+                  {formatShippingWeight(estimate.totalShippingWeightOz)}
+                </span>
+              )}
             </>
           ) : (
-            <span className="text-[10px] text-muted-foreground/50">No fit</span>
+            <span className="text-[10px] text-muted-foreground/50">
+              {effectiveW > 0 ? "No fit" : "Set dims"}
+            </span>
           )}
           {expanded ? (
             <ChevronDown className="h-3 w-3 text-muted-foreground/40" />
@@ -839,19 +852,49 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
                 {quantity.toLocaleString()}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-muted-foreground/60 font-medium">Piece size</span>
-              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
-                {maxPieceW}&quot; x {maxPieceH}&quot;
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-muted-foreground/60 font-medium">Total piece weight</span>
-              <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
-                {formatShippingWeight(totalWeightOz)}
-              </span>
-            </div>
+            {effectiveW > 0 && effectiveH > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-muted-foreground/60 font-medium">Piece size</span>
+                <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+                  {effectiveW}&quot; x {effectiveH}&quot;
+                </span>
+              </div>
+            )}
+            {hasWeight && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-muted-foreground/60 font-medium">Total piece weight</span>
+                <span className="text-[10px] font-mono text-muted-foreground/70 tabular-nums">
+                  {formatShippingWeight(totalWeightOz)}
+                </span>
+              </div>
+            )}
           </div>
+
+          {/* Manual dimensions if not auto-detected */}
+          {pieces.length === 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-medium text-muted-foreground/60">Piece dimensions (inches)</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  step="0.125"
+                  placeholder="W"
+                  value={manualW}
+                  onChange={(e) => setManualW(e.target.value)}
+                  className="flex-1 h-7 text-[10px] rounded-md border border-border/50 bg-background px-2 text-foreground font-mono tabular-nums"
+                />
+                <span className="text-[10px] text-muted-foreground/50">x</span>
+                <input
+                  type="number"
+                  step="0.125"
+                  placeholder="H"
+                  value={manualH}
+                  onChange={(e) => setManualH(e.target.value)}
+                  className="flex-1 h-7 text-[10px] rounded-md border border-border/50 bg-background px-2 text-foreground font-mono tabular-nums"
+                />
+              </div>
+            </div>
+          )}
 
           {/* UPS filter */}
           <label className="flex items-center gap-2 cursor-pointer">
@@ -904,12 +947,14 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
                         {rec.piecesPerBox.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-muted-foreground/60">Weight/box</span>
-                      <span className="text-[9px] font-mono text-muted-foreground/70">
-                        {formatShippingWeight(rec.weightPerBoxOz)}
-                      </span>
-                    </div>
+                    {hasWeight && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] text-muted-foreground/60">Weight/box</span>
+                        <span className="text-[9px] font-mono text-muted-foreground/70">
+                          {formatShippingWeight(rec.weightPerBoxOz)}
+                        </span>
+                      </div>
+                    )}
                     {/* Fill bar */}
                     <div className="flex items-center gap-2 pt-0.5">
                       <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
@@ -937,12 +982,14 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
                     {estimate.totalBoxes}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-foreground/70">Shipping weight</span>
-                  <span className="text-[11px] font-mono font-semibold text-foreground/80 tabular-nums">
-                    {formatShippingWeight(estimate.totalShippingWeightOz)}
-                  </span>
-                </div>
+                {hasWeight && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-foreground/70">Shipping weight</span>
+                    <span className="text-[11px] font-mono font-semibold text-foreground/80 tabular-nums">
+                      {formatShippingWeight(estimate.totalShippingWeightOz)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {estimate.hasNonUPSBoxes && (
@@ -957,7 +1004,10 @@ function ShippingEstimatePanel({ items, quantity }: { items: QuoteLineItem[]; qu
           ) : (
             <div className="rounded-lg border border-dashed border-border/50 p-3 text-center">
               <span className="text-[10px] text-muted-foreground/50">
-                No box fits the piece dimensions ({maxPieceW}&quot; x {maxPieceH}&quot;)
+                {effectiveW > 0 && effectiveH > 0
+                  ? `No box fits the piece dimensions (${effectiveW}" x ${effectiveH}")`
+                  : "Enter piece dimensions above to calculate box recommendations"
+                }
               </span>
             </div>
           )}
