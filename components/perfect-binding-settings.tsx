@@ -37,6 +37,7 @@ export interface PerfectBindingConfig {
   // Production limits
   maxCoverUps: number               // Max ups for perfect binding covers (default 2)
   maxLaminationWidth: number        // Max width laminator can handle in inches (default 12.45")
+  coverGutter: number               // Gutter between 2-up covers (default 0.50" = 0.25" overhang per book)
 }
 
 export const DEFAULT_PERFECT_BINDING_CONFIG: PerfectBindingConfig = {
@@ -59,6 +60,7 @@ export const DEFAULT_PERFECT_BINDING_CONFIG: PerfectBindingConfig = {
   coverExtraInsideBleed: 0.50,
   maxCoverUps: 2,
   maxLaminationWidth: 12.45,
+  coverGutter: 0.50,
 }
 
 export function PerfectBindingSettingsTab() {
@@ -355,7 +357,7 @@ export function PerfectBindingSettingsTab() {
         {/* Production Limits */}
         <div className="pt-3 border-t border-amber-200 dark:border-amber-700">
           <h5 className="font-medium text-xs text-amber-900 dark:text-amber-200 mb-3">Production Limits</h5>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label className="text-xs">Max Cover Ups</Label>
               <Input
@@ -368,6 +370,17 @@ export function PerfectBindingSettingsTab() {
                 className="h-8"
               />
               <p className="text-[10px] text-muted-foreground">Maximum impositions for covers (typically 2)</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Cover Gutter (2-Up) (&quot;)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={config.coverGutter}
+                onChange={(e) => updateField("coverGutter", parseFloat(e.target.value) || 0.50)}
+                className="h-8"
+              />
+              <p className="text-[10px] text-muted-foreground">Space between 2-up covers (0.5&quot; = 0.25&quot; overhang each)</p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Max Lamination Width (&quot;)</Label>
