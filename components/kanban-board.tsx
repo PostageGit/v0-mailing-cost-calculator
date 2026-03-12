@@ -92,7 +92,7 @@ function matchesSearch(q: Quote, term: string): boolean {
     (q.job_meta?.assignee || "").toLowerCase().includes(s) ||
     (q.job_meta?.piece_desc || "").toLowerCase().includes(s) ||
     (q.job_meta?.printed_by || "").toLowerCase().includes(s) ||
-    (q.items || []).some((it) => it.label.toLowerCase().includes(s) || it.description.toLowerCase().includes(s))
+    (q.items || []).some((it) => (it.label || "").toLowerCase().includes(s) || (it.description || "").toLowerCase().includes(s))
   )
 }
 
