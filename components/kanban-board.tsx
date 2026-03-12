@@ -1973,6 +1973,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [userFilter, setUserFilter] = useState<string>("all")
   const [simpleView, setSimpleView] = useState(false)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2617,6 +2618,15 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           <div className="flex flex-wrap gap-2 pt-2">
                             <Button
                               size="sm"
+                              variant={fullCardRowId === q.id ? "default" : "outline"}
+                              className={cn("text-xs h-7", fullCardRowId === q.id && "bg-foreground text-background")}
+                              onClick={(e) => { e.stopPropagation(); setFullCardRowId(fullCardRowId === q.id ? null : q.id) }}
+                            >
+                              <LayoutGrid className="h-3 w-3 mr-1" />
+                              {fullCardRowId === q.id ? "Hide Full Card" : "View Full Card"}
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="outline"
                               className="text-xs h-7"
                               onClick={(e) => { e.stopPropagation(); setDetailQuote(q) }}
@@ -2689,6 +2699,25 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           </div>
                         </div>
                       </div>
+
+                      {/* Full Card View - same as kanban */}
+                      {fullCardRowId === q.id && (
+                        <div className="mt-4 pt-4 border-t border-border/30">
+                          <QuoteCard
+                            quote={q}
+                            columns={cols}
+                            onColumnChange={handleColumnChange}
+                            onVoid={handleVoid}
+                            onArchive={handleArchive}
+                            onRestore={handleRestore}
+                            onPatch={handlePatch}
+                            onReorder={handleReorder}
+                            onEdit={() => setDetailQuote(q)}
+                            onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
+                            boardType={boardType}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
