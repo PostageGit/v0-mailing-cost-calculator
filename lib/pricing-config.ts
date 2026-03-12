@@ -678,7 +678,10 @@ export function setDynamicPaperOptions(options: {
   }
 }
 
-/** Get dynamic paper options for a specific use case, with fallback to hardcoded list */
+/** 
+ * Get dynamic paper options for a specific use case, with fallback to hardcoded list.
+ * Returns paper options from database config if available, otherwise uses defaults.
+ */
 export function getDynamicPaperOptions(useFor: "flat" | "bookInside" | "bookCover" | "spiralInside" | "spiralCover" | "pad"): DynamicPaperOption[] {
   const cfg = getActiveConfig()
   switch (useFor) {
