@@ -22,9 +22,9 @@ export interface BoxSize {
 }
 
 /**
- * All available box sizes, sorted smallest to largest by volume.
+ * Default box sizes - used as fallback if no custom config exists.
  */
-export const BOX_SIZES: BoxSize[] = [
+export const DEFAULT_BOX_SIZES: BoxSize[] = [
   { name: "P3",     lengthIn: 11.75, widthIn: 8.75,  heightIn: 3,    volume: 11.75 * 8.75 * 3,     upsEligible: true,  boxWeightOz: 6 },
   { name: "12104",  lengthIn: 12,    widthIn: 10,    heightIn: 4,    volume: 12 * 10 * 4,           upsEligible: true,  boxWeightOz: 8 },
   { name: "14-4",   lengthIn: 14,    widthIn: 10.5,  heightIn: 4,    volume: 14 * 10.5 * 4,         upsEligible: true,  boxWeightOz: 8 },
@@ -38,6 +38,23 @@ export const BOX_SIZES: BoxSize[] = [
   { name: "P12",    lengthIn: 11.75, widthIn: 8.75,  heightIn: 12,   volume: 11.75 * 8.75 * 12,     upsEligible: false, notes: "NOT for UPS, not Strong", boxWeightOz: 10 },
   { name: "D1",     lengthIn: 12.5,  widthIn: 9.5,   heightIn: 13.5, volume: 12.5 * 9.5 * 13.5,     upsEligible: false, notes: "NOT for UPS, not Strong", boxWeightOz: 12 },
 ].sort((a, b) => a.volume - b.volume)
+
+/**
+ * Mutable runtime box sizes - can be updated via setBoxSizes()
+ */
+let BOX_SIZES: BoxSize[] = [...DEFAULT_BOX_SIZES]
+
+/** Update the box sizes at runtime (called after loading from settings) */
+export function setBoxSizes(boxes: BoxSize[]) {
+  BOX_SIZES = [...boxes].sort((a, b) => a.volume - b.volume)
+}
+
+/** Get current box sizes */
+export function getBoxSizes(): BoxSize[] {
+  return BOX_SIZES
+}
+
+export { BOX_SIZES }
 
 /** Get only UPS-eligible boxes */
 export function getUPSEligibleBoxes(): BoxSize[] {
