@@ -2742,55 +2742,204 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
         )
       })()}
 
-      {/* Full Card Modal - standalone window for viewing ticket */}
-      {fullCardModalQuote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-            onClick={() => setFullCardModalQuote(null)}
-          />
-          {/* Modal content */}
-          <div className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto m-4 rounded-xl border border-border bg-card shadow-2xl">
-            {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "text-sm font-bold tabular-nums",
-                  isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
-                )}>
-                  {isJob ? `J-${fullCardModalQuote.job_number || "---"}` : `Q-${fullCardModalQuote.quote_number || "---"}`}
-                </span>
-                <span className="text-sm font-semibold text-foreground truncate">
-                  {fullCardModalQuote.project_name || "Untitled"}
-                </span>
+      {/* Full Card Modal - full screen beautiful view */}
+      {fullCardModalQuote && (() => {
+        const q = fullCardModalQuote
+        const col = cols.find((c) => c.id === q.column_id)
+        const jm = q.job_meta
+        const groups = groupByCategory(q.items || [])
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => setFullCardModalQuote(null)}
+            />
+            {/* Modal - full height, no scroll */}
+            <div className="relative z-10 w-full max-w-6xl h-[calc(100vh-48px)] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-8 py-5 border-b border-border/40 bg-card">
+                <div className="flex items-center gap-4">
+                  <span className={cn(
+                    "text-2xl font-bold tabular-nums tracking-tight",
+                    isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
+                  )}>
+                    {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
+                  </span>
+                  <div className="h-6 w-px bg-border/50" />
+                  <span className="text-xl font-semibold text-foreground">
+                    {q.project_name || "Untitled"}
+                  </span>
+                  {col && (
+                    <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ml-2" style={{ backgroundColor: `${col.color}20`, color: col.color }}>
+                      {col.title}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <div onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }} className="px-4 py-2 rounded-lg text-sm font-medium bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
+                    Edit Details
+                  </div>
+                  <div onClick={() => { setFullCardModalQuote(null); onLoadQuote(q.id) }} className="px-4 py-2 rounded-lg text-sm font-medium bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors">
+                    Open Calculator
+                  </div>
+                  <div
+                    onClick={() => setFullCardModalQuote(null)}
+                    className="p-2 rounded-lg hover:bg-secondary transition-colors cursor-pointer"
+                  >
+                    <X className="h-5 w-5" />
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => setFullCardModalQuote(null)}
-                className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Card content */}
-            <div className="p-4">
-              <QuoteCard
-                quote={fullCardModalQuote}
-                columns={cols}
-                onColumnChange={(id, colId) => { handleColumnChange(id, colId); setFullCardModalQuote(prev => prev ? { ...prev, column_id: colId } : null) }}
-                onVoid={(id) => { handleVoid(id); setFullCardModalQuote(null) }}
-                onArchive={(id) => { handleArchive(id); setFullCardModalQuote(null) }}
-                onRestore={handleRestore}
-                onPatch={(id, data) => { handlePatch(id, data); setFullCardModalQuote(prev => prev ? { ...prev, ...data } : null) }}
-                onReorder={handleReorder}
-                onEdit={() => { setDetailQuote(fullCardModalQuote); setFullCardModalQuote(null) }}
-                onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
-                boardType={boardType}
-              />
+              
+              {/* Content - 3 column layout, no scroll */}
+              <div className="flex-1 grid grid-cols-3 gap-0 min-h-0">
+                {/* Left Column - Job Info */}
+                <div className="p-8 border-r border-border/30 flex flex-col">
+                  <h3 className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-6">Job Information</h3>
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Contact</p>
+                      <p className="text-[15px] font-medium text-foreground">{q.contact_name || "No contact"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Quantity</p>
+                      <p className="text-[15px] font-medium text-foreground font-mono">{q.quantity?.toLocaleString() || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Mail Date</p>
+                      <p className="text-[15px] font-medium text-foreground">{q.mailing_date ? new Date(q.mailing_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : "No date set"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Piece Description</p>
+                      <p className="text-[15px] font-medium text-foreground">{jm?.piece_desc || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Mailing Class</p>
+                      <p className="text-[15px] font-medium text-foreground">{jm?.mailing_class || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Assignee</p>
+                      <p className="text-[15px] font-medium text-foreground">{jm?.assignee || "Unassigned"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-1">Printed By</p>
+                      <p className="text-[15px] font-medium text-foreground">{jm?.printed_by || "—"}</p>
+                    </div>
+                  </div>
+                  {/* Notes at bottom of left column */}
+                  <div className="pt-6 border-t border-border/30 mt-auto">
+                    <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-2">Notes</p>
+                    <p className="text-[13px] text-muted-foreground/80 leading-relaxed">{q.notes || "No notes"}</p>
+                  </div>
+                </div>
+                
+                {/* Middle Column - Line Items */}
+                <div className="p-8 border-r border-border/30 flex flex-col">
+                  <h3 className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-6">Line Items</h3>
+                  <div className="space-y-6 flex-1 overflow-y-auto pr-2">
+                    {Object.entries(groups).map(([cat, { items: catItems, total }]) => (
+                      <div key={cat}>
+                        <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest mb-3">{getCategoryLabel(cat as QuoteCategory)}</p>
+                        <div className="space-y-2">
+                          {catItems.map((it) => (
+                            <div key={it.id} className="flex items-start justify-between py-1">
+                              <span className="text-[13px] text-foreground/80 pr-4">{it.label}</span>
+                              <span className="text-[13px] font-mono font-medium text-foreground shrink-0">{formatCurrency(it.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between mt-2 pt-2 border-t border-border/20">
+                          <span className="text-[11px] font-medium text-muted-foreground/60">Subtotal</span>
+                          <span className="text-[13px] font-mono font-semibold text-foreground">{formatCurrency(total)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Total at bottom */}
+                  <div className="pt-6 border-t-2 border-foreground/20 mt-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-foreground">Total</span>
+                      <span className="text-2xl font-bold font-mono text-foreground">{formatCurrency(q.total)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Right Column - Status & Actions */}
+                <div className="p-8 flex flex-col">
+                  <h3 className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-6">Status & Actions</h3>
+                  
+                  {/* Status Toggles */}
+                  <div className="space-y-3 mb-8">
+                    {[
+                      { key: 'prints_arrived', label: 'Prints Arrived', color: 'green' },
+                      { key: 'bcc_done', label: 'BCC Done', color: 'blue' },
+                      { key: 'paperwork_done', label: 'Paperwork Done', color: 'purple' },
+                      { key: 'job_mailed', label: 'Job Mailed', color: 'emerald' },
+                      { key: 'invoice_emailed', label: 'Invoice Emailed', color: 'cyan' },
+                      { key: 'paid_full', label: 'Paid in Full', color: 'lime' },
+                    ].map(({ key, label, color }) => (
+                      <div
+                        key={key}
+                        onClick={() => handlePatch(q.id, { job_meta: { ...jm, [key]: !jm?.[key as keyof typeof jm] } })}
+                        className={cn(
+                          "flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all",
+                          jm?.[key as keyof typeof jm]
+                            ? `bg-${color}-500/15 border border-${color}-500/30`
+                            : "bg-secondary/50 border border-transparent hover:border-border/50"
+                        )}
+                        style={jm?.[key as keyof typeof jm] ? { backgroundColor: `var(--${color}-500, #10b981)10` } : {}}
+                      >
+                        <span className={cn("text-[14px] font-medium", jm?.[key as keyof typeof jm] ? "text-foreground" : "text-muted-foreground/70")}>
+                          {label}
+                        </span>
+                        <div className={cn(
+                          "w-5 h-5 rounded-full flex items-center justify-center transition-all",
+                          jm?.[key as keyof typeof jm] ? "bg-green-500 text-white" : "bg-muted-foreground/20"
+                        )}>
+                          {jm?.[key as keyof typeof jm] && <Check className="h-3 w-3" />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Stage Selector */}
+                  <div className="mb-8">
+                    <p className="text-[11px] text-muted-foreground/50 uppercase tracking-wide mb-3">Move to Stage</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {cols.map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => { handleColumnChange(q.id, c.id); setFullCardModalQuote(prev => prev ? { ...prev, column_id: c.id } : null) }}
+                          className={cn(
+                            "px-3 py-2 rounded-lg text-[12px] font-medium cursor-pointer transition-all text-center",
+                            q.column_id === c.id ? "ring-2 ring-offset-2 ring-offset-card" : "hover:opacity-80"
+                          )}
+                          style={{ backgroundColor: `${c.color}20`, color: c.color, ...(q.column_id === c.id ? { ringColor: c.color } : {}) }}
+                        >
+                          {c.title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Danger Zone */}
+                  <div className="mt-auto pt-6 border-t border-border/30">
+                    <div className="flex gap-3">
+                      <div onClick={() => { handleArchive(q.id); setFullCardModalQuote(null) }} className="flex-1 px-4 py-3 rounded-xl text-center text-[13px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20 transition-colors">
+                        Archive
+                      </div>
+                      <div onClick={() => { handleVoid(q.id); setFullCardModalQuote(null) }} className="flex-1 px-4 py-3 rounded-xl text-center text-[13px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/20 transition-colors">
+                        Void
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Edit modal */}
       {detailQuote && (
