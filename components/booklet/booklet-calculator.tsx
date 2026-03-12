@@ -369,15 +369,18 @@ export function BookletCalculator() {
                   itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet`}
                   perPieceWeightOz={(() => {
                     // Calculate accurate booklet weight using finish size (after bleed trim)
-                    // Inside pages: pagesPerBook / 2 = sheets (each sheet has 2 pages)
+                    // Each sheet in a saddle-stitch is a SPREAD (2 pages side by side)
+                    // So spread width = pageWidth * 2 (e.g., 5.5" page -> 11" spread)
+                    const spreadWidth = inputs.pageWidth * 2
+                    
+                    // Inside sheets: pagesPerBook / 2 = number of sheets (each sheet = 2 pages)
                     const insideSheets = Math.ceil(inputs.pagesPerBook / 2)
-                    const insideOzPerSheet = calcSheetWeightOz(inputs.insidePaper, inputs.pageWidth, inputs.pageHeight)
+                    const insideOzPerSheet = calcSheetWeightOz(inputs.insidePaper, spreadWidth, inputs.pageHeight)
                     const insideTotalOz = insideOzPerSheet ? insideOzPerSheet * insideSheets : 0
                     
-                    // Cover: 1 sheet of cover stock (covers front + back)
-                    // Cover sheet spans 2x width when open (wraps around spine)
+                    // Cover: 1 sheet of cover stock (also a spread, wraps around spine)
                     const coverOzPerSheet = inputs.separateCover 
-                      ? calcSheetWeightOz(inputs.coverPaper, inputs.pageWidth * 2, inputs.pageHeight)
+                      ? calcSheetWeightOz(inputs.coverPaper, spreadWidth, inputs.pageHeight)
                       : 0
                     const coverTotalOz = coverOzPerSheet || 0
                     
