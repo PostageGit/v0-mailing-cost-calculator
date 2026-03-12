@@ -555,448 +555,412 @@ export function ShippingCalcDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Truck className="h-4.5 w-4.5" />
-              Shipping Calculator
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              Calculate box sizes and shipping weight for this order
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5 mt-1">
-            {/* Order info summary */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border bg-secondary/30 p-3 text-center">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Pieces
-                </p>
-                <p className="text-lg font-bold font-mono tabular-nums text-foreground">
-                  {quantity.toLocaleString()}
-                </p>
+        <DialogContent className="w-[80vw] max-w-6xl h-auto max-h-[85vh] p-0 gap-0 overflow-hidden">
+          {/* Apple-style header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/80 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                <Truck className="h-4.5 w-4.5 text-white" />
               </div>
-              <div className="rounded-xl border border-border bg-secondary/30 p-3 text-center">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Piece Size
-                </p>
-                <p className="text-lg font-bold font-mono tabular-nums text-foreground">
-                  {pieceWidth}&quot;x{pieceHeight}&quot;
-                </p>
-              </div>
-              <div className="rounded-xl border border-border bg-secondary/30 p-3 text-center">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Total Weight
-                </p>
-                <p className="text-lg font-bold font-mono tabular-nums text-foreground">
-                  {hasWeight
-                    ? formatShippingWeight(totalWeightOz)
-                    : "---"}
-                </p>
+              <div>
+                <DialogTitle className="text-base font-semibold text-foreground">
+                  Shipping Calculator
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  {itemLabel || `${quantity.toLocaleString()} pieces at ${pieceWidth}"x${pieceHeight}"`}
+                </DialogDescription>
               </div>
             </div>
-
-            {/* Product type & stack factor info */}
-            {productType !== "flat" && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+            
+            {/* Quick stats in header */}
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Pieces</p>
+                <p className="text-sm font-bold font-mono tabular-nums">{quantity.toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Size</p>
+                <p className="text-sm font-bold font-mono tabular-nums">{pieceWidth}&quot;x{pieceHeight}&quot;</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Weight</p>
+                <p className="text-sm font-bold font-mono tabular-nums">{hasWeight ? formatShippingWeight(totalWeightOz) : "---"}</p>
+              </div>
+              {productType !== "flat" && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800">
+                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
                     {productType === "saddleStitch" && "Saddle Stitch"}
-                    {productType === "perfectBinding" && "Perfect Binding"}
-                    {productType === "spiralBinding" && "Spiral Binding"}
+                    {productType === "perfectBinding" && "Perfect Bind"}
+                    {productType === "spiralBinding" && "Spiral"}
+                  </span>
+                  <span className="text-[10px] text-blue-500 dark:text-blue-500">
+                    +{(() => {
+                      const sf = getActiveConfig().shippingStackFactor
+                      switch (productType) {
+                        case "saddleStitch": return sf.saddleStitchPercent
+                        case "perfectBinding": return sf.perfectBindingPercent
+                        case "spiralBinding": return sf.spiralBindingPercent
+                        default: return sf.flatPercent
+                      }
+                    })()}%
                   </span>
                 </div>
-                <span className="text-[10px] text-blue-600 dark:text-blue-400">
-                  Stack factor: +{(() => {
-                    const sf = getActiveConfig().shippingStackFactor
-                    switch (productType) {
-                      case "saddleStitch": return sf.saddleStitchPercent
-                      case "perfectBinding": return sf.perfectBindingPercent
-                      case "spiralBinding": return sf.spiralBindingPercent
-                      default: return sf.flatPercent
-                    }
-                  })()}% thickness
-                </span>
-              </div>
-            )}
-
-            {/* Mode tabs */}
-            <div className="flex gap-1 p-1 rounded-lg bg-secondary/50">
-              <button
-                onClick={() => setTabMode("auto")}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all",
-                  tabMode === "auto"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Auto Calculate
-              </button>
-              <button
-                onClick={() => setTabMode("manual")}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all",
-                  tabMode === "manual"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                Manual Entry
-              </button>
+              )}
             </div>
+          </div>
 
-            {tabMode === "auto" && (
-            <>
-            {/* Override controls */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Weight override */}
-              <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
-                  Weight per piece (oz)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder={autoPerPieceOz > 0 ? autoPerPieceOz.toFixed(2) : "Enter oz"}
-                    value={weightOverride}
-                    onChange={(e) => setWeightOverride(e.target.value)}
-                    className={cn(
-                      "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
-                      manualOz > 0 ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border"
-                    )}
-                  />
-                  {manualOz > 0 && (
-                    <button
-                      onClick={() => setWeightOverride("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground hover:text-foreground bg-secondary px-1.5 py-0.5 rounded"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-                {!hasWeight && !manualOz && (
-                  <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
-                    Could not auto-detect weight. Enter manually.
-                  </p>
-                )}
-              </div>
-
-              {/* Box override */}
-              <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
-                  Box selection
-                </label>
-                <select
-                  value={overrideBox || ""}
-                  onChange={(e) => setOverrideBox(e.target.value || null)}
+          {/* Main content area - horizontal layout */}
+          <div className="flex h-full">
+            {/* Left sidebar - Controls */}
+            <div className="w-72 shrink-0 border-r border-border/50 bg-secondary/20 p-5 flex flex-col gap-4">
+              {/* Mode tabs */}
+              <div className="flex gap-1 p-1 rounded-lg bg-background/80 border border-border/50">
+                <button
+                  onClick={() => setTabMode("auto")}
                   className={cn(
-                    "w-full h-9 text-sm rounded-lg border bg-background px-2.5 text-foreground",
-                    overrideBox ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border"
+                    "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all",
+                    tabMode === "auto"
+                      ? "bg-foreground text-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <option value="">Auto-select best box</option>
-                  {BOX_SIZES.filter((b) => !upsOnly || b.upsEligible).map(
-                    (b) => (
-                      <option key={b.name} value={b.name}>
-                        {b.name} ({b.lengthIn}&quot;x{b.widthIn}&quot;x
-                        {b.heightIn}&quot;)
-                        {!b.upsEligible ? " - NOT UPS" : ""}
-                      </option>
-                    )
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Auto
+                </button>
+                <button
+                  onClick={() => setTabMode("manual")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all",
+                    tabMode === "manual"
+                      ? "bg-foreground text-background shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
-                </select>
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Manual
+                </button>
               </div>
-            </div>
 
-            {/* UPS filter */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={upsOnly}
-                onChange={(e) => {
-                  setUpsOnly(e.target.checked)
-                  setOverrideBox(null)
-                }}
-                className="h-3.5 w-3.5 rounded border-border accent-foreground"
-              />
-              <span className="text-xs font-medium text-muted-foreground">
-                UPS-safe boxes only
-              </span>
-            </label>
-
-            {/* Global per-box override */}
-            {displayEstimate && displayEstimate.recommendations.length > 0 && (
-              <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
-                  Pieces per box (all boxes)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="1"
-                    min="1"
-                    placeholder={String(displayEstimate.recommendations[0].piecesPerBox)}
-                    value={globalPerBox}
-                    onChange={(e) => {
-                      setGlobalPerBox(e.target.value)
-                      setPerBoxOverrides({})
-                    }}
-                    className={cn(
-                      "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
-                      Object.keys(capacityWarnings).length > 0
-                        ? "border-red-500 ring-1 ring-red-200"
-                        : globalPerBox
-                        ? "border-foreground/40 ring-1 ring-foreground/10"
-                        : "border-border"
-                    )}
-                  />
-                  {globalPerBox && (
-                    <button
-                      onClick={() => setGlobalPerBox("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground hover:text-foreground bg-secondary px-1.5 py-0.5 rounded"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-                {Object.keys(capacityWarnings).length > 0 && (
-                  <p className="text-[9px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Some boxes cannot fit this many pieces
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Box recommendations */}
-            {displayEstimate ? (
-              <div className="space-y-3">
-                {displayEstimate.recommendations.map((rec, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border border-border bg-card p-4"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-foreground/5 flex items-center justify-center">
-                          <BoxIcon className="h-4 w-4 text-foreground/70" />
-                        </div>
-                        <div>
-                          <span className="text-sm font-bold text-foreground">
-                            {rec.box.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {rec.box.lengthIn}&quot; x {rec.box.widthIn}&quot; x{" "}
-                            {rec.box.heightIn}&quot;
-                          </span>
-                        </div>
-                        {rec.count > 1 && (
-                          <span className="text-xs font-bold text-foreground bg-secondary px-2 py-0.5 rounded-full">
-                            x{rec.count}
-                          </span>
-                        )}
-                      </div>
-                      {!rec.box.upsEligible && (
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded-lg uppercase">
-                          <AlertTriangle className="h-3 w-3" />
-                          Not UPS
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground font-medium">
-                          Pieces/box
-                        </p>
-                        <p className="text-sm font-bold font-mono tabular-nums text-foreground">
-                          {rec.piecesPerBox.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground font-medium">
-                          Weight/box
-                        </p>
-                        <p className="text-sm font-bold font-mono tabular-nums text-foreground">
-                          {hasWeight
-                            ? formatShippingWeight(rec.weightPerBoxOz)
-                            : "---"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground font-medium">
-                          Fill
-                        </p>
-                        <p className="text-sm font-bold font-mono tabular-nums text-foreground">
-                          {Math.round(rec.fillPercent)}%
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Per-box override */}
-                    <div className="mt-2 flex items-center gap-2 flex-wrap">
-                      <label className="text-[9px] text-muted-foreground font-medium whitespace-nowrap">
-                        Change pcs/box:
-                      </label>
+              {tabMode === "auto" && (
+                <>
+                  {/* Weight override */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                      Weight per piece (oz)
+                    </label>
+                    <div className="relative">
                       <input
                         type="number"
-                        step="1"
-                        min="1"
-                        placeholder={String(rec.piecesPerBox)}
-                        value={perBoxOverrides[i] ?? ""}
-                        onChange={(e) =>
-                          setPerBoxOverrides((prev) => ({
-                            ...prev,
-                            [i]: e.target.value,
-                          }))
-                        }
+                        step="0.01"
+                        placeholder={autoPerPieceOz > 0 ? autoPerPieceOz.toFixed(2) : "Enter oz"}
+                        value={weightOverride}
+                        onChange={(e) => setWeightOverride(e.target.value)}
                         className={cn(
-                          "w-20 h-7 text-xs font-mono rounded-md border bg-background px-2 text-foreground tabular-nums",
-                          capacityWarnings[i]
-                            ? "border-red-500 ring-1 ring-red-200"
-                            : perBoxOverrides[i]
-                            ? "border-foreground/40 ring-1 ring-foreground/10"
-                            : "border-border/50"
+                          "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
+                          manualOz > 0 ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border/60"
                         )}
                       />
-                      {perBoxOverrides[i] && (
+                      {manualOz > 0 && (
                         <button
-                          onClick={() =>
-                            setPerBoxOverrides((prev) => {
-                              const next = { ...prev }
-                              delete next[i]
-                              return next
-                            })
-                          }
-                          className="text-[9px] font-bold text-muted-foreground hover:text-foreground"
+                          onClick={() => setWeightOverride("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground hover:text-foreground bg-secondary px-1.5 py-0.5 rounded"
                         >
                           Reset
                         </button>
                       )}
-                      {capacityWarnings[i] && (
-                        <span className="w-full text-[9px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
+                    </div>
+                    {!hasWeight && !manualOz && (
+                      <p className="text-[9px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                        Enter weight manually
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Box override */}
+                  <div>
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                      Box selection
+                    </label>
+                    <select
+                      value={overrideBox || ""}
+                      onChange={(e) => setOverrideBox(e.target.value || null)}
+                      className={cn(
+                        "w-full h-9 text-sm rounded-lg border bg-background px-2.5 text-foreground",
+                        overrideBox ? "border-foreground/40 ring-1 ring-foreground/10" : "border-border/60"
+                      )}
+                    >
+                      <option value="">Auto-select best</option>
+                      {BOX_SIZES.filter((b) => !upsOnly || b.upsEligible).map(
+                        (b) => (
+                          <option key={b.name} value={b.name}>
+                            {b.name} ({b.lengthIn}&quot;x{b.widthIn}&quot;x{b.heightIn}&quot;)
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  {/* UPS filter */}
+                  <label className="flex items-center gap-2.5 cursor-pointer py-1">
+                    <input
+                      type="checkbox"
+                      checked={upsOnly}
+                      onChange={(e) => {
+                        setUpsOnly(e.target.checked)
+                        setOverrideBox(null)
+                      }}
+                      className="h-4 w-4 rounded border-border accent-foreground"
+                    />
+                    <span className="text-xs font-medium text-foreground">
+                      UPS-safe boxes only
+                    </span>
+                  </label>
+
+                  {/* Global per-box override */}
+                  {displayEstimate && displayEstimate.recommendations.length > 0 && (
+                    <div>
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+                        Pieces per box
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          placeholder={String(displayEstimate.recommendations[0].piecesPerBox)}
+                          value={globalPerBox}
+                          onChange={(e) => {
+                            setGlobalPerBox(e.target.value)
+                            setPerBoxOverrides({})
+                          }}
+                          className={cn(
+                            "w-full h-9 text-sm font-mono rounded-lg border bg-background px-3 text-foreground tabular-nums",
+                            Object.keys(capacityWarnings).length > 0
+                              ? "border-red-500 ring-1 ring-red-200"
+                              : globalPerBox
+                              ? "border-foreground/40 ring-1 ring-foreground/10"
+                              : "border-border/60"
+                          )}
+                        />
+                        {globalPerBox && (
+                          <button
+                            onClick={() => setGlobalPerBox("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground hover:text-foreground bg-secondary px-1.5 py-0.5 rounded"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                      {Object.keys(capacityWarnings).length > 0 && (
+                        <p className="text-[9px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-1">
                           <AlertTriangle className="h-3 w-3" />
-                          {capacityWarnings[i]}
-                        </span>
+                          Exceeds capacity
+                        </p>
                       )}
                     </div>
+                  )}
+                </>
+              )}
 
-                    {/* Packing visualization */}
-                    {rec.packingLayout && (
-                      <div className="mt-3 flex justify-center">
-                        <BoxPackingViz 
-                          box={rec.box} 
-                          layout={rec.packingLayout} 
-                          piecesPerBox={rec.piecesPerBox}
+            </div>
+
+            {/* Right main content - Box results */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {tabMode === "auto" && displayEstimate ? (
+                <div className="h-full flex flex-col">
+                  {/* Box cards in horizontal scroll */}
+                  <div className="flex-1">
+                    <div className="flex gap-4 pb-4">
+                      {displayEstimate.recommendations.map((rec, i) => (
+                        <div
+                          key={i}
+                          className="w-72 shrink-0 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+                        >
+                          {/* Box header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                                <BoxIcon className="h-5 w-5 text-foreground/60" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-foreground">{rec.box.name}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {rec.box.lengthIn}&quot;x{rec.box.widthIn}&quot;x{rec.box.heightIn}&quot;
+                                </p>
+                              </div>
+                            </div>
+                            {rec.count > 1 && (
+                              <span className="text-sm font-bold text-foreground bg-foreground/5 px-2.5 py-1 rounded-full">
+                                x{rec.count}
+                              </span>
+                            )}
+                          </div>
+
+                          {!rec.box.upsEligible && (
+                            <div className="flex items-center gap-1.5 mb-3 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                              <AlertTriangle className="h-3 w-3 text-amber-500" />
+                              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 uppercase">Not UPS Safe</span>
+                            </div>
+                          )}
+
+                          {/* Stats row */}
+                          <div className="grid grid-cols-3 gap-2 mb-4">
+                            <div className="text-center p-2 rounded-lg bg-secondary/40">
+                              <p className="text-[9px] text-muted-foreground font-medium uppercase">Pcs/Box</p>
+                              <p className="text-base font-bold font-mono tabular-nums">{rec.piecesPerBox.toLocaleString()}</p>
+                            </div>
+                            <div className="text-center p-2 rounded-lg bg-secondary/40">
+                              <p className="text-[9px] text-muted-foreground font-medium uppercase">Weight</p>
+                              <p className="text-base font-bold font-mono tabular-nums">{hasWeight ? formatShippingWeight(rec.weightPerBoxOz) : "---"}</p>
+                            </div>
+                            <div className="text-center p-2 rounded-lg bg-secondary/40">
+                              <p className="text-[9px] text-muted-foreground font-medium uppercase">Fill</p>
+                              <p className="text-base font-bold font-mono tabular-nums">{Math.round(rec.fillPercent)}%</p>
+                            </div>
+                          </div>
+
+                          {/* Packing visualization */}
+                          {rec.packingLayout && (
+                            <div className="flex justify-center mb-3">
+                              <BoxPackingViz 
+                                box={rec.box} 
+                                layout={rec.packingLayout} 
+                                piecesPerBox={rec.piecesPerBox}
+                              />
+                            </div>
+                          )}
+
+                          {/* Fill bar */}
+                          <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                rec.fillPercent > 90 ? "bg-amber-500" : "bg-foreground/25"
+                              )}
+                              style={{ width: `${Math.min(rec.fillPercent, 100)}%` }}
+                            />
+                          </div>
+
+                          {/* Per-box override */}
+                          <div className="mt-3 flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="1"
+                              min="1"
+                              placeholder={String(rec.piecesPerBox)}
+                              value={perBoxOverrides[i] ?? ""}
+                              onChange={(e) =>
+                                setPerBoxOverrides((prev) => ({
+                                  ...prev,
+                                  [i]: e.target.value,
+                                }))
+                              }
+                              className={cn(
+                                "flex-1 h-8 text-xs font-mono rounded-lg border bg-background px-2.5 text-foreground tabular-nums",
+                                capacityWarnings[i]
+                                  ? "border-red-500 ring-1 ring-red-200"
+                                  : perBoxOverrides[i]
+                                  ? "border-foreground/40"
+                                  : "border-border/50"
+                              )}
+                            />
+                            {perBoxOverrides[i] && (
+                              <button
+                                onClick={() =>
+                                  setPerBoxOverrides((prev) => {
+                                    const next = { ...prev }
+                                    delete next[i]
+                                    return next
+                                  })
+                                }
+                                className="text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                              >
+                                Reset
+                              </button>
+                            )}
+                          </div>
+                          {capacityWarnings[i] && (
+                            <p className="text-[9px] text-red-500 font-medium mt-1 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {capacityWarnings[i]}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+
+                    </div>
+                  </div>
+
+                  {/* Totals + Actions footer */}
+                  <div className="mt-6 pt-5 border-t border-border/50">
+                    <div className="flex items-center justify-between">
+                      {/* Totals */}
+                      <div className="flex items-center gap-8">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Total Boxes</p>
+                          <p className="text-2xl font-bold font-mono tabular-nums">{displayEstimate.totalBoxes}</p>
+                        </div>
+                        {hasWeight && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">Total Weight</p>
+                            <p className="text-2xl font-bold font-mono tabular-nums">{formatShippingWeight(displayEstimate.totalShippingWeightOz)}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleCopyForEmail}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary/50 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          {copied ? (
+                            <>
+                              <Check className="h-3.5 w-3.5 text-green-600" />
+                              <span className="text-green-600">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy
+                            </>
+                          )}
+                        </button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => setShowLabels(true)}
+                        >
+                          <Package className="h-3.5 w-3.5" />
+                          Labels
+                        </Button>
+                      </div>
+                    </div>
+
+                    {displayEstimate.hasNonUPSBoxes && (
+                      <div className="flex items-center gap-2 mt-4 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                        <span className="text-xs text-amber-700 dark:text-amber-400">
+                          Some boxes are not UPS-safe
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Add to quote */}
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="relative flex-1 max-w-[180px]">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={shippingCost}
+                          onChange={(e) => setShippingCost(e.target.value)}
+                          className="w-full h-10 text-sm font-mono rounded-lg border border-border bg-background pl-7 pr-3 text-foreground tabular-nums"
                         />
                       </div>
-                    )}
-
-                    {/* Fill bar */}
-                    <div className="mt-2.5 h-2 rounded-full bg-secondary overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          rec.fillPercent > 90
-                            ? "bg-amber-500"
-                            : "bg-foreground/30"
-                        )}
-                        style={{
-                          width: `${Math.min(rec.fillPercent, 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {/* Totals bar */}
-                <div className="rounded-xl border border-foreground/10 bg-foreground/[0.03] p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-                        Total Boxes
-                      </p>
-                      <p className="text-xl font-bold font-mono tabular-nums text-foreground">
-                        {displayEstimate.totalBoxes}
-                      </p>
-                    </div>
-                    {hasWeight && (
-                      <div>
-                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-                          Total Weight
-                        </p>
-                        <p className="text-xl font-bold font-mono tabular-nums text-foreground">
-                          {formatShippingWeight(
-                            displayEstimate.totalShippingWeightOz
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() => setShowLabels(true)}
-                  >
-                    <Package className="h-3.5 w-3.5" />
-                    Print Labels
-                  </Button>
-                </div>
-
-                {/* Copy for email - quick summary */}
-                <button
-                  onClick={handleCopyForEmail}
-                  className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border hover:border-foreground/30 hover:bg-secondary/30 transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-3.5 w-3.5 text-green-600" />
-                      <span className="text-green-600">Copied to clipboard!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy shipping info for email
-                    </>
-                  )}
-                </button>
-
-                {displayEstimate.hasNonUPSBoxes && (
-                  <div className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-3">
-                    <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                    <span className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                      Selected box(es) are not strong enough for UPS shipping.
-                      Consider upgrading or switching to a UPS-safe box.
-                    </span>
-                  </div>
-                )}
-
-                {/* Shipping cost input + add to quote */}
-                <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 space-y-3">
-                  <p className="text-xs font-semibold text-foreground">
-                    Add shipping cost to quote
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={shippingCost}
-                        onChange={(e) => setShippingCost(e.target.value)}
-                        className="w-full h-10 text-sm font-mono rounded-lg border border-border bg-background pl-7 pr-3 text-foreground tabular-nums"
-                      />
-                    </div>
-                    <Button
+                      <Button
                       onClick={handleAddShippingToQuote}
                       disabled={
                         !shippingCost || parseFloat(shippingCost) <= 0
@@ -1006,27 +970,27 @@ export function ShippingCalcDialog({
                       <Plus className="h-4 w-4" />
                       Add to Quote
                     </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border p-8 text-center">
-                <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No box fits the piece dimensions ({pieceWidth}&quot; x{" "}
-                  {pieceHeight}&quot;)
-                </p>
-              </div>
-            )}
-            </>
-            )}
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <Package className="h-12 w-12 text-muted-foreground/20 mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      No box fits the piece dimensions ({pieceWidth}&quot; x {pieceHeight}&quot;)
+                    </p>
+                  </div>
+                </div>
+              )}
 
-            {/* ═══════════ MANUAL TAB ═══════════ */}
-            {tabMode === "manual" && (
-              <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  Fully customize box sizes, quantities, and weights manually.
-                </p>
+              {/* ═══════════ MANUAL TAB - Right Content ═══════════ */}
+              {tabMode === "manual" && (
+                <div className="flex-1 p-6 overflow-y-auto">
+                  <div className="space-y-4">
+                    <p className="text-xs text-muted-foreground">
+                      Customize box sizes, quantities, and weights manually.
+                    </p>
 
                 {manualBoxes.map((entry, idx) => (
                   <div key={entry.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -1290,8 +1254,10 @@ export function ShippingCalcDialog({
                     </div>
                   </>
                 )}
+                </div>
               </div>
-            )}
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
