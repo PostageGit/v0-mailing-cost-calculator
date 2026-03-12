@@ -200,9 +200,40 @@ function buildPlan(
   quantity: number,
   thicknessPerPieceIn: number,
   weightPerPieceOz: number,
+  pieceWidthIn: number,
+  pieceHeightIn: number,
 ): BoxRecommendation[] | null {
-  const maxPerBox = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
+  // Calculate how many stacks fit side by side in the box floor
+  // Try both orientations of the piece and pick the one that fits more stacks
+  const stacksOpt1Length = Math.floor(primaryBox.lengthIn / pieceWidthIn)
+  const stacksOpt1Width = Math.floor(primaryBox.widthIn / pieceHeightIn)
+  const stacksOpt1 = stacksOpt1Length * stacksOpt1Width
+  
+  const stacksOpt2Length = Math.floor(primaryBox.lengthIn / pieceHeightIn)
+  const stacksOpt2Width = Math.floor(primaryBox.widthIn / pieceWidthIn)
+  const stacksOpt2 = stacksOpt2Length * stacksOpt2Width
+  
+  const numStacks = Math.max(stacksOpt1, stacksOpt2, 1) // At least 1 stack if piece fits
+  
+  // Pieces per stack (height / thickness)
+  const piecesPerStack = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
+  if (piecesPerStack <= 0) return null
+  
+  // Total pieces per box = stacks * pieces per stack
+  const maxPerBox = numStacks * piecesPerStack
   if (maxPerBox <= 0) return null
+  
+  console.log("[v0] Box packing:", {
+    box: primaryBox.name,
+    pieceSize: `${pieceWidthIn}x${pieceHeightIn}`,
+    boxFloor: `${primaryBox.lengthIn}x${primaryBox.widthIn}`,
+    stacksOpt1: `${stacksOpt1Length}x${stacksOpt1Width}=${stacksOpt1}`,
+    stacksOpt2: `${stacksOpt2Length}x${stacksOpt2Width}=${stacksOpt2}`,
+    numStacks,
+    piecesPerStack,
+    maxPerBox,
+    thicknessPerPieceIn,
+  })
 
   // Enforce UPS weight limit: cap pieces per box
   let effectiveMax = maxPerBox
@@ -316,7 +347,7 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
   let bestScore = Infinity
 
   for (const primaryBox of candidates) {
-    const plan = buildPlan(primaryBox, candidates, quantity, thicknessPerPieceIn, weightPerPieceOz)
+    const plan = buildPlan(primaryBox, candidates, quantity, thicknessPerPieceIn, weightPerPieceOz, pieceWidthIn, pieceHeightIn)
     if (!plan) continue
 
     const score = scorePlan(plan, pieceWidthIn, pieceHeightIn, smallestFootprint)
