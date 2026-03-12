@@ -2763,51 +2763,53 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               fancyCardView ? "w-full max-w-5xl h-[calc(100vh-48px)]" : "w-full max-w-xl h-[calc(100vh-32px)]"
             )}>
               {/* Header */}
-              <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-border/40 bg-card shrink-0">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className={cn(
-                    "text-lg font-bold tabular-nums tracking-tight shrink-0",
-                    isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
-                  )}>
-                    {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
-                  </span>
-                  <span className="text-base font-semibold text-foreground truncate min-w-0" title={q.project_name || "Untitled"}>
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-border/40 bg-card shrink-0 overflow-hidden">
+                {/* Job/Quote Number - fixed width */}
+                <span className={cn(
+                  "text-lg font-bold tabular-nums tracking-tight whitespace-nowrap",
+                  isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
+                )}>
+                  {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
+                </span>
+                {/* Title - takes remaining space, truncates */}
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-base font-semibold text-foreground truncate" title={q.project_name || "Untitled"}>
                     {q.project_name || "Untitled"}
-                  </span>
-                  {col && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ backgroundColor: `${col.color}18`, color: col.color }}>
-                      {col.title}
-                    </span>
-                  )}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* View Toggle */}
-                  <div className="flex items-center bg-secondary/60 rounded-lg p-0.5">
-                    <div
-                      onClick={() => setFancyCardView(false)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-md text-[10px] font-medium cursor-pointer transition-all",
-                        !fancyCardView ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Card
-                    </div>
-                    <div
-                      onClick={() => setFancyCardView(true)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-md text-[10px] font-medium cursor-pointer transition-all",
-                        fancyCardView ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Overview
-                    </div>
+                {/* Stage badge */}
+                {col && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide whitespace-nowrap" style={{ backgroundColor: `${col.color}18`, color: col.color }}>
+                    {col.title}
+                  </span>
+                )}
+                {/* View Toggle */}
+                <div className="flex items-center bg-secondary/60 rounded-lg p-0.5">
+                  <div
+                    onClick={() => setFancyCardView(false)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-[10px] font-medium cursor-pointer transition-all whitespace-nowrap",
+                      !fancyCardView ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Card
                   </div>
                   <div
-                    onClick={() => setFullCardModalQuote(null)}
-                    className="p-1.5 rounded-lg hover:bg-secondary transition-colors cursor-pointer"
+                    onClick={() => setFancyCardView(true)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-md text-[10px] font-medium cursor-pointer transition-all whitespace-nowrap",
+                      fancyCardView ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
                   >
-                    <X className="h-4 w-4" />
+                    Overview
                   </div>
+                </div>
+                {/* Close button */}
+                <div
+                  onClick={() => setFullCardModalQuote(null)}
+                  className="p-1.5 rounded-lg hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
                 </div>
               </div>
 
