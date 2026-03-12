@@ -109,7 +109,14 @@ export interface BookletCalcResult {
   insertFeeTotal: number            // extra fee for insert sections
   laminationCostPerBook: number
   totalLaminationCost: number
+  /** Total broker discount amount (sum of all finishing discounts) */
   brokerDiscountAmount: number
+  /** Detailed breakdown of broker savings by category */
+  brokerSavingsBreakdown?: {
+    binding: number        // Savings on binding/stapling
+    lamination: number     // Savings on lamination
+    scoreFold: number      // Savings on score/fold (if applicable)
+  }
   brokerMinimumApplied: string | null
 
   // Totals

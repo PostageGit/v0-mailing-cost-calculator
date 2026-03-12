@@ -36,7 +36,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
     insideResult, coverResult, insertResults, totalSheetsPerBooklet,
     bindingPricePerBook, totalBindingPrice, insertFeeTotal,
     laminationCostPerBook, totalLaminationCost, brokerDiscountAmount,
-    brokerMinimumApplied, totalPrintingCost,
+    brokerSavingsBreakdown, brokerMinimumApplied, totalPrintingCost,
   } = result
 
   const hasInserts = insertResults && insertResults.length > 0
@@ -108,7 +108,22 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
   if (totalLaminationCost > 0) {
     costLines.push({ label: "Lamination", value: totalLaminationCost })
   }
-  if (brokerDiscountAmount > 0) {
+  // Show broker savings with detailed breakdown
+  if (brokerDiscountAmount > 0 && brokerSavingsBreakdown) {
+    // Build a descriptive label showing where savings come from
+    const savingsParts: string[] = []
+    if (brokerSavingsBreakdown.binding > 0) {
+      savingsParts.push(`Binding: -$${brokerSavingsBreakdown.binding.toFixed(2)}`)
+    }
+    if (brokerSavingsBreakdown.lamination > 0) {
+      savingsParts.push(`Lam: -$${brokerSavingsBreakdown.lamination.toFixed(2)}`)
+    }
+    if (brokerSavingsBreakdown.scoreFold > 0) {
+      savingsParts.push(`Fold: -$${brokerSavingsBreakdown.scoreFold.toFixed(2)}`)
+    }
+    const breakdownText = savingsParts.length > 0 ? ` (${savingsParts.join(", ")})` : ""
+    costLines.push({ label: `Broker Discount${breakdownText}`, value: -brokerDiscountAmount })
+  } else if (brokerDiscountAmount > 0) {
     costLines.push({ label: "Broker Discount", value: -brokerDiscountAmount })
   }
 
