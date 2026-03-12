@@ -2449,7 +2449,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
         </div>
       )}
 
-      {/* ── SIMPLE TABLE VIEW ── */}
+      {/* ── SIMPLE TABLE VIEW ── BUILD:20260312v2 - Uses ONLY div elements, NO buttons */}
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Table Header */}
@@ -2509,11 +2509,18 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className="w-20 shrink-0 text-right text-xs font-mono font-bold text-foreground tabular-nums">
                       {formatCurrency(q.total)}
                     </span>
-                    {/* Actions - Full Card Button */}
+                    {/* Actions - Full Card Button - USES DIV NOT BUTTON */}
                     <div className="w-24 shrink-0 flex justify-center">
                       <div
-                        onClick={() => setFullCardModalQuote(q)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          console.log("[v0] Opening Full Card Modal for:", q.id, q.project_name)
+                          setFullCardModalQuote(q)
+                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setFullCardModalQuote(q) }}}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors select-none"
                       >
                         <LayoutPanelLeft className="h-3 w-3" />
                         Full Card
