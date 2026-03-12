@@ -78,12 +78,30 @@ export interface BoxSelectionInput {
   upsOnly?: boolean
 }
 
+export interface PackingLayout {
+  /** Number of stacks along the length of box */
+  stacksAlongLength: number
+  /** Number of stacks along the width of box */
+  stacksAlongWidth: number
+  /** Total number of stacks side by side */
+  totalStacks: number
+  /** Pieces per stack (height) */
+  piecesPerStack: number
+  /** Piece orientation: width along box length, height along box width */
+  pieceOrientation: "normal" | "rotated"
+  /** Piece dimensions as placed */
+  pieceWidthAsPlaced: number
+  pieceHeightAsPlaced: number
+}
+
 export interface BoxRecommendation {
   box: BoxSize
   count: number
   piecesPerBox: number
   weightPerBoxOz: number
   fillPercent: number
+  /** Packing layout details for visualization */
+  packingLayout?: PackingLayout
 }
 
 export interface ShippingEstimate {
@@ -200,9 +218,46 @@ function buildPlan(
   quantity: number,
   thicknessPerPieceIn: number,
   weightPerPieceOz: number,
+  pieceWidthIn: number,
+  pieceHeightIn: number,
 ): BoxRecommendation[] | null {
-  const maxPerBox = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
+  // Calculate how many stacks fit side by side in the box floor
+  // Try both orientations of the piece and pick the one that fits more stacks
+  const stacksOpt1Length = Math.floor(primaryBox.lengthIn / pieceWidthIn)
+  const stacksOpt1Width = Math.floor(primaryBox.widthIn / pieceHeightIn)
+  const stacksOpt1 = stacksOpt1Length * stacksOpt1Width
+  
+  const stacksOpt2Length = Math.floor(primaryBox.lengthIn / pieceHeightIn)
+  const stacksOpt2Width = Math.floor(primaryBox.widthIn / pieceWidthIn)
+  const stacksOpt2 = stacksOpt2Length * stacksOpt2Width
+  
+  // Pick the best orientation
+  const useOpt1 = stacksOpt1 >= stacksOpt2
+  const stacksAlongLength = useOpt1 ? stacksOpt1Length : stacksOpt2Length
+  const stacksAlongWidth = useOpt1 ? stacksOpt1Width : stacksOpt2Width
+  const numStacks = Math.max(stacksOpt1, stacksOpt2, 1) // At least 1 stack if piece fits
+  const pieceOrientation = useOpt1 ? "normal" : "rotated" as const
+  const pieceWidthAsPlaced = useOpt1 ? pieceWidthIn : pieceHeightIn
+  const pieceHeightAsPlaced = useOpt1 ? pieceHeightIn : pieceWidthIn
+  
+  // Pieces per stack (height / thickness)
+  const piecesPerStack = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
+  if (piecesPerStack <= 0) return null
+  
+  // Total pieces per box = stacks * pieces per stack
+  const maxPerBox = numStacks * piecesPerStack
   if (maxPerBox <= 0) return null
+  
+  // Create packing layout info for visualization
+  const packingLayout: PackingLayout = {
+    stacksAlongLength,
+    stacksAlongWidth,
+    totalStacks: numStacks,
+    piecesPerStack,
+    pieceOrientation,
+    pieceWidthAsPlaced,
+    pieceHeightAsPlaced,
+  }
 
   // Enforce UPS weight limit: cap pieces per box
   let effectiveMax = maxPerBox
@@ -226,6 +281,7 @@ function buildPlan(
       piecesPerBox: effectiveMax,
       weightPerBoxOz: weightFull,
       fillPercent: Math.min(fillFull, 100),
+      packingLayout,
     })
   }
 
@@ -271,6 +327,7 @@ function buildPlan(
         piecesPerBox: remainder,
         weightPerBoxOz: lastWeight,
         fillPercent: Math.min(lastFill, 100),
+        packingLayout, // Use same layout - pieces fit the same way
       })
     }
   }
@@ -316,7 +373,7 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
   let bestScore = Infinity
 
   for (const primaryBox of candidates) {
-    const plan = buildPlan(primaryBox, candidates, quantity, thicknessPerPieceIn, weightPerPieceOz)
+    const plan = buildPlan(primaryBox, candidates, quantity, thicknessPerPieceIn, weightPerPieceOz, pieceWidthIn, pieceHeightIn)
     if (!plan) continue
 
     const score = scorePlan(plan, pieceWidthIn, pieceHeightIn, smallestFootprint)
