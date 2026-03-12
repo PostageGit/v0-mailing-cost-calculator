@@ -18,6 +18,7 @@ import {
   type ShippingEstimate,
   type BoxRecommendation,
   type BoxSize,
+  type PackingLayout,
 } from "@/lib/shipping-boxes"
 import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useQuote } from "@/lib/quote-context"
@@ -43,6 +44,146 @@ interface ManualBoxEntry {
   count: string
   piecesPerBox: string
   weightPerBoxLbs: string
+}
+
+/** SVG visualization showing how pieces pack in a box */
+function BoxPackingViz({ 
+  box, 
+  layout,
+  piecesPerBox,
+}: { 
+  box: BoxSize
+  layout: PackingLayout
+  piecesPerBox: number
+}) {
+  const svgWidth = 200
+  const svgHeight = 140
+  const padding = 10
+  
+  // Top-down view (box floor)
+  const topViewWidth = 90
+  const topViewHeight = 70
+  
+  // Side view (stack height)
+  const sideViewWidth = 70
+  const sideViewHeight = 70
+  
+  // Scale box dimensions to fit in views
+  const boxAspect = box.lengthIn / box.widthIn
+  let scaledBoxL: number, scaledBoxW: number
+  if (boxAspect > topViewWidth / topViewHeight) {
+    scaledBoxL = topViewWidth
+    scaledBoxW = topViewWidth / boxAspect
+  } else {
+    scaledBoxW = topViewHeight
+    scaledBoxL = topViewHeight * boxAspect
+  }
+  
+  // Scale pieces within box
+  const pieceScaleX = scaledBoxL / box.lengthIn
+  const pieceScaleY = scaledBoxW / box.widthIn
+  const scaledPieceW = layout.pieceWidthAsPlaced * pieceScaleX
+  const scaledPieceH = layout.pieceHeightAsPlaced * pieceScaleY
+  
+  // Calculate actual stacks used (might be less than capacity if not full)
+  const actualPiecesPerStack = Math.ceil(piecesPerBox / layout.totalStacks)
+  
+  // Top view position
+  const topX = padding
+  const topY = padding + 15
+  
+  // Side view position  
+  const sideX = padding + topViewWidth + 20
+  const sideY = padding + 15
+  
+  // Side view scaling
+  const sideScaleH = sideViewHeight / box.heightIn
+  const stackHeight = actualPiecesPerStack * (box.heightIn / layout.piecesPerStack)
+  const scaledStackH = Math.min(stackHeight * sideScaleH, sideViewHeight)
+  
+  return (
+    <svg width={svgWidth} height={svgHeight} className="bg-secondary/30 rounded-lg">
+      {/* Labels */}
+      <text x={topX + scaledBoxL/2} y={12} textAnchor="middle" className="fill-muted-foreground text-[9px] font-medium">
+        Top View
+      </text>
+      <text x={sideX + sideViewWidth/2} y={12} textAnchor="middle" className="fill-muted-foreground text-[9px] font-medium">
+        Side View
+      </text>
+      
+      {/* Top-down view - box outline */}
+      <rect
+        x={topX}
+        y={topY}
+        width={scaledBoxL}
+        height={scaledBoxW}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        className="text-foreground/30"
+        rx={2}
+      />
+      
+      {/* Top-down view - pieces/stacks */}
+      {Array.from({ length: layout.stacksAlongLength }).map((_, li) =>
+        Array.from({ length: layout.stacksAlongWidth }).map((_, wi) => {
+          const stackIndex = li * layout.stacksAlongWidth + wi
+          if (stackIndex >= layout.totalStacks) return null
+          return (
+            <rect
+              key={`${li}-${wi}`}
+              x={topX + li * scaledPieceW + 1}
+              y={topY + wi * scaledPieceH + 1}
+              width={scaledPieceW - 2}
+              height={scaledPieceH - 2}
+              className="fill-blue-500/20 stroke-blue-500"
+              strokeWidth={1}
+              rx={1}
+            />
+          )
+        })
+      )}
+      
+      {/* Stack count label */}
+      <text x={topX + scaledBoxL/2} y={topY + scaledBoxW + 12} textAnchor="middle" className="fill-foreground text-[8px] font-bold">
+        {layout.totalStacks} stack{layout.totalStacks > 1 ? "s" : ""}
+      </text>
+      
+      {/* Side view - box outline */}
+      <rect
+        x={sideX}
+        y={sideY}
+        width={sideViewWidth}
+        height={sideViewHeight}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        className="text-foreground/30"
+        rx={2}
+      />
+      
+      {/* Side view - stacked pieces */}
+      <rect
+        x={sideX + 4}
+        y={sideY + sideViewHeight - scaledStackH - 2}
+        width={sideViewWidth - 8}
+        height={scaledStackH}
+        className="fill-blue-500/20 stroke-blue-500"
+        strokeWidth={1}
+        rx={1}
+      />
+      
+      {/* Pieces per stack label */}
+      <text x={sideX + sideViewWidth/2} y={sideY + sideViewHeight + 12} textAnchor="middle" className="fill-foreground text-[8px] font-bold">
+        {actualPiecesPerStack}/stack
+      </text>
+      
+      {/* Total calculation */}
+      <text x={svgWidth/2} y={svgHeight - 4} textAnchor="middle" className="fill-muted-foreground text-[9px]">
+        {layout.totalStacks} x {actualPiecesPerStack} = {piecesPerBox} pcs
+      </text>
+    </svg>
+  )
 }
 
 interface ShippingCalcDialogProps {
@@ -686,6 +827,17 @@ export function ShippingCalcDialog({
                         </span>
                       )}
                     </div>
+
+                    {/* Packing visualization */}
+                    {rec.packingLayout && (
+                      <div className="mt-3 flex justify-center">
+                        <BoxPackingViz 
+                          box={rec.box} 
+                          layout={rec.packingLayout} 
+                          piecesPerBox={rec.piecesPerBox}
+                        />
+                      </div>
+                    )}
 
                     {/* Fill bar */}
                     <div className="mt-2.5 h-2 rounded-full bg-secondary overflow-hidden">

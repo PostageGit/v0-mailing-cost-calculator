@@ -78,12 +78,30 @@ export interface BoxSelectionInput {
   upsOnly?: boolean
 }
 
+export interface PackingLayout {
+  /** Number of stacks along the length of box */
+  stacksAlongLength: number
+  /** Number of stacks along the width of box */
+  stacksAlongWidth: number
+  /** Total number of stacks side by side */
+  totalStacks: number
+  /** Pieces per stack (height) */
+  piecesPerStack: number
+  /** Piece orientation: width along box length, height along box width */
+  pieceOrientation: "normal" | "rotated"
+  /** Piece dimensions as placed */
+  pieceWidthAsPlaced: number
+  pieceHeightAsPlaced: number
+}
+
 export interface BoxRecommendation {
   box: BoxSize
   count: number
   piecesPerBox: number
   weightPerBoxOz: number
   fillPercent: number
+  /** Packing layout details for visualization */
+  packingLayout?: PackingLayout
 }
 
 export interface ShippingEstimate {
@@ -213,7 +231,14 @@ function buildPlan(
   const stacksOpt2Width = Math.floor(primaryBox.widthIn / pieceWidthIn)
   const stacksOpt2 = stacksOpt2Length * stacksOpt2Width
   
+  // Pick the best orientation
+  const useOpt1 = stacksOpt1 >= stacksOpt2
+  const stacksAlongLength = useOpt1 ? stacksOpt1Length : stacksOpt2Length
+  const stacksAlongWidth = useOpt1 ? stacksOpt1Width : stacksOpt2Width
   const numStacks = Math.max(stacksOpt1, stacksOpt2, 1) // At least 1 stack if piece fits
+  const pieceOrientation = useOpt1 ? "normal" : "rotated" as const
+  const pieceWidthAsPlaced = useOpt1 ? pieceWidthIn : pieceHeightIn
+  const pieceHeightAsPlaced = useOpt1 ? pieceHeightIn : pieceWidthIn
   
   // Pieces per stack (height / thickness)
   const piecesPerStack = Math.floor(primaryBox.heightIn / thicknessPerPieceIn)
@@ -223,17 +248,16 @@ function buildPlan(
   const maxPerBox = numStacks * piecesPerStack
   if (maxPerBox <= 0) return null
   
-  console.log("[v0] Box packing:", {
-    box: primaryBox.name,
-    pieceSize: `${pieceWidthIn}x${pieceHeightIn}`,
-    boxFloor: `${primaryBox.lengthIn}x${primaryBox.widthIn}`,
-    stacksOpt1: `${stacksOpt1Length}x${stacksOpt1Width}=${stacksOpt1}`,
-    stacksOpt2: `${stacksOpt2Length}x${stacksOpt2Width}=${stacksOpt2}`,
-    numStacks,
+  // Create packing layout info for visualization
+  const packingLayout: PackingLayout = {
+    stacksAlongLength,
+    stacksAlongWidth,
+    totalStacks: numStacks,
     piecesPerStack,
-    maxPerBox,
-    thicknessPerPieceIn,
-  })
+    pieceOrientation,
+    pieceWidthAsPlaced,
+    pieceHeightAsPlaced,
+  }
 
   // Enforce UPS weight limit: cap pieces per box
   let effectiveMax = maxPerBox
@@ -257,6 +281,7 @@ function buildPlan(
       piecesPerBox: effectiveMax,
       weightPerBoxOz: weightFull,
       fillPercent: Math.min(fillFull, 100),
+      packingLayout,
     })
   }
 
@@ -302,6 +327,7 @@ function buildPlan(
         piecesPerBox: remainder,
         weightPerBoxOz: lastWeight,
         fillPercent: Math.min(lastFill, 100),
+        packingLayout, // Use same layout - pieces fit the same way
       })
     }
   }
