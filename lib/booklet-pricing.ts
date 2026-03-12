@@ -4,7 +4,7 @@ import type {
   PartCalcResult,
   BookletCalcResult,
 } from "./booklet-types"
-import { getActiveConfig, calculateFinishingCost } from "./pricing-config"
+import { getActiveConfig, calculateFinishingCost, getDynamicPaperOptions } from "./pricing-config"
 import { CLICK_COST_SHEET_MULTIPLIERS, SPECIALTY_SHEET_SIZES } from "./printing-pricing"
 
 // ==================== DATA CONSTANTS ====================
@@ -107,8 +107,6 @@ export function parseSheetSize(sizeString: string): { w: number; h: number } {
   if (sizeString.startsWith("Short")) return { w: h, h: w }
   return { w, h }
 }
-
-import { getDynamicPaperOptions } from "./pricing-config"
 
 export function getCoverPapers(): BookletPaperOption[] {
   // Use dynamic options from database if available, fallback to hardcoded
