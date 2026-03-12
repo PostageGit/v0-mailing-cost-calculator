@@ -384,6 +384,20 @@ export function BookletCalculator() {
                       : 0
                     const coverTotalOz = coverOzPerSheet || 0
                     
+                    console.log("[v0] Booklet weight calc:", {
+                      pageWidth: inputs.pageWidth,
+                      pageHeight: inputs.pageHeight,
+                      spreadWidth,
+                      insidePaper: inputs.insidePaper,
+                      coverPaper: inputs.coverPaper,
+                      insideSheets,
+                      insideOzPerSheet,
+                      insideTotalOz,
+                      coverOzPerSheet,
+                      coverTotalOz,
+                      totalOz: insideTotalOz + coverTotalOz
+                    })
+                    
                     return insideTotalOz + coverTotalOz
                   })()}
                 />
