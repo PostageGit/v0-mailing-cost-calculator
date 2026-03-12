@@ -2840,7 +2840,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                 const pieceMetas: Array<Record<string, unknown>> = jm.piece_meta || []
                 
                 return (
-                  <div className="flex-1 grid grid-cols-3 min-h-0 overflow-hidden">
+                  <div className="flex-1 grid grid-cols-3 min-h-0 overflow-hidden bg-gradient-to-br from-secondary/20 to-transparent">
                     {/* Left Column - Project & Job Info */}
                     <div className="p-6 border-r border-border/30 overflow-y-auto space-y-6">
                       {/* Header Info Card */}
