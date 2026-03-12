@@ -21,6 +21,7 @@ import {
   type PackingLayout,
 } from "@/lib/shipping-boxes"
 import { calcSheetWeightOz } from "@/lib/paper-weights"
+import { getActiveConfig } from "@/lib/pricing-config"
 import { useQuote } from "@/lib/quote-context"
 import {
   Package,
@@ -186,6 +187,9 @@ function BoxPackingViz({
   )
 }
 
+/** Product type for applying stack thickness factor */
+export type ShippingProductType = "flat" | "saddleStitch" | "perfectBinding" | "spiralBinding"
+
 interface ShippingCalcDialogProps {
   open: boolean
   onClose: () => void
@@ -203,6 +207,10 @@ interface ShippingCalcDialogProps {
   sheetsPerPiece?: number
   /** Calculator label (e.g. "500 - 8.5x11 Flat Prints") for the quote line */
   itemLabel?: string
+  /** Product type for stack thickness factor (default: flat) */
+  productType?: ShippingProductType
+  /** Pre-calculated thickness per piece in inches (overrides sheetsPerPiece calculation) */
+  thicknessPerPieceIn?: number
 }
 
 export function ShippingCalcDialog({
@@ -215,6 +223,8 @@ export function ShippingCalcDialog({
   perPieceWeightOz,
   sheetsPerPiece = 1,
   itemLabel,
+  productType = "flat",
+  thicknessPerPieceIn: thicknessOverride,
 }: ShippingCalcDialogProps) {
   const quote = useQuote()
   const [boxSizesLoaded, setBoxSizesLoaded] = useState(false)
@@ -274,7 +284,31 @@ export function ShippingCalcDialog({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const thicknessPerPiece = sheetsPerPiece * 0.005
+  // Calculate thickness with stack factor for realistic packing
+  const thicknessPerPiece = useMemo(() => {
+    // Base thickness: use override if provided, otherwise calculate from sheets
+    const baseThickness = thicknessOverride ?? sheetsPerPiece * 0.005
+    
+    // Get stack factor based on product type
+    const stackFactor = getActiveConfig().shippingStackFactor
+    let factorPercent = 0
+    switch (productType) {
+      case "saddleStitch":
+        factorPercent = stackFactor.saddleStitchPercent
+        break
+      case "perfectBinding":
+        factorPercent = stackFactor.perfectBindingPercent
+        break
+      case "spiralBinding":
+        factorPercent = stackFactor.spiralBindingPercent
+        break
+      default:
+        factorPercent = stackFactor.flatPercent
+    }
+    
+    // Apply stack factor
+    return baseThickness * (1 + factorPercent / 100)
+  }, [sheetsPerPiece, thicknessOverride, productType])
 
   // Calculate per-piece weight: manual override > explicit prop > computed from paperName
   const autoPerPieceOz = useMemo(() => {
@@ -562,6 +596,30 @@ export function ShippingCalcDialog({
                 </p>
               </div>
             </div>
+
+            {/* Product type & stack factor info */}
+            {productType !== "flat" && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                    {productType === "saddleStitch" && "Saddle Stitch"}
+                    {productType === "perfectBinding" && "Perfect Binding"}
+                    {productType === "spiralBinding" && "Spiral Binding"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                  Stack factor: +{(() => {
+                    const sf = getActiveConfig().shippingStackFactor
+                    switch (productType) {
+                      case "saddleStitch": return sf.saddleStitchPercent
+                      case "perfectBinding": return sf.perfectBindingPercent
+                      case "spiralBinding": return sf.spiralBindingPercent
+                      default: return sf.flatPercent
+                    }
+                  })()}% thickness
+                </span>
+              </div>
+            )}
 
             {/* Mode tabs */}
             <div className="flex gap-1 p-1 rounded-lg bg-secondary/50">

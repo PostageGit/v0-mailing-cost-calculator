@@ -376,6 +376,7 @@ export function PerfectCalculator() {
                 paperName={inputs.inside.paperName}
                 sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + 1}
                 itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind`}
+                productType="perfectBinding"
               />
               <Button
                 onClick={() => sendToChat(perfectSpecsToChat({

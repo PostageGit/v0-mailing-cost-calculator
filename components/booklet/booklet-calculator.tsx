@@ -367,6 +367,7 @@ export function BookletCalculator() {
                   paperName={inputs.insidePaper}
                   sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.separateCover ? 1 : 0)}
                   itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet`}
+                  productType={inputs.bindingType === "perfect" ? "perfectBinding" : "saddleStitch"}
                   perPieceWeightOz={(() => {
                     // Calculate accurate booklet weight using finish size (after bleed trim)
                     // A booklet spread doubles the SMALLER dimension (the spine edge)
