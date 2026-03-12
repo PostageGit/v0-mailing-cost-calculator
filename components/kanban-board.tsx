@@ -720,7 +720,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ═════════════════��═���════════════��══���═══════════���════
+/* ══════��══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -2614,7 +2614,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                               {hasSkipped && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">Skipped: {jm?.skipped_steps?.join(", ")}</span>}
                             </div>
                           </div>
-                          <div className="flex gap-2 pt-2">
+                          <div className="flex flex-wrap gap-2 pt-2">
                             <Button
                               size="sm"
                               variant="outline"
@@ -2632,6 +2632,24 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                             >
                               <ExternalLink className="h-3 w-3 mr-1" />
                               Open in Calculator
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                              onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); handleArchive(q.id) }}
+                            >
+                              <Archive className="h-3 w-3 mr-1" />
+                              Archive
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); handleVoid(q.id) }}
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Void
                             </Button>
                           </div>
                         </div>
