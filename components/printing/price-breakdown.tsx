@@ -89,6 +89,14 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
       costLines.push({ label: fc.name, value: fc.cost, accent: true })
     }
   }
+  // Lots fee
+  if (data.lotsCost) {
+    costLines.push({
+      label: `${data.lotsCost.lotCount} Art Lots (+${data.lotsCost.lotCount - 1} extra)`,
+      value: data.lotsCost.totalFee,
+      accent: true,
+    })
+  }
   if (addOnCharge > 0) {
     costLines.push({ label: addOnDescription || "Add on", value: addOnCharge })
   }
