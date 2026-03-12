@@ -720,7 +720,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ══════���══════════��═���════════════��══���═══════════���════
+/* ════��═���══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -2461,6 +2461,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             <span className="w-16 shrink-0 text-center">Stage</span>
             <span className="w-20 shrink-0 text-center">Status</span>
             <span className="w-20 shrink-0 text-right">Total</span>
+            <span className="w-24 shrink-0 text-center ml-2">View</span>
           </div>
           {/* Table Rows */}
           {filteredQuotes.length === 0 ? (
@@ -2549,6 +2550,24 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className="w-20 shrink-0 text-right text-xs font-mono font-bold text-foreground tabular-nums">
                       {formatCurrency(q.total)}
                     </span>
+                    {/* Expand to Full Card button - always visible */}
+                    <button
+                      onClick={(e) => { 
+                        e.stopPropagation()
+                        setExpandedRowId(q.id)
+                        setFullCardRowId(fullCardRowId === q.id ? null : q.id) 
+                      }}
+                      className={cn(
+                        "shrink-0 ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border",
+                        fullCardRowId === q.id 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-secondary/80 hover:bg-secondary text-foreground border-border hover:border-foreground/30"
+                      )}
+                      title="Open full ticket card view"
+                    >
+                      <LayoutPanelLeft className="h-3.5 w-3.5" />
+                      {fullCardRowId === q.id ? "Close" : "Full Card"}
+                    </button>
                   </button>
 
                   {/* Expanded Detail View */}
