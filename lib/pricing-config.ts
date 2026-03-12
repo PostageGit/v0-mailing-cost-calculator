@@ -590,6 +590,31 @@ export const DEFAULT_PERFECT_BINDING_PRODUCTION: PerfectBindingProductionConfig 
   maxLaminationWidth: 12.45,
 }
 
+// ==================== SHIPPING STACK THICKNESS FACTOR ====================
+
+/**
+ * Stack thickness factor - adds extra % to calculated thickness for realistic packing.
+ * Because books don't stack perfectly flat (air gaps, binding bulk, etc.), we add
+ * a percentage to the calculated thickness per product type.
+ */
+export interface ShippingStackFactorConfig {
+  /** Flat sheets (postcards, flyers, etc.) - typically stack well */
+  flatPercent: number
+  /** Saddle stitch (fold & staple) - staples create bulk, +30% recommended */
+  saddleStitchPercent: number
+  /** Perfect binding (glue spine) - slightly thicker at spine, +10% recommended */
+  perfectBindingPercent: number
+  /** Spiral/coil binding - coils add bulk, +10% recommended */
+  spiralBindingPercent: number
+}
+
+export const DEFAULT_SHIPPING_STACK_FACTOR: ShippingStackFactorConfig = {
+  flatPercent: 0,
+  saddleStitchPercent: 30,
+  perfectBindingPercent: 10,
+  spiralBindingPercent: 10,
+}
+
 export interface PricingConfig {
   clickCosts: Record<string, ClickCostEntry>
   paperPrices: Record<string, Record<string, number>>
@@ -605,6 +630,7 @@ export interface PricingConfig {
   sortLevelMix: SortLevelMixConfig
   saddleStitchConfig: SaddleStitchConfig
   perfectBindingProduction: PerfectBindingProductionConfig
+  shippingStackFactor: ShippingStackFactorConfig
   // Dynamic paper options from database
   flatPaperOptions: DynamicPaperOption[]
   bookInsidePaperOptions: DynamicPaperOption[]
@@ -639,6 +665,7 @@ export type { EnvelopeSettings }
   sortLevelMix: structuredClone(DEFAULT_SORT_LEVEL_MIX),
   saddleStitchConfig: structuredClone(DEFAULT_SADDLE_STITCH_CONFIG),
   perfectBindingProduction: structuredClone(DEFAULT_PERFECT_BINDING_PRODUCTION),
+  shippingStackFactor: structuredClone(DEFAULT_SHIPPING_STACK_FACTOR),
 }
 
 export function getActiveConfig(): PricingConfig {
@@ -678,7 +705,10 @@ export function setDynamicPaperOptions(options: {
   }
 }
 
-/** Get dynamic paper options for a specific use case, with fallback to hardcoded list */
+/** 
+ * Get dynamic paper options for a specific use case, with fallback to hardcoded list.
+ * Returns paper options from database config if available, otherwise uses defaults.
+ */
 export function getDynamicPaperOptions(useFor: "flat" | "bookInside" | "bookCover" | "spiralInside" | "spiralCover" | "pad"): DynamicPaperOption[] {
   const cfg = getActiveConfig()
   switch (useFor) {
