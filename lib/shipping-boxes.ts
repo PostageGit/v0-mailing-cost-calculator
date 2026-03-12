@@ -245,8 +245,33 @@ function buildPlan(
   if (piecesPerStack <= 0) return null
   
   // Total pieces per box = stacks * pieces per stack
-  const maxPerBox = numStacks * piecesPerStack
+  const rawMaxPerBox = numStacks * piecesPerStack
+  if (rawMaxPerBox <= 0) return null
+  
+  // Round DOWN to strategic easy-to-count numbers for packing/receiving
+  // Strategy: round to nearest 25, 50, or 100 depending on quantity size
+  const roundToStrategicNumber = (n: number): number => {
+    if (n >= 500) return Math.floor(n / 100) * 100  // Round to 100s (500, 600, 700...)
+    if (n >= 100) return Math.floor(n / 50) * 50    // Round to 50s (100, 150, 200...)
+    if (n >= 50) return Math.floor(n / 25) * 25     // Round to 25s (50, 75, 100...)
+    if (n >= 20) return Math.floor(n / 10) * 10     // Round to 10s (20, 30, 40...)
+    return Math.floor(n / 5) * 5                     // Round to 5s for small quantities
+  }
+  
+  const maxPerBox = roundToStrategicNumber(rawMaxPerBox)
   if (maxPerBox <= 0) return null
+  
+  console.log("[v0] Box packing calc:", {
+    box: primaryBox.name,
+    pieceSize: `${pieceWidthIn}x${pieceHeightIn}`,
+    boxFloor: `${primaryBox.lengthIn}x${primaryBox.widthIn}`,
+    opt1: `${stacksOpt1Length}x${stacksOpt1Width}=${stacksOpt1}`,
+    opt2: `${stacksOpt2Length}x${stacksOpt2Width}=${stacksOpt2}`,
+    numStacks,
+    piecesPerStack,
+    rawMaxPerBox,
+    maxPerBox,
+  })
   
   // Create packing layout info for visualization
   const packingLayout: PackingLayout = {
