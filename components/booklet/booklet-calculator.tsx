@@ -15,6 +15,7 @@ import { useGlobalChat } from "@/lib/chat-context"
 import { bookletSpecsToChat } from "@/lib/specs-to-chat"
 import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck } from "lucide-react"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 const EMPTY_INPUTS: BookletInputs = {
@@ -366,6 +367,22 @@ export function BookletCalculator() {
                   paperName={inputs.insidePaper}
                   sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.separateCover ? 1 : 0)}
                   itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet`}
+                  perPieceWeightOz={(() => {
+                    // Calculate accurate booklet weight using finish size (after bleed trim)
+                    // Inside pages: pagesPerBook / 2 = sheets (each sheet has 2 pages)
+                    const insideSheets = Math.ceil(inputs.pagesPerBook / 2)
+                    const insideOzPerSheet = calcSheetWeightOz(inputs.insidePaper, inputs.pageWidth, inputs.pageHeight)
+                    const insideTotalOz = insideOzPerSheet ? insideOzPerSheet * insideSheets : 0
+                    
+                    // Cover: 1 sheet of cover stock (covers front + back)
+                    // Cover sheet spans 2x width when open (wraps around spine)
+                    const coverOzPerSheet = inputs.separateCover 
+                      ? calcSheetWeightOz(inputs.coverPaper, inputs.pageWidth * 2, inputs.pageHeight)
+                      : 0
+                    const coverTotalOz = coverOzPerSheet || 0
+                    
+                    return insideTotalOz + coverTotalOz
+                  })()}
                 />
                 <Button
                   onClick={() => sendToChat(bookletSpecsToChat(inputs))}
