@@ -343,26 +343,32 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
           <div className="flex items-center gap-2">
             {/* View mode toggle */}
             {hasItems && (
-              <div className="flex items-center rounded-lg bg-secondary/50 p-0.5">
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/60 p-1">
                 <button
                   onClick={() => setViewMode("simple")}
                   className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    viewMode === "simple" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                    viewMode === "simple"
+                      ? "bg-background shadow-sm text-foreground border border-border"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                   title="Simple view"
                 >
-                  <List className="h-3.5 w-3.5" />
+                  <List className="h-3 w-3" />
+                  Simple
                 </button>
                 <button
                   onClick={() => setViewMode("full")}
                   className={cn(
-                    "p-1.5 rounded-md transition-colors",
-                    viewMode === "full" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                    viewMode === "full"
+                      ? "bg-background shadow-sm text-foreground border border-border"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                   title="Full view"
                 >
-                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <LayoutGrid className="h-3 w-3" />
+                  Full
                 </button>
               </div>
             )}
