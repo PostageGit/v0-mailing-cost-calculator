@@ -720,7 +720,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════��═���══════════��═���════════════��══���═══════════���════
+/* ════���═���══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -2476,11 +2476,13 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               const groups = groupByCategory(q.items || [])
               return (
                 <div key={q.id} className={cn("border-b border-border/30", isExpanded && "bg-secondary/20")}>
-                  {/* Row header - clickable to expand */}
-                  <button
-                    onClick={() => setExpandedRowId(isExpanded ? null : q.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary/40 transition-colors text-left"
-                  >
+                  {/* Row header */}
+                  <div className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary/40 transition-colors">
+                    {/* Clickable area to expand - everything except Full Card button */}
+                    <div
+                      onClick={() => setExpandedRowId(isExpanded ? null : q.id)}
+                      className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                    >
                     {/* Expand indicator */}
                     <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
                     {/* Job/Quote # */}
@@ -2551,19 +2553,17 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className="w-20 shrink-0 text-right text-xs font-mono font-bold text-foreground tabular-nums">
                       {formatCurrency(q.total)}
                     </span>
-                    {/* Open Full Card in modal - always visible */}
+                    </div>
+                    {/* Open Full Card in modal - always visible (outside clickable area) */}
                     <button
-                      onClick={(e) => { 
-                        e.stopPropagation()
-                        setFullCardModalQuote(q) 
-                      }}
+                      onClick={() => setFullCardModalQuote(q)}
                       className="shrink-0 ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border bg-secondary/80 hover:bg-secondary text-foreground border-border hover:border-foreground/30"
                       title="Open full ticket card view"
                     >
                       <LayoutPanelLeft className="h-3.5 w-3.5" />
                       Full Card
                     </button>
-                  </button>
+                  </div>
 
                   {/* Expanded Detail View */}
                   {isExpanded && (
