@@ -996,7 +996,7 @@ function MailDatePicker({ value, onChange }: { value: string; onChange: (v: stri
    ════════════════════════════════════════════════════ */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn,
+  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn, defaultExpanded,
   }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
@@ -1010,8 +1010,9 @@ function QuoteCard({
   boardType: "quote" | "job"
   isArchived?: boolean
   listColumn?: BoardColumn
+  defaultExpanded?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultExpanded ?? false)
   const [confirmDel, setConfirmDel] = useState(false)
   const [dropPosition, setDropPosition] = useState<"before" | "after" | null>(null)
   const [showFiles, setShowFiles] = useState(false)
@@ -2810,7 +2811,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                 </div>
               </div>
 
-              {/* Card View - Original QuoteCard */}
+              {/* Card View - Original QuoteCard (opens fully expanded) */}
               {!fancyCardView && (
                 <div className="flex-1 overflow-y-auto p-4">
                   <QuoteCard
@@ -2825,210 +2826,280 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     onEdit={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
                     onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
                     boardType={boardType}
+                    defaultExpanded={true}
                   />
                 </div>
               )}
 
-              {/* Fancy Apple Overview - Clean 3-column layout */}
-              {fancyCardView && (
-                <div className="flex-1 grid grid-cols-3 min-h-0 overflow-hidden">
-                  {/* Left Column - Information */}
-                  <div className="p-8 border-r border-border/30 overflow-y-auto">
-                    <div className="space-y-8">
-                      {/* Project Info */}
-                      <div>
-                        <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5">Project Information</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Contact</p>
-                            <p className="text-[15px] font-medium text-foreground">{q.contact_name || "No contact"}</p>
+              {/* Fancy Apple Overview - Comprehensive 3-column layout with ALL details */}
+              {fancyCardView && (() => {
+                // Get mail pieces for the pieces section
+                const pieces = (q.items || []).filter((it) =>
+                  ["flat", "booklet", "spiral", "perfect", "ohp", "envelope"].includes(it.category)
+                )
+                const pieceMetas: Array<Record<string, unknown>> = jm.piece_meta || []
+                
+                return (
+                  <div className="flex-1 grid grid-cols-3 min-h-0 overflow-hidden">
+                    {/* Left Column - Project & Job Info */}
+                    <div className="p-6 border-r border-border/30 overflow-y-auto space-y-6">
+                      {/* Header Info Card */}
+                      <div className="bg-secondary/30 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wide mb-0.5">Contact</p>
+                            <p className="text-[15px] font-semibold text-foreground">{q.contact_name || "No contact"}</p>
                           </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Quantity</p>
-                            <p className="text-[15px] font-medium text-foreground font-mono tabular-nums">{q.quantity?.toLocaleString() || "—"}</p>
+                          <div className="text-right">
+                            <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wide mb-0.5">Quantity</p>
+                            <p className="text-[15px] font-bold font-mono tabular-nums text-foreground">{q.quantity?.toLocaleString() || "—"}</p>
                           </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border/30">
                           <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Mail Date</p>
-                            <p className="text-[15px] font-medium text-foreground">
-                              {q.mailing_date ? new Date(q.mailing_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "Not scheduled"}
+                            <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wide mb-0.5">Mail Date</p>
+                            <p className="text-[14px] font-medium text-foreground">
+                              {jm.due_date ? new Date(jm.due_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : "Not set"}
                             </p>
                           </div>
+                          {jm.mailing_class && (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                              {jm.mailing_class}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      
-                      {/* Job Details */}
+
+                      {/* References */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {q.job_number && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">J-{q.job_number}</span>}
+                        {q.quote_number && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-secondary text-foreground">Q-{q.quote_number}</span>}
+                        {q.reference_number && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">INV {q.reference_number}</span>}
+                        {jm.zendesk_ticket && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">ZD# {jm.zendesk_ticket}</span>}
+                      </div>
+
+                      {/* Assignee */}
+                      <div className="bg-secondary/30 rounded-xl p-4">
+                        <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wide mb-2">Assigned To</p>
+                        <p className="text-[15px] font-semibold text-foreground">{jm.assignee || "Unassigned"}</p>
+                      </div>
+
+                      {/* Mail Pieces */}
+                      {pieces.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-3">Mail Pieces ({pieces.length})</p>
+                          <div className="space-y-2">
+                            {pieces.map((pc, idx) => {
+                              const md = pc.metadata as Record<string, unknown> | undefined
+                              const pm = pieceMetas[idx] || {}
+                              const foundType = (md?.pieceLabel as string) || (md?.pieceType as string) || pc.category
+                              const sizeStr = md?.pieceDimensions as string
+                              return (
+                                <div key={idx} className={cn(
+                                  "rounded-lg border p-3 transition-colors",
+                                  pm.prints_arrived ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30" : "bg-card border-border/50"
+                                )}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[13px] font-semibold text-foreground">{foundType}</span>
+                                    <span className="text-[13px] font-mono font-medium text-foreground">{formatCurrency(pc.amount)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                                    {sizeStr && <span>{sizeStr}</span>}
+                                    {pm.vendor && <><span className="text-muted-foreground/30">|</span><span>{pm.vendor as string}</span></>}
+                                    {pm.prints_arrived && <span className="ml-auto text-emerald-600 dark:text-emerald-400 font-semibold">Arrived</span>}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Postage Details */}
                       <div>
-                        <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5">Job Details</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Piece Description</p>
-                            <p className="text-[15px] font-medium text-foreground">{jm.piece_desc || "—"}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-3">Postage Details</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-secondary/30 rounded-lg p-3">
+                            <p className="text-[10px] text-muted-foreground/50 mb-1">Class</p>
+                            <p className="text-[13px] font-medium text-foreground">{jm.mailing_class || "—"}</p>
                           </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Mailing Class</p>
-                            <p className="text-[15px] font-medium text-foreground">{jm.mailing_class || "—"}</p>
+                          <div className="bg-secondary/30 rounded-lg p-3">
+                            <p className="text-[10px] text-muted-foreground/50 mb-1">Drop Off</p>
+                            <p className="text-[13px] font-medium text-foreground">{jm.drop_off || "—"}</p>
                           </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Assignee</p>
-                            <p className="text-[15px] font-medium text-foreground">{jm.assignee || "Unassigned"}</p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Printed By</p>
-                            <p className="text-[15px] font-medium text-foreground">{jm.printed_by || "—"}</p>
-                          </div>
-                          <div>
-                            <p className="text-[11px] text-muted-foreground/60 mb-1">Vendor</p>
-                            <p className="text-[15px] font-medium text-foreground">{jm.vendor_name || "—"}</p>
-                          </div>
-                          {q.reference_number && (
-                            <div>
-                              <p className="text-[11px] text-muted-foreground/60 mb-1">Invoice #</p>
-                              <p className="text-[15px] font-mono font-bold text-foreground">INV {q.reference_number}</p>
-                            </div>
-                          )}
-                          {jm.zendesk_ticket && (
-                            <div>
-                              <p className="text-[11px] text-muted-foreground/60 mb-1">Zendesk</p>
-                              <p className="text-[15px] font-mono font-medium text-foreground">ZD# {jm.zendesk_ticket}</p>
-                            </div>
-                          )}
                         </div>
+                        {jm.international && (
+                          <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[12px] font-medium">
+                            International Mail
+                          </div>
+                        )}
                       </div>
-                      
+
                       {/* Notes */}
                       <div>
-                        <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-4">Notes</h3>
-                        <p className="text-[14px] text-muted-foreground/80 leading-relaxed whitespace-pre-wrap">
-                          {jm.quick_notes || q.notes || "No notes"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Middle Column - Pricing */}
-                  <div className="p-8 border-r border-border/30 flex flex-col overflow-hidden">
-                    <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5 shrink-0">Line Items</h3>
-                    <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-                      {Object.entries(groups).map(([cat, { items: catItems, total }]) => (
-                        <div key={cat}>
-                          <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] mb-3">{getCategoryLabel(cat as QuoteCategory)}</p>
-                          <div className="space-y-2.5">
-                            {catItems.map((it) => (
-                              <div key={it.id} className="flex justify-between items-start">
-                                <span className="text-[14px] text-foreground/80 pr-4 leading-snug">{it.label}</span>
-                                <span className="text-[14px] font-mono font-medium text-foreground tabular-nums shrink-0">{formatCurrency(it.amount)}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/20">
-                            <span className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-wide">Subtotal</span>
-                            <span className="text-[14px] font-mono font-semibold text-foreground tabular-nums">{formatCurrency(total)}</span>
-                          </div>
+                        <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-2">Notes</p>
+                        <div className="bg-secondary/30 rounded-lg p-3">
+                          <p className="text-[13px] text-muted-foreground/80 leading-relaxed whitespace-pre-wrap">
+                            {jm.quick_notes || q.notes || "No notes"}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                    {/* Grand Total */}
-                    <div className="pt-6 mt-6 border-t-2 border-foreground/10 shrink-0">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-lg font-semibold text-foreground">Total</span>
-                        <span className="text-3xl font-bold font-mono text-foreground tabular-nums">{formatCurrency(q.total)}</span>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Right Column - Status & Actions */}
-                  <div className="p-8 flex flex-col overflow-hidden">
-                    <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5 shrink-0">Status</h3>
                     
-                    {/* Status Grid */}
-                    <div className="grid grid-cols-2 gap-3 mb-8">
-                      {[
-                        { key: 'prints_arrived', label: 'Prints', icon: '📦' },
-                        { key: 'bcc_done', label: 'BCC', icon: '✓' },
-                        { key: 'paperwork_done', label: 'Paperwork', icon: '📋' },
-                        { key: 'job_mailed', label: 'Mailed', icon: '📬' },
-                        { key: 'invoice_emailed', label: 'Invoice', icon: '📧' },
-                        { key: 'paid_full', label: 'Paid', icon: '💰' },
-                      ].map(({ key, label }) => {
-                        const isActive = jm[key as keyof typeof jm]
-                        return (
-                          <div
-                            key={key}
-                            onClick={() => handlePatch(q.id, { job_meta: { ...jm, [key]: !isActive } })}
-                            className={cn(
-                              "flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all",
-                              isActive 
-                                ? "bg-green-500/10 border border-green-500/20" 
-                                : "bg-secondary/40 border border-transparent hover:border-border/50"
-                            )}
-                          >
-                            <span className={cn("text-[13px] font-medium", isActive ? "text-green-600 dark:text-green-400" : "text-muted-foreground/60")}>
-                              {label}
-                            </span>
-                            <div className={cn(
-                              "w-5 h-5 rounded-full flex items-center justify-center transition-all",
-                              isActive ? "bg-green-500" : "bg-muted-foreground/15"
-                            )}>
-                              {isActive && <Check className="h-3 w-3 text-white" />}
+                    {/* Middle Column - Line Items & Pricing */}
+                    <div className="p-6 border-r border-border/30 flex flex-col overflow-hidden">
+                      <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-4 shrink-0">Line Items</p>
+                      <div className="flex-1 overflow-y-auto space-y-5 pr-2">
+                        {Object.entries(groups).map(([cat, { items: catItems, total }]) => (
+                          <div key={cat} className="bg-secondary/20 rounded-xl p-4">
+                            <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-[0.15em] mb-3">{getCategoryLabel(cat as QuoteCategory)}</p>
+                            <div className="space-y-2">
+                              {catItems.map((it) => (
+                                <div key={it.id} className="flex justify-between items-start py-1">
+                                  <span className="text-[13px] text-foreground/80 pr-3 leading-snug">{it.label}</span>
+                                  <span className="text-[13px] font-mono font-medium text-foreground tabular-nums shrink-0">{formatCurrency(it.amount)}</span>
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    
-                    {/* Stage Selector */}
-                    <div className="mb-8">
-                      <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-4">Stage</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {cols.map((c) => (
-                          <div
-                            key={c.id}
-                            onClick={() => { handleColumnChange(q.id, c.id); setFullCardModalQuote(prev => prev ? { ...prev, column_id: c.id } : null) }}
-                            className={cn(
-                              "px-4 py-2.5 rounded-xl text-[12px] font-semibold cursor-pointer transition-all text-center",
-                              q.column_id === c.id ? "ring-2 ring-offset-2 ring-offset-card" : "opacity-70 hover:opacity-100"
-                            )}
-                            style={{ backgroundColor: `${c.color}20`, color: c.color }}
-                          >
-                            {c.title}
+                            <div className="flex justify-between items-center mt-3 pt-2 border-t border-border/30">
+                              <span className="text-[10px] font-medium text-muted-foreground/50 uppercase">Subtotal</span>
+                              <span className="text-[13px] font-mono font-semibold text-foreground tabular-nums">{formatCurrency(total)}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
+                      {/* Grand Total */}
+                      <div className="pt-5 mt-5 border-t-2 border-foreground/10 shrink-0">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-base font-semibold text-foreground">Grand Total</span>
+                          <span className="text-3xl font-bold font-mono text-foreground tabular-nums">{formatCurrency(q.total)}</span>
+                        </div>
+                      </div>
                     </div>
                     
-                    {/* Quick Actions */}
-                    <div className="space-y-3 mt-auto">
-                      <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-3">Actions</p>
-                      <div
-                        onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
-                        className="w-full px-4 py-3 rounded-xl text-center text-[13px] font-medium bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors"
-                      >
-                        Edit Details
+                    {/* Right Column - Status Tracking & Actions */}
+                    <div className="p-6 flex flex-col overflow-y-auto">
+                      {/* List/Mail Status */}
+                      <div className="mb-5">
+                        <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-3">List / Mail Status</p>
+                        <div className="space-y-2">
+                          {[
+                            { key: 'bcc_done', label: 'BCC Done' },
+                            { key: 'paperwork_done', label: 'Paperwork Done' },
+                            { key: 'folder_archived', label: 'Folder Archived' },
+                            { key: 'job_mailed', label: 'Job Mailed' },
+                          ].map(({ key, label }) => {
+                            const isActive = jm[key as keyof typeof jm]
+                            return (
+                              <div
+                                key={key}
+                                onClick={() => handlePatch(q.id, { job_meta: { ...jm, [key]: !isActive } })}
+                                className={cn(
+                                  "flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all",
+                                  isActive ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-secondary/40 border border-transparent hover:border-border/50"
+                                )}
+                              >
+                                <span className={cn("text-[12px] font-medium", isActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/60")}>{label}</span>
+                                <div className={cn("w-4 h-4 rounded-full flex items-center justify-center", isActive ? "bg-emerald-500" : "bg-muted-foreground/15")}>
+                                  {isActive && <Check className="h-2.5 w-2.5 text-white" />}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <div
-                        onClick={() => { setFullCardModalQuote(null); onLoadQuote(q.id) }}
-                        className="w-full px-4 py-3 rounded-xl text-center text-[13px] font-medium bg-secondary border border-border/50 cursor-pointer hover:bg-secondary/80 transition-colors"
-                      >
-                        Open in Calculator
+
+                      {/* Billing Status */}
+                      <div className="mb-5">
+                        <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-3">Billing Status</p>
+                        <div className="space-y-2">
+                          {[
+                            { key: 'invoice_updated', label: 'Invoice Updated' },
+                            { key: 'invoice_emailed', label: 'Invoice Emailed' },
+                            { key: 'paid_postage', label: 'Paid (Postage)' },
+                            { key: 'paid_full', label: 'Paid in Full' },
+                          ].map(({ key, label }) => {
+                            const isActive = jm[key as keyof typeof jm]
+                            return (
+                              <div
+                                key={key}
+                                onClick={() => handlePatch(q.id, { job_meta: { ...jm, [key]: !isActive } })}
+                                className={cn(
+                                  "flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all",
+                                  isActive ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-secondary/40 border border-transparent hover:border-border/50"
+                                )}
+                              >
+                                <span className={cn("text-[12px] font-medium", isActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/60")}>{label}</span>
+                                <div className={cn("w-4 h-4 rounded-full flex items-center justify-center", isActive ? "bg-emerald-500" : "bg-muted-foreground/15")}>
+                                  {isActive && <Check className="h-2.5 w-2.5 text-white" />}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3 pt-3">
+                    
+                      {/* Stage Selector */}
+                      <div className="mb-5">
+                        <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.1em] mb-3">Stage</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {cols.map((c) => (
+                            <div
+                              key={c.id}
+                              onClick={() => { handleColumnChange(q.id, c.id); setFullCardModalQuote(prev => prev ? { ...prev, column_id: c.id } : null) }}
+                              className={cn(
+                                "px-3 py-2 rounded-lg text-[11px] font-semibold cursor-pointer transition-all text-center",
+                                q.column_id === c.id ? "ring-2 ring-offset-1 ring-offset-card" : "opacity-60 hover:opacity-100"
+                              )}
+                              style={{ backgroundColor: `${c.color}20`, color: c.color }}
+                            >
+                              {c.title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    
+                      {/* Quick Actions */}
+                      <div className="mt-auto space-y-2 pt-4 border-t border-border/30">
                         <div
-                          onClick={() => { handleArchive(q.id); setFullCardModalQuote(null) }}
-                          className="px-4 py-3 rounded-xl text-center text-[12px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20 transition-colors"
+                          onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                          className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-medium bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors"
                         >
-                          Archive
+                          Edit Details
                         </div>
                         <div
-                          onClick={() => { handleVoid(q.id); setFullCardModalQuote(null) }}
-                          className="px-4 py-3 rounded-xl text-center text-[12px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/20 transition-colors"
+                          onClick={() => { setFullCardModalQuote(null); onLoadQuote(q.id) }}
+                          className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-medium bg-secondary border border-border/50 cursor-pointer hover:bg-secondary/80 transition-colors"
                         >
-                          Void
+                          Open in Calculator
+                        </div>
+                        {boardType === "quote" && (
+                          <div
+                            onClick={() => { handleConvertToJob(q.id); setFullCardModalQuote(null) }}
+                            className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-400 cursor-pointer hover:bg-teal-500/20 transition-colors"
+                          >
+                            Activate Job
+                          </div>
+                        )}
+                        <div className="grid grid-cols-2 gap-2 pt-2">
+                          <div
+                            onClick={() => { handleArchive(q.id); setFullCardModalQuote(null) }}
+                            className="px-3 py-2 rounded-lg text-center text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20 transition-colors"
+                          >
+                            Archive
+                          </div>
+                          <div
+                            onClick={() => { handleVoid(q.id); setFullCardModalQuote(null) }}
+                            className="px-3 py-2 rounded-lg text-center text-[11px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/20 transition-colors"
+                          >
+                            Void
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
           </div>
         )

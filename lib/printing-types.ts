@@ -24,6 +24,13 @@ export interface CutsResult {
   total: number
 }
 
+/** A lot represents a subset of the total quantity with different artwork */
+export interface PrintingLot {
+  id: string
+  qty: number
+  label?: string  // optional label like "Design A"
+}
+
 export interface PrintingInputs {
   qty: number
   width: number
@@ -56,6 +63,12 @@ export interface PrintingInputs {
     sides: "S/S" | "D/S"
     markupPct: number
     brokerDiscountPct: number
+  }
+  /** Lots - split total qty into multiple art versions */
+  lots?: {
+    enabled: boolean
+    items: PrintingLot[]
+    feePerLot: number  // default $10 per lot
   }
 }
 
@@ -122,6 +135,12 @@ export interface LaminationCostLine {
   timeMinutes: number
 }
 
+export interface LotsCostLine {
+  lotCount: number
+  feePerLot: number
+  totalFee: number
+}
+
 export interface FullPrintingResult {
   printingCost: number
   printingCostPlus10: number
@@ -136,6 +155,8 @@ export interface FullPrintingResult {
   /** Costs from custom finishing calculators */
   finishingCalcCosts: { id: string; name: string; cost: number }[]
   totalFinishingCalcCost: number
+  /** Multiple artwork lots fee (charged per additional lot) */
+  lotsCost: LotsCostLine | null
   subtotal: number
   grandTotal: number
   result: PrintingCalcResult

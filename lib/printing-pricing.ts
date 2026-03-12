@@ -452,7 +452,15 @@ export function buildFullResult(
   const fcCosts = finishingCalcCosts || []
   const totalFinishingCalcCost = fcCosts.reduce((sum, c) => sum + c.cost, 0)
   const foldCost = foldFinishCost?.sellPrice || 0
-  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0) + foldCost
+  
+  // ── Lots fee ──
+  // When using multiple artwork lots, charge a fee per lot (default $10)
+  // First lot is free, additional lots incur the fee
+  const lotsData = inputs.lots
+  const lotsEnabled = lotsData?.enabled && lotsData.items.length > 1
+  const lotsFee = lotsEnabled ? (lotsData.items.length - 1) * lotsData.feePerLot : 0
+  
+  const subtotal = printingCostPlus10 + result.cuttingCost + inputs.addOnCharge + totalFinishing + (scoreFoldCost?.cost || 0) + totalFinishingCalcCost + (laminationCost?.cost || 0) + foldCost + lotsFee
   const grandTotal = subtotal
 
   // ── Paper upgrade check ──
@@ -476,6 +484,7 @@ export function buildFullResult(
     laminationCost,
     finishingCalcCosts: fcCosts,
     totalFinishingCalcCost,
+    lotsCost: lotsEnabled ? { lotCount: lotsData.items.length, feePerLot: lotsData.feePerLot, totalFee: lotsFee } : null,
     subtotal,
     grandTotal,
     result,

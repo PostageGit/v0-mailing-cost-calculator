@@ -11,10 +11,16 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Save } from "lucide-react"
+import { Save, Plus, Trash2, Layers } from "lucide-react"
 import { getAvailableSides } from "@/lib/printing-pricing"
 import { useFlatPrintingPapers, usePapers, papersToOptions } from "@/lib/use-papers"
-import type { PrintingInputs, FullPrintingResult } from "@/lib/printing-types"
+import type { PrintingInputs, FullPrintingResult, PrintingLot } from "@/lib/printing-types"
+import { formatCurrency } from "@/lib/pricing"
+
+// Helper to create a new lot
+function createLot(index: number): PrintingLot {
+  return { id: `lot-${Date.now()}-${index}`, qty: 0, label: `Design ${String.fromCharCode(65 + index)}` }
+}
 
 import { FinishingAddOns } from "@/components/finishing-add-ons"
 import { FoldFinishSection } from "@/components/printing/fold-finish-section"
@@ -143,6 +149,9 @@ export function PrintingForm({
           )}
         </div>
       </div>
+
+      {/* Lots Section - Split quantity into different artwork versions */}
+      <LotsSection inputs={inputs} onInputsChange={onInputsChange} />
 
       {/* Row 2: Paper Type, Sides, Bleed */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -306,6 +315,190 @@ export function PrintingForm({
           {isEditing ? "Cancel Edit" : "Reset"}
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ---- Lots Section ----
+function LotsSection({
+  inputs,
+  onInputsChange,
+}: {
+  inputs: PrintingInputs
+  onInputsChange: (i: PrintingInputs) => void
+}) {
+  const lots = inputs.lots || { enabled: false, items: [], feePerLot: 10 }
+  const usesLots = lots.enabled && lots.items.length > 0
+
+  function toggleLotsMode() {
+    if (usesLots) {
+      // Disable lots
+      onInputsChange({ ...inputs, lots: { enabled: false, items: [], feePerLot: lots.feePerLot } })
+    } else {
+      // Enable with 2 lots to start
+      onInputsChange({
+        ...inputs,
+        lots: {
+          enabled: true,
+          items: [createLot(0), createLot(1)],
+          feePerLot: lots.feePerLot,
+        },
+      })
+    }
+  }
+
+  function addLot() {
+    const newItems = [...lots.items, createLot(lots.items.length)]
+    onInputsChange({ ...inputs, lots: { ...lots, items: newItems } })
+  }
+
+  function removeLot(id: string) {
+    const newItems = lots.items.filter((l) => l.id !== id)
+    onInputsChange({ ...inputs, lots: { ...lots, items: newItems } })
+  }
+
+  function updateLot(id: string, partial: Partial<PrintingLot>) {
+    const newItems = lots.items.map((l) => (l.id === id ? { ...l, ...partial } : l))
+    onInputsChange({ ...inputs, lots: { ...lots, items: newItems } })
+  }
+
+  function updateFeePerLot(fee: number) {
+    onInputsChange({ ...inputs, lots: { ...lots, feePerLot: fee } })
+  }
+
+  // Calculate lot totals
+  const lotQtySum = lots.items.reduce((sum, l) => sum + (l.qty || 0), 0)
+  const totalQty = inputs.qty || 0
+  const remaining = totalQty - lotQtySum
+  const totalLotFee = lots.items.length * lots.feePerLot
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Toggle header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">Multiple Art Lots</span>
+          {usesLots && (
+            <span className="text-xs text-muted-foreground">({lots.items.length} lots)</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={toggleLotsMode}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-semibold transition-colors shadow-sm ${
+            usesLots
+              ? "bg-violet-500 text-white border-violet-600 hover:bg-violet-600"
+              : "bg-violet-100 text-violet-700 border-violet-300 hover:bg-violet-200"
+          }`}
+        >
+          {usesLots ? (
+            <>Using Lots</>
+          ) : (
+            <><Plus className="h-3.5 w-3.5" /> Add Lots</>
+          )}
+        </button>
+      </div>
+
+      {/* Lots UI */}
+      {usesLots && (
+        <div className="border rounded-lg p-3 bg-violet-50/50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800">
+          {/* Summary row */}
+          <div className="flex flex-wrap gap-3 items-center mb-3">
+            <div
+              className={`flex-1 text-xs p-2 rounded ${
+                remaining === 0
+                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  : remaining > 0
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              }`}
+            >
+              <span className="font-medium">Lots: {lotQtySum.toLocaleString()}</span>
+              <span className="mx-2">|</span>
+              <span className="font-semibold">
+                {remaining === 0
+                  ? "Exact match!"
+                  : remaining > 0
+                    ? `${remaining.toLocaleString()} remaining`
+                    : `${Math.abs(remaining).toLocaleString()} over!`}
+              </span>
+            </div>
+            {/* Fee input */}
+            <div className="flex items-center gap-2 text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 p-2 rounded">
+              <label className="font-medium whitespace-nowrap">Lot Fee:</label>
+              <span className="text-muted-foreground">$</span>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={lots.feePerLot}
+                onChange={(e) => updateFeePerLot(parseFloat(e.target.value) || 0)}
+                className="w-16 h-7 text-xs text-center"
+              />
+              <span className="text-muted-foreground">x {lots.items.length} =</span>
+              <span className="font-bold">{formatCurrency(totalLotFee)}</span>
+            </div>
+          </div>
+
+          {/* Lot rows */}
+          <div className="space-y-2">
+            {lots.items.map((lot, idx) => (
+              <div
+                key={lot.id}
+                className="flex items-center gap-2 p-2 rounded bg-background/60 border border-violet-200 dark:border-violet-800"
+              >
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-200 text-violet-700 dark:bg-violet-800 dark:text-violet-300 shrink-0">
+                  LOT {idx + 1}
+                </span>
+                <Input
+                  type="text"
+                  placeholder="Label (optional)"
+                  value={lot.label || ""}
+                  onChange={(e) => updateLot(lot.id, { label: e.target.value })}
+                  className="h-8 text-sm flex-1 max-w-[140px]"
+                />
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Qty"
+                    value={lot.qty || ""}
+                    onChange={(e) => updateLot(lot.id, { qty: parseInt(e.target.value) || 0 })}
+                    className="h-8 text-sm w-24"
+                  />
+                  <span className="text-xs text-muted-foreground">pcs</span>
+                </div>
+                {lots.items.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLot(lot.id)}
+                    className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors"
+                    title="Remove lot"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Add lot button */}
+          <button
+            type="button"
+            onClick={addLot}
+            className="mt-2 flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Add another lot
+          </button>
+
+          {/* Info text */}
+          <p className="mt-3 text-[10px] text-muted-foreground">
+            Each lot represents a different artwork version. The total of all lot quantities should equal your total quantity ({totalQty.toLocaleString()}).
+            A {formatCurrency(lots.feePerLot)} fee is charged per additional lot.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
