@@ -22,7 +22,7 @@ import {
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
   LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward, Calendar,
-  List, LayoutGrid,
+  List, LayoutGrid, Send,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -720,7 +720,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ══════��══════════��═���════════════��══���═══════════���════
+/* ══════���══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -2633,6 +2633,41 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                               <ExternalLink className="h-3 w-3 mr-1" />
                               Open in Calculator
                             </Button>
+                            {/* Quote-specific: Convert to Job */}
+                            {boardType === "quote" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/20"
+                                onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); handleConvertToJob(q.id) }}
+                              >
+                                <Zap className="h-3 w-3 mr-1" />
+                                Convert to Job
+                              </Button>
+                            )}
+                            {/* Job-specific: Quick status toggles */}
+                            {isJob && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant={jm?.prints_arrived ? "default" : "outline"}
+                                  className={cn("text-xs h-7", jm?.prints_arrived && "bg-green-600 hover:bg-green-700 text-white")}
+                                  onClick={(e) => { e.stopPropagation(); handlePatch(q.id, { job_meta: { ...jm, prints_arrived: !jm?.prints_arrived } }) }}
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Prints {jm?.prints_arrived ? "Arrived" : "In"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={jm?.job_mailed ? "default" : "outline"}
+                                  className={cn("text-xs h-7", jm?.job_mailed && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                                  onClick={(e) => { e.stopPropagation(); handlePatch(q.id, { job_meta: { ...jm, job_mailed: !jm?.job_mailed } }) }}
+                                >
+                                  <Send className="h-3 w-3 mr-1" />
+                                  {jm?.job_mailed ? "Mailed" : "Mark Mailed"}
+                                </Button>
+                              </>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
