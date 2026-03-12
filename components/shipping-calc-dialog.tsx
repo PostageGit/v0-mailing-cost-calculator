@@ -289,21 +289,26 @@ export function ShippingCalcDialog({
     // Base thickness: use override if provided, otherwise calculate from sheets
     const baseThickness = thicknessOverride ?? sheetsPerPiece * 0.005
     
-    // Get stack factor based on product type
-    const stackFactor = getActiveConfig().shippingStackFactor
+    // Get stack factor based on product type (with defaults if config not loaded yet)
+    const stackFactor = getActiveConfig().shippingStackFactor ?? {
+      flatPercent: 0,
+      saddleStitchPercent: 30,
+      perfectBindingPercent: 10,
+      spiralBindingPercent: 10,
+    }
     let factorPercent = 0
     switch (productType) {
       case "saddleStitch":
-        factorPercent = stackFactor.saddleStitchPercent
+        factorPercent = stackFactor.saddleStitchPercent ?? 30
         break
       case "perfectBinding":
-        factorPercent = stackFactor.perfectBindingPercent
+        factorPercent = stackFactor.perfectBindingPercent ?? 10
         break
       case "spiralBinding":
-        factorPercent = stackFactor.spiralBindingPercent
+        factorPercent = stackFactor.spiralBindingPercent ?? 10
         break
       default:
-        factorPercent = stackFactor.flatPercent
+        factorPercent = stackFactor.flatPercent ?? 0
     }
     
     // Apply stack factor
@@ -595,12 +600,14 @@ export function ShippingCalcDialog({
                   </span>
                   <span className="text-[10px] text-blue-500 dark:text-blue-500">
                     +{(() => {
-                      const sf = getActiveConfig().shippingStackFactor
+                      const sf = getActiveConfig().shippingStackFactor ?? {
+                        flatPercent: 0, saddleStitchPercent: 30, perfectBindingPercent: 10, spiralBindingPercent: 10
+                      }
                       switch (productType) {
-                        case "saddleStitch": return sf.saddleStitchPercent
-                        case "perfectBinding": return sf.perfectBindingPercent
-                        case "spiralBinding": return sf.spiralBindingPercent
-                        default: return sf.flatPercent
+                        case "saddleStitch": return sf.saddleStitchPercent ?? 30
+                        case "perfectBinding": return sf.perfectBindingPercent ?? 10
+                        case "spiralBinding": return sf.spiralBindingPercent ?? 10
+                        default: return sf.flatPercent ?? 0
                       }
                     })()}%
                   </span>
