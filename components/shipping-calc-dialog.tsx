@@ -284,7 +284,7 @@ export function ShippingCalcDialog({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Calculate thickness with stack factor for realistic packing
+  // Calculate thickness with stack factor for realistic packing (v2)
   const thicknessPerPiece = useMemo(() => {
     // Base thickness: use override if provided, otherwise calculate from sheets
     const baseThickness = thicknessOverride ?? sheetsPerPiece * 0.005
