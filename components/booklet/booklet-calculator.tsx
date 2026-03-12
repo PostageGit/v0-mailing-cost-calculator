@@ -15,6 +15,7 @@ import { useGlobalChat } from "@/lib/chat-context"
 import { bookletSpecsToChat } from "@/lib/specs-to-chat"
 import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck } from "lucide-react"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
+import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
 const EMPTY_INPUTS: BookletInputs = {
@@ -366,6 +367,45 @@ export function BookletCalculator() {
                   paperName={inputs.insidePaper}
                   sheetsPerPiece={Math.ceil(inputs.pagesPerBook / 2) + (inputs.separateCover ? 1 : 0)}
                   itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet`}
+                  perPieceWeightOz={(() => {
+                    // Calculate accurate booklet weight using finish size (after bleed trim)
+                    // A booklet spread doubles the SMALLER dimension (the spine edge)
+                    // e.g., 8.5x5.5 page -> 8.5x11 spread (unfolds along the 5.5" edge)
+                    // e.g., 5.5x8.5 page -> 11x8.5 spread (unfolds along the 5.5" edge)
+                    const smallerDim = Math.min(inputs.pageWidth, inputs.pageHeight)
+                    const largerDim = Math.max(inputs.pageWidth, inputs.pageHeight)
+                    const spreadWidth = smallerDim * 2  // The unfolded dimension
+                    const spreadHeight = largerDim      // The unchanged dimension
+                    
+                    // Inside sheets: pagesPerBook / 2 = number of sheets (each sheet = 2 pages)
+                    const insideSheets = Math.ceil(inputs.pagesPerBook / 2)
+                    const insideOzPerSheet = calcSheetWeightOz(inputs.insidePaper, spreadWidth, spreadHeight)
+                    const insideTotalOz = insideOzPerSheet ? insideOzPerSheet * insideSheets : 0
+                    
+                    // Cover: 1 sheet of cover stock (also a spread, wraps around spine)
+                    const coverOzPerSheet = inputs.separateCover 
+                      ? calcSheetWeightOz(inputs.coverPaper, spreadWidth, spreadHeight)
+                      : 0
+                    const coverTotalOz = coverOzPerSheet || 0
+                    
+                    console.log("[v0] Booklet weight calc:", {
+                      pageWidth: inputs.pageWidth,
+                      pageHeight: inputs.pageHeight,
+                      spreadWidth,
+                      spreadHeight,
+                      spreadArea: spreadWidth * spreadHeight,
+                      insidePaper: inputs.insidePaper,
+                      coverPaper: inputs.coverPaper,
+                      insideSheets,
+                      insideOzPerSheet,
+                      insideTotalOz,
+                      coverOzPerSheet,
+                      coverTotalOz,
+                      totalOz: insideTotalOz + coverTotalOz
+                    })
+                    
+                    return insideTotalOz + coverTotalOz
+                  })()}
                 />
                 <Button
                   onClick={() => sendToChat(bookletSpecsToChat(inputs))}
