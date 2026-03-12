@@ -1971,7 +1971,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
   const [userFilter, setUserFilter] = useState<string>("all")
-  const [simpleView, setSimpleView] = useState(false)
+  const [simpleView, setSimpleView] = useState(true)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
@@ -2449,118 +2449,129 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
         </div>
       )}
 
-      {/* ── SIMPLE TABLE VIEW ── Clean, spacious design */}
+      {/* ── SIMPLE TABLE VIEW ── Apple-style clean design */}
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto bg-background">
           {/* Table Header */}
-          <div className="flex items-center gap-4 px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b-2 border-border sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-            <span className="w-8 shrink-0"></span>
-            <span className="w-20 shrink-0">{isJob ? "Job #" : "Quote #"}</span>
-            <span className="flex-1 min-w-0">Project</span>
-            <span className="w-28 shrink-0 text-center">Quantity</span>
-            <span className="w-28 shrink-0 text-center">Mail Date</span>
-            <span className="w-24 shrink-0 text-center">Stage</span>
-            <span className="w-28 shrink-0 text-right">Total</span>
-            <span className="w-32 shrink-0 text-center">Actions</span>
+          <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_100px_110px] items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10">
+            <span className="w-5"></span>
+            <span>{isJob ? "Job" : "Quote"}</span>
+            <span>Project / Contact</span>
+            <span>Piece Description</span>
+            <span className="text-center">Assignee</span>
+            <span className="text-right">Quantity</span>
+            <span className="text-center">Mail Date</span>
+            <span className="text-center">Stage</span>
+            <span className="text-right">Total</span>
+            <span className="text-center"></span>
           </div>
           {/* Table Rows */}
           {filteredQuotes.length === 0 ? (
-            <div className="py-20 text-center text-sm text-muted-foreground">No {label.toLowerCase()}s found</div>
+            <div className="py-24 text-center text-sm text-muted-foreground/60">No {label.toLowerCase()}s found</div>
           ) : (
             filteredQuotes.map((q) => {
               const col = cols.find((c) => c.id === q.column_id)
               const jm = q.job_meta
               const isRowExpanded = expandedRowId === q.id
               return (
-                <div key={q.id} className={cn("border-b border-border/50 transition-colors", isRowExpanded ? "bg-secondary/30" : "hover:bg-secondary/20")}>
+                <div key={q.id} className={cn("border-b border-border/30 transition-all duration-150", isRowExpanded ? "bg-secondary/40" : "hover:bg-secondary/20")}>
                   {/* Main Row */}
-                  <div className="flex items-center gap-4 px-6 py-4">
+                  <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_100px_110px] items-center gap-6 px-8 py-5">
                     {/* Expand chevron */}
                     <div
-                      className="w-8 shrink-0 flex items-center justify-center cursor-pointer rounded-md hover:bg-secondary p-1 transition-colors"
+                      className="w-5 flex items-center justify-center cursor-pointer rounded-full hover:bg-secondary/80 p-1 transition-colors"
                       onClick={() => setExpandedRowId(isRowExpanded ? null : q.id)}
                     >
-                      <ChevronRight className={cn("h-5 w-5 text-muted-foreground transition-transform duration-200", isRowExpanded && "rotate-90")} />
+                      <ChevronRight className={cn("h-4 w-4 text-muted-foreground/60 transition-transform duration-200", isRowExpanded && "rotate-90 text-foreground")} />
                     </div>
                     {/* Job/Quote # */}
-                    <span className={cn("w-20 shrink-0 text-sm font-bold tabular-nums", isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400")}>
+                    <span className={cn("text-[13px] font-semibold tabular-nums tracking-tight", isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400")}>
                       {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
                     </span>
-                    {/* Name + Contact */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{q.project_name || "Untitled"}</p>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{q.contact_name || "No contact"}</p>
+                    {/* Project + Contact */}
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-medium text-foreground truncate leading-tight">{q.project_name || "Untitled"}</p>
+                      <p className="text-[12px] text-muted-foreground/70 truncate mt-1">{q.contact_name || "No contact"}</p>
                     </div>
+                    {/* Piece Description */}
+                    <span className="text-[12px] text-muted-foreground truncate">
+                      {jm?.piece_desc || "—"}
+                    </span>
+                    {/* Assignee */}
+                    <span className="text-[12px] text-center text-muted-foreground truncate">
+                      {jm?.assignee || "—"}
+                    </span>
                     {/* Quantity */}
-                    <span className="w-28 shrink-0 text-center text-sm font-mono tabular-nums text-foreground">
+                    <span className="text-[13px] text-right font-mono tabular-nums text-foreground/90">
                       {q.quantity ? q.quantity.toLocaleString() : "—"}
                     </span>
                     {/* Mail Date */}
-                    <span className={cn("w-28 shrink-0 text-center text-sm font-medium tabular-nums", q.mailing_date ? "text-foreground" : "text-muted-foreground/50")}>
-                      {q.mailing_date ? fmtDate(q.mailing_date) : "No date"}
+                    <span className={cn("text-[12px] text-center tabular-nums", q.mailing_date ? "text-foreground/80" : "text-muted-foreground/40")}>
+                      {q.mailing_date ? fmtDate(q.mailing_date) : "—"}
                     </span>
                     {/* Stage badge */}
-                    <div className="w-24 shrink-0 flex justify-center">
+                    <div className="flex justify-center">
                       {col && (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide" style={{ backgroundColor: `${col.color}20`, color: col.color }}>
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wide" style={{ backgroundColor: `${col.color}15`, color: col.color }}>
                           {col.title.slice(0, 8)}
                         </span>
                       )}
                     </div>
                     {/* Total */}
-                    <span className="w-28 shrink-0 text-right text-base font-mono font-bold text-foreground tabular-nums">
+                    <span className="text-[14px] text-right font-semibold tabular-nums text-foreground">
                       {formatCurrency(q.total)}
                     </span>
-                    {/* Actions - Full Card Button */}
-                    <div className="w-32 shrink-0 flex justify-center">
+                    {/* Full Card Button */}
+                    <div className="flex justify-center">
                       <div
                         role="button"
                         tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setFullCardModalQuote(q)
-                        }}
+                        onClick={(e) => { e.stopPropagation(); setFullCardModalQuote(q) }}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setFullCardModalQuote(q) }}}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-all shadow-sm hover:shadow-md select-none"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-foreground/90 text-background cursor-pointer hover:bg-foreground transition-all select-none"
                       >
-                        <LayoutPanelLeft className="h-4 w-4" />
-                        Full Card
+                        <LayoutPanelLeft className="h-3.5 w-3.5" />
+                        View
                       </div>
                     </div>
                   </div>
                   {/* Expanded Details Panel */}
                   {isRowExpanded && (
-                    <div className="px-8 pb-6 pt-2 ml-8 border-l-2 border-border/50">
-                      <div className="grid grid-cols-3 gap-8">
-                        {/* Details Column */}
+                    <div className="px-10 pb-6 pt-3 ml-6 border-l-2 border-foreground/10">
+                      <div className="grid grid-cols-4 gap-10">
+                        {/* Details */}
                         <div className="space-y-3">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Job Details</p>
-                          <div className="space-y-2 text-sm">
-                            {jm?.piece_desc && <p><span className="text-muted-foreground">Piece:</span> <span className="font-medium ml-2">{jm.piece_desc}</span></p>}
-                            {jm?.assignee && <p><span className="text-muted-foreground">Assignee:</span> <span className="font-medium ml-2">{jm.assignee}</span></p>}
-                            {jm?.mailing_class && <p><span className="text-muted-foreground">Class:</span> <span className="font-medium ml-2">{jm.mailing_class}</span></p>}
-                            {jm?.printed_by && <p><span className="text-muted-foreground">Printed by:</span> <span className="font-medium ml-2">{jm.printed_by}</span></p>}
+                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Details</p>
+                          <div className="space-y-2">
+                            {jm?.mailing_class && <p className="text-[13px]"><span className="text-muted-foreground/60">Class:</span> <span className="font-medium text-foreground ml-2">{jm.mailing_class}</span></p>}
+                            {jm?.printed_by && <p className="text-[13px]"><span className="text-muted-foreground/60">Printed by:</span> <span className="font-medium text-foreground ml-2">{jm.printed_by}</span></p>}
+                            {jm?.vendor_name && <p className="text-[13px]"><span className="text-muted-foreground/60">Vendor:</span> <span className="font-medium text-foreground ml-2">{jm.vendor_name}</span></p>}
                           </div>
                         </div>
-                        {/* Status Column */}
+                        {/* Status */}
                         <div className="space-y-3">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Status</p>
                           <div className="flex flex-wrap gap-2">
-                            {jm?.prints_arrived && <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">Prints Arrived</span>}
-                            {jm?.bcc_done && <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">BCC Done</span>}
-                            {jm?.paperwork_done && <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400">Paperwork</span>}
-                            {jm?.job_mailed && <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">Mailed</span>}
-                            {!jm?.prints_arrived && !jm?.bcc_done && !jm?.paperwork_done && !jm?.job_mailed && <span className="text-xs text-muted-foreground italic">No status updates</span>}
+                            {jm?.prints_arrived && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-green-500/10 text-green-600 dark:text-green-400">Prints</span>}
+                            {jm?.bcc_done && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">BCC</span>}
+                            {jm?.paperwork_done && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">Paperwork</span>}
+                            {jm?.job_mailed && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Mailed</span>}
+                            {!jm?.prints_arrived && !jm?.bcc_done && !jm?.paperwork_done && !jm?.job_mailed && <span className="text-[11px] text-muted-foreground/50">None</span>}
                           </div>
                         </div>
-                        {/* Quick Actions Column */}
+                        {/* Notes preview */}
                         <div className="space-y-3">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Quick Actions</p>
+                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Notes</p>
+                          <p className="text-[12px] text-muted-foreground/80 line-clamp-3">{q.notes || "No notes"}</p>
+                        </div>
+                        {/* Quick Actions */}
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Actions</p>
                           <div className="flex flex-wrap gap-2">
-                            <div onClick={() => setDetailQuote(q)} className="text-xs font-medium px-4 py-2 rounded-lg bg-secondary border border-border cursor-pointer hover:bg-secondary/80 transition-colors">Edit Details</div>
-                            <div onClick={() => { setExpandedRowId(null); onLoadQuote(q.id) }} className="text-xs font-medium px-4 py-2 rounded-lg bg-secondary border border-border cursor-pointer hover:bg-secondary/80 transition-colors">Open Calculator</div>
-                            <div onClick={() => { setExpandedRowId(null); handleArchive(q.id) }} className="text-xs font-medium px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors">Archive</div>
-                            <div onClick={() => { setExpandedRowId(null); handleVoid(q.id) }} className="text-xs font-medium px-4 py-2 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">Void</div>
+                            <div onClick={() => setDetailQuote(q)} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-secondary/80 border border-border/50 cursor-pointer hover:bg-secondary transition-colors">Edit</div>
+                            <div onClick={() => { setExpandedRowId(null); onLoadQuote(q.id) }} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-secondary/80 border border-border/50 cursor-pointer hover:bg-secondary transition-colors">Calculator</div>
+                            <div onClick={() => { setExpandedRowId(null); handleArchive(q.id) }} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20 transition-colors">Archive</div>
+                            <div onClick={() => { setExpandedRowId(null); handleVoid(q.id) }} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/20 transition-colors">Void</div>
                           </div>
                         </div>
                       </div>
