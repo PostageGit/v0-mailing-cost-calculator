@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
   FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, Send,
-  AlertCircle, SkipForward, CheckCircle2,
+  AlertCircle, SkipForward, CheckCircle2, List, LayoutGrid, Search, X,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -242,6 +242,20 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   const [copied, setCopied] = useState(false)
   const [showLog, setShowLog] = useState(false)
   const [sending, setSending] = useState(false)
+  const [viewMode, setViewMode] = useState<"full" | "simple">("full")
+  const [searchQuery, setSearchQuery] = useState("")
+
+  // Filter items by search
+  const filteredItems = searchQuery.trim()
+    ? items.filter((item) => {
+        const q = searchQuery.toLowerCase()
+        return (
+          item.label.toLowerCase().includes(q) ||
+          (item.description?.toLowerCase().includes(q)) ||
+          getCategoryLabel(item.category).toLowerCase().includes(q)
+        )
+      })
+    : items
 
   const handleFinishAndSend = async () => {
     if (!items.length) return
@@ -327,6 +341,31 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* View mode toggle */}
+            {hasItems && (
+              <div className="flex items-center rounded-lg bg-secondary/50 p-0.5">
+                <button
+                  onClick={() => setViewMode("simple")}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    viewMode === "simple" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Simple view"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("full")}
+                  className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    viewMode === "full" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="Full view"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             {hasItems && !confirmClear && (
               <button
                 onClick={() => setConfirmClear(true)}
@@ -354,6 +393,30 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
           </div>
         </div>
       </div>
+
+      {/* Search bar - only in simple view */}
+      {hasItems && viewMode === "simple" && (
+        <div className="px-3 pb-2 pt-1 border-b border-border/30">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-8 pl-8 pr-8 text-xs rounded-lg bg-secondary/50 border-0 placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Items ── */}
       <div
@@ -383,7 +446,72 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
               </button>
             ))}
           </div>
+        ) : viewMode === "simple" ? (
+          /* ═══════════ SIMPLE VIEW ═══════════ */
+          <div className="flex flex-col">
+            {/* Simple table header */}
+            <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border/30 mb-1">
+              <span className="w-16">Type</span>
+              <span className="flex-1">Item</span>
+              <span className="w-20 text-right">Amount</span>
+            </div>
+            {/* Simple rows */}
+            {filteredItems.length === 0 ? (
+              <div className="py-6 text-center text-xs text-muted-foreground">
+                No items match your search
+              </div>
+            ) : (
+              filteredItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setViewMode("full")}
+                  className="group flex items-center gap-2 px-2 py-2 hover:bg-secondary/40 rounded-lg transition-colors text-left"
+                >
+                  <span className={cn(
+                    "w-16 shrink-0 text-[10px] font-bold uppercase tracking-wide",
+                    getCategoryColor(item.category).replace('px-2.5 py-1 rounded-lg', '').trim()
+                  )}>
+                    {getCategoryLabel(item.category).slice(0, 7)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {item.label}
+                    </p>
+                    {item.description && (
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                  <span className="w-20 text-right text-xs font-mono font-bold text-foreground tabular-nums shrink-0">
+                    {formatCurrency(item.amount)}
+                  </span>
+                </button>
+              ))
+            )}
+            {/* Category totals summary in simple view */}
+            <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
+              {CATEGORIES.map((cat) => {
+                const catTotal = getCategoryTotal(cat)
+                if (catTotal === 0) return null
+                return (
+                  <div key={cat} className="flex items-center justify-between px-2 py-1">
+                    <span className={cn(
+                      "text-[10px] font-bold uppercase",
+                      getCategoryColor(cat).replace('px-2.5 py-1 rounded-lg', '').trim()
+                    )}>
+                      {getCategoryLabel(cat)}
+                    </span>
+                    <span className="text-xs font-mono font-semibold text-muted-foreground tabular-nums">
+                      {formatCurrency(catTotal)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         ) : (
+          /* ═══════════ FULL VIEW ═══════════ */
           <div className="flex flex-col gap-2">
             {CATEGORIES.map((cat) => {
               const catItems = items.filter((i) => i.category === cat)
