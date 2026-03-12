@@ -2450,11 +2450,14 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Table Header */}
-          <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border sticky top-0 bg-background z-10">
-            <span className="w-20 shrink-0">{isJob ? "Job" : "Quote"}</span>
-            <span className="flex-1">Name</span>
-            <span className="w-24 shrink-0">Contact</span>
-            <span className="w-20 shrink-0 text-center">Stage</span>
+          <div className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border sticky top-0 bg-background z-10">
+            <span className="w-16 shrink-0">{isJob ? "Job" : "Quote"}</span>
+            <span className="flex-1 min-w-0">Name / Contact</span>
+            <span className="w-16 shrink-0 text-center">Qty</span>
+            <span className="w-20 shrink-0 text-center">Mail Date</span>
+            <span className="w-16 shrink-0 text-center">Assignee</span>
+            <span className="w-16 shrink-0 text-center">Stage</span>
+            <span className="w-20 shrink-0 text-center">Status</span>
             <span className="w-20 shrink-0 text-right">Total</span>
           </div>
           {/* Table Rows */}
@@ -2463,41 +2466,80 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           ) : (
             filteredQuotes.map((q) => {
               const col = cols.find((c) => c.id === q.column_id)
+              const jm = q.job_meta
+              const hasSkipped = (jm?.skipped_steps?.length || 0) > 0
               return (
                 <button
                   key={q.id}
                   onClick={() => setDetailQuote(q)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/40 transition-colors text-left border-b border-border/30"
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary/40 transition-colors text-left border-b border-border/30"
                 >
+                  {/* Job/Quote # */}
                   <span className={cn(
-                    "w-20 shrink-0 text-xs font-bold tabular-nums",
+                    "w-16 shrink-0 text-xs font-bold tabular-nums",
                     isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
                   )}>
                     {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
                   </span>
+                  {/* Name + Contact */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">
+                    <p className="text-xs font-semibold text-foreground truncate">
                       {q.project_name || "Untitled"}
                     </p>
-                    {q.job_meta?.piece_desc && (
-                      <p className="text-[10px] text-muted-foreground truncate">{q.job_meta.piece_desc}</p>
-                    )}
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {q.contact_name || "No contact"}{jm?.piece_desc ? ` · ${jm.piece_desc}` : ""}
+                    </p>
                   </div>
-                  <span className="w-24 shrink-0 text-xs text-muted-foreground truncate">
-                    {q.contact_name || "No contact"}
+                  {/* Quantity */}
+                  <span className="w-16 shrink-0 text-center text-xs font-mono tabular-nums text-muted-foreground">
+                    {q.quantity ? q.quantity.toLocaleString() : "—"}
                   </span>
-                  <div className="w-20 shrink-0 flex justify-center">
+                  {/* Mail Date */}
+                  <span className={cn(
+                    "w-20 shrink-0 text-center text-[10px] font-medium tabular-nums",
+                    q.mailing_date ? "text-foreground" : "text-muted-foreground/50"
+                  )}>
+                    {q.mailing_date ? fmtDate(q.mailing_date) : "No date"}
+                  </span>
+                  {/* Assignee */}
+                  <span className="w-16 shrink-0 text-center text-[10px] text-muted-foreground truncate">
+                    {jm?.assignee?.split(" ")[0] || "—"}
+                  </span>
+                  {/* Stage */}
+                  <div className="w-16 shrink-0 flex justify-center">
                     {col && (
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase"
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase"
                         style={{ backgroundColor: `${col.color}20`, color: col.color }}
                       >
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
-                        {col.title.slice(0, 8)}
+                        <span className="h-1 w-1 rounded-full" style={{ backgroundColor: col.color }} />
+                        {col.title.slice(0, 6)}
                       </span>
                     )}
                   </div>
-                  <span className="w-20 shrink-0 text-right text-sm font-mono font-bold text-foreground tabular-nums">
+                  {/* Status indicators */}
+                  <div className="w-20 shrink-0 flex items-center justify-center gap-0.5">
+                    {jm?.prints_arrived && (
+                      <span className="h-4 w-4 rounded bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex items-center justify-center text-[8px] font-bold" title="Prints Arrived">P</span>
+                    )}
+                    {jm?.bcc_done && (
+                      <span className="h-4 w-4 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[8px] font-bold" title="BCC Done">B</span>
+                    )}
+                    {jm?.paperwork_done && (
+                      <span className="h-4 w-4 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[8px] font-bold" title="Paperwork">W</span>
+                    )}
+                    {jm?.job_mailed && (
+                      <span className="h-4 w-4 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[8px] font-bold" title="Mailed">M</span>
+                    )}
+                    {hasSkipped && (
+                      <span className="h-4 w-4 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[8px] font-bold" title="Skipped Steps">!</span>
+                    )}
+                    {!jm?.prints_arrived && !jm?.bcc_done && !jm?.paperwork_done && !jm?.job_mailed && !hasSkipped && (
+                      <span className="text-[9px] text-muted-foreground/40">—</span>
+                    )}
+                  </div>
+                  {/* Total */}
+                  <span className="w-20 shrink-0 text-right text-xs font-mono font-bold text-foreground tabular-nums">
                     {formatCurrency(q.total)}
                   </span>
                 </button>
