@@ -277,12 +277,13 @@ function getBindingPrice(
   const bindingCost = bindingHours * bindingRate
 
   const totalCost = setupCost + scoringCost + bindingCost
-  const markup = isBroker ? 2.25 : 3
+  // Use same markup for all - broker discount is applied separately via BROKER_DISCOUNT_RATE
+  const markup = 3
   const baseSell = totalCost * markup
 
   let surchargePerBook = 0
   if (width < 4 || height < 6) surchargePerBook += 0.20 * markup
-  if (pages >= 600) surchargePerBook += isBroker ? 0.15 : 0.20
+  if (pages >= 600) surchargePerBook += 0.20
 
   return (baseSell + surchargePerBook * qty) / qty
 }
