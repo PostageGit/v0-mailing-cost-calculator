@@ -2557,15 +2557,21 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       {formatCurrency(q.total)}
                     </span>
                     </div>
-                    {/* Open Full Card in modal - always visible (outside clickable area) */}
-                    <button
-                      onClick={() => setFullCardModalQuote(q)}
-                      className="shrink-0 ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border bg-secondary/80 hover:bg-secondary text-foreground border-border hover:border-foreground/30"
+                    {/* Open Full Card Modal - this is a sibling to the clickable div, NOT nested */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        console.log("[v0] Full Card clicked for quote:", q.id)
+                        setFullCardModalQuote(q)
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setFullCardModalQuote(q) }}
+                      className="shrink-0 ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border bg-secondary/80 hover:bg-secondary text-foreground border-border hover:border-foreground/30 cursor-pointer select-none"
                       title="Open full ticket card view"
                     >
                       <LayoutPanelLeft className="h-3.5 w-3.5" />
                       Full Card
-                    </button>
+                    </div>
                   </div>
 
                   {/* Expanded Detail View */}
