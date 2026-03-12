@@ -1972,6 +1972,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
   const [userFilter, setUserFilter] = useState<string>("all")
   const [simpleView, setSimpleView] = useState(false)
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2450,11 +2451,14 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Table Header */}
-          <div className="flex items-center gap-3 px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border sticky top-0 bg-background z-10">
-            <span className="w-20 shrink-0">{isJob ? "Job" : "Quote"}</span>
-            <span className="flex-1">Name</span>
-            <span className="w-24 shrink-0">Contact</span>
-            <span className="w-20 shrink-0 text-center">Stage</span>
+          <div className="flex items-center gap-2 px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border sticky top-0 bg-background z-10">
+            <span className="w-16 shrink-0">{isJob ? "Job" : "Quote"}</span>
+            <span className="flex-1 min-w-0">Name / Contact</span>
+            <span className="w-16 shrink-0 text-center">Qty</span>
+            <span className="w-20 shrink-0 text-center">Mail Date</span>
+            <span className="w-16 shrink-0 text-center">Assignee</span>
+            <span className="w-16 shrink-0 text-center">Stage</span>
+            <span className="w-20 shrink-0 text-center">Status</span>
             <span className="w-20 shrink-0 text-right">Total</span>
           </div>
           {/* Table Rows */}
@@ -2463,44 +2467,178 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           ) : (
             filteredQuotes.map((q) => {
               const col = cols.find((c) => c.id === q.column_id)
+              const jm = q.job_meta
+              const hasSkipped = (jm?.skipped_steps?.length || 0) > 0
+              const isExpanded = expandedRowId === q.id
+              const groups = groupByCategory(q.items || [])
               return (
-                <button
-                  key={q.id}
-                  onClick={() => setDetailQuote(q)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/40 transition-colors text-left border-b border-border/30"
-                >
-                  <span className={cn(
-                    "w-20 shrink-0 text-xs font-bold tabular-nums",
-                    isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
-                  )}>
-                    {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {q.project_name || "Untitled"}
-                    </p>
-                    {q.job_meta?.piece_desc && (
-                      <p className="text-[10px] text-muted-foreground truncate">{q.job_meta.piece_desc}</p>
-                    )}
-                  </div>
-                  <span className="w-24 shrink-0 text-xs text-muted-foreground truncate">
-                    {q.contact_name || "No contact"}
-                  </span>
-                  <div className="w-20 shrink-0 flex justify-center">
-                    {col && (
-                      <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase"
-                        style={{ backgroundColor: `${col.color}20`, color: col.color }}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: col.color }} />
-                        {col.title.slice(0, 8)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="w-20 shrink-0 text-right text-sm font-mono font-bold text-foreground tabular-nums">
-                    {formatCurrency(q.total)}
-                  </span>
-                </button>
+                <div key={q.id} className={cn("border-b border-border/30", isExpanded && "bg-secondary/20")}>
+                  {/* Row header - clickable to expand */}
+                  <button
+                    onClick={() => setExpandedRowId(isExpanded ? null : q.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary/40 transition-colors text-left"
+                  >
+                    {/* Expand indicator */}
+                    <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                    {/* Job/Quote # */}
+                    <span className={cn(
+                      "w-14 shrink-0 text-xs font-bold tabular-nums",
+                      isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
+                    )}>
+                      {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
+                    </span>
+                    {/* Name + Contact */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {q.project_name || "Untitled"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {q.contact_name || "No contact"}{jm?.piece_desc ? ` · ${jm.piece_desc}` : ""}
+                      </p>
+                    </div>
+                    {/* Quantity */}
+                    <span className="w-16 shrink-0 text-center text-xs font-mono tabular-nums text-muted-foreground">
+                      {q.quantity ? q.quantity.toLocaleString() : "—"}
+                    </span>
+                    {/* Mail Date */}
+                    <span className={cn(
+                      "w-20 shrink-0 text-center text-[10px] font-medium tabular-nums",
+                      q.mailing_date ? "text-foreground" : "text-muted-foreground/50"
+                    )}>
+                      {q.mailing_date ? fmtDate(q.mailing_date) : "No date"}
+                    </span>
+                    {/* Assignee */}
+                    <span className="w-16 shrink-0 text-center text-[10px] text-muted-foreground truncate">
+                      {jm?.assignee?.split(" ")[0] || "—"}
+                    </span>
+                    {/* Stage */}
+                    <div className="w-16 shrink-0 flex justify-center">
+                      {col && (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold uppercase"
+                          style={{ backgroundColor: `${col.color}20`, color: col.color }}
+                        >
+                          <span className="h-1 w-1 rounded-full" style={{ backgroundColor: col.color }} />
+                          {col.title.slice(0, 6)}
+                        </span>
+                      )}
+                    </div>
+                    {/* Status indicators */}
+                    <div className="w-20 shrink-0 flex items-center justify-center gap-0.5">
+                      {jm?.prints_arrived && (
+                        <span className="h-4 w-4 rounded bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 flex items-center justify-center text-[8px] font-bold" title="Prints Arrived">P</span>
+                      )}
+                      {jm?.bcc_done && (
+                        <span className="h-4 w-4 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-[8px] font-bold" title="BCC Done">B</span>
+                      )}
+                      {jm?.paperwork_done && (
+                        <span className="h-4 w-4 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-[8px] font-bold" title="Paperwork">W</span>
+                      )}
+                      {jm?.job_mailed && (
+                        <span className="h-4 w-4 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[8px] font-bold" title="Mailed">M</span>
+                      )}
+                      {hasSkipped && (
+                        <span className="h-4 w-4 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-[8px] font-bold" title="Skipped Steps">!</span>
+                      )}
+                      {!jm?.prints_arrived && !jm?.bcc_done && !jm?.paperwork_done && !jm?.job_mailed && !hasSkipped && (
+                        <span className="text-[9px] text-muted-foreground/40">—</span>
+                      )}
+                    </div>
+                    {/* Total */}
+                    <span className="w-20 shrink-0 text-right text-xs font-mono font-bold text-foreground tabular-nums">
+                      {formatCurrency(q.total)}
+                    </span>
+                  </button>
+
+                  {/* Expanded Detail View */}
+                  {isExpanded && (
+                    <div className="px-4 pb-4 pt-2 border-t border-border/20 bg-card/50">
+                      <div className="grid grid-cols-3 gap-4">
+                        {/* Left: Job Info */}
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">Job Details</p>
+                            <div className="space-y-1 text-xs">
+                              <p><span className="text-muted-foreground">Project:</span> <span className="font-medium">{q.project_name || "Untitled"}</span></p>
+                              <p><span className="text-muted-foreground">Contact:</span> <span className="font-medium">{q.contact_name || "—"}</span></p>
+                              <p><span className="text-muted-foreground">Quantity:</span> <span className="font-mono font-medium">{q.quantity?.toLocaleString() || "—"}</span></p>
+                              <p><span className="text-muted-foreground">Mail Date:</span> <span className="font-medium">{q.mailing_date ? new Date(q.mailing_date).toLocaleDateString() : "—"}</span></p>
+                              {jm?.piece_desc && <p><span className="text-muted-foreground">Piece:</span> <span className="font-medium">{jm.piece_desc}</span></p>}
+                              {jm?.mailing_class && <p><span className="text-muted-foreground">Class:</span> <span className="font-medium">{jm.mailing_class}</span></p>}
+                              {jm?.printed_by && <p><span className="text-muted-foreground">Printed by:</span> <span className="font-medium">{jm.printed_by}</span></p>}
+                              {jm?.vendor_name && <p><span className="text-muted-foreground">Vendor:</span> <span className="font-medium">{jm.vendor_name}</span></p>}
+                              {jm?.assignee && <p><span className="text-muted-foreground">Assignee:</span> <span className="font-medium">{jm.assignee}</span></p>}
+                            </div>
+                          </div>
+                          {q.notes && (
+                            <div>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">Notes</p>
+                              <p className="text-xs text-muted-foreground whitespace-pre-wrap">{q.notes}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Middle: Line Items */}
+                        <div>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Line Items</p>
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {Object.entries(groups).map(([cat, { items: catItems, total }]) => (
+                              <div key={cat}>
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-0.5">{getCategoryLabel(cat as QuoteCategory)}</p>
+                                {catItems.map((it) => (
+                                  <div key={it.id} className="flex items-start justify-between text-xs py-0.5">
+                                    <span className="text-muted-foreground truncate flex-1 pr-2">{it.label}</span>
+                                    <span className="font-mono font-medium shrink-0">{formatCurrency(it.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between text-xs pt-2 border-t border-border/30">
+                              <span className="font-bold">Total</span>
+                              <span className="font-mono font-bold">{formatCurrency(q.total)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Status + Actions */}
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Status</p>
+                            <div className="flex flex-wrap gap-1">
+                              {jm?.prints_arrived && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400">Prints Arrived</span>}
+                              {jm?.bcc_done && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">BCC Done</span>}
+                              {jm?.paperwork_done && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400">Paperwork Done</span>}
+                              {jm?.job_mailed && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">Mailed</span>}
+                              {jm?.invoice_emailed && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400">Invoice Emailed</span>}
+                              {jm?.paid_full && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-lime-100 dark:bg-lime-900/40 text-lime-700 dark:text-lime-400">Paid</span>}
+                              {hasSkipped && <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">Skipped: {jm?.skipped_steps?.join(", ")}</span>}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7"
+                              onClick={(e) => { e.stopPropagation(); setDetailQuote(q) }}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Edit Full
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7"
+                              onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); onLoadQuote(q.id) }}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Open in Calculator
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )
             })
           )}
