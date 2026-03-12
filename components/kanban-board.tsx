@@ -1974,6 +1974,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [simpleView, setSimpleView] = useState(false)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
+  const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2550,23 +2551,17 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className="w-20 shrink-0 text-right text-xs font-mono font-bold text-foreground tabular-nums">
                       {formatCurrency(q.total)}
                     </span>
-                    {/* Expand to Full Card button - always visible */}
+                    {/* Open Full Card in modal - always visible */}
                     <button
                       onClick={(e) => { 
                         e.stopPropagation()
-                        setExpandedRowId(q.id)
-                        setFullCardRowId(fullCardRowId === q.id ? null : q.id) 
+                        setFullCardModalQuote(q) 
                       }}
-                      className={cn(
-                        "shrink-0 ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border",
-                        fullCardRowId === q.id 
-                          ? "bg-foreground text-background border-foreground" 
-                          : "bg-secondary/80 hover:bg-secondary text-foreground border-border hover:border-foreground/30"
-                      )}
+                      className="shrink-0 ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border bg-secondary/80 hover:bg-secondary text-foreground border-border hover:border-foreground/30"
                       title="Open full ticket card view"
                     >
                       <LayoutPanelLeft className="h-3.5 w-3.5" />
-                      {fullCardRowId === q.id ? "Close" : "Full Card"}
+                      Full Card
                     </button>
                   </button>
 
@@ -2719,24 +2714,6 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         </div>
                       </div>
 
-                      {/* Full Card View - same as kanban */}
-                      {fullCardRowId === q.id && (
-                        <div className="mt-4 pt-4 border-t border-border/30">
-                          <QuoteCard
-                            quote={q}
-                            columns={cols}
-                            onColumnChange={handleColumnChange}
-                            onVoid={handleVoid}
-                            onArchive={handleArchive}
-                            onRestore={handleRestore}
-                            onPatch={handlePatch}
-                            onReorder={handleReorder}
-                            onEdit={() => setDetailQuote(q)}
-                            onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
-                            boardType={boardType}
-                          />
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -2903,6 +2880,56 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           </div>
         )
       })()}
+
+      {/* Full Card Modal - standalone window for viewing ticket */}
+      {fullCardModalQuote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            onClick={() => setFullCardModalQuote(null)}
+          />
+          {/* Modal content */}
+          <div className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto m-4 rounded-xl border border-border bg-card shadow-2xl">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "text-sm font-bold tabular-nums",
+                  isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
+                )}>
+                  {isJob ? `J-${fullCardModalQuote.job_number || "---"}` : `Q-${fullCardModalQuote.quote_number || "---"}`}
+                </span>
+                <span className="text-sm font-semibold text-foreground truncate">
+                  {fullCardModalQuote.project_name || "Untitled"}
+                </span>
+              </div>
+              <button
+                onClick={() => setFullCardModalQuote(null)}
+                className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Card content */}
+            <div className="p-4">
+              <QuoteCard
+                quote={fullCardModalQuote}
+                columns={cols}
+                onColumnChange={(id, colId) => { handleColumnChange(id, colId); setFullCardModalQuote(prev => prev ? { ...prev, column_id: colId } : null) }}
+                onVoid={(id) => { handleVoid(id); setFullCardModalQuote(null) }}
+                onArchive={(id) => { handleArchive(id); setFullCardModalQuote(null) }}
+                onRestore={handleRestore}
+                onPatch={(id, data) => { handlePatch(id, data); setFullCardModalQuote(prev => prev ? { ...prev, ...data } : null) }}
+                onReorder={handleReorder}
+                onEdit={() => { setDetailQuote(fullCardModalQuote); setFullCardModalQuote(null) }}
+                onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
+                boardType={boardType}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit modal */}
       {detailQuote && (
