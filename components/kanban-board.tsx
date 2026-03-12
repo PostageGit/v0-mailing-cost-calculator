@@ -2476,10 +2476,13 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               const groups = groupByCategory(q.items || [])
               return (
                 <div key={q.id} className={cn("border-b border-border/30", isExpanded && "bg-secondary/20")}>
-                  {/* Row header */}
+                  {/* Simple View Row - using divs to avoid nested button issues */}
                   <div className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary/40 transition-colors">
-                    {/* Clickable area to expand - everything except Full Card button */}
+                    {/* Clickable area to expand row details */}
                     <div
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setExpandedRowId(isExpanded ? null : q.id) }}
                       onClick={() => setExpandedRowId(isExpanded ? null : q.id)}
                       className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
                     >
