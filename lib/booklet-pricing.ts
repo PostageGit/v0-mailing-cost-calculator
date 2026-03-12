@@ -585,14 +585,34 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
   const laminationCostPerBook = bookQty > 0 ? totalLaminationCost / bookQty : 0
 
   // Totals – broker discount already applied in getSaddleStitchBindingPrice() and getLaminationPrice()
-  // Calculate what the non-discounted binding would have been to show discount amount in UI
+  // Calculate what the non-discounted costs would have been to show detailed savings breakdown
   let brokerDiscountAmount = 0
+  let brokerSavingsBreakdown: { binding: number; lamination: number; scoreFold: number } | undefined
+  
   if (isBroker) {
-    const brokerDiscountRate = getActiveConfig().saddleStitchConfig.brokerDiscountPercent / 100
-    // Calculate the pre-discount binding cost to show what was saved
+    // Calculate binding savings
     const preDiscountBindingPerBook = getSaddleStitchBindingPrice(bookQty, pagesPerBook, pageWidth, pageHeight, separateCover, false, bindingType)
     const preDiscountBindingTotal = preDiscountBindingPerBook * bookQty
-    brokerDiscountAmount = preDiscountBindingTotal - totalBindingPrice
+    const bindingSavings = preDiscountBindingTotal - totalBindingPrice
+    
+    // Calculate lamination savings (if applicable)
+    let laminationSavings = 0
+    if (separateCover && hasLamination) {
+      const preDiscountLamination = getLaminationPrice(laminationType, coverResult.paper, coverResult.sheets, false, coverSheetLength)
+      laminationSavings = preDiscountLamination - totalLaminationCost
+    }
+    
+    // Note: Printing savings from level 1 are NOT included here because
+    // level 1 is just the lowest markup tier, not a separate discount.
+    // The broker benefit on printing is getting level 1 pricing automatically.
+    
+    brokerSavingsBreakdown = {
+      binding: bindingSavings,
+      lamination: laminationSavings,
+      scoreFold: 0, // Score/fold savings would go here if applicable
+    }
+    
+    brokerDiscountAmount = bindingSavings + laminationSavings
   }
   
   const subtotal = totalPrintingCost + totalBindingPrice + totalLaminationCost + insertFeeTotal
@@ -619,6 +639,7 @@ export function calculateBooklet(inputs: BookletInputs): BookletCalcResult {
     laminationCostPerBook,
     totalLaminationCost,
     brokerDiscountAmount,
+    brokerSavingsBreakdown,
     brokerMinimumApplied,
     totalPrintingCost,
     subtotal: grandTotal,
