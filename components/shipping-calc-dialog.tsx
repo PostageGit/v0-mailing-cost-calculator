@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,10 @@ import {
   BOX_SIZES,
   selectBestBoxes,
   formatShippingWeight,
+  setBoxSizes,
   type ShippingEstimate,
   type BoxRecommendation,
+  type BoxSize,
 } from "@/lib/shipping-boxes"
 import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useQuote } from "@/lib/quote-context"
@@ -74,7 +76,21 @@ export function ShippingCalcDialog({
   itemLabel,
 }: ShippingCalcDialogProps) {
   const quote = useQuote()
+  const [boxSizesLoaded, setBoxSizesLoaded] = useState(false)
   const [tabMode, setTabMode] = useState<TabMode>("auto")
+
+  // Load custom box sizes from settings on mount
+  useEffect(() => {
+    fetch("/api/app-settings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.box_sizes && Array.isArray(data.box_sizes) && data.box_sizes.length > 0) {
+          setBoxSizes(data.box_sizes as BoxSize[])
+        }
+        setBoxSizesLoaded(true)
+      })
+      .catch(() => setBoxSizesLoaded(true))
+  }, [])
   const [upsOnly, setUpsOnly] = useState(false)
   const [overrideBox, setOverrideBox] = useState<string | null>(null)
   const [shippingCost, setShippingCost] = useState("")
