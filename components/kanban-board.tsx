@@ -1975,6 +1975,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
+  const [fancyCardView, setFancyCardView] = useState(false)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2742,55 +2743,296 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
         )
       })()}
 
-      {/* Full Card Modal - standalone window for viewing ticket */}
-      {fullCardModalQuote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-            onClick={() => setFullCardModalQuote(null)}
-          />
-          {/* Modal content */}
-          <div className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto m-4 rounded-xl border border-border bg-card shadow-2xl">
-            {/* Header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-border bg-card/95 backdrop-blur-sm">
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "text-sm font-bold tabular-nums",
-                  isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
-                )}>
-                  {isJob ? `J-${fullCardModalQuote.job_number || "---"}` : `Q-${fullCardModalQuote.quote_number || "---"}`}
-                </span>
-                <span className="text-sm font-semibold text-foreground truncate">
-                  {fullCardModalQuote.project_name || "Untitled"}
-                </span>
+      {/* Full Card Modal - displays original QuoteCard or Fancy Apple View */}
+      {fullCardModalQuote && (() => {
+        const q = fullCardModalQuote
+        const col = cols.find((c) => c.id === q.column_id)
+        const jm = q.job_meta || {}
+        const groups = groupByCategory(q.items || [])
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setFullCardModalQuote(null)}
+            />
+            {/* Modal container */}
+            <div className={cn(
+              "relative z-10 rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden transition-all duration-300",
+              fancyCardView ? "w-full max-w-5xl h-[calc(100vh-48px)]" : "w-full max-w-xl h-[calc(100vh-32px)]"
+            )}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 bg-card shrink-0">
+                <div className="flex items-center gap-4">
+                  <span className={cn(
+                    "text-xl font-bold tabular-nums tracking-tight",
+                    isJob ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"
+                  )}>
+                    {isJob ? `J-${q.job_number || "---"}` : `Q-${q.quote_number || "---"}`}
+                  </span>
+                  <span className="text-xl font-semibold text-foreground truncate">
+                    {q.project_name || "Untitled"}
+                  </span>
+                  {col && (
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide" style={{ backgroundColor: `${col.color}18`, color: col.color }}>
+                      {col.title}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* View Toggle */}
+                  <div className="flex items-center bg-secondary/60 rounded-lg p-1">
+                    <div
+                      onClick={() => setFancyCardView(false)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md text-[11px] font-medium cursor-pointer transition-all",
+                        !fancyCardView ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Card
+                    </div>
+                    <div
+                      onClick={() => setFancyCardView(true)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md text-[11px] font-medium cursor-pointer transition-all",
+                        fancyCardView ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Overview
+                    </div>
+                  </div>
+                  <div
+                    onClick={() => setFullCardModalQuote(null)}
+                    className="p-2 rounded-lg hover:bg-secondary transition-colors cursor-pointer ml-2"
+                  >
+                    <X className="h-5 w-5" />
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => setFullCardModalQuote(null)}
-                className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Card content */}
-            <div className="p-4">
-              <QuoteCard
-                quote={fullCardModalQuote}
-                columns={cols}
-                onColumnChange={(id, colId) => { handleColumnChange(id, colId); setFullCardModalQuote(prev => prev ? { ...prev, column_id: colId } : null) }}
-                onVoid={(id) => { handleVoid(id); setFullCardModalQuote(null) }}
-                onArchive={(id) => { handleArchive(id); setFullCardModalQuote(null) }}
-                onRestore={handleRestore}
-                onPatch={(id, data) => { handlePatch(id, data); setFullCardModalQuote(prev => prev ? { ...prev, ...data } : null) }}
-                onReorder={handleReorder}
-                onEdit={() => { setDetailQuote(fullCardModalQuote); setFullCardModalQuote(null) }}
-                onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
-                boardType={boardType}
-              />
+
+              {/* Card View - Original QuoteCard */}
+              {!fancyCardView && (
+                <div className="flex-1 overflow-y-auto p-4">
+                  <QuoteCard
+                    quote={q}
+                    columns={cols}
+                    onColumnChange={(id, colId) => { handleColumnChange(id, colId); setFullCardModalQuote(prev => prev ? { ...prev, column_id: colId } : null) }}
+                    onVoid={(id) => { handleVoid(id); setFullCardModalQuote(null) }}
+                    onArchive={(id) => { handleArchive(id); setFullCardModalQuote(null) }}
+                    onRestore={handleRestore}
+                    onPatch={(id, data) => { handlePatch(id, data); setFullCardModalQuote(prev => prev ? { ...prev, ...data } : null) }}
+                    onReorder={handleReorder}
+                    onEdit={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                    onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
+                    boardType={boardType}
+                  />
+                </div>
+              )}
+
+              {/* Fancy Apple Overview - Clean 3-column layout */}
+              {fancyCardView && (
+                <div className="flex-1 grid grid-cols-3 min-h-0 overflow-hidden">
+                  {/* Left Column - Information */}
+                  <div className="p-8 border-r border-border/30 overflow-y-auto">
+                    <div className="space-y-8">
+                      {/* Project Info */}
+                      <div>
+                        <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5">Project Information</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Contact</p>
+                            <p className="text-[15px] font-medium text-foreground">{q.contact_name || "No contact"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Quantity</p>
+                            <p className="text-[15px] font-medium text-foreground font-mono tabular-nums">{q.quantity?.toLocaleString() || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Mail Date</p>
+                            <p className="text-[15px] font-medium text-foreground">
+                              {q.mailing_date ? new Date(q.mailing_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : "Not scheduled"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Job Details */}
+                      <div>
+                        <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5">Job Details</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Piece Description</p>
+                            <p className="text-[15px] font-medium text-foreground">{jm.piece_desc || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Mailing Class</p>
+                            <p className="text-[15px] font-medium text-foreground">{jm.mailing_class || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Assignee</p>
+                            <p className="text-[15px] font-medium text-foreground">{jm.assignee || "Unassigned"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Printed By</p>
+                            <p className="text-[15px] font-medium text-foreground">{jm.printed_by || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground/60 mb-1">Vendor</p>
+                            <p className="text-[15px] font-medium text-foreground">{jm.vendor_name || "—"}</p>
+                          </div>
+                          {q.reference_number && (
+                            <div>
+                              <p className="text-[11px] text-muted-foreground/60 mb-1">Invoice #</p>
+                              <p className="text-[15px] font-mono font-bold text-foreground">INV {q.reference_number}</p>
+                            </div>
+                          )}
+                          {jm.zendesk_ticket && (
+                            <div>
+                              <p className="text-[11px] text-muted-foreground/60 mb-1">Zendesk</p>
+                              <p className="text-[15px] font-mono font-medium text-foreground">ZD# {jm.zendesk_ticket}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Notes */}
+                      <div>
+                        <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-4">Notes</h3>
+                        <p className="text-[14px] text-muted-foreground/80 leading-relaxed whitespace-pre-wrap">
+                          {jm.quick_notes || q.notes || "No notes"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Middle Column - Pricing */}
+                  <div className="p-8 border-r border-border/30 flex flex-col overflow-hidden">
+                    <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5 shrink-0">Line Items</h3>
+                    <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+                      {Object.entries(groups).map(([cat, { items: catItems, total }]) => (
+                        <div key={cat}>
+                          <p className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] mb-3">{getCategoryLabel(cat as QuoteCategory)}</p>
+                          <div className="space-y-2.5">
+                            {catItems.map((it) => (
+                              <div key={it.id} className="flex justify-between items-start">
+                                <span className="text-[14px] text-foreground/80 pr-4 leading-snug">{it.label}</span>
+                                <span className="text-[14px] font-mono font-medium text-foreground tabular-nums shrink-0">{formatCurrency(it.amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/20">
+                            <span className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-wide">Subtotal</span>
+                            <span className="text-[14px] font-mono font-semibold text-foreground tabular-nums">{formatCurrency(total)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Grand Total */}
+                    <div className="pt-6 mt-6 border-t-2 border-foreground/10 shrink-0">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-lg font-semibold text-foreground">Total</span>
+                        <span className="text-3xl font-bold font-mono text-foreground tabular-nums">{formatCurrency(q.total)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Right Column - Status & Actions */}
+                  <div className="p-8 flex flex-col overflow-hidden">
+                    <h3 className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-5 shrink-0">Status</h3>
+                    
+                    {/* Status Grid */}
+                    <div className="grid grid-cols-2 gap-3 mb-8">
+                      {[
+                        { key: 'prints_arrived', label: 'Prints', icon: '📦' },
+                        { key: 'bcc_done', label: 'BCC', icon: '✓' },
+                        { key: 'paperwork_done', label: 'Paperwork', icon: '📋' },
+                        { key: 'job_mailed', label: 'Mailed', icon: '📬' },
+                        { key: 'invoice_emailed', label: 'Invoice', icon: '📧' },
+                        { key: 'paid_full', label: 'Paid', icon: '💰' },
+                      ].map(({ key, label }) => {
+                        const isActive = jm[key as keyof typeof jm]
+                        return (
+                          <div
+                            key={key}
+                            onClick={() => handlePatch(q.id, { job_meta: { ...jm, [key]: !isActive } })}
+                            className={cn(
+                              "flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all",
+                              isActive 
+                                ? "bg-green-500/10 border border-green-500/20" 
+                                : "bg-secondary/40 border border-transparent hover:border-border/50"
+                            )}
+                          >
+                            <span className={cn("text-[13px] font-medium", isActive ? "text-green-600 dark:text-green-400" : "text-muted-foreground/60")}>
+                              {label}
+                            </span>
+                            <div className={cn(
+                              "w-5 h-5 rounded-full flex items-center justify-center transition-all",
+                              isActive ? "bg-green-500" : "bg-muted-foreground/15"
+                            )}>
+                              {isActive && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    
+                    {/* Stage Selector */}
+                    <div className="mb-8">
+                      <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-4">Stage</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {cols.map((c) => (
+                          <div
+                            key={c.id}
+                            onClick={() => { handleColumnChange(q.id, c.id); setFullCardModalQuote(prev => prev ? { ...prev, column_id: c.id } : null) }}
+                            className={cn(
+                              "px-4 py-2.5 rounded-xl text-[12px] font-semibold cursor-pointer transition-all text-center",
+                              q.column_id === c.id ? "ring-2 ring-offset-2 ring-offset-card" : "opacity-70 hover:opacity-100"
+                            )}
+                            style={{ backgroundColor: `${c.color}20`, color: c.color }}
+                          >
+                            {c.title}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Quick Actions */}
+                    <div className="space-y-3 mt-auto">
+                      <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-[0.15em] mb-3">Actions</p>
+                      <div
+                        onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                        className="w-full px-4 py-3 rounded-xl text-center text-[13px] font-medium bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors"
+                      >
+                        Edit Details
+                      </div>
+                      <div
+                        onClick={() => { setFullCardModalQuote(null); onLoadQuote(q.id) }}
+                        className="w-full px-4 py-3 rounded-xl text-center text-[13px] font-medium bg-secondary border border-border/50 cursor-pointer hover:bg-secondary/80 transition-colors"
+                      >
+                        Open in Calculator
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-3">
+                        <div
+                          onClick={() => { handleArchive(q.id); setFullCardModalQuote(null) }}
+                          className="px-4 py-3 rounded-xl text-center text-[12px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20 transition-colors"
+                        >
+                          Archive
+                        </div>
+                        <div
+                          onClick={() => { handleVoid(q.id); setFullCardModalQuote(null) }}
+                          className="px-4 py-3 rounded-xl text-center text-[12px] font-medium bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/20 transition-colors"
+                        >
+                          Void
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Edit modal */}
       {detailQuote && (
