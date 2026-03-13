@@ -126,7 +126,6 @@ function boxFitsPiece(box: BoxSize, pieceW: number, pieceH: number): boolean {
   return false
 }
 
-/** UPS weight limit per box */
 // No weight limits - company handles its own delivery
 
 /**
