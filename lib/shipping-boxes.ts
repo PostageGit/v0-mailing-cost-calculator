@@ -381,7 +381,7 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
     upsOnly = false,
   } = input
 
-  console.log("[v0] selectBestBoxes INPUT:", { pieceWidthIn, pieceHeightIn, thicknessPerPieceIn, quantity })
+  console.log("[v0] selectBestBoxes v3 (multi-stack):", { pieceWidthIn, pieceHeightIn, thicknessPerPieceIn, quantity })
 
   if (quantity <= 0 || pieceWidthIn <= 0 || pieceHeightIn <= 0) return null
 
