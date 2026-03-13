@@ -148,16 +148,17 @@ function getSmallestFootprintArea(candidates: BoxSize[]): number {
 /**
  * Score a candidate plan. Lower score = better.
  *
- * Philosophy: PACK FULL, USE FEWEST BOXES, smallest footprint that fits.
+ * Philosophy: PACK FULL, USE FEWEST BOXES, PREFER TALLER NOT WIDER.
+ * Go higher (stack more) rather than wider (bigger footprint).
  * Fill every box to max capacity. Only the last box gets the remainder,
  * and we try to use a smaller same-footprint box for that last one.
  *
  * Priority order:
  * 1. Fewest total boxes (absolute priority -- each box costs shipping $$)
- * 2. Smallest footprint (don't use a 17" box for 8.5" pieces)
+ * 2. Smallest footprint (prefer taller/narrower boxes over wider ones)
  * 3. Single box type when possible
  * 4. Carriable weight (under 50 lbs for UPS, prefer under 40 lbs)
- * 5. UPS eligibility
+ * 5. UPS eligibility (warning only, NOT a hard penalty)
  */
 function scorePlan(
   recs: BoxRecommendation[],
@@ -173,8 +174,9 @@ function scorePlan(
   // Every extra box costs real money in shipping. This is #1.
   const countPenalty = totalBoxes * 200
 
-  // ── 2. Footprint waste ──
-  // Prefer smallest footprint, but NOT at the cost of more boxes.
+  // ── 2. Footprint waste - PREFER TALLER NOT WIDER ──
+  // Strongly penalize bigger footprints. Go higher (taller box) rather
+  // than wider (bigger footprint). Smaller footprint = easier to handle.
   let footprintScore = 0
   for (const r of recs) {
     const boxArea = r.box.lengthIn * r.box.widthIn
@@ -197,15 +199,15 @@ function scorePlan(
     }
   }
 
-  // ── 5. UPS eligibility ──
-  const upsPenalty = hasNonUPS ? 80 : 0
+  // ── 5. UPS eligibility ── (low weight - just a warning, not a dealbreaker)
+  const upsPenalty = hasNonUPS ? 20 : 0
 
   return (
     countPenalty +               // fewest boxes is king
-    footprintScore * 60 +        // then smallest footprint
+    footprintScore * 100 +       // strongly prefer smallest footprint (taller > wider)
     typePenalty +                 // consistency
     carryPenalty +                // carriable
-    upsPenalty                    // UPS eligible
+    upsPenalty                    // UPS eligible (soft warning)
   )
 }
 
