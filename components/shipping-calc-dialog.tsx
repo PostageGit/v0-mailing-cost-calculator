@@ -366,7 +366,14 @@ export function ShippingCalcDialog({
       }
     }
 
-    return selectBestBoxes({
+    console.log("[v0] Shipping dialog calling selectBestBoxes:", {
+      pieceWidth,
+      pieceHeight,
+      thicknessPerPiece,
+      quantity,
+    })
+    
+    const result = selectBestBoxes({
       pieceWidthIn: pieceWidth,
       pieceHeightIn: pieceHeight,
       thicknessPerPieceIn: thicknessPerPiece,
@@ -374,6 +381,14 @@ export function ShippingCalcDialog({
       totalWeightOz,
       upsOnly,
     })
+    
+    console.log("[v0] selectBestBoxes result:", result?.recommendations?.[0] ? {
+      box: result.recommendations[0].box.name,
+      piecesPerBox: result.recommendations[0].piecesPerBox,
+      packingLayout: result.recommendations[0].packingLayout,
+    } : "no result")
+    
+    return result
   }, [
     pieceWidth,
     pieceHeight,

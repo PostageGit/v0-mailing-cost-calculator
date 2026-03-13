@@ -1,9 +1,11 @@
 /**
- * Shipping Box Library
+ * Shipping Box Library v5 - MULTI-STACK SUPPORT
  *
  * Defines all available box sizes and provides algorithms to select
  * the best-fitting box(es) for an order based on piece dimensions,
  * quantity, and weight.
+ * 
+ * v5: Supports multiple stacks side-by-side (e.g., 2 stacks of 205 = 410 per box)
  */
 
 export interface BoxSize {
