@@ -339,8 +339,13 @@ export function ShippingCalcDialog({
       if (!box) return null
       
       // Multi-stack: try both orientations to find how many stacks fit side by side
-      const stacksOpt1 = Math.floor(box.lengthIn / pieceWidth) * Math.floor(box.widthIn / pieceHeight)
-      const stacksOpt2 = Math.floor(box.lengthIn / pieceHeight) * Math.floor(box.widthIn / pieceWidth)
+      const stacksOpt1L = Math.floor(box.lengthIn / pieceWidth)
+      const stacksOpt1W = Math.floor(box.widthIn / pieceHeight)
+      const stacksOpt1 = stacksOpt1L * stacksOpt1W
+      const stacksOpt2L = Math.floor(box.lengthIn / pieceHeight)
+      const stacksOpt2W = Math.floor(box.widthIn / pieceWidth)
+      const stacksOpt2 = stacksOpt2L * stacksOpt2W
+      const useOpt1 = stacksOpt1 >= stacksOpt2
       const numStacks = Math.max(stacksOpt1, stacksOpt2, 1)
       
       const piecesPerStack = thicknessPerPiece > 0
@@ -365,6 +370,18 @@ export function ShippingCalcDialog({
       // Fill percent: thickness of pieces per stack vs box height
       const pcsPerStack = numStacks > 0 ? Math.ceil(piecesPerBox / numStacks) : piecesPerBox
       const stackHeight = pcsPerStack * thicknessPerPiece
+      
+      // Build packing layout for diagram
+      const overrideLayout: PackingLayout = {
+        stacksAlongLength: useOpt1 ? stacksOpt1L : stacksOpt2L,
+        stacksAlongWidth: useOpt1 ? stacksOpt1W : stacksOpt2W,
+        totalStacks: numStacks,
+        piecesPerStack,
+        pieceOrientation: useOpt1 ? "normal" : "rotated",
+        pieceWidthAsPlaced: useOpt1 ? pieceWidth : pieceHeight,
+        pieceHeightAsPlaced: useOpt1 ? pieceHeight : pieceWidth,
+      }
+      
       return {
         recommendations: [
           {
@@ -375,6 +392,7 @@ export function ShippingCalcDialog({
             fillPercent: thicknessPerPiece > 0
               ? Math.min((stackHeight / box.heightIn) * 100, 100)
               : 50,
+            packingLayout: overrideLayout,
           },
         ],
         totalBoxes: boxCount,
@@ -847,16 +865,37 @@ export function ShippingCalcDialog({
                             </div>
                           </div>
 
-                          {/* Packing visualization */}
-                          {rec.packingLayout && (
-                            <div className="flex justify-center mb-3">
-                              <BoxPackingViz 
-                                box={rec.box} 
-                                layout={rec.packingLayout} 
-                                piecesPerBox={rec.piecesPerBox}
-                              />
-                            </div>
-                          )}
+                          {/* Packing visualization - always show diagram */}
+                          {(() => {
+                            // Use packingLayout if available, otherwise compute one
+                            const layout = rec.packingLayout ?? (() => {
+                              const s1L = Math.floor(rec.box.lengthIn / pieceWidth)
+                              const s1W = Math.floor(rec.box.widthIn / pieceHeight)
+                              const s2L = Math.floor(rec.box.lengthIn / pieceHeight)
+                              const s2W = Math.floor(rec.box.widthIn / pieceWidth)
+                              const use1 = (s1L * s1W) >= (s2L * s2W)
+                              const stacks = Math.max(s1L * s1W, s2L * s2W, 1)
+                              const pps = thicknessPerPiece > 0 ? Math.floor(rec.box.heightIn / thicknessPerPiece) : rec.piecesPerBox
+                              return {
+                                stacksAlongLength: use1 ? s1L : s2L,
+                                stacksAlongWidth: use1 ? s1W : s2W,
+                                totalStacks: stacks,
+                                piecesPerStack: pps,
+                                pieceOrientation: (use1 ? "normal" : "rotated") as const,
+                                pieceWidthAsPlaced: use1 ? pieceWidth : pieceHeight,
+                                pieceHeightAsPlaced: use1 ? pieceHeight : pieceWidth,
+                              }
+                            })()
+                            return (
+                              <div className="flex justify-center mb-3">
+                                <BoxPackingViz 
+                                  box={rec.box} 
+                                  layout={layout} 
+                                  piecesPerBox={rec.piecesPerBox}
+                                />
+                              </div>
+                            )
+                          })()}
 
                           {/* Fill bar */}
                           <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
