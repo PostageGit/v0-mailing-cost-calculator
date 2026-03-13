@@ -263,23 +263,6 @@ function buildPlan(
   const maxPerBox = roundToStrategicNumber(rawMaxPerBox)
   if (maxPerBox <= 0) return null
   
-  console.log("[v0] MULTI-STACK v4:", {
-    box: primaryBox.name,
-    pieceSize: `${pieceWidthIn}x${pieceHeightIn}`,
-    boxFloor: `${primaryBox.lengthIn}x${primaryBox.widthIn}`,
-    opt1: `${stacksOpt1Length}x${stacksOpt1Width}=${stacksOpt1}`,
-    opt2: `${stacksOpt2Length}x${stacksOpt2Width}=${stacksOpt2}`,
-    numStacks,
-    piecesPerStack,
-    rawMaxPerBox,
-    maxPerBox,
-  })
-  
-  // TEMP: Alert to confirm new code is running (remove after testing)
-  if (numStacks > 1 && typeof window !== 'undefined') {
-    console.warn(`[v0] MULTI-STACK DETECTED: ${numStacks} stacks = ${rawMaxPerBox} pieces (rounded to ${maxPerBox})`)
-  }
-  
   // Create packing layout info for visualization
   const packingLayout: PackingLayout = {
     stacksAlongLength,
@@ -387,8 +370,6 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
     totalWeightOz,
     upsOnly = false,
   } = input
-
-  console.log("[v0] selectBestBoxes v3 (multi-stack):", { pieceWidthIn, pieceHeightIn, thicknessPerPieceIn, quantity })
 
   if (quantity <= 0 || pieceWidthIn <= 0 || pieceHeightIn <= 0) return null
 

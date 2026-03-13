@@ -337,13 +337,34 @@ export function ShippingCalcDialog({
     if (overrideBox) {
       const box = BOX_SIZES.find((b) => b.name === overrideBox)
       if (!box) return null
-      const maxPerBox = thicknessPerPiece > 0
+      
+      // Multi-stack: try both orientations to find how many stacks fit side by side
+      const stacksOpt1 = Math.floor(box.lengthIn / pieceWidth) * Math.floor(box.widthIn / pieceHeight)
+      const stacksOpt2 = Math.floor(box.lengthIn / pieceHeight) * Math.floor(box.widthIn / pieceWidth)
+      const numStacks = Math.max(stacksOpt1, stacksOpt2, 1)
+      
+      const piecesPerStack = thicknessPerPiece > 0
         ? Math.floor(box.heightIn / thicknessPerPiece)
         : quantity
+      const rawMaxPerBox = numStacks * piecesPerStack
+      
+      // Round to strategic easy-to-count numbers
+      const roundToStrategic = (n: number): number => {
+        if (n >= 500) return Math.floor(n / 100) * 100
+        if (n >= 100) return Math.floor(n / 50) * 50
+        if (n >= 50) return Math.floor(n / 25) * 25
+        if (n >= 20) return Math.floor(n / 10) * 10
+        return Math.floor(n / 5) * 5
+      }
+      
+      const maxPerBox = rawMaxPerBox > 0 ? roundToStrategic(rawMaxPerBox) : quantity
       const boxCount = maxPerBox > 0 ? Math.ceil(quantity / maxPerBox) : 1
       const piecesPerBox = maxPerBox > 0 ? Math.min(quantity, maxPerBox) : quantity
       const weightPerBox =
         (computedPerPieceOz * piecesPerBox) + box.boxWeightOz
+      // Fill percent: thickness of pieces per stack vs box height
+      const pcsPerStack = numStacks > 0 ? Math.ceil(piecesPerBox / numStacks) : piecesPerBox
+      const stackHeight = pcsPerStack * thicknessPerPiece
       return {
         recommendations: [
           {
@@ -352,10 +373,7 @@ export function ShippingCalcDialog({
             piecesPerBox,
             weightPerBoxOz: weightPerBox,
             fillPercent: thicknessPerPiece > 0
-              ? Math.min(
-                  ((piecesPerBox * thicknessPerPiece) / box.heightIn) * 100,
-                  100
-                )
+              ? Math.min((stackHeight / box.heightIn) * 100, 100)
               : 50,
           },
         ],
@@ -366,14 +384,7 @@ export function ShippingCalcDialog({
       }
     }
 
-    console.log("[v0] Shipping dialog calling selectBestBoxes:", {
-      pieceWidth,
-      pieceHeight,
-      thicknessPerPiece,
-      quantity,
-    })
-    
-    const result = selectBestBoxes({
+    return selectBestBoxes({
       pieceWidthIn: pieceWidth,
       pieceHeightIn: pieceHeight,
       thicknessPerPieceIn: thicknessPerPiece,
@@ -381,14 +392,6 @@ export function ShippingCalcDialog({
       totalWeightOz,
       upsOnly,
     })
-    
-    console.log("[v0] selectBestBoxes result:", result?.recommendations?.[0] ? {
-      box: result.recommendations[0].box.name,
-      piecesPerBox: result.recommendations[0].piecesPerBox,
-      packingLayout: result.recommendations[0].packingLayout,
-    } : "no result")
-    
-    return result
   }, [
     pieceWidth,
     pieceHeight,
@@ -413,9 +416,12 @@ export function ShippingCalcDialog({
       const individualOverride = perBoxOverrides[i] ? parseInt(perBoxOverrides[i]) : 0
       const effectivePcs = individualOverride > 0 ? individualOverride : globalPcs > 0 ? globalPcs : rec.piecesPerBox
 
-      // Clamp: at least 1, can't exceed what physically fits
+      // Clamp: at least 1, can't exceed what physically fits (multi-stack)
+      const stacksO1 = Math.floor(rec.box.lengthIn / pieceWidth) * Math.floor(rec.box.widthIn / pieceHeight)
+      const stacksO2 = Math.floor(rec.box.lengthIn / pieceHeight) * Math.floor(rec.box.widthIn / pieceWidth)
+      const nStacks = Math.max(stacksO1, stacksO2, 1)
       const maxFit = thicknessPerPiece > 0
-        ? Math.floor(rec.box.heightIn / thicknessPerPiece)
+        ? Math.floor(rec.box.heightIn / thicknessPerPiece) * nStacks
         : effectivePcs
       const piecesPerBox = Math.max(1, Math.min(effectivePcs, maxFit))
 
