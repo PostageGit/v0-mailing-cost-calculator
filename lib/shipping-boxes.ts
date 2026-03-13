@@ -221,7 +221,7 @@ function buildPlan(
   pieceWidthIn: number,
   pieceHeightIn: number,
 ): BoxRecommendation[] | null {
-  // Calculate how many stacks fit side by side in the box floor
+  // Calculate how many stacks fit side by side in the box floor (multi-stack logic v2)
   // Try both orientations of the piece and pick the one that fits more stacks
   const stacksOpt1Length = Math.floor(primaryBox.lengthIn / pieceWidthIn)
   const stacksOpt1Width = Math.floor(primaryBox.widthIn / pieceHeightIn)
@@ -380,6 +380,8 @@ export function selectBestBoxes(input: BoxSelectionInput): ShippingEstimate | nu
     totalWeightOz,
     upsOnly = false,
   } = input
+
+  console.log("[v0] selectBestBoxes v3 (multi-stack):", { pieceWidthIn, pieceHeightIn, thicknessPerPieceIn, quantity })
 
   if (quantity <= 0 || pieceWidthIn <= 0 || pieceHeightIn <= 0) return null
 
