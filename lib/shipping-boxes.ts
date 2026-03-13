@@ -127,10 +127,7 @@ function boxFitsPiece(box: BoxSize, pieceW: number, pieceH: number): boolean {
 }
 
 /** UPS weight limit per box */
-const UPS_MAX_WEIGHT_OZ = 50 * 16 // 50 lbs
-
-/** Max weight a person can comfortably carry (~35 lbs) */
-const CARRY_MAX_OZ = 35 * 16
+// No weight limits - company handles its own delivery
 
 /**
  * Group boxes by footprint family (same L x W).
@@ -150,15 +147,12 @@ function getSmallestFootprintArea(candidates: BoxSize[]): number {
  *
  * Philosophy: PACK FULL, USE FEWEST BOXES, PREFER TALLER NOT WIDER.
  * Go higher (stack more) rather than wider (bigger footprint).
- * Fill every box to max capacity. Only the last box gets the remainder,
- * and we try to use a smaller same-footprint box for that last one.
+ * No weight penalties, no UPS penalties - this company handles its own delivery.
  *
  * Priority order:
  * 1. Fewest total boxes (absolute priority -- each box costs shipping $$)
  * 2. Smallest footprint (prefer taller/narrower boxes over wider ones)
  * 3. Single box type when possible
- * 4. Carriable weight (under 50 lbs for UPS, prefer under 40 lbs)
- * 5. UPS eligibility (warning only, NOT a hard penalty)
  */
 function scorePlan(
   recs: BoxRecommendation[],
@@ -168,15 +162,12 @@ function scorePlan(
 ): number {
   const totalBoxes = recs.reduce((s, r) => s + r.count, 0)
   const uniqueTypes = new Set(recs.map((r) => r.box.name)).size
-  const hasNonUPS = recs.some((r) => !r.box.upsEligible)
 
   // ── 1. Box count (STRONGEST factor) ──
-  // Every extra box costs real money in shipping. This is #1.
   const countPenalty = totalBoxes * 200
 
   // ── 2. Footprint waste - PREFER TALLER NOT WIDER ──
-  // Strongly penalize bigger footprints. Go higher (taller box) rather
-  // than wider (bigger footprint). Smaller footprint = easier to handle.
+  // Smaller footprint = better. Stack higher, not wider.
   let footprintScore = 0
   for (const r of recs) {
     const boxArea = r.box.lengthIn * r.box.widthIn
@@ -185,29 +176,12 @@ function scorePlan(
   }
 
   // ── 3. Box type consistency ──
-  // Nice to have: using one box type is practical. But 2 types is fine
-  // when the last box is smaller.
   const typePenalty = uniqueTypes > 2 ? (uniqueTypes - 1) * 40 : (uniqueTypes - 1) * 15
-
-  // ── 4. Carry weight ──
-  // Penalise boxes over 40 lbs (hard for one person).
-  let carryPenalty = 0
-  for (const r of recs) {
-    if (r.weightPerBoxOz > CARRY_MAX_OZ) {
-      const overLbs = (r.weightPerBoxOz - CARRY_MAX_OZ) / 16
-      carryPenalty += overLbs * 5 * r.count
-    }
-  }
-
-  // ── 5. UPS eligibility ── (low weight - just a warning, not a dealbreaker)
-  const upsPenalty = hasNonUPS ? 20 : 0
 
   return (
     countPenalty +               // fewest boxes is king
     footprintScore * 100 +       // strongly prefer smallest footprint (taller > wider)
-    typePenalty +                 // consistency
-    carryPenalty +                // carriable
-    upsPenalty                    // UPS eligible (soft warning)
+    typePenalty                   // consistency
   )
 }
 
@@ -276,12 +250,8 @@ function buildPlan(
     pieceHeightAsPlaced,
   }
 
-  // Enforce UPS weight limit: cap pieces per box
-  let effectiveMax = maxPerBox
-  if (weightPerPieceOz > 0) {
-    const upsMax = Math.floor((UPS_MAX_WEIGHT_OZ - primaryBox.boxWeightOz) / weightPerPieceOz)
-    effectiveMax = Math.min(effectiveMax, upsMax)
-  }
+  // No weight caps - pack as many as physically fit
+  const effectiveMax = maxPerBox
   if (effectiveMax <= 0) return null
 
   const fullBoxCount = Math.floor(quantity / effectiveMax)
