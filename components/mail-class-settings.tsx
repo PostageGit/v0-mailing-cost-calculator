@@ -25,6 +25,7 @@ import { BoxSizesSettings } from "@/components/box-sizes-settings"
 import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
 import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
 import { PerfectBindingSettingsTab } from "@/components/perfect-binding-settings"
+import { VendorList } from "@/components/vendor-list"
 
 import { PapersSettings } from "@/components/papers-settings"
 import {
@@ -91,6 +92,7 @@ import {
   MessageSquare,
   Eye,
   Clock,
+  Truck,
 } from "lucide-react"
 
 // ---------- types ----------
@@ -130,7 +132,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 type SettingsTab =
   | "pricing" | "papers" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix" | "dont-forget"
-  | "items" | "supplies" | "box-sizes" | "steps"
+  | "items" | "supplies" | "box-sizes" | "steps" | "vendors"
   | "fields" | "terms" | "team" | "system"
 
 interface SettingsNavGroup {
@@ -167,6 +169,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
     label: "Catalog",
     items: [
       { id: "items", label: "Item Database", icon: <Package className="h-4 w-4" />, description: "Reusable items catalog" },
+      { id: "vendors", label: "Vendors", icon: <Truck className="h-4 w-4" />, description: "Vendor directory, facilities, capabilities" },
       { id: "supplies", label: "Suppliers & Supplies", icon: <Boxes className="h-4 w-4" />, description: "Vendors, costs, list rentals" },
       { id: "box-sizes", label: "Shipping Box Sizes", icon: <Package className="h-4 w-4" />, description: "Configure shipping box dimensions" },
       { id: "steps", label: "Job Steps", icon: <ListPlus className="h-4 w-4" />, description: "Workflow step configuration" },
@@ -206,6 +209,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
   "sort-mix": () => <SortMixTab />,
   "dont-forget": () => <DontForgetSettingsTab />,
   items: () => <ItemsSettingsTab />,
+  vendors: () => <VendorList />,
   supplies: () => <SuppliersSettings />,
   "box-sizes": () => <BoxSizesSettings />,
   steps: () => <JobStepsTab />,

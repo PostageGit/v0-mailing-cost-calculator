@@ -15,7 +15,7 @@ import { MailingProvider, useMailing, PIECE_TYPE_META } from "@/lib/mailing-cont
 import { KanbanBoard } from "@/components/kanban-board"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
-import { VendorList } from "@/components/vendor-list"
+
 import { DeliveriesDashboard } from "@/components/deliveries-dashboard"
 import { BillingDashboard } from "@/components/billing-dashboard"
 import { OhpBidsDashboard } from "@/components/ohp-bids-dashboard"
@@ -33,7 +33,7 @@ import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
   Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
-  Users, Truck, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
+  Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
   SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare,
 } from "lucide-react"
 
@@ -74,7 +74,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 // ---- Sidebar nav sections ----
 type Section =
   | "quotes-board" | "jobs-board" | "deliveries" | "billing" | "ohp-bids"
-  | "customers" | "invoices" | "export-qb" | "vendors" | "chat-quotes"
+  | "customers" | "invoices" | "export-qb" | "chat-quotes"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
@@ -88,7 +88,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
-  { id: "vendors",      label: "Vendors",     icon: <Truck className="h-4 w-4" />,            group: "data" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -465,13 +464,6 @@ function AppContent() {
           {section === "export-qb" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
               <ExportToQB onOpenQuote={handleLoadQuote} />
-            </div>
-          )}
-
-          {/* == VENDORS == */}
-          {section === "vendors" && (
-            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
-              <VendorList />
             </div>
           )}
 
