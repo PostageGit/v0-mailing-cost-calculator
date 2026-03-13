@@ -261,7 +261,7 @@ function buildPlan(
   const maxPerBox = roundToStrategicNumber(rawMaxPerBox)
   if (maxPerBox <= 0) return null
   
-  console.log("[v0] Box packing calc:", {
+  console.log("[v0] MULTI-STACK v4:", {
     box: primaryBox.name,
     pieceSize: `${pieceWidthIn}x${pieceHeightIn}`,
     boxFloor: `${primaryBox.lengthIn}x${primaryBox.widthIn}`,
@@ -272,6 +272,11 @@ function buildPlan(
     rawMaxPerBox,
     maxPerBox,
   })
+  
+  // TEMP: Alert to confirm new code is running (remove after testing)
+  if (numStacks > 1 && typeof window !== 'undefined') {
+    console.warn(`[v0] MULTI-STACK DETECTED: ${numStacks} stacks = ${rawMaxPerBox} pieces (rounded to ${maxPerBox})`)
+  }
   
   // Create packing layout info for visualization
   const packingLayout: PackingLayout = {
