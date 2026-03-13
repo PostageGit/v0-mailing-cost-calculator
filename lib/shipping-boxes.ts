@@ -263,7 +263,12 @@ function buildPlan(
   const maxPerBox = roundToStrategicNumber(rawMaxPerBox)
   if (maxPerBox <= 0) return null
   
-  console.log("[v0] MULTI-STACK v4:", {
+  // DEBUG v6: Force visible output
+  const debugMsg = `STACKS: opt1=${stacksOpt1} opt2=${stacksOpt2} => numStacks=${numStacks}, raw=${rawMaxPerBox}, final=${maxPerBox}`
+  console.log("[v0] MULTI-STACK v6:", debugMsg)
+  console.warn("[v0]", debugMsg)
+  
+  console.log("[v0] MULTI-STACK v6 FULL:", {
     box: primaryBox.name,
     pieceSize: `${pieceWidthIn}x${pieceHeightIn}`,
     boxFloor: `${primaryBox.lengthIn}x${primaryBox.widthIn}`,
