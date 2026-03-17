@@ -37,6 +37,7 @@ interface PrintingFormProps {
   hasCalculated: boolean
   currentResult?: FullPrintingResult | null
   ohpMode?: boolean
+  disabled?: boolean
 }
 
 export function PrintingForm({
@@ -48,6 +49,7 @@ export function PrintingForm({
   hasCalculated,
   currentResult,
   ohpMode,
+  disabled = false,
 }: PrintingFormProps) {
   const [showAllPapers, setShowAllPapers] = useState(false)
   const { papers: filteredPapers } = useFlatPrintingPapers()
@@ -79,6 +81,7 @@ export function PrintingForm({
   }
 
   return (
+    <fieldset disabled={disabled} className={disabled ? "opacity-60 pointer-events-none" : ""}>
     <div className="flex flex-col gap-4">
       {/* Row 1: Qty, Width, Height */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -316,6 +319,7 @@ export function PrintingForm({
         </Button>
       </div>
     </div>
+    </fieldset>
   )
 }
 

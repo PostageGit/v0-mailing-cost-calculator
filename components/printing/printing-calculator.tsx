@@ -27,7 +27,7 @@ import type {
 
 } from "@/lib/printing-types"
 import { useQuote } from "@/lib/quote-context"
-import { Plus, ArrowDown, Save, Pencil, ExternalLink, Truck } from "lucide-react"
+import { Plus, ArrowDown, Save, Pencil, ExternalLink, Truck, Lock } from "lucide-react"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import useSWR from "swr"
 import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
@@ -97,8 +97,10 @@ export function PrintingCalculator() {
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
   const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
+  const [isFrozen, setIsFrozen] = useState(false)
   
   // Restore calculator inputs from saved quote items when quote is loaded
+  // Fields are FROZEN by default - user must click "Revise" to unlock
   useEffect(() => {
     // Skip if no saved quote or already restored this quote
     if (!quote.savedId || restoredFromId === quote.savedId) return
@@ -106,13 +108,6 @@ export function PrintingCalculator() {
     if (quote.items.length === 0) return
     
     const flatItem = quote.items.find(item => item.category === "flat")
-    console.log("[v0] Flat restore check:", { 
-      savedId: quote.savedId,
-      restoredFromId,
-      hasFlatItem: !!flatItem, 
-      metadata: flatItem?.metadata,
-      hasCalcInputs: !!flatItem?.metadata?.calculatorInputs 
-    })
     
     if (flatItem?.metadata) {
       const meta = flatItem.metadata
@@ -123,28 +118,24 @@ export function PrintingCalculator() {
         restored = meta.calculatorInputs as PrintingInputs
       } else {
         // Fallback: extract from older metadata format
-        // Parse dimensions from pieceDimensions (e.g. "8.5x11")
         const dims = meta.pieceDimensions?.split("x")
         if (dims?.length === 2) {
           restored.width = parseFloat(dims[0]) || 8.5
           restored.height = parseFloat(dims[1]) || 11
         }
-        // Parse from label (e.g. "500 - 8.5x11 D/S 20lb Offset")
         const label = flatItem.label || ""
         const qtyMatch = label.match(/^([\d,]+)\s*-/)
         if (qtyMatch) restored.qty = parseInt(qtyMatch[1].replace(/,/g, "")) || 500
-        // Use metadata fields
         if (meta.paperName) restored.paperName = meta.paperName
         if (meta.sides === "D/S") restored.sidesValue = "ds"
         else if (meta.sides === "S/S") restored.sidesValue = "ss"
         if (meta.hasBleed !== undefined) restored.hasBleed = meta.hasBleed
       }
       
-      console.log("[v0] Restoring flat inputs:", restored)
-      
       if (Object.keys(restored).length > 0) {
         setInputs(prev => ({ ...prev, ...restored }))
         setRestoredFromId(quote.savedId)
+        setIsFrozen(true) // Lock fields when loading saved quote
       }
     }
   }, [quote.items, quote.savedId, restoredFromId])
@@ -502,6 +493,32 @@ export function PrintingCalculator() {
             {isOhpMode ? "Flat Print Specs (OHP)" : "Flat Printing Calculator"}
           </h2>
 
+        {/* Frozen Quote Banner - shows when viewing a saved quote */}
+        {isFrozen && (
+          <div className="mb-4 rounded-xl border-2 border-amber-300 dark:border-amber-600/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Viewing Saved Quote</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Fields are locked. Click Revise to make changes.</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                onClick={() => setIsFrozen(false)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Revise Quote
+              </Button>
+            </div>
+          </div>
+        )}
+
           {/* Piece selector -- auto-fill from planner */}
           {flatPieces.length > 0 && (
             <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-3">
@@ -583,11 +600,12 @@ export function PrintingCalculator() {
             onInputsChange={setInputs}
             onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
             onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
-            isEditing={editingItemId !== null}
-            hasCalculated={hasCalculated}
-            currentResult={isOhpMode ? null : fullResult}
-            ohpMode={isOhpMode}
-          />
+  isEditing={editingItemId !== null}
+  hasCalculated={hasCalculated}
+  currentResult={isOhpMode ? null : fullResult}
+  ohpMode={isOhpMode}
+  disabled={isFrozen}
+  />
             </>
           )}
 

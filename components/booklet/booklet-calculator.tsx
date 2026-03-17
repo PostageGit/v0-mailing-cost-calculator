@@ -13,7 +13,7 @@ import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { useGlobalChat } from "@/lib/chat-context"
 import { bookletSpecsToChat } from "@/lib/specs-to-chat"
-import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck } from "lucide-react"
+import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck, Lock } from "lucide-react"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
@@ -59,9 +59,10 @@ export function BookletCalculator() {
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
   const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
+  const [isFrozen, setIsFrozen] = useState(false)
   
   // Restore calculator inputs from saved quote items when quote is loaded
-  // Uses savedId to detect when a different quote is loaded
+  // Fields are FROZEN by default - user must click "Revise" to unlock
   useEffect(() => {
     // Skip if no saved quote or already restored this quote
     if (!quote.savedId || restoredFromId === quote.savedId) return
@@ -69,13 +70,6 @@ export function BookletCalculator() {
     if (quote.items.length === 0) return
     
     const bookletItem = quote.items.find(item => item.category === "booklet")
-    console.log("[v0] Booklet restore check:", { 
-      savedId: quote.savedId,
-      restoredFromId,
-      hasBookletItem: !!bookletItem, 
-      metadata: bookletItem?.metadata,
-      hasCalcInputs: !!bookletItem?.metadata?.calculatorInputs 
-    })
     
     if (bookletItem?.metadata) {
       const meta = bookletItem.metadata
@@ -86,33 +80,28 @@ export function BookletCalculator() {
         restored = meta.calculatorInputs as BookletInputs
       } else {
         // Fallback: extract from older metadata format
-        // Parse dimensions from pieceDimensions (e.g. "5x5")
         const dims = meta.pieceDimensions?.split("x")
         if (dims?.length === 2) {
           restored.pageWidth = parseFloat(dims[0]) || 5
           restored.pageHeight = parseFloat(dims[1]) || 5
         }
-        // Parse from label (e.g. "500 - 16pg Booklet 5x5 w/ 80 Cover Gloss Cover")
         const label = bookletItem.label || ""
         const qtyMatch = label.match(/^([\d,]+)\s*-/)
         if (qtyMatch) restored.bookQty = parseInt(qtyMatch[1].replace(/,/g, "")) || 500
         const pagesMatch = label.match(/(\d+)pg/)
         if (pagesMatch) restored.pagesPerBook = parseInt(pagesMatch[1]) || 16
-        // Use metadata fields
         if (meta.pageCount) restored.pagesPerBook = meta.pageCount
         if (meta.paperName) restored.insidePaper = meta.paperName
       }
-      
-      console.log("[v0] Restoring booklet inputs:", restored)
       
       if (Object.keys(restored).length > 0) {
         const finalInputs = { ...EMPTY_INPUTS, ...restored }
         setInputs(finalInputs)
         setRestoredFromId(quote.savedId)
+        setIsFrozen(true) // Lock fields when loading saved quote
         // Auto-calculate after restoring
         setTimeout(() => {
           const result = calculateBooklet(finalInputs)
-          console.log("[v0] Auto-calc result:", result.isValid, result.grandTotal)
           if (result.isValid) {
             setCalcResult(result)
             setActiveTab(finalInputs.separateCover ? "cover" : "inside")
@@ -292,6 +281,32 @@ export function BookletCalculator() {
           {isOhpMode ? "Booklet Specs (OHP)" : "Saddle Stitch Booklet Calculator"}
         </h2>
 
+        {/* Frozen Quote Banner - shows when viewing a saved quote */}
+        {isFrozen && (
+          <div className="mb-4 rounded-xl border-2 border-amber-300 dark:border-amber-600/50 bg-amber-50 dark:bg-amber-950/30 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Viewing Saved Quote</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Fields are locked. Click Revise to make changes.</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-1.5 border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                onClick={() => setIsFrozen(false)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Revise Quote
+              </Button>
+            </div>
+          </div>
+        )}
+
           {/* Piece selector -- auto-fill from planner */}
           {bookletPieces.length > 0 && (
             <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-3">
@@ -359,6 +374,7 @@ export function BookletCalculator() {
             isEditing={editingItemId !== null}
             validationError={validationError}
             ohpMode={isOhpMode}
+            disabled={isFrozen}
           />
             </>
           )}
