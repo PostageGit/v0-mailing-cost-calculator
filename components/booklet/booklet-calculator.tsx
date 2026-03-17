@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { BookletForm } from "./booklet-form"
@@ -51,15 +51,14 @@ export function BookletCalculator() {
     (p) => p.type === "booklet" && (p.production === "inhouse" || p.production === "both" || p.production === "ohp")
   )
 
-  // ── Restore calculator inputs synchronously from saved quote ──
-  // Extract saved inputs from the quote items RIGHT NOW (not in an effect)
-  // so they're available on the very first render
+  // ── Saved quote detection ──
+  // Extract saved inputs from the quote context on EVERY render
   const savedBookletItem = quote.items.find(item => item.category === "booklet")
   const hasSavedQuote = !!(quote.savedId && savedBookletItem)
   
-  // Build initial inputs: use saved calculatorInputs if available, else parse from metadata
-  const initialInputs = useMemo(() => {
-    if (!hasSavedQuote || !savedBookletItem?.metadata) return EMPTY_INPUTS
+  // Build saved inputs from metadata - computed every render, no timing dependency
+  const savedInputs = useMemo<BookletInputs | null>(() => {
+    if (!hasSavedQuote || !savedBookletItem?.metadata) return null
     const meta = savedBookletItem.metadata
     if (meta.calculatorInputs) {
       return { ...EMPTY_INPUTS, ...(meta.calculatorInputs as BookletInputs) }
@@ -81,41 +80,47 @@ export function BookletCalculator() {
     return { ...EMPTY_INPUTS, ...restored }
   }, [hasSavedQuote, savedBookletItem])
 
-  // Initialize state directly from saved values - no effect needed
-  const [inputs, setInputs] = useState<BookletInputs>(hasSavedQuote ? initialInputs : EMPTY_INPUTS)
-  const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(() => {
-    if (!hasSavedQuote) return null
-    const result = calculateBooklet(initialInputs)
-    return result.isValid ? result : null
-  })
+  // Local form state - always starts empty
+  const [localInputs, setLocalInputs] = useState<BookletInputs>(EMPTY_INPUTS)
+  const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (hasSavedQuote && initialInputs.separateCover) return "cover"
-    if (hasSavedQuote) return "inside"
-    return "cover"
-  })
-
+  const [activeTab, setActiveTab] = useState<string>("cover")
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [isFrozen, setIsFrozen] = useState(hasSavedQuote)
   
-  // Also handle case where quote changes AFTER mount (e.g. loading new quote while on booklet tab)
-  const restoredQuoteRef = useRef<string | null>(hasSavedQuote ? quote.savedId : null)
+  // Frozen = user hasn't clicked "Revise" yet on a saved quote
+  const [userUnfroze, setUserUnfroze] = useState(false)
+  const isFrozen = hasSavedQuote && !userUnfroze
   
-  useEffect(() => {
-    if (!hasSavedQuote) return
-    if (restoredQuoteRef.current === quote.savedId) return
-    
-    restoredQuoteRef.current = quote.savedId
-    setInputs(initialInputs)
-    setIsFrozen(true)
-    
-    const result = calculateBooklet(initialInputs)
-    if (result.isValid) {
-      setCalcResult(result)
-      setActiveTab(initialInputs.separateCover ? "cover" : "inside")
+  // THE KEY: inputs are derived, not just from state
+  // When frozen (viewing saved quote), show saved values directly
+  // When unfrozen (editing), show local state
+  const inputs = isFrozen && savedInputs ? savedInputs : localInputs
+  const setInputs = useCallback((val: BookletInputs | ((prev: BookletInputs) => BookletInputs)) => {
+    if (typeof val === "function") {
+      setLocalInputs(val)
+    } else {
+      setLocalInputs(val)
     }
-  }, [hasSavedQuote, quote.savedId, initialInputs])
+  }, [])
+  
+  // When user clicks "Revise", copy saved values into local state so they can edit
+  const handleUnfreeze = useCallback(() => {
+    if (savedInputs) {
+      setLocalInputs(savedInputs)
+    }
+    setUserUnfroze(true)
+  }, [savedInputs])
+  
+  // Auto-calculate when viewing a saved quote
+  const savedCalcResult = useMemo(() => {
+    if (!isFrozen || !savedInputs) return null
+    const result = calculateBooklet(savedInputs)
+    return result.isValid ? result : null
+  }, [isFrozen, savedInputs])
+  
+  // Use saved calc result when frozen, local calc result when editing
+  const effectiveCalcResult = isFrozen ? savedCalcResult : calcResult
   
   const loadPiece = useCallback((piece: MailPiece) => {
     // Don't override inputs if we're viewing a frozen saved quote
@@ -187,9 +192,10 @@ export function BookletCalculator() {
   }, [calcResult, inputs])
 
   function resetForm() {
-    setInputs(EMPTY_INPUTS)
+    setLocalInputs(EMPTY_INPUTS)
     setCalcResult(null)
     setValidationError(null)
+    setUserUnfroze(true) // Unlock form on reset
   }
 
   const bookletPiece = bookletPieces.length > 0 ? bookletPieces[0] : null
@@ -235,14 +241,15 @@ export function BookletCalculator() {
   }, [inputs, activePiece, quote])
 
   const handleAddToQuote = useCallback(() => {
-    if (!calcResult || !calcResult.isValid) return
-    const coverDesc = inputs.separateCover ? `w/ ${calcResult.coverResult.paper} Cover` : "Self-Cover"
-    const desc = `${inputs.insidePaper}, ${calcResult.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
+    const cr = effectiveCalcResult
+    if (!cr || !cr.isValid) return
+    const coverDesc = inputs.separateCover ? `w/ ${cr.coverResult.paper} Cover` : "Self-Cover"
+    const desc = `${inputs.insidePaper}, ${cr.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
     quote.addItem({
       category: "booklet",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
       description: desc,
-      amount: effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal,
+      amount: effectiveTotal > 0 ? effectiveTotal : cr.grandTotal,
       metadata: {
         pieceType: bookletPiece?.type || "booklet",
         pieceLabel: bookletPiece?.label || undefined,
@@ -250,7 +257,7 @@ export function BookletCalculator() {
         production: bookletPiece?.production || "inhouse",
         piecePosition: bookletPiece?.position || undefined,
         paperName: inputs.insidePaper,
-        sides: calcResult.insideResult.sides,
+        sides: cr.insideResult.sides,
         pageCount: inputs.pagesPerBook,
         // Store full calculator inputs for restoration
         calculatorInputs: {
@@ -275,7 +282,7 @@ export function BookletCalculator() {
         },
       },
     })
-  }, [calcResult, inputs, quote, effectiveTotal, bookletPiece])
+  }, [effectiveCalcResult, inputs, quote, effectiveTotal, bookletPiece])
 
   return (
     <div className="flex flex-col gap-5 min-h-0 flex-grow max-w-4xl">
@@ -309,7 +316,7 @@ export function BookletCalculator() {
                 variant="outline" 
                 size="sm" 
                 className="gap-1.5 border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                onClick={() => setIsFrozen(false)}
+                onClick={handleUnfreeze}
               >
                 <Pencil className="h-3.5 w-3.5" />
                 Revise Quote
@@ -391,13 +398,13 @@ export function BookletCalculator() {
           )}
 
           {/* Results (in-house only) */}
-          {!isOhpMode && calcResult && calcResult.isValid && (
+          {!isOhpMode && effectiveCalcResult && effectiveCalcResult.isValid && (
             <div className="mt-6 pt-6 border-t border-border">
               {/* Warnings */}
-              {calcResult.warnings.length > 0 && (
+              {effectiveCalcResult.warnings.length > 0 && (
                 <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 text-sm p-3 rounded-lg mb-4 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <div>{calcResult.warnings.join(" ")}</div>
+                  <div>{effectiveCalcResult.warnings.join(" ")}</div>
                 </div>
               )}
 
@@ -415,9 +422,9 @@ export function BookletCalculator() {
                     {inputs.separateCover && (
                       <TabsContent value="cover" className="mt-4">
                         <BookletLayoutSvg
-                          result={calcResult.coverResult}
-                          spreadWidth={calcResult.spreadWidth}
-                          spreadHeight={calcResult.spreadHeight}
+                          result={effectiveCalcResult.coverResult}
+                          spreadWidth={effectiveCalcResult.spreadWidth}
+                          spreadHeight={effectiveCalcResult.spreadHeight}
                           label="Cover"
                         />
                       </TabsContent>
@@ -425,16 +432,16 @@ export function BookletCalculator() {
 
                     <TabsContent value="inside" className="mt-4">
                       <BookletLayoutSvg
-                        result={calcResult.insideResult}
-                        spreadWidth={calcResult.spreadWidth}
-                        spreadHeight={calcResult.spreadHeight}
+                        result={effectiveCalcResult.insideResult}
+                        spreadWidth={effectiveCalcResult.spreadWidth}
+                        spreadHeight={effectiveCalcResult.spreadHeight}
                         label="Inside Pages"
                       />
                     </TabsContent>
                   </Tabs>
                   {/* Paper stats under layout */}
                   {(() => {
-                    const r = activeTab === "cover" && calcResult.coverResult.paper !== "N/A" ? calcResult.coverResult : calcResult.insideResult
+                    const r = activeTab === "cover" && effectiveCalcResult.coverResult.paper !== "N/A" ? effectiveCalcResult.coverResult : effectiveCalcResult.insideResult
                     return (
                       <div className="mt-3">
                         <p className="text-center text-xs font-semibold text-foreground mb-1.5">{r.paper}</p>
@@ -451,7 +458,7 @@ export function BookletCalculator() {
                 {/* Price Details */}
                 <div className="flex flex-col gap-4">
                   <BookletDetails
-                    result={calcResult}
+                    result={effectiveCalcResult}
                     bookQty={inputs.bookQty}
                     inputs={inputs}
                     onLevelChange={handleLevelChange}
@@ -469,7 +476,7 @@ export function BookletCalculator() {
                   size="lg"
                 >
                   <Plus className="h-4 w-4" />
-                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
+                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}
                 </Button>
                 <ShippingCalcButton
                   pieceWidth={inputs.pageWidth}
