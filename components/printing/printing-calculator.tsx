@@ -197,6 +197,11 @@ export function PrintingCalculator() {
 
   // Load a planner piece into the form
   const loadPiece = useCallback((piece: MailPiece) => {
+    // Don't override inputs if we're viewing a frozen saved quote
+    if (isFrozen) {
+      setActivePiece(piece)
+      return
+    }
     const flat = getFlatSize(piece)
     setActivePiece(piece)
     setInputs((prev) => ({
@@ -212,7 +217,7 @@ export function PrintingCalculator() {
     setHasCalculated(false)
     setShowResults(false)
     setOhpSpecsSaved(false)
-  }, [mailing.printQty])
+  }, [mailing.printQty, isFrozen])
 
   // Helper to compute finishing calculator costs
   const getFinCalcCosts = useCallback(
