@@ -712,12 +712,12 @@ export function setDynamicPaperOptions(options: {
 export function getDynamicPaperOptions(useFor: "flat" | "bookInside" | "bookCover" | "spiralInside" | "spiralCover" | "pad"): DynamicPaperOption[] {
   const cfg = getActiveConfig()
   switch (useFor) {
-    case "flat": return cfg.flatPaperOptions
-    case "bookInside": return cfg.bookInsidePaperOptions
-    case "bookCover": return cfg.bookCoverPaperOptions
-    case "spiralInside": return cfg.spiralInsidePaperOptions
-    case "spiralCover": return cfg.spiralCoverPaperOptions
-    case "pad": return cfg.padPaperOptions
+    case "flat": return cfg.flatPaperOptions ?? []
+    case "bookInside": return cfg.bookInsidePaperOptions ?? []
+    case "bookCover": return cfg.bookCoverPaperOptions ?? []
+    case "spiralInside": return cfg.spiralInsidePaperOptions ?? []
+    case "spiralCover": return cfg.spiralCoverPaperOptions ?? []
+    case "pad": return cfg.padPaperOptions ?? []
     default: return []
   }
 }

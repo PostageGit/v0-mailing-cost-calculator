@@ -22,8 +22,8 @@ import { getDynamicPaperOptions } from "./pricing-config"
 
 /** Get paper options - uses database papers if loaded, otherwise falls back to hardcoded */
 export function getFlatPaperOptions(): PaperOption[] {
-  const dynamic = getDynamicPaperOptions("flat")
-  if (dynamic.length > 0) {
+  const dynamic = getDynamicPaperOptions("flat") ?? []
+  if (dynamic && dynamic.length > 0) {
     return dynamic.map(d => ({
       name: d.name,
       isCardstock: d.isCardstock,
