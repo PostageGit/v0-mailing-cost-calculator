@@ -40,6 +40,106 @@ function RelativeTime({ date }: { date: string }) {
   )
 }
 
+// Generate a detailed change summary between two revisions
+function getChangeSummary(prev: QuoteRevision, current: QuoteRevision): string[] {
+  const changes: string[] = []
+  
+  // Price change
+  const priceDiff = current.total - prev.total
+  if (priceDiff !== 0) {
+    const sign = priceDiff > 0 ? "+" : ""
+    changes.push(`${sign}${formatCurrency(priceDiff)}`)
+  }
+  
+  // Quantity change
+  if (prev.quantity && current.quantity && prev.quantity !== current.quantity) {
+    changes.push(`Qty: ${prev.quantity.toLocaleString()}\u2192${current.quantity.toLocaleString()}`)
+  }
+  
+  // Compare items metadata for detailed changes
+  const prevItems = prev.items || []
+  const curItems = current.items || []
+  
+  // Try to match items by category for comparison
+  for (const curItem of curItems) {
+    const prevItem = prevItems.find(p => p.category === curItem.category)
+    if (!prevItem) continue
+    
+    const prevMeta = prevItem.metadata || {}
+    const curMeta = curItem.metadata || {}
+    const prevCalc = (prevMeta.calculatorInputs || {}) as Record<string, unknown>
+    const curCalc = (curMeta.calculatorInputs || {}) as Record<string, unknown>
+    
+    // Paper change
+    const prevPaper = prevCalc.paperName || prevCalc.insidePaper || prevMeta.paperName
+    const curPaper = curCalc.paperName || curCalc.insidePaper || curMeta.paperName
+    if (prevPaper && curPaper && prevPaper !== curPaper) {
+      changes.push("Paper changed")
+    }
+    
+    // Size change
+    const prevW = prevCalc.width || prevCalc.pageWidth
+    const prevH = prevCalc.height || prevCalc.pageHeight
+    const curW = curCalc.width || curCalc.pageWidth
+    const curH = curCalc.height || curCalc.pageHeight
+    if (prevW && curW && prevH && curH && (prevW !== curW || prevH !== curH)) {
+      changes.push(`Size: ${prevW}x${prevH}\u2192${curW}x${curH}`)
+    }
+    
+    // Sides change
+    const prevSides = prevCalc.sidesValue || prevMeta.sides
+    const curSides = curCalc.sidesValue || curMeta.sides
+    if (prevSides && curSides && prevSides !== curSides) {
+      changes.push(`Sides: ${String(prevSides).toUpperCase()}\u2192${String(curSides).toUpperCase()}`)
+    }
+    
+    // Pages change (booklet/perfect)
+    const prevPages = prevCalc.pagesPerBook || prevCalc.contentPages || prevMeta.pageCount
+    const curPages = curCalc.pagesPerBook || curCalc.contentPages || curMeta.pageCount
+    if (prevPages && curPages && prevPages !== curPages) {
+      changes.push(`Pages: ${prevPages}\u2192${curPages}`)
+    }
+    
+    // Lamination change
+    const prevLam = prevCalc.laminationType || (prevCalc.lamination as Record<string, unknown>)?.type
+    const curLam = curCalc.laminationType || (curCalc.lamination as Record<string, unknown>)?.type
+    if (prevLam !== curLam) {
+      if ((!prevLam || prevLam === "none") && curLam && curLam !== "none") {
+        changes.push("+Lamination")
+      } else if (prevLam && prevLam !== "none" && (!curLam || curLam === "none")) {
+        changes.push("-Lamination")
+      }
+    }
+    
+    // Binding change (booklet)
+    const prevBind = prevCalc.bindingType
+    const curBind = curCalc.bindingType
+    if (prevBind && curBind && prevBind !== curBind) {
+      changes.push(`Binding: ${prevBind}\u2192${curBind}`)
+    }
+    
+    // Item quantity change (from label or calculatorInputs)
+    const prevQty = prevCalc.qty || prevCalc.bookQty
+    const curQty = curCalc.qty || curCalc.bookQty
+    if (prevQty && curQty && prevQty !== curQty) {
+      changes.push(`Qty: ${Number(prevQty).toLocaleString()}\u2192${Number(curQty).toLocaleString()}`)
+    }
+  }
+  
+  // Item count changes
+  if (curItems.length > prevItems.length) {
+    const diff = curItems.length - prevItems.length
+    changes.push(`+${diff} ${diff === 1 ? "item" : "items"}`)
+  } else if (curItems.length < prevItems.length) {
+    const diff = prevItems.length - curItems.length
+    changes.push(`-${diff} ${diff === 1 ? "item" : "items"}`)
+  }
+  
+  // Deduplicate (e.g. Qty might appear from both quantity and calculatorInputs)
+  const unique = [...new Set(changes)]
+  return unique.length > 0 ? unique.slice(0, 4) : ["Minor adjustments"]
+}
+
 function RevisionCard({
   rev,
   prevRev,
@@ -54,7 +154,7 @@ function RevisionCard({
   const [expanded, setExpanded] = useState(isLatest)
   const items = rev.items || []
   const totalDiff = prevRev ? rev.total - prevRev.total : 0
-  const itemCountDiff = prevRev ? items.length - (prevRev.items?.length || 0) : 0
+  const changeSummary = prevRev ? getChangeSummary(prevRev, rev) : []
 
   return (
     <div
@@ -138,26 +238,19 @@ function RevisionCard({
           </div>
         </div>
 
-        {/* Change summary chips (collapsed view) */}
-        {!expanded && prevRev && (totalDiff !== 0 || itemCountDiff !== 0) && (
-          <div className="flex items-center gap-2 mt-2.5 ml-[52px]">
-            {totalDiff !== 0 && (
-              <span
-                className={cn(
-                  "inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium",
-                  totalDiff > 0
-                    ? "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400"
-                    : "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400"
-                )}
-              >
-                Price {totalDiff > 0 ? "+" : ""}{formatCurrency(totalDiff)}
-              </span>
-            )}
-            {itemCountDiff !== 0 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-secondary text-muted-foreground">
-                {itemCountDiff > 0 ? `+${itemCountDiff}` : itemCountDiff} {Math.abs(itemCountDiff) === 1 ? "item" : "items"}
-              </span>
-            )}
+        {/* Change summary line */}
+        {prevRev && changeSummary.length > 0 && (
+          <div className="mt-2 ml-[52px]">
+            <p className={cn(
+              "text-[11px] font-medium",
+              totalDiff < 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : totalDiff > 0
+                  ? "text-rose-500 dark:text-rose-400"
+                  : "text-blue-600 dark:text-blue-400"
+            )}>
+              Changed: {changeSummary.join(", ")}
+            </p>
           </div>
         )}
       </button>
@@ -165,6 +258,19 @@ function RevisionCard({
       {/* Expanded item list */}
       {expanded && (
         <div className="px-5 pb-4 border-t border-border/40">
+          {/* Change summary banner in expanded view */}
+          {prevRev && changeSummary.length > 0 && (
+            <div className={cn(
+              "mt-3 px-3 py-2 rounded-lg text-[12px] font-medium",
+              totalDiff < 0
+                ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300"
+                : totalDiff > 0
+                  ? "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400"
+                  : "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400"
+            )}>
+              Changed: {changeSummary.join(", ")}
+            </div>
+          )}
           {items.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3">No items in this revision.</p>
           ) : (
