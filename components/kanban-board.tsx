@@ -17,7 +17,7 @@ import type { Vendor } from "@/lib/vendor-types"
 import { StandaloneRevisionDialog } from "@/components/revision-history-dialog"
 import {
   FileText, Trash2, ArrowRight, ArrowLeft, Ban,
-  Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
+  Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check, RotateCcw,
   Plus, Settings2, CalendarDays, Briefcase, AlertCircle,
   Search, Archive, ArchiveRestore, ChevronDown, ChevronLeft, ChevronRight,
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
@@ -1945,100 +1945,196 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
           
           {/* Revision History Panel */}
           {showRevisions && (
-            <div className="border border-border rounded-lg overflow-hidden">
-              <div className="bg-secondary/50 px-3 py-2 border-b border-border">
-                <h4 className="text-sm font-semibold text-foreground">Revision History</h4>
-                <p className="text-xs text-muted-foreground">Compare changes between versions</p>
-              </div>
+            <div className="border border-border rounded-xl overflow-hidden">
               {loadingRevisions ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">Loading revisions...</div>
-              ) : revisions.length <= 1 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">No previous revisions yet. Changes will be tracked when you save.</div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {revisions.map((rev, idx) => {
-                    const isSelected = selectedRevision === rev.revision_number
-                    const prevRev = revisions[idx + 1]
-                    const itemsDiff = prevRev ? rev.items.length - prevRev.items.length : 0
-                    const totalDiff = prevRev ? rev.total - prevRev.total : 0
-                    
-                    return (
-                      <div 
-                        key={rev.revision_number} 
-                        className={cn(
-                          "px-3 py-2.5 cursor-pointer transition-colors",
-                          isSelected ? "bg-primary/10" : "hover:bg-secondary/50"
-                        )}
-                        onClick={() => setSelectedRevision(isSelected ? null : rev.revision_number)}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "text-xs font-mono font-bold px-1.5 py-0.5 rounded",
-                              rev.is_current 
-                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
-                                : "bg-secondary text-muted-foreground"
-                            )}>
-                              Rev {rev.revision_number}
-                            </span>
-                            {rev.is_current && <Badge variant="outline" className="text-[10px] h-5">Current</Badge>}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs">
-                            <span className="font-mono tabular-nums text-foreground">{formatCurrency(rev.total)}</span>
-                            {totalDiff !== 0 && (
-                              <span className={cn("font-mono tabular-nums", totalDiff > 0 ? "text-green-600" : "text-red-600")}>
-                                {totalDiff > 0 ? "+" : ""}{formatCurrency(totalDiff)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(rev.created_at).toLocaleDateString()} {new Date(rev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {rev.items.length} items
-                            {itemsDiff !== 0 && <span className={cn("ml-1", itemsDiff > 0 ? "text-green-600" : "text-red-600")}>({itemsDiff > 0 ? "+" : ""}{itemsDiff})</span>}
-                          </span>
-                        </div>
-                        
-                        {/* Expanded view showing items */}
-                        {isSelected && (
-                          <div className="mt-3 pt-3 border-t border-border/50">
-                            <div className="text-[11px] text-muted-foreground mb-2 font-medium">Items in this revision:</div>
-                            <div className="space-y-1 max-h-40 overflow-y-auto">
-                              {rev.items.map((item, i) => (
-                                <div key={i} className="flex items-center justify-between text-xs bg-background/50 rounded px-2 py-1">
-                                  <span className="truncate flex-1">{item.label}</span>
-                                  <span className="font-mono tabular-nums ml-2">{formatCurrency(item.amount)}</span>
-                                </div>
-                              ))}
-                            </div>
-                            {!rev.is_current && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="mt-2 text-xs h-7 w-full"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  // Restore this revision
-                                  setEditItems(rev.items)
-                                  setName(rev.project_name)
-                                  if (rev.notes) setNotes(rev.notes)
-                                  setShowRevisions(false)
-                                  setSelectedRevision(null)
-                                }}
-                              >
-                                Restore This Revision
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                <div className="p-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading revisions...
                 </div>
-              )}
+              ) : revisions.length <= 1 ? (
+                <div className="p-6 text-center">
+                  <History className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No previous revisions yet.</p>
+                  <p className="text-[11px] text-muted-foreground/60 mt-0.5">Changes are tracked each time you save.</p>
+                </div>
+              ) : (() => {
+                // Current version is always first (highest revision_number)
+                const current = revisions[0]
+                const history = revisions.slice(1)
+
+                return (
+                  <div>
+                    {/* ── Current version - prominent ── */}
+                    <div className="px-4 py-3 bg-background border-b border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-foreground flex items-center justify-center shrink-0">
+                            <span className="text-[9px] font-bold text-background">v{current.revision_number}</span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-semibold text-foreground">Current version</span>
+                              <span className="px-1.5 py-px rounded text-[9px] font-bold bg-foreground text-background">LIVE</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{current.items.length} items</span>
+                          </div>
+                        </div>
+                        <span className="text-[15px] font-bold tabular-nums text-foreground">{formatCurrency(current.total)}</span>
+                      </div>
+                    </div>
+
+                    {/* ── History entries ── */}
+                    <div className="divide-y divide-border/60 bg-muted/20">
+                      {history.map((rev, idx) => {
+                        const isSelected = selectedRevision === rev.revision_number
+                        // Next older rev (for diffing)
+                        const olderRev = history[idx + 1] ?? null
+                        // Diff vs the rev *above* this one (newer)
+                        const newerRev = idx === 0 ? current : history[idx - 1]
+                        const totalDiff = newerRev.total - rev.total
+                        const itemsDiff = newerRev.items.length - rev.items.length
+
+                        // Build changed-item diff
+                        const changedItems = newerRev.items.filter(ni => {
+                          const match = rev.items.find(oi =>
+                            oi.category === ni.category &&
+                            oi.label.replace(/^[\d,]+\s*[-–]\s*/, "") === ni.label.replace(/^[\d,]+\s*[-–]\s*/, "")
+                          )
+                          return !match || match.amount !== ni.amount || match.label !== ni.label
+                        })
+                        const newItems = newerRev.items.filter(ni =>
+                          !rev.items.find(oi => oi.category === ni.category && oi.label.replace(/^[\d,]+\s*[-–]\s*/, "") === ni.label.replace(/^[\d,]+\s*[-–]\s*/, ""))
+                        )
+                        const removedItems = rev.items.filter(oi =>
+                          !newerRev.items.find(ni => ni.category === oi.category && ni.label.replace(/^[\d,]+\s*[-–]\s*/, "") === oi.label.replace(/^[\d,]+\s*[-–]\s*/, ""))
+                        )
+
+                        // Build compact change chips
+                        const chips: { label: string; color: "green" | "red" | "blue" }[] = []
+                        if (totalDiff !== 0) chips.push({ label: `${totalDiff > 0 ? "+" : ""}${formatCurrency(totalDiff)}`, color: totalDiff > 0 ? "green" : "red" })
+                        if (itemsDiff > 0) chips.push({ label: `+${itemsDiff} item${itemsDiff !== 1 ? "s" : ""}`, color: "green" })
+                        if (itemsDiff < 0) chips.push({ label: `${itemsDiff} item${Math.abs(itemsDiff) !== 1 ? "s" : ""}`, color: "red" })
+
+                        return (
+                          <div key={rev.revision_number}>
+                            <button
+                              className={cn(
+                                "w-full text-left px-4 py-2.5 transition-colors",
+                                isSelected ? "bg-secondary/70" : "hover:bg-secondary/40"
+                              )}
+                              onClick={() => setSelectedRevision(isSelected ? null : rev.revision_number)}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  {/* Timeline dot */}
+                                  <div className="w-5 h-5 rounded-full border-2 border-border bg-background flex items-center justify-center shrink-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-[12px] font-medium text-foreground">Rev {rev.revision_number - 1 > 0 ? rev.revision_number - 1 : "Original"}</span>
+                                      {/* Change chips */}
+                                      {chips.map((chip, ci) => (
+                                        <span key={ci} className={cn(
+                                          "text-[9px] font-bold px-1.5 py-px rounded tabular-nums",
+                                          chip.color === "green" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                            : chip.color === "red" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                        )}>
+                                          {chip.label}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground/60">
+                                      {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                      {" · "}
+                                      {new Date(rev.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                      {" · "}{rev.items.length} item{rev.items.length !== 1 ? "s" : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[12px] font-mono tabular-nums text-muted-foreground">{formatCurrency(rev.total)}</span>
+                                  {isSelected
+                                    ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/50" />
+                                    : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+                                  }
+                                </div>
+                              </div>
+                            </button>
+
+                            {/* Expanded: only show what changed vs the NEXT revision */}
+                            {isSelected && (
+                              <div className="px-4 pb-3 bg-secondary/30 border-t border-border/40">
+                                <div className="ml-7 mt-2.5 space-y-1.5">
+                                  {/* New items added in the next revision */}
+                                  {newItems.map((item, i) => (
+                                    <div key={`new-${i}`} className="flex items-center justify-between gap-2 text-[11px]">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="px-1 py-px rounded text-[8px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0">ADDED</span>
+                                        <span className="text-muted-foreground/60 truncate">{item.label}</span>
+                                      </div>
+                                      <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 shrink-0">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                  ))}
+                                  {/* Removed items */}
+                                  {removedItems.map((item, i) => (
+                                    <div key={`rm-${i}`} className="flex items-center justify-between gap-2 text-[11px]">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="px-1 py-px rounded text-[8px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 shrink-0">REMOVED</span>
+                                        <span className="text-muted-foreground/50 line-through truncate">{item.label}</span>
+                                      </div>
+                                      <span className="font-mono tabular-nums text-muted-foreground/40 line-through shrink-0">{formatCurrency(item.amount)}</span>
+                                    </div>
+                                  ))}
+                                  {/* Changed items (price/qty) */}
+                                  {changedItems.filter(ci => !newItems.includes(ci)).map((item, i) => {
+                                    const oldItem = rev.items.find(oi => oi.category === item.category && oi.label.replace(/^[\d,]+\s*[-–]\s*/, "") === item.label.replace(/^[\d,]+\s*[-–]\s*/, ""))
+                                    const pd = oldItem ? item.amount - oldItem.amount : 0
+                                    return (
+                                      <div key={`chg-${i}`} className="flex items-center justify-between gap-2 text-[11px]">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className="px-1 py-px rounded text-[8px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">CHANGED</span>
+                                          <span className="text-muted-foreground/70 truncate">{item.label}</span>
+                                        </div>
+                                        {pd !== 0 && (
+                                          <span className={cn("font-mono tabular-nums shrink-0", pd > 0 ? "text-rose-600" : "text-emerald-600")}>
+                                            {pd > 0 ? "+" : ""}{formatCurrency(pd)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                  {newItems.length === 0 && removedItems.length === 0 && changedItems.filter(ci => !newItems.includes(ci)).length === 0 && (
+                                    <p className="text-[10px] text-muted-foreground/50">No item changes detected.</p>
+                                  )}
+                                </div>
+                                {/* Restore button */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3 ml-7 text-[11px] h-7 gap-1.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditItems(rev.items)
+                                    setName(rev.project_name)
+                                    if (rev.notes) setNotes(rev.notes)
+                                    setShowRevisions(false)
+                                    setSelectedRevision(null)
+                                  }}
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                  Restore this version
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
         </CardContent>
