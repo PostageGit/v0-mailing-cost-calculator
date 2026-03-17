@@ -56,8 +56,35 @@ export async function PATCH(
   if (body.voided_reason !== undefined) updates.voided_reason = body.voided_reason
   if (body.job_meta !== undefined) {
     // Merge with existing job_meta instead of replacing
-    const { data: existing } = await supabase.from("quotes").select("job_meta").eq("id", id).single()
-    updates.job_meta = { ...(existing?.job_meta || {}), ...body.job_meta }
+    const { data: existing } = await supabase.from("quotes").select("job_meta, items, total, project_name, notes, quantity").eq("id", id).single()
+    const existingMeta = existing?.job_meta || {}
+    
+    // If items/total changed, create a revision snapshot
+    const revisions = existingMeta.revisions || []
+    const itemsChanged = body.items !== undefined && JSON.stringify(body.items) !== JSON.stringify(existing?.items)
+    const totalChanged = body.total !== undefined && body.total !== existing?.total
+    
+    if ((itemsChanged || totalChanged) && existing?.items?.length > 0) {
+      // Save current state as a revision before updating
+      const newRevision = {
+        revision_number: revisions.length + 1,
+        project_name: existing.project_name,
+        items: existing.items,
+        total: existing.total,
+        notes: existing.notes,
+        quantity: existing.quantity,
+        mailing_state: existingMeta.mailing_state,
+        created_at: new Date().toISOString(),
+      }
+      revisions.push(newRevision)
+    }
+    
+    updates.job_meta = { 
+      ...existingMeta, 
+      ...body.job_meta,
+      revisions,
+      current_revision: revisions.length + 1,
+    }
   }
   if (body.quantity !== undefined) updates.quantity = body.quantity
 
