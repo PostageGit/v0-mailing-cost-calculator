@@ -44,7 +44,7 @@ const EMPTY_INPUTS: PrintingInputs = {
   qty: 0,
   width: 0,
   height: 0,
-  paperName: "20lb Offset",
+  paperName: "10pt Gloss",
   sidesValue: "S/S",
   hasBleed: false,
   addOnCharge: 0,
