@@ -174,7 +174,7 @@ export function BookletCalculator() {
     // Multi-qty comparison
     const mq = inputs.multiQty
     if (mq?.enabled && mq.quantities.length > 0) {
-      const rows: GenericQtyRow<BookletCalcResult>[] = mq.quantities
+      const rows: GenericQtyRow<BookletCalcResult>[] = Array.from(new Set(mq.quantities))
         .filter((q) => q > 0)
         .map((q) => {
           const r = calculateBooklet({ ...inputs, bookQty: q })

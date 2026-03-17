@@ -29,15 +29,18 @@ export function MultiQtyComparisonTable({
 
   if (!rows.length) return null
 
-  // Find the best value (lowest cost per piece), ignoring free-minimum edge cases
-  const bestValueQty = rows.reduce((best, row) => {
+  // Deduplicate rows so React never sees two children with the same qty key
+  const uniqueRows = rows.filter(
+    (row, i, arr) => arr.findIndex((r) => r.qty === row.qty) === i
+  )
+
+  const bestValueQty = uniqueRows.reduce((best, row) => {
     const cpp = row.result.grandTotal / row.qty
     const bestCpp = best.result.grandTotal / best.qty
     return cpp < bestCpp ? row : best
-  }, rows[0]).qty
+  }, uniqueRows[0]).qty
 
-  // Find highest savings vs smallest qty (to show "save X%" chips)
-  const baseRow = rows[0]
+  const baseRow = uniqueRows[0]
   const baseTotal = baseRow.result.grandTotal
 
   return (
@@ -46,7 +49,7 @@ export function MultiQtyComparisonTable({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Quantity Comparison</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">{rows.length} quantities · same specs, same sheet</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{uniqueRows.length} quantities · same specs, same sheet</p>
         </div>
         <Button
           variant="outline"
@@ -71,7 +74,7 @@ export function MultiQtyComparisonTable({
 
       {/* Rows */}
       <div className="flex flex-col gap-1.5">
-        {rows.map((row, idx) => {
+        {uniqueRows.map((row, idx) => {
           const isBest = row.qty === bestValueQty
           const isExpanded = expandedIdx === idx
           const cpp = row.result.grandTotal / row.qty
@@ -81,7 +84,7 @@ export function MultiQtyComparisonTable({
 
           return (
             <div
-              key={`mqrow-${idx}-${row.qty}`}
+              key={`mqrow-${idx}`}
               className={cn(
                 "rounded-xl border transition-all duration-150 overflow-hidden",
                 isBest
@@ -211,7 +214,7 @@ export function MultiQtyComparisonTable({
       <div className="mt-3 flex items-center justify-between px-1">
         <p className="text-[11px] text-muted-foreground">
           Total if all added: <span className="font-semibold text-foreground tabular-nums">
-            {formatCurrency(rows.reduce((s, r) => s + r.result.grandTotal, 0))}
+            {formatCurrency(uniqueRows.reduce((s, r) => s + r.result.grandTotal, 0))}
           </span>
         </p>
         <button
@@ -219,7 +222,7 @@ export function MultiQtyComparisonTable({
           onClick={onAddAll}
           disabled={isLoading}
         >
-          Add all {rows.length} quantities
+          Add all {uniqueRows.length} quantities
         </button>
       </div>
     </div>
