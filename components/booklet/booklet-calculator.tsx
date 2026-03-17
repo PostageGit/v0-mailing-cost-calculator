@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { BookletForm } from "./booklet-form"
@@ -58,28 +58,41 @@ export function BookletCalculator() {
 
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
   const [isFrozen, setIsFrozen] = useState(false)
   
   // Restore calculator inputs from saved quote items when quote is loaded
   // Fields are FROZEN by default - user must click "Revise" to unlock
+  // Using a ref to track restoration so remounts don't break it
+  const lastRestoredRef = useRef<string | null>(null)
+  
   useEffect(() => {
-    // Skip if no saved quote or already restored this quote
-    if (!quote.savedId || restoredFromId === quote.savedId) return
+    console.log("[v0] BOOKLET RESTORE:", {
+      savedId: quote.savedId,
+      lastRestored: lastRestoredRef.current,
+      itemsLength: quote.items.length,
+      allCategories: quote.items.map(i => i.category),
+      allMetadata: quote.items.map(i => ({ cat: i.category, hasMeta: !!i.metadata, hasCalcInputs: !!i.metadata?.calculatorInputs })),
+    })
+    
+    // Skip if no saved quote
+    if (!quote.savedId) return
+    // Skip if already restored this exact quote
+    if (lastRestoredRef.current === quote.savedId) return
     // Skip if no items yet (still loading)
     if (quote.items.length === 0) return
     
     const bookletItem = quote.items.find(item => item.category === "booklet")
+    console.log("[v0] BOOKLET ITEM:", bookletItem ? JSON.stringify(bookletItem.metadata).substring(0, 300) : "NOT FOUND")
     
     if (bookletItem?.metadata) {
       const meta = bookletItem.metadata
       let restored: Partial<BookletInputs> = {}
       
-      // If we have calculatorInputs (new format), use it directly
       if (meta.calculatorInputs) {
         restored = meta.calculatorInputs as BookletInputs
+        console.log("[v0] USING calculatorInputs:", Object.keys(restored))
       } else {
-        // Fallback: extract from older metadata format
+        console.log("[v0] NO calculatorInputs, using FALLBACK")
         const dims = meta.pieceDimensions?.split("x")
         if (dims?.length === 2) {
           restored.pageWidth = parseFloat(dims[0]) || 5
@@ -94,22 +107,27 @@ export function BookletCalculator() {
         if (meta.paperName) restored.insidePaper = meta.paperName
       }
       
+      console.log("[v0] RESTORED VALUES:", JSON.stringify(restored))
+      
       if (Object.keys(restored).length > 0) {
         const finalInputs = { ...EMPTY_INPUTS, ...restored }
+        console.log("[v0] SETTING INPUTS:", JSON.stringify({ bookQty: finalInputs.bookQty, pagesPerBook: finalInputs.pagesPerBook, pageWidth: finalInputs.pageWidth, pageHeight: finalInputs.pageHeight, insidePaper: finalInputs.insidePaper }))
         setInputs(finalInputs)
-        setRestoredFromId(quote.savedId)
-        setIsFrozen(true) // Lock fields when loading saved quote
-        // Auto-calculate after restoring
+        lastRestoredRef.current = quote.savedId
+        setIsFrozen(true)
         setTimeout(() => {
           const result = calculateBooklet(finalInputs)
+          console.log("[v0] AUTO-CALC:", result.isValid, result.grandTotal)
           if (result.isValid) {
             setCalcResult(result)
             setActiveTab(finalInputs.separateCover ? "cover" : "inside")
           }
         }, 100)
       }
+    } else {
+      console.log("[v0] NO booklet item with metadata found")
     }
-  }, [quote.items, quote.savedId, restoredFromId])
+  }, [quote.items, quote.savedId])
 
   const loadPiece = useCallback((piece: MailPiece) => {
     // Don't override inputs if we're viewing a frozen saved quote
