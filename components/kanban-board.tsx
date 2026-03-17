@@ -22,7 +22,7 @@ import {
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
   LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward, Calendar,
-  List, LayoutGrid, Send,
+  List, LayoutGrid, Send, History,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -720,7 +720,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════�����═���══════════��═���════════════��══���═══════════���════
+/* ════������═���══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -1775,6 +1775,41 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
+  const [showRevisions, setShowRevisions] = useState(false)
+  const [revisions, setRevisions] = useState<Array<{
+    revision_number: number
+    project_name: string
+    items: QuoteItem[]
+    total: number
+    notes?: string
+    quantity?: number
+    created_at: string
+    is_current?: boolean
+  }>>([])
+  const [selectedRevision, setSelectedRevision] = useState<number | null>(null)
+  const [loadingRevisions, setLoadingRevisions] = useState(false)
+  
+  // Fetch revisions when panel opens
+  useEffect(() => {
+    if (!showRevisions) return
+    const fetchRevisions = async () => {
+      setLoadingRevisions(true)
+      try {
+        const res = await fetch(`/api/quotes/${quote.id}/revisions`)
+        const data = await res.json()
+        if (data.revisions) {
+          // Combine current + history
+          const allRevisions = [data.current, ...data.revisions]
+          setRevisions(allRevisions)
+        }
+      } catch (err) {
+        console.error("Failed to fetch revisions:", err)
+      } finally {
+        setLoadingRevisions(false)
+      }
+    }
+    fetchRevisions()
+  }, [quote.id, showRevisions])
   const ALL_CATS: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "postage", "listwork", "item", "ohp"]
   const total = editItems.reduce((s, i) => s + i.amount, 0)
   const catTotal = (cat: QuoteCategory) => editItems.filter((i) => i.category === cat).reduce((s, i) => s + i.amount, 0)
@@ -1882,9 +1917,109 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => { const pdfOpts = { items: editItems, projectName: name || undefined, customerName: quote.contact_name || undefined, referenceNumber: quote.reference_number || undefined, quoteNumber: quote.quote_number || undefined, quantity: quote.quantity || undefined, notes: notes || undefined }; buildQuotePDF(pdfOpts).save(quotePdfFilename(pdfOpts)) }}><Download className="h-3.5 w-3.5" /> PDF</Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => setShowPlainText(!showPlainText)}><FileText className="h-3.5 w-3.5" /> {showPlainText ? "Hide Text" : "View as Text"}</Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9" onClick={() => onLoadIntoCalculator(quote.id)}><Pencil className="h-3.5 w-3.5" /> Edit in Calculator</Button>
+            <Button variant={showRevisions ? "secondary" : "outline"} size="sm" className="gap-1.5 text-xs h-9" onClick={() => setShowRevisions(!showRevisions)}><History className="h-3.5 w-3.5" /> Revisions</Button>
           </div>
           {showPlainText && (
             <pre className="bg-secondary rounded-lg p-3 text-[11px] font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto border border-border select-all">{buildPlainText()}</pre>
+          )}
+          
+          {/* Revision History Panel */}
+          {showRevisions && (
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="bg-secondary/50 px-3 py-2 border-b border-border">
+                <h4 className="text-sm font-semibold text-foreground">Revision History</h4>
+                <p className="text-xs text-muted-foreground">Compare changes between versions</p>
+              </div>
+              {loadingRevisions ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">Loading revisions...</div>
+              ) : revisions.length <= 1 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">No previous revisions yet. Changes will be tracked when you save.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {revisions.map((rev, idx) => {
+                    const isSelected = selectedRevision === rev.revision_number
+                    const prevRev = revisions[idx + 1]
+                    const itemsDiff = prevRev ? rev.items.length - prevRev.items.length : 0
+                    const totalDiff = prevRev ? rev.total - prevRev.total : 0
+                    
+                    return (
+                      <div 
+                        key={rev.revision_number} 
+                        className={cn(
+                          "px-3 py-2.5 cursor-pointer transition-colors",
+                          isSelected ? "bg-primary/10" : "hover:bg-secondary/50"
+                        )}
+                        onClick={() => setSelectedRevision(isSelected ? null : rev.revision_number)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-xs font-mono font-bold px-1.5 py-0.5 rounded",
+                              rev.is_current 
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" 
+                                : "bg-secondary text-muted-foreground"
+                            )}>
+                              Rev {rev.revision_number}
+                            </span>
+                            {rev.is_current && <Badge variant="outline" className="text-[10px] h-5">Current</Badge>}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs">
+                            <span className="font-mono tabular-nums text-foreground">{formatCurrency(rev.total)}</span>
+                            {totalDiff !== 0 && (
+                              <span className={cn("font-mono tabular-nums", totalDiff > 0 ? "text-green-600" : "text-red-600")}>
+                                {totalDiff > 0 ? "+" : ""}{formatCurrency(totalDiff)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(rev.created_at).toLocaleDateString()} {new Date(rev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {rev.items.length} items
+                            {itemsDiff !== 0 && <span className={cn("ml-1", itemsDiff > 0 ? "text-green-600" : "text-red-600")}>({itemsDiff > 0 ? "+" : ""}{itemsDiff})</span>}
+                          </span>
+                        </div>
+                        
+                        {/* Expanded view showing items */}
+                        {isSelected && (
+                          <div className="mt-3 pt-3 border-t border-border/50">
+                            <div className="text-[11px] text-muted-foreground mb-2 font-medium">Items in this revision:</div>
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {rev.items.map((item, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs bg-background/50 rounded px-2 py-1">
+                                  <span className="truncate flex-1">{item.label}</span>
+                                  <span className="font-mono tabular-nums ml-2">{formatCurrency(item.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {!rev.is_current && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-2 text-xs h-7 w-full"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Restore this revision
+                                  setEditItems(rev.items)
+                                  setName(rev.project_name)
+                                  if (rev.notes) setNotes(rev.notes)
+                                  setShowRevisions(false)
+                                  setSelectedRevision(null)
+                                }}
+                              >
+                                Restore This Revision
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
