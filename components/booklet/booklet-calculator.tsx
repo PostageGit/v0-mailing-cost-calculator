@@ -299,6 +299,11 @@ export function BookletCalculator() {
           {isOhpMode ? "Booklet Specs (OHP)" : "Saddle Stitch Booklet Calculator"}
         </h2>
 
+        {/* TEMP DEBUG - visible on page */}
+        <div className="mb-2 p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-xs font-mono text-blue-800 dark:text-blue-200 border border-blue-300">
+          DEBUG: savedId={quote.savedId || "null"} | items={quote.items.length} | cats={quote.items.map(i=>i.category).join(",")} | hasSaved={String(hasSavedQuote)} | frozen={String(isFrozen)} | bookQty={inputs.bookQty} | pages={inputs.pagesPerBook} | w={inputs.pageWidth} | h={inputs.pageHeight}
+        </div>
+
         {/* Frozen Quote Banner - shows when viewing a saved quote */}
         {isFrozen && (
           <div className="mb-4 rounded-xl border-2 border-amber-300 dark:border-amber-600/50 bg-amber-50 dark:bg-amber-950/30 p-4">
