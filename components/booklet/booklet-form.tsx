@@ -35,6 +35,7 @@ interface BookletFormProps {
   isEditing: boolean
   validationError: string | null
   ohpMode?: boolean
+  disabled?: boolean
 }
 
 export function BookletForm({
@@ -45,6 +46,7 @@ export function BookletForm({
   isEditing,
   validationError,
   ohpMode,
+  disabled = false,
 }: BookletFormProps) {
   const [showAllCoverPapers, setShowAllCoverPapers] = useState(false)
   const [showAllInsidePapers, setShowAllInsidePapers] = useState(false)
@@ -119,6 +121,7 @@ export function BookletForm({
 
   return (
     <form onSubmit={handleSubmit}>
+      <fieldset disabled={disabled} className={disabled ? "opacity-60 pointer-events-none" : ""}>
       {/* Row 1: General Info */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="flex flex-col gap-1.5">
@@ -595,9 +598,10 @@ export function BookletForm({
           onClick={handleReset}
           className="text-muted-foreground hover:text-foreground font-medium"
         >
-          Reset
-        </Button>
-      </div>
+  Reset
+  </Button>
+  </div>
+      </fieldset>
     </form>
   )
 }
