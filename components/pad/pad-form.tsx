@@ -22,7 +22,7 @@ import type { SpiralPartInputs } from "@/lib/spiral-types"
 import { useFormValidation } from "@/hooks/use-form-validation"
 import { PadSettingsPanel } from "./pad-settings"
 import { usePapersContext } from "@/lib/papers-context"
-import { MultiQtyToggle } from "@/components/multi-qty-comparison-table"
+import { MultiQtyToggle } from "@/components/qty-comparison-table"
 
 interface PadFormProps {
   inputs: PadInputs

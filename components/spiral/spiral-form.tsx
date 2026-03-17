@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save } from "lucide-react"
-import { MultiQtyToggle } from "@/components/multi-qty-comparison-table"
+import { MultiQtyToggle } from "@/components/qty-comparison-table"
 import {
   getAvailableSizes,
   getAvailableSides,
