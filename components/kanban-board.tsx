@@ -1747,6 +1747,7 @@ function ColumnSettings({ columns, onAdd, onRename, onDelete, onReorder, onClose
 function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   quote: Quote; onClose: () => void; onSaved: () => void; onLoadIntoCalculator: (id: string) => void
 }) {
+  console.log("[v0] QuoteEditModal opened with quote:", { id: quote.id, items: quote.items, itemsCount: quote.items?.length })
   const [name, setName] = useState(quote.project_name)
   const [editItems, setEditItems] = useState<QuoteItem[]>(quote.items || [])
   const [notes, setNotes] = useState(quote.notes || "")

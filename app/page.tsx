@@ -141,7 +141,9 @@ function AppContent() {
 
   const handleLoadQuote = useCallback(
     async (quoteId: string, step?: string) => {
+      console.log("[v0] handleLoadQuote called:", quoteId)
       const mailingSnap = await loadQuote(quoteId)
+      console.log("[v0] handleLoadQuote mailingSnap:", mailingSnap)
       // Restore mailing state (pieces, shape, service, qty) so planner + calculators are populated
       if (mailingSnap) {
         loadGuardRef.current = true // prevent the snapshot effect from overwriting the restored state

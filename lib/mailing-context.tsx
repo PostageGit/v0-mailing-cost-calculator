@@ -281,7 +281,9 @@ export function MailingProvider({ children }: { children: ReactNode }) {
   }), [quantity, extraPrintQty, shape, className, mailService, uspsFormat, pieces])
 
   const restoreState = useCallback((snap: MailingSnapshot) => {
+    console.log("[v0] restoreState called with:", snap)
     if (!snap) return
+    console.log("[v0] restoreState setting qty:", snap.quantity, "pieces:", snap.pieces?.length)
     setQuantity(snap.quantity ?? 0)
     setExtraPrintQty(snap.extraPrintQty ?? 50)
     setShape(snap.shape ?? "LETTER")
