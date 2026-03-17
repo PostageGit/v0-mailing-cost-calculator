@@ -66,8 +66,13 @@ export async function PATCH(
     const revisions = existingMeta.revisions || []
     const itemsChanged = body.items !== undefined && JSON.stringify(body.items) !== JSON.stringify(existing?.items)
     const totalChanged = body.total !== undefined && body.total !== existing?.total
-    const hasPriorRevision = typeof existingMeta.current_revision === "number"
-    
+    // Only snapshot if we already have a tracked revision number — i.e. the
+    // quote has been saved at least once before and has a current_revision set.
+    const currentRevNum = existingMeta.current_revision
+    const hasPriorRevision = typeof currentRevNum === "number" && currentRevNum >= 1
+
+    let newCurrentRevision = currentRevNum ?? undefined
+
     if ((itemsChanged || totalChanged) && existing?.items?.length > 0 && hasPriorRevision) {
       // Save current state as a revision before updating
       const newRevision = {
@@ -81,13 +86,17 @@ export async function PATCH(
         created_at: new Date().toISOString(),
       }
       revisions.push(newRevision)
+      newCurrentRevision = revisions.length + 1
+    } else if (!hasPriorRevision && existing?.items?.length > 0) {
+      // First real save — start the revision counter at 1, no snapshot needed
+      newCurrentRevision = 1
     }
-    
-    updates.job_meta = { 
-      ...existingMeta, 
+
+    updates.job_meta = {
+      ...existingMeta,
       ...body.job_meta,
       revisions,
-      current_revision: revisions.length + 1,
+      ...(newCurrentRevision !== undefined ? { current_revision: newCurrentRevision } : {}),
     }
   }
   if (body.quantity !== undefined) updates.quantity = body.quantity

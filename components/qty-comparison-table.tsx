@@ -6,7 +6,6 @@ import { formatCurrency } from "@/lib/pricing"
 import { Plus, Star, ChevronDown, ChevronUp, TrendingDown, BarChart2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// ── Generic row type (v2 — index-keyed, deduped) ─────────────────────────────
 export interface GenericQtyRow<T = unknown> {
   qty: number
   total: number
@@ -23,7 +22,7 @@ interface GenericMultiQtyTableProps<T> {
   label?: string
 }
 
-export function GenericMultiQtyTableV2<T>({
+export function GenericMultiQtyTable<T>({
   rows,
   onAddToQuote,
   onAddAll,
@@ -35,7 +34,6 @@ export function GenericMultiQtyTableV2<T>({
 
   if (!rows.length) return null
 
-  // Deduplicate rows by qty so we never get duplicate keys
   const uniqueRows = rows.filter(
     (row, i, arr) => arr.findIndex((r) => r.qty === row.qty) === i
   )
@@ -48,7 +46,6 @@ export function GenericMultiQtyTableV2<T>({
 
   return (
     <div className="mt-6 pt-5 border-t border-border">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <BarChart2 className="h-4 w-4 text-blue-500" />
@@ -73,7 +70,6 @@ export function GenericMultiQtyTableV2<T>({
         </Button>
       </div>
 
-      {/* Column headers */}
       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
         <span>Quantity</span>
         <span className="text-right w-20">Total</span>
@@ -84,11 +80,10 @@ export function GenericMultiQtyTableV2<T>({
         <span className="w-8" />
       </div>
 
-      {/* Rows */}
       <div className="flex flex-col gap-1.5">
-        {uniqueRows.map((row, rowIndex) => {
+        {uniqueRows.map((row, i) => {
           const isBest = row.qty === bestValueQty
-          const isExpanded = expandedIdx === rowIndex
+          const isExpanded = expandedIdx === i
           const cpp = row.total / row.qty
           const baseCpp = baseRow.total / baseRow.qty
           const savingsPct =
@@ -98,7 +93,7 @@ export function GenericMultiQtyTableV2<T>({
 
           return (
             <div
-              key={`mqrow-${rowIndex}`}
+              key={i}
               className={cn(
                 "rounded-xl border transition-all duration-150 overflow-hidden",
                 isBest
@@ -106,64 +101,41 @@ export function GenericMultiQtyTableV2<T>({
                   : "border-border bg-card"
               )}
             >
-              {/* Main row */}
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-3">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                  <span
-                    className={cn(
-                      "text-[13px] font-bold tabular-nums",
-                      isBest
-                        ? "text-emerald-800 dark:text-emerald-200"
-                        : "text-foreground"
-                    )}
-                  >
+                  <span className={cn("text-[13px] font-bold tabular-nums", isBest ? "text-emerald-800 dark:text-emerald-200" : "text-foreground")}>
                     {row.qty.toLocaleString()}
                   </span>
                   {isBest && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shrink-0">
-                      <Star className="h-2.5 w-2.5 fill-current" />
-                      BEST VALUE
+                      <Star className="h-2.5 w-2.5 fill-current" /> BEST VALUE
                     </span>
                   )}
                   {savingsPct != null && savingsPct > 0 && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 shrink-0">
-                      <TrendingDown className="h-2.5 w-2.5" />
-                      {savingsPct}% lower/pc
+                      <TrendingDown className="h-2.5 w-2.5" /> {savingsPct}% lower/pc
                     </span>
                   )}
                 </div>
-
-                <span
-                  className={cn(
-                    "text-[13px] font-bold tabular-nums text-right w-20",
-                    isBest ? "text-emerald-800 dark:text-emerald-200" : "text-foreground"
-                  )}
-                >
+                <span className={cn("text-[13px] font-bold tabular-nums text-right w-20", isBest ? "text-emerald-800 dark:text-emerald-200" : "text-foreground")}>
                   {formatCurrency(row.total)}
                 </span>
-
                 <span className="text-[12px] tabular-nums text-right text-muted-foreground w-16">
                   {(cpp * 100).toFixed(1)}¢
                 </span>
-
                 {uniqueRows.some((r) => r.sheets != null) && (
                   <span className="text-[11px] tabular-nums text-right text-muted-foreground/70 w-14">
                     {row.sheets != null ? row.sheets.toLocaleString() : "—"}
                   </span>
                 )}
-
                 <div className="flex items-center gap-1 justify-end w-8">
                   {renderDetail && (
                     <button
                       className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                      onClick={() => setExpandedIdx(isExpanded ? null : rowIndex)}
+                      onClick={() => setExpandedIdx(isExpanded ? null : i)}
                       aria-label={isExpanded ? "Collapse" : "Expand"}
                     >
-                      {isExpanded ? (
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )}
+                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                     </button>
                   )}
                 </div>
@@ -179,8 +151,7 @@ export function GenericMultiQtyTableV2<T>({
                       onClick={() => onAddToQuote(row)}
                       disabled={isLoading}
                     >
-                      <Plus className="h-3 w-3" />
-                      Add {row.qty.toLocaleString()} to Quote
+                      <Plus className="h-3 w-3" /> Add {row.qty.toLocaleString()} to Quote
                     </Button>
                   </div>
                 </div>
@@ -195,8 +166,7 @@ export function GenericMultiQtyTableV2<T>({
                     onClick={() => onAddToQuote(row)}
                     disabled={isLoading}
                   >
-                    <Plus className="h-3 w-3" />
-                    Add to Quote
+                    <Plus className="h-3 w-3" /> Add to Quote
                   </Button>
                 </div>
               )}
@@ -205,7 +175,6 @@ export function GenericMultiQtyTableV2<T>({
         })}
       </div>
 
-      {/* Footer */}
       <div className="mt-3 flex items-center justify-between px-1">
         <p className="text-[11px] text-muted-foreground">
           Total if all added:{" "}
@@ -225,7 +194,7 @@ export function GenericMultiQtyTableV2<T>({
   )
 }
 
-// ── Shared qty toggle UI ──────────────────────────────────────────────────────
+// ── Qty toggle UI ─────────────────────────────────────────────────────────────
 const QUICK_QTYS = [250, 500, 1000, 2500, 5000, 10000]
 
 export interface MultiQtyState {
@@ -274,9 +243,7 @@ export function MultiQtyToggle({
   }
 
   function sortQtys() {
-    const sorted = Array.from(new Set([...value.quantities].filter(Boolean))).sort(
-      (a, b) => a - b
-    )
+    const sorted = Array.from(new Set([...value.quantities].filter(Boolean))).sort((a, b) => a - b)
     onChange({ ...value, quantities: sorted })
   }
 
@@ -287,9 +254,7 @@ export function MultiQtyToggle({
           <BarChart2 className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium text-foreground">Compare Quantities</span>
           {value.enabled && value.quantities.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              ({value.quantities.length} qtys)
-            </span>
+            <span className="text-xs text-muted-foreground">({value.quantities.length} qtys)</span>
           )}
         </div>
         <button
@@ -303,13 +268,7 @@ export function MultiQtyToggle({
               : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800"
           )}
         >
-          {value.enabled ? (
-            "Comparing"
-          ) : (
-            <>
-              <BarChart2 className="h-3.5 w-3.5" /> Compare
-            </>
-          )}
+          {value.enabled ? "Comparing" : <><BarChart2 className="h-3.5 w-3.5" /> Compare</>}
         </button>
       </div>
 
@@ -318,10 +277,7 @@ export function MultiQtyToggle({
           {value.quantities.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {value.quantities.map((qty, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-background border border-blue-200 dark:border-blue-700"
-                >
+                <div key={idx} className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-background border border-blue-200 dark:border-blue-700">
                   <input
                     type="number"
                     min={1}
@@ -341,11 +297,8 @@ export function MultiQtyToggle({
               ))}
             </div>
           )}
-
           <div className="flex flex-col gap-1.5">
-            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
-              Quick add
-            </p>
+            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">Quick add</p>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_QTYS.map((q) => {
                 const already = value.quantities.includes(q)
@@ -368,10 +321,7 @@ export function MultiQtyToggle({
               })}
             </div>
           </div>
-
-          <p className="text-[10px] text-muted-foreground/60">
-            Up to 8 quantities. All settings apply to every quantity.
-          </p>
+          <p className="text-[10px] text-muted-foreground/60">Up to 8 quantities. All settings apply to every quantity.</p>
         </div>
       )}
     </div>

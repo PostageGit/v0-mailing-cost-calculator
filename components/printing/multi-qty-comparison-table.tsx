@@ -7,6 +7,7 @@ import type { FullPrintingResult } from "@/lib/printing-types"
 import { Plus, Star, ChevronDown, ChevronUp, TrendingDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+// v2 — index-keyed, deduped
 export interface MultiQtyRow {
   qty: number
   result: FullPrintingResult
