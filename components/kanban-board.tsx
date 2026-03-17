@@ -1713,6 +1713,7 @@ function QuoteCard({
         onOpenChange={setShowRevisionDialog}
         quoteId={quote.id}
         quoteName={quote.project_name || undefined}
+        quoteNumber={quote.quote_number || undefined}
       />
     </div>
   )
@@ -2264,7 +2265,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
   const [fancyCardView, setFancyCardView] = useState(false)
-  const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string } | null>(null)
+  const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string; quoteNumber?: number } | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2832,7 +2833,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     {/* Revision */}
                     {jm?.current_revision && jm.current_revision > 1 ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setTableRevisionQuote({ id: q.id, name: q.project_name }) }}
+                        onClick={(e) => { e.stopPropagation(); setTableRevisionQuote({ id: q.id, name: q.project_name, quoteNumber: q.quote_number || undefined }) }}
                         className="mx-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono tabular-nums bg-foreground text-background hover:bg-foreground/90 transition-colors"
                         title="View version history"
                       >
@@ -3610,6 +3611,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           onOpenChange={(v) => { if (!v) setTableRevisionQuote(null) }}
           quoteId={tableRevisionQuote.id}
           quoteName={tableRevisionQuote.name}
+          quoteNumber={tableRevisionQuote.quoteNumber}
         />
       )}
     </div>
