@@ -13,7 +13,6 @@ import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
   FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, Send,
   AlertCircle, SkipForward, CheckCircle2, List, LayoutGrid, Search, X,
-  History, RotateCcw,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -24,6 +23,7 @@ import { BOX_SIZES, selectBestBoxes, formatShippingWeight, type BoxSize, type Sh
 import { ShippingLabelModal } from "@/components/shipping-label"
 import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { Download } from "lucide-react"
+import { RevisionHistoryDialog } from "@/components/revision-history-dialog"
 
 // Printing categories first, then services/postage/ohp
 const CATEGORIES: QuoteCategory[] = ["flat", "booklet", "spiral", "perfect", "pad", "envelope", "ohp", "postage", "listwork", "item"]
@@ -236,7 +236,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
     items, projectName, customerId, savedId, quoteNumber, isSaving, lastSavedAt, activityLog,
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote, ensureSaved,
     contactName, referenceNumber, quantity,
-    currentRevision, revisions, loadRevision,
+    currentRevision, revisions, fetchRevisions, loadRevision,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
@@ -246,7 +246,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
   const [sending, setSending] = useState(false)
   const [viewMode, setViewMode] = useState<"full" | "simple">("full")
   const [searchQuery, setSearchQuery] = useState("")
-  const [showRevisions, setShowRevisions] = useState(false)
+  const [showRevisionDialog, setShowRevisionDialog] = useState(false)
 
   // Filter items by search
   const filteredItems = searchQuery.trim()
@@ -334,13 +334,19 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                 </span>
                 {currentRevision > 0 && (
                   <button 
-                    onClick={() => setShowRevisions(!showRevisions)}
+                    onClick={() => {
+                      if (savedId) {
+                        fetchRevisions()
+                        setShowRevisionDialog(true)
+                      }
+                    }}
                     className={cn(
                       "text-[11px] font-mono font-semibold px-2 py-0.5 rounded border transition-colors",
                       revisions.length > 1 
                         ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40"
-                        : "bg-secondary/60 text-muted-foreground border-border/50"
+                        : "bg-secondary/60 text-muted-foreground border-border/50 hover:bg-secondary"
                     )}
+                    title="View version history"
                   >
                     Rev {currentRevision}
                   </button>
@@ -418,86 +424,8 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
         </div>
       </div>
 
-      {/* Revisions Panel - collapsible */}
-      {showRevisions && savedId && (
-        <div className="border-b border-border/50 bg-secondary/30">
-          <div className="px-3 py-2 border-b border-border/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <History className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-foreground">Revision History</span>
-              </div>
-              <button
-                onClick={() => setShowRevisions(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          <div className="max-h-48 overflow-y-auto">
-            {revisions.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                No revisions yet. Changes will be tracked when you save.
-              </div>
-            ) : (
-              <div className="divide-y divide-border/30">
-                {revisions.map((rev) => (
-                  <button
-                    key={rev.revision_number}
-                    onClick={() => {
-                      if (!rev.is_current) {
-                        loadRevision(rev.revision_number)
-                        setShowRevisions(false)
-                      }
-                    }}
-                    disabled={rev.is_current}
-                    className={cn(
-                      "w-full px-3 py-2 text-left transition-colors",
-                      rev.is_current 
-                        ? "bg-primary/5" 
-                        : "hover:bg-secondary/50 cursor-pointer"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          "text-[10px] font-mono font-bold px-1.5 py-0.5 rounded",
-                          rev.is_current 
-                            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
-                            : "bg-secondary text-muted-foreground"
-                        )}>
-                          Rev {rev.revision_number}
-                        </span>
-                        {rev.is_current && (
-                          <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">Current</span>
-                        )}
-                      </div>
-                      <span className="text-[11px] font-mono font-semibold text-foreground">
-                        {formatCurrency(rev.total)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(rev.created_at).toLocaleDateString()} {new Date(rev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {rev.items?.length || 0} items
-                      </span>
-                    </div>
-                    {!rev.is_current && (
-                      <div className="mt-1.5 flex items-center gap-1 text-[10px] text-primary">
-                        <RotateCcw className="h-3 w-3" />
-                        Click to restore
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Revision History Dialog */}
+      <RevisionHistoryDialog open={showRevisionDialog} onOpenChange={setShowRevisionDialog} />
 
       {/* Search bar - only in simple view */}
       {hasItems && viewMode === "simple" && (
