@@ -64,21 +64,38 @@ export function BookletCalculator() {
   // Restore calculator inputs from saved quote items when quote is loaded
   // Fields are FROZEN by default - user must click "Revise" to unlock
   useEffect(() => {
+    console.log("[v0] Booklet restore effect running:", {
+      savedId: quote.savedId,
+      restoredFromId,
+      itemsCount: quote.items.length,
+      categories: quote.items.map(i => i.category)
+    })
+    
     // Skip if no saved quote or already restored this quote
-    if (!quote.savedId || restoredFromId === quote.savedId) return
+    if (!quote.savedId || restoredFromId === quote.savedId) {
+      console.log("[v0] Skipping - no savedId or already restored")
+      return
+    }
     // Skip if no items yet (still loading)
-    if (quote.items.length === 0) return
+    if (quote.items.length === 0) {
+      console.log("[v0] Skipping - no items yet")
+      return
+    }
     
     const bookletItem = quote.items.find(item => item.category === "booklet")
+    console.log("[v0] Found booklet item:", bookletItem)
     
     if (bookletItem?.metadata) {
       const meta = bookletItem.metadata
+      console.log("[v0] Booklet metadata:", meta)
       let restored: Partial<BookletInputs> = {}
       
       // If we have calculatorInputs (new format), use it directly
       if (meta.calculatorInputs) {
+        console.log("[v0] Using calculatorInputs:", meta.calculatorInputs)
         restored = meta.calculatorInputs as BookletInputs
       } else {
+        console.log("[v0] No calculatorInputs, using fallback parsing")
         // Fallback: extract from older metadata format
         const dims = meta.pieceDimensions?.split("x")
         if (dims?.length === 2) {
@@ -94,20 +111,26 @@ export function BookletCalculator() {
         if (meta.paperName) restored.insidePaper = meta.paperName
       }
       
+      console.log("[v0] Final restored values:", restored)
+      
       if (Object.keys(restored).length > 0) {
         const finalInputs = { ...EMPTY_INPUTS, ...restored }
+        console.log("[v0] Setting inputs to:", finalInputs)
         setInputs(finalInputs)
         setRestoredFromId(quote.savedId)
         setIsFrozen(true) // Lock fields when loading saved quote
         // Auto-calculate after restoring
         setTimeout(() => {
           const result = calculateBooklet(finalInputs)
+          console.log("[v0] Auto-calc result:", result.isValid, result.grandTotal)
           if (result.isValid) {
             setCalcResult(result)
             setActiveTab(finalInputs.separateCover ? "cover" : "inside")
           }
         }, 100)
       }
+    } else {
+      console.log("[v0] No booklet item found or no metadata")
     }
   }, [quote.items, quote.savedId, restoredFromId])
 
