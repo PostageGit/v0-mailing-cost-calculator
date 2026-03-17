@@ -96,13 +96,19 @@ export function PrintingCalculator() {
   // Order state
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [hasRestored, setHasRestored] = useState(false)
+  const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
   
   // Restore calculator inputs from saved quote items when quote is loaded
   useEffect(() => {
-    if (hasRestored) return
+    // Skip if no saved quote or already restored this quote
+    if (!quote.savedId || restoredFromId === quote.savedId) return
+    // Skip if no items yet (still loading)
+    if (quote.items.length === 0) return
+    
     const flatItem = quote.items.find(item => item.category === "flat")
     console.log("[v0] Flat restore check:", { 
+      savedId: quote.savedId,
+      restoredFromId,
       hasFlatItem: !!flatItem, 
       metadata: flatItem?.metadata,
       hasCalcInputs: !!flatItem?.metadata?.calculatorInputs 
@@ -138,10 +144,10 @@ export function PrintingCalculator() {
       
       if (Object.keys(restored).length > 0) {
         setInputs(prev => ({ ...prev, ...restored }))
-        setHasRestored(true)
+        setRestoredFromId(quote.savedId)
       }
     }
-  }, [quote.items, hasRestored])
+  }, [quote.items, quote.savedId, restoredFromId])
 
   // Bridge: get fold cost from the HTML calculator via /api/fold-calc
   const foldBridgeBody = useMemo(() => {

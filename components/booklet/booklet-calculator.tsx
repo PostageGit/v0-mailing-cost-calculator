@@ -58,13 +58,20 @@ export function BookletCalculator() {
 
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [hasRestored, setHasRestored] = useState(false)
+  const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
   
   // Restore calculator inputs from saved quote items when quote is loaded
+  // Uses savedId to detect when a different quote is loaded
   useEffect(() => {
-    if (hasRestored) return
+    // Skip if no saved quote or already restored this quote
+    if (!quote.savedId || restoredFromId === quote.savedId) return
+    // Skip if no items yet (still loading)
+    if (quote.items.length === 0) return
+    
     const bookletItem = quote.items.find(item => item.category === "booklet")
     console.log("[v0] Booklet restore check:", { 
+      savedId: quote.savedId,
+      restoredFromId,
       hasBookletItem: !!bookletItem, 
       metadata: bookletItem?.metadata,
       hasCalcInputs: !!bookletItem?.metadata?.calculatorInputs 
@@ -101,7 +108,7 @@ export function BookletCalculator() {
       if (Object.keys(restored).length > 0) {
         const finalInputs = { ...EMPTY_INPUTS, ...restored }
         setInputs(finalInputs)
-        setHasRestored(true)
+        setRestoredFromId(quote.savedId)
         // Auto-calculate after restoring
         setTimeout(() => {
           const result = calculateBooklet(finalInputs)
@@ -113,7 +120,7 @@ export function BookletCalculator() {
         }, 100)
       }
     }
-  }, [quote.items, hasRestored])
+  }, [quote.items, quote.savedId, restoredFromId])
 
   const loadPiece = useCallback((piece: MailPiece) => {
     setActivePiece(piece)
