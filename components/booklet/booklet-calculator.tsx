@@ -27,7 +27,7 @@ const EMPTY_INPUTS: BookletInputs = {
   pageWidth: 0,
   pageHeight: 0,
   separateCover: true,
-  coverPaper: "80 Gloss",
+  coverPaper: "10pt Gloss",
   coverSides: "4/4",
   coverBleed: false,
   coverSheetSize: "cheapest",
