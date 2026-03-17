@@ -145,24 +145,43 @@ function RevisionCard({
   prevRev,
   onRestore,
   isLatest,
+  isOriginal,
+  totalRevisions,
 }: {
   rev: QuoteRevision
   prevRev: QuoteRevision | null
   onRestore: (revNum: number) => void
   isLatest: boolean
+  isOriginal: boolean
+  totalRevisions: number
 }) {
   const [expanded, setExpanded] = useState(isLatest)
   const items = rev.items || []
   const totalDiff = prevRev ? rev.total - prevRev.total : 0
   const changeSummary = prevRev ? getChangeSummary(prevRev, rev) : []
 
+  // Determine the label and visual style
+  const label = isOriginal
+    ? "Original"
+    : rev.is_current
+      ? `Revision ${rev.revision_number - 1}`
+      : `Revision ${rev.revision_number - 1}`
+
+  const sublabel = rev.is_current
+    ? "Current version"
+    : isOriginal
+      ? `First saved \u00b7 ${totalRevisions - 1} revision${totalRevisions - 1 !== 1 ? "s" : ""} since`
+      : null
+
   return (
     <div
       className={cn(
         "relative rounded-xl border transition-all duration-200",
         rev.is_current
-          ? "border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/20"
-          : "border-border/60 bg-card hover:border-border"
+          ? "border-foreground/20 bg-background shadow-sm ring-1 ring-foreground/5"
+          : isOriginal
+            ? "border-border/40 bg-muted/30"
+            : "border-border/60 bg-card hover:border-border"
       )}
     >
       {/* Card header */}
@@ -172,49 +191,63 @@ function RevisionCard({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Revision badge */}
+            {/* Badge */}
             <div
               className={cn(
-                "flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold",
+                "flex items-center justify-center w-9 h-9 rounded-full text-[11px] font-bold shrink-0",
                 rev.is_current
-                  ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300"
-                  : "bg-secondary text-muted-foreground"
+                  ? "bg-foreground text-background"
+                  : isOriginal
+                    ? "bg-muted text-muted-foreground/60 border border-border/50"
+                    : "bg-secondary text-muted-foreground"
               )}
             >
-              {rev.revision_number}
+              {isOriginal ? "v1" : `v${rev.revision_number}`}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  Revision {rev.revision_number}
+                <span className={cn(
+                  "text-sm font-semibold",
+                  rev.is_current ? "text-foreground" : isOriginal ? "text-muted-foreground" : "text-foreground"
+                )}>
+                  {label}
                 </span>
                 {rev.is_current && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Current
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-foreground text-background">
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    CURRENT
+                  </span>
+                )}
+                {isOriginal && !rev.is_current && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground/60 bg-muted border border-border/40">
+                    ORIGINAL
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   <RelativeTime date={rev.created_at} />
                 </span>
-                <span className="inline-flex items-center gap-1">
-                  <Package className="h-3 w-3" />
-                  {items.length} {items.length === 1 ? "item" : "items"}
-                </span>
-                {rev.quantity && (
+                {items.length > 0 && (
+                  <span>{items.length} {items.length === 1 ? "item" : "items"}</span>
+                )}
+                {rev.quantity ? (
                   <span>{rev.quantity.toLocaleString()} pcs</span>
+                ) : null}
+                {sublabel && (
+                  <span className="text-muted-foreground/50">{sublabel}</span>
                 )}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Total + diff */}
             <div className="text-right">
-              <div className="text-base font-bold tabular-nums text-foreground">
+              <div className={cn(
+                "text-base font-bold tabular-nums",
+                rev.is_current ? "text-foreground" : isOriginal ? "text-muted-foreground" : "text-foreground"
+              )}>
                 {formatCurrency(rev.total)}
               </div>
               {prevRev && totalDiff !== 0 && (
@@ -238,19 +271,17 @@ function RevisionCard({
           </div>
         </div>
 
-        {/* Change summary line */}
-        {prevRev && changeSummary.length > 0 && (
-          <div className="mt-2 ml-[52px]">
-            <p className={cn(
-              "text-[11px] font-medium",
-              totalDiff < 0
-                ? "text-emerald-600 dark:text-emerald-400"
-                : totalDiff > 0
-                  ? "text-rose-500 dark:text-rose-400"
-                  : "text-blue-600 dark:text-blue-400"
-            )}>
-              Changed: {changeSummary.join(", ")}
-            </p>
+        {/* Change summary - only on revised versions, not original */}
+        {!isOriginal && prevRev && changeSummary.length > 0 && (
+          <div className={cn(
+            "mt-2 ml-12 px-2.5 py-1.5 rounded-md text-[11px] font-medium inline-block",
+            totalDiff < 0
+              ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300"
+              : totalDiff > 0
+                ? "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400"
+                : "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400"
+          )}>
+            Changed: {changeSummary.join(", ")}
           </div>
         )}
       </button>
@@ -258,19 +289,6 @@ function RevisionCard({
       {/* Expanded item list */}
       {expanded && (
         <div className="px-5 pb-4 border-t border-border/40">
-          {/* Change summary banner in expanded view */}
-          {prevRev && changeSummary.length > 0 && (
-            <div className={cn(
-              "mt-3 px-3 py-2 rounded-lg text-[12px] font-medium",
-              totalDiff < 0
-                ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300"
-                : totalDiff > 0
-                  ? "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400"
-                  : "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400"
-            )}>
-              Changed: {changeSummary.join(", ")}
-            </div>
-          )}
           {items.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3">No items in this revision.</p>
           ) : (
@@ -371,10 +389,13 @@ function RevisionDialogInner({
     )
   }
 
+  const lowestRevNum = sorted.length > 0 ? sorted[sorted.length - 1].revision_number : 0
+
   return (
     <div className="space-y-3">
       {sorted.map((rev, idx) => {
         const prevRev = sorted[idx + 1] || null
+        const isOriginal = rev.revision_number === lowestRevNum
         return (
           <RevisionCard
             key={rev.revision_number}
@@ -382,6 +403,8 @@ function RevisionDialogInner({
             prevRev={prevRev}
             onRestore={onRestore}
             isLatest={idx === 0}
+            isOriginal={isOriginal}
+            totalRevisions={sorted.length}
           />
         )
       })}
@@ -418,7 +441,7 @@ export function RevisionHistoryDialog({ open, onOpenChange }: RevisionHistoryDia
             Version History
           </DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            {revisions.length} {revisions.length === 1 ? "version" : "versions"} saved
+            Original + {Math.max(0, revisions.length - 1)} {revisions.length - 1 === 1 ? "revision" : "revisions"}
           </p>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -467,7 +490,7 @@ export function StandaloneRevisionDialog({
             Version History {quoteName && <span className="text-muted-foreground font-normal ml-2">- {quoteName}</span>}
           </DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            {revisions.length} {revisions.length === 1 ? "version" : "versions"} saved
+            Original + {Math.max(0, revisions.length - 1)} {revisions.length - 1 === 1 ? "revision" : "revisions"}
           </p>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 py-4">
