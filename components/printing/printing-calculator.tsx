@@ -79,31 +79,12 @@ export function PrintingCalculator() {
   const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
   const foldSettings = appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
-  // Form state
-  const [inputs, setInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
-
-  // Calculation state
-  const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
-  const [selectedOption, setSelectedOption] = useState<SheetOptionRow | null>(null)
-  const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
-  const [hasCalculated, setHasCalculated] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const [calcError, setCalcError] = useState<{
-    message: string
-    suggestions: { name: string; largestSheet: string }[]
-  } | null>(null)
-
-  // Order state
-  const [editingItemId] = useState<number | null>(null)
-  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [isFrozen, setIsFrozen] = useState(false)
-  
   // ── Restore calculator inputs synchronously from saved quote ──
   const savedFlatItem = quote.items.find(item => item.category === "flat")
   const hasSavedFlat = !!(quote.savedId && savedFlatItem)
   
   const initialFlatInputs = useMemo(() => {
-    if (!hasSavedFlat || !savedFlatItem?.metadata) return null
+    if (!hasSavedFlat || !savedFlatItem?.metadata) return EMPTY_INPUTS
     const meta = savedFlatItem.metadata
     if (meta.calculatorInputs) {
       return { ...EMPTY_INPUTS, ...(meta.calculatorInputs as PrintingInputs) }
@@ -124,11 +105,31 @@ export function PrintingCalculator() {
     if (meta.hasBleed !== undefined) restored.hasBleed = meta.hasBleed
     return { ...EMPTY_INPUTS, ...restored }
   }, [hasSavedFlat, savedFlatItem])
+
+  // Form state - initialize from saved values if available
+  const [inputs, setInputs] = useState<PrintingInputs>(hasSavedFlat ? initialFlatInputs : EMPTY_INPUTS)
   
-  const restoredFlatRef = useRef<string | null>(null)
+  // Calculation state
+  const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
+  const [selectedOption, setSelectedOption] = useState<SheetOptionRow | null>(null)
+  const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
+  const [hasCalculated, setHasCalculated] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [calcError, setCalcError] = useState<{
+    message: string
+    suggestions: { name: string; largestSheet: string }[]
+  } | null>(null)
+
+  // Order state
+  const [editingItemId] = useState<number | null>(null)
+  const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
+  const [isFrozen, setIsFrozen] = useState(hasSavedFlat)
+  
+  // Handle case where quote changes AFTER mount
+  const restoredFlatRef = useRef<string | null>(hasSavedFlat ? quote.savedId : null)
   
   useEffect(() => {
-    if (!hasSavedFlat || !initialFlatInputs) return
+    if (!hasSavedFlat) return
     if (restoredFlatRef.current === quote.savedId) return
     
     restoredFlatRef.current = quote.savedId
