@@ -3,13 +3,10 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/pricing"
-import { Plus, Star, ChevronDown, ChevronUp, TrendingDown } from "lucide-react"
+import { Plus, Star, ChevronDown, ChevronUp, TrendingDown, BarChart2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { BarChart2, X } from "lucide-react"
 
 // ── Generic row type ──────────────────────────────────────────────────────────
-// Each calculator passes its own result shape + a resolved `total` and optional
-// `sheets` so the table can render the comparison stats.
 export interface GenericQtyRow<T = unknown> {
   qty: number
   total: number
@@ -21,7 +18,6 @@ interface GenericMultiQtyTableProps<T> {
   rows: GenericQtyRow<T>[]
   onAddToQuote: (row: GenericQtyRow<T>) => void
   onAddAll: () => void
-  /** Optional extra detail rows rendered inside the expand panel */
   renderDetail?: (row: GenericQtyRow<T>) => React.ReactNode
   isLoading?: boolean
   label?: string
@@ -39,12 +35,16 @@ export function GenericMultiQtyTable<T>({
 
   if (!rows.length) return null
 
-  // Best value = lowest cost-per-piece
-  const bestValueQty = rows.reduce((best, row) => {
-    return row.total / row.qty < best.total / best.qty ? row : best
-  }, rows[0]).qty
+  // Deduplicate rows by qty so we never get duplicate keys
+  const uniqueRows = rows.filter(
+    (row, i, arr) => arr.findIndex((r) => r.qty === row.qty) === i
+  )
 
-  const baseRow = rows[0]
+  const bestValueQty = uniqueRows.reduce((best, row) =>
+    row.total / row.qty < best.total / best.qty ? row : best
+  , uniqueRows[0]).qty
+
+  const baseRow = uniqueRows[0]
 
   return (
     <div className="mt-6 pt-5 border-t border-border">
@@ -57,7 +57,7 @@ export function GenericMultiQtyTable<T>({
               {label ?? "Quantity Comparison"}
             </h3>
             <p className="text-[11px] text-muted-foreground">
-              {rows.length} quantities · same specs
+              {uniqueRows.length} quantities · same specs
             </p>
           </div>
         </div>
@@ -78,7 +78,7 @@ export function GenericMultiQtyTable<T>({
         <span>Quantity</span>
         <span className="text-right w-20">Total</span>
         <span className="text-right w-16">Per Piece</span>
-        {rows.some((r) => r.sheets != null) && (
+        {uniqueRows.some((r) => r.sheets != null) && (
           <span className="text-right w-14">Sheets</span>
         )}
         <span className="w-8" />
@@ -86,9 +86,9 @@ export function GenericMultiQtyTable<T>({
 
       {/* Rows */}
       <div className="flex flex-col gap-1.5">
-        {rows.map((row, idx) => {
+        {uniqueRows.map((row, rowIndex) => {
           const isBest = row.qty === bestValueQty
-          const isExpanded = expandedIdx === idx
+          const isExpanded = expandedIdx === rowIndex
           const cpp = row.total / row.qty
           const baseCpp = baseRow.total / baseRow.qty
           const savingsPct =
@@ -96,10 +96,9 @@ export function GenericMultiQtyTable<T>({
               ? Math.round(((baseCpp - cpp) / baseCpp) * 100)
               : null
 
-          const rowKey = `mqrow-${idx}-${row.qty}`
           return (
             <div
-              key={rowKey}
+              key={`mqrow-${rowIndex}`}
               className={cn(
                 "rounded-xl border transition-all duration-150 overflow-hidden",
                 isBest
@@ -109,7 +108,6 @@ export function GenericMultiQtyTable<T>({
             >
               {/* Main row */}
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-x-4 px-3 py-3">
-                {/* Qty + badges */}
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   <span
                     className={cn(
@@ -135,38 +133,30 @@ export function GenericMultiQtyTable<T>({
                   )}
                 </div>
 
-                {/* Total */}
                 <span
                   className={cn(
                     "text-[13px] font-bold tabular-nums text-right w-20",
-                    isBest
-                      ? "text-emerald-800 dark:text-emerald-200"
-                      : "text-foreground"
+                    isBest ? "text-emerald-800 dark:text-emerald-200" : "text-foreground"
                   )}
                 >
                   {formatCurrency(row.total)}
                 </span>
 
-                {/* Per piece */}
                 <span className="text-[12px] tabular-nums text-right text-muted-foreground w-16">
                   {(cpp * 100).toFixed(1)}¢
                 </span>
 
-                {/* Sheets (optional) */}
-                {rows.some((r) => r.sheets != null) && (
+                {uniqueRows.some((r) => r.sheets != null) && (
                   <span className="text-[11px] tabular-nums text-right text-muted-foreground/70 w-14">
                     {row.sheets != null ? row.sheets.toLocaleString() : "—"}
                   </span>
                 )}
 
-                {/* Expand toggle */}
                 <div className="flex items-center gap-1 justify-end w-8">
                   {renderDetail && (
                     <button
                       className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                      onClick={() =>
-                        setExpandedIdx(isExpanded ? null : idx)
-                      }
+                      onClick={() => setExpandedIdx(isExpanded ? null : rowIndex)}
                       aria-label={isExpanded ? "Collapse" : "Expand"}
                     >
                       {isExpanded ? (
@@ -179,11 +169,9 @@ export function GenericMultiQtyTable<T>({
                 </div>
               </div>
 
-              {/* Expanded detail panel */}
               {isExpanded && renderDetail && (
                 <div className="border-t border-border/50 px-4 py-3 bg-secondary/20">
                   {renderDetail(row)}
-                  {/* Add single button */}
                   <div className="flex justify-end pt-3 border-t border-border/40 mt-3">
                     <Button
                       size="sm"
@@ -198,7 +186,6 @@ export function GenericMultiQtyTable<T>({
                 </div>
               )}
 
-              {/* No detail: show inline add button */}
               {!renderDetail && (
                 <div className="px-3 pb-3 flex justify-end -mt-1">
                   <Button
@@ -223,7 +210,7 @@ export function GenericMultiQtyTable<T>({
         <p className="text-[11px] text-muted-foreground">
           Total if all added:{" "}
           <span className="font-semibold text-foreground tabular-nums">
-            {formatCurrency(rows.reduce((s, r) => s + r.total, 0))}
+            {formatCurrency(uniqueRows.reduce((s, r) => s + r.total, 0))}
           </span>
         </p>
         <button
@@ -231,14 +218,14 @@ export function GenericMultiQtyTable<T>({
           onClick={onAddAll}
           disabled={isLoading}
         >
-          Add all {rows.length} quantities
+          Add all {uniqueRows.length} quantities
         </button>
       </div>
     </div>
   )
 }
 
-// ── Shared qty toggle UI (reusable across all calculators) ────────────────────
+// ── Shared qty toggle UI ──────────────────────────────────────────────────────
 const QUICK_QTYS = [250, 500, 1000, 2500, 5000, 10000]
 
 export interface MultiQtyState {
@@ -271,9 +258,9 @@ export function MultiQtyToggle({
   }
 
   function addQty(qty: number) {
-    if (!qty || mq.quantities.includes(qty) || mq.quantities.length >= 8) return
-    const sorted = Array.from(new Set([...mq.quantities, qty])).sort((a, b) => a - b)
-    onChange({ ...mq, quantities: sorted })
+    if (!qty || value.quantities.includes(qty) || value.quantities.length >= 8) return
+    const sorted = Array.from(new Set([...value.quantities, qty])).sort((a, b) => a - b)
+    onChange({ ...value, quantities: sorted })
   }
 
   function removeQty(qty: number) {
@@ -287,8 +274,10 @@ export function MultiQtyToggle({
   }
 
   function sortQtys() {
-    const sorted = Array.from(new Set([...mq.quantities].filter(Boolean))).sort((a, b) => a - b)
-    onChange({ ...mq, quantities: sorted })
+    const sorted = Array.from(new Set([...value.quantities].filter(Boolean))).sort(
+      (a, b) => a - b
+    )
+    onChange({ ...value, quantities: sorted })
   }
 
   return (
@@ -326,7 +315,6 @@ export function MultiQtyToggle({
 
       {value.enabled && (
         <div className="border rounded-lg p-3 bg-blue-50/40 dark:bg-blue-950/10 border-blue-200 dark:border-blue-800/50 flex flex-col gap-3">
-          {/* Qty pills */}
           {value.quantities.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {value.quantities.map((qty, idx) => (
@@ -354,7 +342,6 @@ export function MultiQtyToggle({
             </div>
           )}
 
-          {/* Quick-add chips */}
           <div className="flex flex-col gap-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
               Quick add
@@ -383,7 +370,7 @@ export function MultiQtyToggle({
           </div>
 
           <p className="text-[10px] text-muted-foreground/60">
-            Up to 8 quantities. All settings (finishing, lamination, broker) apply to every quantity.
+            Up to 8 quantities. All settings apply to every quantity.
           </p>
         </div>
       )}
