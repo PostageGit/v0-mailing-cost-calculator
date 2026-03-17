@@ -96,21 +96,58 @@ export function PrintingCalculator() {
   // Order state
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [hasRestored, setHasRestored] = useState(false)
+  const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
   
   // Restore calculator inputs from saved quote items when quote is loaded
   useEffect(() => {
-    if (hasRestored) return
-    const flatItem = quote.items.find(item => item.category === "flat" && item.metadata?.calculatorInputs)
-    if (flatItem?.metadata?.calculatorInputs) {
-      const saved = flatItem.metadata.calculatorInputs as PrintingInputs
-      setInputs({
-        ...EMPTY_INPUTS,
-        ...saved,
-      })
-      setHasRestored(true)
+    // Skip if no saved quote or already restored this quote
+    if (!quote.savedId || restoredFromId === quote.savedId) return
+    // Skip if no items yet (still loading)
+    if (quote.items.length === 0) return
+    
+    const flatItem = quote.items.find(item => item.category === "flat")
+    console.log("[v0] Flat restore check:", { 
+      savedId: quote.savedId,
+      restoredFromId,
+      hasFlatItem: !!flatItem, 
+      metadata: flatItem?.metadata,
+      hasCalcInputs: !!flatItem?.metadata?.calculatorInputs 
+    })
+    
+    if (flatItem?.metadata) {
+      const meta = flatItem.metadata
+      let restored: Partial<PrintingInputs> = {}
+      
+      // If we have calculatorInputs (new format), use it directly
+      if (meta.calculatorInputs) {
+        restored = meta.calculatorInputs as PrintingInputs
+      } else {
+        // Fallback: extract from older metadata format
+        // Parse dimensions from pieceDimensions (e.g. "8.5x11")
+        const dims = meta.pieceDimensions?.split("x")
+        if (dims?.length === 2) {
+          restored.width = parseFloat(dims[0]) || 8.5
+          restored.height = parseFloat(dims[1]) || 11
+        }
+        // Parse from label (e.g. "500 - 8.5x11 D/S 20lb Offset")
+        const label = flatItem.label || ""
+        const qtyMatch = label.match(/^([\d,]+)\s*-/)
+        if (qtyMatch) restored.qty = parseInt(qtyMatch[1].replace(/,/g, "")) || 500
+        // Use metadata fields
+        if (meta.paperName) restored.paperName = meta.paperName
+        if (meta.sides === "D/S") restored.sidesValue = "ds"
+        else if (meta.sides === "S/S") restored.sidesValue = "ss"
+        if (meta.hasBleed !== undefined) restored.hasBleed = meta.hasBleed
+      }
+      
+      console.log("[v0] Restoring flat inputs:", restored)
+      
+      if (Object.keys(restored).length > 0) {
+        setInputs(prev => ({ ...prev, ...restored }))
+        setRestoredFromId(quote.savedId)
+      }
     }
-  }, [quote.items, hasRestored])
+  }, [quote.items, quote.savedId, restoredFromId])
 
   // Bridge: get fold cost from the HTML calculator via /api/fold-calc
   const foldBridgeBody = useMemo(() => {

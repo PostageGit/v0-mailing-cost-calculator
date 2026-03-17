@@ -260,8 +260,15 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   }, [persistNow])
 
   const loadQuote = useCallback(async (quoteId: string): Promise<MailingSnapshot | null> => {
+    console.log("[v0] loadQuote called:", quoteId)
     const res = await fetch(`/api/quotes/${quoteId}`)
     const data = await res.json()
+    console.log("[v0] loadQuote API response:", { 
+      id: data.id, 
+      itemsCount: data.items?.length,
+      items: data.items,
+      job_meta: data.job_meta 
+    })
     if (data.id) {
       setSavedId(data.id)
       setQuoteNumber(data.quote_number || null)
@@ -270,6 +277,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       setContactNameRaw(data.contact_name || "")
       setReferenceNumberRaw(data.reference_number || "")
       setQuantityRaw(data.quantity || 0)
+      console.log("[v0] Setting items:", data.items)
       setItems(data.items || [])
       setSkippedStepsRaw(data.job_meta?.skipped_steps || [])
       // Capture mailing state for the caller to restore
