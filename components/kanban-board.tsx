@@ -720,7 +720,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ════������═���══════════��═���════════════��══���═══════════���════
+/* ═��══������═���══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -2029,7 +2029,7 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
 
 /* ═══════════════════════════════════════════════════��
    DROPPABLE COLUMN
-   ═══════════════════════════���══════��═════════════════ */
+   ══════════════════════════�����══════��═════════════════ */
 
 function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, boardType }: {
   col: BoardColumn; isActive: boolean; count: number; colTotal: number
@@ -2624,7 +2624,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto bg-background">
           {/* Table Header */}
-          <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_100px_110px] items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10">
+          <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px] items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10">
             <span className="w-5"></span>
             <span>{isJob ? "Job" : "Quote"}</span>
             <span>Project / Contact</span>
@@ -2633,6 +2633,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             <span className="text-right">Quantity</span>
             <span className="text-center">Mail Date</span>
             <span className="text-center">Stage</span>
+            <span className="text-center">Rev</span>
             <span className="text-right">Total</span>
             <span className="text-center"></span>
           </div>
@@ -2647,7 +2648,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               return (
                 <div key={q.id} className={cn("border-b border-border/30 transition-all duration-150", isRowExpanded ? "bg-secondary/40" : "hover:bg-secondary/20")}>
                   {/* Main Row */}
-                  <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_100px_110px] items-center gap-6 px-8 py-5">
+                  <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px] items-center gap-6 px-8 py-5">
                     {/* Expand chevron */}
                     <div
                       className="w-5 flex items-center justify-center cursor-pointer rounded-full hover:bg-secondary/80 p-1 transition-colors"
@@ -2688,6 +2689,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         </span>
                       )}
                     </div>
+                    {/* Revision */}
+                    <span className="text-[12px] text-center font-mono tabular-nums text-muted-foreground">
+                      {jm?.current_revision ? `R${jm.current_revision}` : "—"}
+                    </span>
                     {/* Total */}
                     <span className="text-[14px] text-right font-semibold tabular-nums text-foreground">
                       {formatCurrency(q.total)}
