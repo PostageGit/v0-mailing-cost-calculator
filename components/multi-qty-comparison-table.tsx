@@ -35,7 +35,7 @@ export function GenericMultiQtyTable<T>({
   isLoading,
   label,
 }: GenericMultiQtyTableProps<T>) {
-  const [expandedQty, setExpandedQty] = useState<number | null>(null)
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
   if (!rows.length) return null
 
@@ -86,9 +86,9 @@ export function GenericMultiQtyTable<T>({
 
       {/* Rows */}
       <div className="flex flex-col gap-1.5">
-        {rows.map((row) => {
+        {rows.map((row, idx) => {
           const isBest = row.qty === bestValueQty
-          const isExpanded = expandedQty === row.qty
+          const isExpanded = expandedIdx === idx
           const cpp = row.total / row.qty
           const baseCpp = baseRow.total / baseRow.qty
           const savingsPct =
@@ -96,9 +96,10 @@ export function GenericMultiQtyTable<T>({
               ? Math.round(((baseCpp - cpp) / baseCpp) * 100)
               : null
 
+          const rowKey = `mqrow-${idx}-${row.qty}`
           return (
             <div
-              key={row.qty}
+              key={rowKey}
               className={cn(
                 "rounded-xl border transition-all duration-150 overflow-hidden",
                 isBest
@@ -164,7 +165,7 @@ export function GenericMultiQtyTable<T>({
                     <button
                       className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                       onClick={() =>
-                        setExpandedQty(isExpanded ? null : row.qty)
+                        setExpandedIdx(isExpanded ? null : idx)
                       }
                       aria-label={isExpanded ? "Collapse" : "Expand"}
                     >

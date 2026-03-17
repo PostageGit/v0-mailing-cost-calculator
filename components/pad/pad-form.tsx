@@ -143,6 +143,13 @@ export function PadForm({
         </div>
       </div>
 
+      {/* Multi-Qty Compare Toggle */}
+      <MultiQtyToggle
+        value={inputs.multiQty ?? { enabled: false, quantities: [] }}
+        onChange={(v) => update({ multiQty: v })}
+        defaultBase={inputs.padQty || 500}
+      />
+
       <Separator className="my-4" />
 
       {/* Inside Pages Paper Row */}
@@ -248,13 +255,6 @@ export function PadForm({
           </p>
         </div>
       )}
-
-      {/* Multi-Qty Compare Toggle */}
-      <MultiQtyToggle
-        value={inputs.multiQty ?? { enabled: false, quantities: [] }}
-        onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
-        defaultBase={inputs.padQty || 500}
-      />
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">

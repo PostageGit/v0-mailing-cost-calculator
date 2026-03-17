@@ -202,6 +202,15 @@ export function SpiralForm({
         </div>
       </div>
 
+      {/* Multi-Qty Compare Toggle */}
+      {!ohpMode && (
+        <MultiQtyToggle
+          value={inputs.multiQty ?? { enabled: false, quantities: [] }}
+          onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
+          defaultBase={inputs.bookQty || 500}
+        />
+      )}
+
       <Separator className="my-4" />
 
       {/* Inside Pages Row */}
@@ -276,15 +285,6 @@ export function SpiralForm({
             Please fill in the highlighted fields above to calculate pricing.
           </p>
         </div>
-      )}
-
-      {/* Multi-Qty Compare Toggle (in-house only) */}
-      {!ohpMode && (
-        <MultiQtyToggle
-          value={inputs.multiQty ?? { enabled: false, quantities: [] }}
-          onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
-          defaultBase={inputs.bookQty || 500}
-        />
       )}
 
       {/* Action Buttons */}

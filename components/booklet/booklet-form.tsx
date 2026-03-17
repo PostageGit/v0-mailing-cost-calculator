@@ -181,6 +181,15 @@ export function BookletForm({
         </div>
       </div>
 
+      {/* Multi-Qty Compare Toggle */}
+      {!ohpMode && !disabled && (
+        <MultiQtyToggle
+          value={inputs.multiQty ?? { enabled: false, quantities: [] }}
+          onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
+          defaultBase={inputs.bookQty || 500}
+        />
+      )}
+
       <Separator className="my-4" />
 
       {/* Separate Cover Checkbox */}
@@ -573,15 +582,6 @@ export function BookletForm({
             Please fill in the highlighted fields above to calculate pricing.
           </p>
         </div>
-      )}
-
-      {/* Multi-Qty Compare Toggle (in-house only) */}
-      {!ohpMode && !disabled && (
-        <MultiQtyToggle
-          value={inputs.multiQty ?? { enabled: false, quantities: [] }}
-          onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
-          defaultBase={inputs.bookQty || 500}
-        />
       )}
 
       {/* Action Buttons */}

@@ -153,13 +153,13 @@ export function PrintingForm({
         </div>
       </div>
 
-      {/* Lots Section - Split quantity into different artwork versions */}
-      <LotsSection inputs={inputs} onInputsChange={onInputsChange} />
-
       {/* Multi-Qty Section - Compare pricing across multiple quantities */}
       {!ohpMode && (
         <MultiQtySection inputs={inputs} onInputsChange={onInputsChange} />
       )}
+
+      {/* Lots Section - Split quantity into different artwork versions */}
+      <LotsSection inputs={inputs} onInputsChange={onInputsChange} />
 
       {/* Row 2: Paper Type, Sides, Bleed */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
