@@ -271,8 +271,9 @@ export function MultiQtyToggle({
   }
 
   function addQty(qty: number) {
-    if (!qty || value.quantities.includes(qty) || value.quantities.length >= 8) return
-    onChange({ ...value, quantities: [...value.quantities, qty].sort((a, b) => a - b) })
+    if (!qty || mq.quantities.includes(qty) || mq.quantities.length >= 8) return
+    const sorted = Array.from(new Set([...mq.quantities, qty])).sort((a, b) => a - b)
+    onChange({ ...mq, quantities: sorted })
   }
 
   function removeQty(qty: number) {
@@ -286,7 +287,8 @@ export function MultiQtyToggle({
   }
 
   function sortQtys() {
-    onChange({ ...value, quantities: [...value.quantities].filter(Boolean).sort((a, b) => a - b) })
+    const sorted = Array.from(new Set([...mq.quantities].filter(Boolean))).sort((a, b) => a - b)
+    onChange({ ...mq, quantities: sorted })
   }
 
   return (

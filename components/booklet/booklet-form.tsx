@@ -60,8 +60,18 @@ export function BookletForm({
   const insertLeafCount = usesInserts ? inputs.insertSections.reduce((sum, s) => sum + (s.leafCount || 0), 0) : 0
   const mainLeaves = totalLeaves - insertLeafCount
   const allPaperOptions = allPapers.map((p) => ({ name: p.name, isCardstock: p.is_cardstock, thickness: p.thickness, availableSizes: p.available_sizes }))
-  const coverPapers = showAllCoverPapers ? allPaperOptions : getPaperOptions("book_cover")
-  const insidePapers = showAllInsidePapers ? allPaperOptions : getPaperOptions("book_inside")
+  const coverPapersFiltered = showAllCoverPapers ? allPaperOptions : getPaperOptions("book_cover")
+  const coverPapers = coverPapersFiltered.some((p) => p.name === inputs.coverPaper)
+    ? coverPapersFiltered
+    : inputs.coverPaper
+      ? [allPaperOptions.find((p) => p.name === inputs.coverPaper) ?? { name: inputs.coverPaper, isCardstock: true, thickness: 0, availableSizes: [] }, ...coverPapersFiltered]
+      : coverPapersFiltered
+  const insidePapersFiltered = showAllInsidePapers ? allPaperOptions : getPaperOptions("book_inside")
+  const insidePapers = insidePapersFiltered.some((p) => p.name === inputs.insidePaper)
+    ? insidePapersFiltered
+    : inputs.insidePaper
+      ? [allPaperOptions.find((p) => p.name === inputs.insidePaper) ?? { name: inputs.insidePaper, isCardstock: false, thickness: 0, availableSizes: [] }, ...insidePapersFiltered]
+      : insidePapersFiltered
   const coverSizes = inputs.coverPaper ? getAvailableSizes(inputs.coverPaper) : []
   const insideSizes = inputs.insidePaper ? getAvailableSizes(inputs.insidePaper) : []
   const canLam = inputs.separateCover && inputs.coverPaper ? canPaperLaminate(inputs.coverPaper) : false
