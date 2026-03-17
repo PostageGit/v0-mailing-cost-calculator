@@ -96,6 +96,7 @@ export function BookletCalculator() {
   // When frozen (viewing saved quote), show saved values directly
   // When unfrozen (editing), show local state
   const inputs = isFrozen && savedInputs ? savedInputs : localInputs
+  console.log("[v0] INPUTS:", { savedId: quote.savedId, hasSavedQuote, isFrozen, userUnfroze, savedInputsNull: savedInputs === null, bookQty: inputs.bookQty, pages: inputs.pagesPerBook, itemCount: quote.items.length, categories: quote.items.map(i=>i.category) })
   const setInputs = useCallback((val: BookletInputs | ((prev: BookletInputs) => BookletInputs)) => {
     if (typeof val === "function") {
       setLocalInputs(val)
