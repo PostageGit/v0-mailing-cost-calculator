@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save } from "lucide-react"
+import { MultiQtyToggle } from "@/components/multi-qty-comparison-table"
 import {
   getAvailableSizes,
   getAvailableSides,
@@ -275,6 +276,15 @@ export function SpiralForm({
             Please fill in the highlighted fields above to calculate pricing.
           </p>
         </div>
+      )}
+
+      {/* Multi-Qty Compare Toggle (in-house only) */}
+      {!ohpMode && (
+        <MultiQtyToggle
+          value={inputs.multiQty ?? { enabled: false, quantities: [] }}
+          onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
+          defaultBase={inputs.bookQty || 500}
+        />
       )}
 
       {/* Action Buttons */}

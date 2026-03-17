@@ -21,6 +21,7 @@ export interface SpiralInputs {
   blackVinyl: boolean
   isBroker: boolean
   customLevel: "auto" | string   // "auto" | "Level 2" - "Level 10"
+  multiQty?: { enabled: boolean; quantities: number[] }
 }
 
 export interface SpiralPartResult {

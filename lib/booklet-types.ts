@@ -57,6 +57,8 @@ export interface BookletInputs {
   laminationType: "none" | "gloss" | "matte" | "silk" | "leather"
   customLevel: string // "auto" or "1"-"10"
   isBroker: boolean
+  /** Multi-quantity comparison mode */
+  multiQty?: { enabled: boolean; quantities: number[] }
   /** Extra percentage on printing cost (default 10) */
   printingMarkupPct: number
 }

@@ -26,6 +26,7 @@ export interface PadInputs {
   useChipBoard: boolean
   isBroker: boolean
   customLevel: "auto" | string
+  multiQty?: { enabled: boolean; quantities: number[] }
 }
 
 /** Pad calculator result */
