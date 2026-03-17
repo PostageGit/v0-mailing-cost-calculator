@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { RotateCcw, CheckCircle2, Clock, Package, ChevronDown, ChevronUp } from "lucide-react"
+import { RotateCcw, CheckCircle2, Clock, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface RevisionHistoryDialogProps {
@@ -286,40 +286,162 @@ function RevisionCard({
         )}
       </button>
 
-      {/* Expanded item list */}
+      {/* Expanded item list with diff against previous revision */}
       {expanded && (
         <div className="px-5 pb-4 border-t border-border/40">
           {items.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3">No items in this revision.</p>
-          ) : (
-            <div className="mt-3 space-y-1.5">
-              {items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start justify-between gap-3 py-2 px-3 rounded-lg bg-secondary/40"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-foreground/5 text-muted-foreground border border-border/40">
-                        {getCategoryLabel(item.category)}
-                      </span>
-                    </div>
-                    <p className="text-[13px] font-medium text-foreground mt-1 leading-snug">
-                      {item.label}
-                    </p>
-                    {item.description && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                        {item.description}
-                      </p>
+          ) : (() => {
+            // Build diff status for each item
+            const prevItems = prevRev?.items || []
+
+            type ItemDiff = {
+              item: typeof items[0]
+              status: "unchanged" | "changed" | "new" | "price_changed"
+              prevItem?: typeof items[0]
+              priceChange?: number
+            }
+
+            const diffs: ItemDiff[] = items.map(item => {
+              if (!prevRev || isOriginal) {
+                // Original revision - nothing to compare against
+                return { item, status: "unchanged" as const }
+              }
+              // Try to find matching item by category + similar label
+              const match = prevItems.find(p =>
+                p.category === item.category &&
+                // Match by label similarity (strip leading numbers for comparison)
+                p.label.replace(/^[\d,]+\s*[-–]\s*/, "") === item.label.replace(/^[\d,]+\s*[-–]\s*/, "")
+              )
+              if (!match) {
+                // No matching item in previous revision
+                return { item, status: "new" as const }
+              }
+              // Check what changed
+              const priceChange = item.amount - match.amount
+              const labelChanged = item.label !== match.label
+              const descChanged = item.description !== match.description
+              if (priceChange === 0 && !labelChanged && !descChanged) {
+                return { item, status: "unchanged" as const, prevItem: match }
+              }
+              if (!labelChanged && !descChanged && priceChange !== 0) {
+                return { item, status: "price_changed" as const, prevItem: match, priceChange }
+              }
+              return { item, status: "changed" as const, prevItem: match, priceChange }
+            })
+
+            // Find removed items (in prev but not in current)
+            const removedItems = prevRev && !isOriginal ? prevItems.filter(prev =>
+              !items.find(cur =>
+                cur.category === prev.category &&
+                cur.label.replace(/^[\d,]+\s*[-–]\s*/, "") === prev.label.replace(/^[\d,]+\s*[-–]\s*/, "")
+              )
+            ) : []
+
+            return (
+              <div className="mt-3 space-y-1.5">
+                {diffs.map(({ item, status, prevItem, priceChange }, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "flex items-start justify-between gap-3 py-2.5 px-3 rounded-lg border",
+                      status === "unchanged"
+                        ? "bg-secondary/20 border-transparent"
+                        : status === "new"
+                          ? "bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-200/60 dark:border-emerald-800/40"
+                          : "bg-amber-50/60 dark:bg-amber-950/15 border-amber-200/60 dark:border-amber-800/40"
                     )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-foreground/5 text-muted-foreground border border-border/40">
+                          {getCategoryLabel(item.category)}
+                        </span>
+                        {/* Status badge */}
+                        {status === "new" && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                            NEW
+                          </span>
+                        )}
+                        {status === "changed" && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
+                            MODIFIED
+                          </span>
+                        )}
+                        {status === "price_changed" && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+                            PRICE UPDATED
+                          </span>
+                        )}
+                      </div>
+                      <p className={cn(
+                        "text-[13px] font-medium mt-1 leading-snug",
+                        status === "unchanged" ? "text-muted-foreground" : "text-foreground"
+                      )}>
+                        {item.label}
+                      </p>
+                      {/* Show what changed from previous */}
+                      {prevItem && status === "changed" && prevItem.label !== item.label && (
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5 line-through">
+                          was: {prevItem.label}
+                        </p>
+                      )}
+                      {item.description && (
+                        <p className={cn(
+                          "text-[11px] mt-0.5 leading-snug",
+                          status === "unchanged" ? "text-muted-foreground/50" : "text-muted-foreground"
+                        )}>
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0 pt-4">
+                      <span className={cn(
+                        "text-[13px] font-semibold tabular-nums",
+                        status === "unchanged" ? "text-muted-foreground" : "text-foreground"
+                      )}>
+                        {formatCurrency(item.amount)}
+                      </span>
+                      {priceChange && priceChange !== 0 && (
+                        <p className={cn(
+                          "text-[10px] font-medium tabular-nums",
+                          priceChange > 0
+                            ? "text-rose-500 dark:text-rose-400"
+                            : "text-emerald-600 dark:text-emerald-400"
+                        )}>
+                          {priceChange > 0 ? "+" : ""}{formatCurrency(priceChange)}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-[13px] font-semibold tabular-nums text-foreground shrink-0 pt-5">
-                    {formatCurrency(item.amount)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+                {/* Removed items */}
+                {removedItems.map((item, idx) => (
+                  <div
+                    key={`removed-${idx}`}
+                    className="flex items-start justify-between gap-3 py-2.5 px-3 rounded-lg border bg-rose-50/50 dark:bg-rose-950/10 border-rose-200/50 dark:border-rose-800/30"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-foreground/5 text-muted-foreground/40 border border-border/30">
+                          {getCategoryLabel(item.category)}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400">
+                          REMOVED
+                        </span>
+                      </div>
+                      <p className="text-[13px] font-medium text-muted-foreground/50 mt-1 leading-snug line-through">
+                        {item.label}
+                      </p>
+                    </div>
+                    <span className="text-[13px] font-semibold tabular-nums text-muted-foreground/40 shrink-0 pt-4 line-through">
+                      {formatCurrency(item.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Restore button for non-current revisions */}
           {!rev.is_current && (
