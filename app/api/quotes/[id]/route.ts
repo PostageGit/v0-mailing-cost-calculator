@@ -59,12 +59,16 @@ export async function PATCH(
     const { data: existing } = await supabase.from("quotes").select("job_meta, items, total, project_name, notes, quantity").eq("id", id).single()
     const existingMeta = existing?.job_meta || {}
     
-    // If items/total changed, create a revision snapshot
+    // If items/total changed, create a revision snapshot — but only if a
+    // prior revision already exists (current_revision >= 1), meaning the
+    // quote has been explicitly saved before. This prevents a double-revision
+    // on the very first PATCH that immediately follows a POST.
     const revisions = existingMeta.revisions || []
     const itemsChanged = body.items !== undefined && JSON.stringify(body.items) !== JSON.stringify(existing?.items)
     const totalChanged = body.total !== undefined && body.total !== existing?.total
+    const hasPriorRevision = typeof existingMeta.current_revision === "number"
     
-    if ((itemsChanged || totalChanged) && existing?.items?.length > 0) {
+    if ((itemsChanged || totalChanged) && existing?.items?.length > 0 && hasPriorRevision) {
       // Save current state as a revision before updating
       const newRevision = {
         revision_number: revisions.length + 1,
