@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/pricing"
 import { Plus, Star, ChevronDown, ChevronUp, TrendingDown, BarChart2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// ── Generic row type ──────────────────────────────────────────────────────────
+// ── Generic row type (v2 — index-keyed, deduped) ─────────────────────────────
 export interface GenericQtyRow<T = unknown> {
   qty: number
   total: number
