@@ -27,6 +27,7 @@ export interface PerfectInputs {
   isBroker: boolean
   customLevel: "auto" | string   // "auto" | "1"-"10" (applies to all unless overridden)
   coverLevelOverride?: number    // VIP: force a specific level (1-10) for cover only
+  multiQty?: { enabled: boolean; quantities: number[] }
 }
 
 export interface PerfectPartResult {

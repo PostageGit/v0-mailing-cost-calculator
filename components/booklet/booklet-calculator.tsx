@@ -14,6 +14,9 @@ import { formatCurrency } from "@/lib/pricing"
 import { useGlobalChat } from "@/lib/chat-context"
 import { bookletSpecsToChat } from "@/lib/specs-to-chat"
 import { AlertTriangle, Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck, Lock } from "lucide-react"
+import { GenericMultiQtyTable } from "@/components/multi-qty-comparison-table"
+import type { GenericQtyRow } from "@/components/multi-qty-comparison-table"
+import type { BookletCalcResult } from "@/lib/booklet-types"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { calcSheetWeightOz } from "@/lib/paper-weights"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
@@ -83,6 +86,7 @@ export function BookletCalculator() {
   // Local form state - always starts empty
   const [localInputs, setLocalInputs] = useState<BookletInputs>(EMPTY_INPUTS)
   const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
+  const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<BookletCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("cover")
   const [editingItemId] = useState<number | null>(null)
@@ -166,6 +170,22 @@ export function BookletCalculator() {
 
     setCalcResult(result)
     setActiveTab(inputs.separateCover ? "cover" : "inside")
+
+    // Multi-qty comparison
+    const mq = inputs.multiQty
+    if (mq?.enabled && mq.quantities.length > 0) {
+      const rows: GenericQtyRow<BookletCalcResult>[] = mq.quantities
+        .filter((q) => q > 0)
+        .map((q) => {
+          const r = calculateBooklet({ ...inputs, bookQty: q })
+          if (!r.isValid) return null
+          return { qty: q, total: r.grandTotal, result: r }
+        })
+        .filter((r): r is GenericQtyRow<BookletCalcResult> => r !== null)
+      setMultiQtyResults(rows)
+    } else {
+      setMultiQtyResults([])
+    }
   }, [inputs, isFormValid])
 
   // Auto-recalculate when broker toggles and result already exists
@@ -194,9 +214,26 @@ export function BookletCalculator() {
   function resetForm() {
     setLocalInputs(EMPTY_INPUTS)
     setCalcResult(null)
+    setMultiQtyResults([])
     setValidationError(null)
     setUserUnfroze(true) // Unlock form on reset
   }
+
+  const handleAddMultiQtyToQuote = useCallback((row: GenericQtyRow<BookletCalcResult>) => {
+    const coverDesc = inputs.separateCover ? `w/ ${row.result.coverResult.paper} Cover` : "Self-Cover"
+    const desc = `${inputs.insidePaper}, ${row.result.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
+    quote.addItem({
+      category: "booklet",
+      label: `${row.qty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
+      description: desc,
+      amount: row.total,
+      metadata: { paperName: inputs.insidePaper, pageCount: inputs.pagesPerBook },
+    })
+  }, [inputs, quote])
+
+  const handleAddAllMultiQty = useCallback(() => {
+    multiQtyResults.forEach((row) => handleAddMultiQtyToQuote(row))
+  }, [multiQtyResults, handleAddMultiQtyToQuote])
 
   const bookletPiece = bookletPieces.length > 0 ? bookletPieces[0] : null
   const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
@@ -467,6 +504,16 @@ export function BookletCalculator() {
                   />
                 </div>
               </div>
+
+              {/* Multi-Qty Comparison Table */}
+              {multiQtyResults.length > 0 && (
+                <GenericMultiQtyTable
+                  rows={multiQtyResults}
+                  onAddToQuote={handleAddMultiQtyToQuote}
+                  onAddAll={handleAddAllMultiQty}
+                  label="Booklet Quantity Comparison"
+                />
+              )}
 
               {/* Add to Quote + Shipping + Compare with Chat */}
               <div className="flex gap-2 mt-4">

@@ -22,6 +22,7 @@ export interface QuoteRevision {
   quantity?: number
   created_at: string
   is_current?: boolean
+  name?: string
 }
 
 interface QuoteContextValue {

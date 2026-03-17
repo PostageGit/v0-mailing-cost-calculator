@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useQuote, type QuoteRevision } from "@/lib/quote-context"
 import { getCategoryLabel } from "@/lib/quote-types"
 import { formatCurrency } from "@/lib/pricing"
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { RotateCcw, CheckCircle2, Clock, ChevronDown, ChevronUp } from "lucide-react"
+import { RotateCcw, CheckCircle2, Clock, ChevronDown, ChevronUp, Pencil, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface RevisionHistoryDialogProps {
@@ -147,6 +147,9 @@ function RevisionCard({
   isLatest,
   isOriginal,
   totalRevisions,
+  quoteNumber,
+  quoteId,
+  onNameChange,
 }: {
   rev: QuoteRevision
   prevRev: QuoteRevision | null
@@ -154,136 +157,207 @@ function RevisionCard({
   isLatest: boolean
   isOriginal: boolean
   totalRevisions: number
+  quoteNumber?: number | null
+  quoteId?: string | null
+  onNameChange?: (revNum: number, name: string) => void
 }) {
   const [expanded, setExpanded] = useState(isLatest)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(rev.name || "")
+  const [savingName, setSavingName] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+
   const items = rev.items || []
   const totalDiff = prevRev ? rev.total - prevRev.total : 0
   const changeSummary = prevRev ? getChangeSummary(prevRev, rev) : []
 
-  // Determine the label and visual style
-  const label = isOriginal
-    ? "Original"
-    : rev.is_current
-      ? `Revision ${rev.revision_number - 1}`
-      : `Revision ${rev.revision_number - 1}`
+  const handleSaveName = async (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation()
+    if (!quoteId || !rev.is_current === false) {
+      // For stored revisions only (not current)
+    }
+    setSavingName(true)
+    try {
+      await fetch(`/api/quotes/${quoteId}/revisions/${rev.revision_number}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nameValue.trim() }),
+      })
+      onNameChange?.(rev.revision_number, nameValue.trim())
+    } finally {
+      setSavingName(false)
+      setEditingName(false)
+    }
+  }
 
-  const sublabel = rev.is_current
-    ? "Current version"
-    : isOriginal
-      ? `First saved \u00b7 ${totalRevisions - 1} revision${totalRevisions - 1 !== 1 ? "s" : ""} since`
-      : null
+  const handleCancelName = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setNameValue(rev.name || "")
+    setEditingName(false)
+  }
+
+  useEffect(() => {
+    if (editingName) nameInputRef.current?.focus()
+  }, [editingName])
+
+  // Build the prominent ID string: "Q-1389  R3"
+  const qLabel = quoteNumber ? `Q-${quoteNumber}` : null
+  const rLabel = isOriginal ? "R1" : `R${rev.revision_number}`
 
   return (
     <div
       className={cn(
-        "relative rounded-xl border transition-all duration-200",
+        "relative rounded-xl border transition-all duration-200 overflow-hidden",
         rev.is_current
-          ? "border-foreground/20 bg-background shadow-sm ring-1 ring-foreground/5"
+          ? "border-foreground/25 bg-background shadow-sm"
           : isOriginal
-            ? "border-border/40 bg-muted/30"
-            : "border-border/60 bg-card hover:border-border"
+            ? "border-border/40 bg-muted/20"
+            : "border-border/60 bg-card hover:border-border/80"
       )}
     >
-      {/* Card header */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left px-5 py-4"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Badge */}
-            <div
-              className={cn(
-                "flex items-center justify-center w-9 h-9 rounded-full text-[11px] font-bold shrink-0",
-                rev.is_current
-                  ? "bg-foreground text-background"
-                  : isOriginal
-                    ? "bg-muted text-muted-foreground/60 border border-border/50"
-                    : "bg-secondary text-muted-foreground"
-              )}
-            >
-              {isOriginal ? "v1" : `v${rev.revision_number}`}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "text-sm font-semibold",
-                  rev.is_current ? "text-foreground" : isOriginal ? "text-muted-foreground" : "text-foreground"
-                )}>
-                  {label}
-                </span>
-                {rev.is_current && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-foreground text-background">
-                    <CheckCircle2 className="h-2.5 w-2.5" />
-                    CURRENT
-                  </span>
-                )}
-                {isOriginal && !rev.is_current && (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium text-muted-foreground/60 bg-muted border border-border/40">
-                    ORIGINAL
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <RelativeTime date={rev.created_at} />
-                </span>
-                {items.length > 0 && (
-                  <span>{items.length} {items.length === 1 ? "item" : "items"}</span>
-                )}
-                {rev.quantity ? (
-                  <span>{rev.quantity.toLocaleString()} pcs</span>
-                ) : null}
-                {sublabel && (
-                  <span className="text-muted-foreground/50">{sublabel}</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className={cn(
-                "text-base font-bold tabular-nums",
-                rev.is_current ? "text-foreground" : isOriginal ? "text-muted-foreground" : "text-foreground"
-              )}>
-                {formatCurrency(rev.total)}
-              </div>
-              {prevRev && totalDiff !== 0 && (
-                <div
-                  className={cn(
-                    "text-[11px] font-semibold tabular-nums",
-                    totalDiff > 0
-                      ? "text-rose-500 dark:text-rose-400"
-                      : "text-emerald-600 dark:text-emerald-400"
-                  )}
-                >
-                  {totalDiff > 0 ? "+" : ""}{formatCurrency(totalDiff)}
-                </div>
-              )}
-            </div>
-            {expanded ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+      {/* ── Big ID banner at top ── */}
+      <div className={cn(
+        "px-5 pt-4 pb-3 flex items-start justify-between gap-4",
+        rev.is_current ? "bg-foreground/[0.02]" : ""
+      )}>
+        <div className="flex items-baseline gap-3 min-w-0">
+          {/* Quote number */}
+          {qLabel && (
+            <span className={cn(
+              "text-[11px] font-bold tracking-widest uppercase tabular-nums shrink-0",
+              rev.is_current ? "text-muted-foreground/50" : "text-muted-foreground/40"
+            )}>
+              {qLabel}
+            </span>
+          )}
+          {/* Revision number — the BIG thing */}
+          <span className={cn(
+            "font-black tabular-nums leading-none shrink-0",
+            rev.is_current
+              ? "text-4xl text-foreground"
+              : isOriginal
+                ? "text-3xl text-muted-foreground/40"
+                : "text-3xl text-foreground/70"
+          )}>
+            {rLabel}
+          </span>
+          {/* Status tags */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {rev.is_current && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-foreground text-background tracking-wider">
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                CURRENT
+              </span>
+            )}
+            {isOriginal && !rev.is_current && (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-muted-foreground/50 bg-muted border border-border/30 tracking-wider">
+                ORIGINAL
+              </span>
             )}
           </div>
         </div>
-
-        {/* Change summary - only on revised versions, not original */}
-        {!isOriginal && prevRev && changeSummary.length > 0 && (
+        {/* Total + diff */}
+        <div className="text-right shrink-0">
           <div className={cn(
-            "mt-2 ml-12 px-2.5 py-1.5 rounded-md text-[11px] font-medium inline-block",
-            totalDiff < 0
-              ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300"
-              : totalDiff > 0
-                ? "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400"
-                : "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400"
+            "text-xl font-bold tabular-nums leading-none",
+            rev.is_current ? "text-foreground" : isOriginal ? "text-muted-foreground/60" : "text-foreground/80"
           )}>
-            Changed: {changeSummary.join(", ")}
+            {formatCurrency(rev.total)}
           </div>
+          {prevRev && totalDiff !== 0 && (
+            <div className={cn(
+              "text-[11px] font-semibold tabular-nums mt-0.5",
+              totalDiff > 0 ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
+            )}>
+              {totalDiff > 0 ? "+" : ""}{formatCurrency(totalDiff)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Revision name — editable ── */}
+      <div className="px-5 pb-3 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+        {editingName ? (
+          <div className="flex items-center gap-2 flex-1">
+            <input
+              ref={nameInputRef}
+              value={nameValue}
+              onChange={e => setNameValue(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleSaveName(e); if (e.key === "Escape") handleCancelName(e as unknown as React.MouseEvent) }}
+              placeholder="Name this revision..."
+              className="flex-1 text-[13px] font-medium bg-secondary/60 border border-border rounded-md px-3 py-1.5 outline-none focus:ring-1 focus:ring-foreground/20 text-foreground placeholder:text-muted-foreground/40"
+            />
+            <button
+              onClick={handleSaveName}
+              disabled={savingName}
+              className="h-7 w-7 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors shrink-0"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={handleCancelName}
+              className="h-7 w-7 flex items-center justify-center rounded-md border border-border hover:bg-secondary transition-colors shrink-0"
+            >
+              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={e => { e.stopPropagation(); setEditingName(true) }}
+            className={cn(
+              "group flex items-center gap-1.5 text-left rounded-md px-2 py-1 -mx-2 transition-colors hover:bg-secondary/60",
+              rev.name ? "text-foreground" : "text-muted-foreground/40"
+            )}
+          >
+            <span className={cn(
+              "text-[13px] font-medium",
+              rev.name ? "text-foreground" : "italic"
+            )}>
+              {rev.name || "Add a name..."}
+            </span>
+            <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />
+          </button>
         )}
+      </div>
+
+      {/* ── Meta row + expand toggle ── */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left px-5 pb-3"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <RelativeTime date={rev.created_at} />
+            </span>
+            {items.length > 0 && (
+              <span>{items.length} {items.length === 1 ? "item" : "items"}</span>
+            )}
+            {rev.quantity ? (
+              <span>{rev.quantity.toLocaleString()} pcs</span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {/* Change summary chip */}
+            {!isOriginal && prevRev && changeSummary.length > 0 && (
+              <span className={cn(
+                "px-2 py-0.5 rounded text-[10px] font-medium",
+                totalDiff < 0
+                  ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300"
+                  : totalDiff > 0
+                    ? "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400"
+                    : "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400"
+              )}>
+                {changeSummary.slice(0, 2).join(", ")}
+              </span>
+            )}
+            {expanded
+              ? <ChevronUp className="h-4 w-4 text-muted-foreground/50" />
+              : <ChevronDown className="h-4 w-4 text-muted-foreground/50" />
+            }
+          </div>
+        </div>
       </button>
 
       {/* Expanded item list with diff against previous revision */}
@@ -477,12 +551,28 @@ function RevisionDialogInner({
   revisions,
   loading,
   onRestore,
+  quoteNumber,
+  quoteId,
 }: {
   revisions: QuoteRevision[]
   loading: boolean
   onRestore: (revNum: number) => void
+  quoteNumber?: number | null
+  quoteId?: string | null
 }) {
-  const sorted = [...revisions].sort((a, b) => {
+  const [localRevisions, setLocalRevisions] = useState<QuoteRevision[]>(revisions)
+
+  useEffect(() => {
+    setLocalRevisions(revisions)
+  }, [revisions])
+
+  const handleNameChange = useCallback((revNum: number, name: string) => {
+    setLocalRevisions(prev => prev.map(r =>
+      r.revision_number === revNum ? { ...r, name } : r
+    ))
+  }, [])
+
+  const sorted = [...localRevisions].sort((a, b) => {
     if (a.is_current && !b.is_current) return -1
     if (!a.is_current && b.is_current) return 1
     return b.revision_number - a.revision_number
@@ -537,6 +627,9 @@ function RevisionDialogInner({
             isLatest={idx === 0}
             isOriginal={isOriginal}
             totalRevisions={sorted.length}
+            quoteNumber={quoteNumber}
+            quoteId={quoteId}
+            onNameChange={handleNameChange}
           />
         )
       })}
@@ -546,7 +639,7 @@ function RevisionDialogInner({
 
 /** Used from the quote sidebar (depends on useQuote context) */
 export function RevisionHistoryDialog({ open, onOpenChange }: RevisionHistoryDialogProps) {
-  const { revisions, fetchRevisions, loadRevision, savedId } = useQuote()
+  const { revisions, fetchRevisions, loadRevision, savedId, quoteNumber } = useQuote()
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -570,14 +663,20 @@ export function RevisionHistoryDialog({ open, onOpenChange }: RevisionHistoryDia
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50 shrink-0">
           <DialogTitle className="text-lg font-semibold text-foreground">
-            Version History
+            Version History {quoteNumber && <span className="text-muted-foreground font-normal">— Q-{quoteNumber}</span>}
           </DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Original + {Math.max(0, revisions.length - 1)} {revisions.length - 1 === 1 ? "revision" : "revisions"}
           </p>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <RevisionDialogInner revisions={revisions} loading={loading} onRestore={handleRestore} />
+          <RevisionDialogInner
+            revisions={revisions}
+            loading={loading}
+            onRestore={handleRestore}
+            quoteNumber={quoteNumber}
+            quoteId={savedId}
+          />
         </div>
       </DialogContent>
     </Dialog>
@@ -590,11 +689,13 @@ export function StandaloneRevisionDialog({
   onOpenChange,
   quoteId,
   quoteName,
+  quoteNumber,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   quoteId: string
   quoteName?: string
+  quoteNumber?: number | null
 }) {
   const [revisions, setRevisions] = useState<QuoteRevision[]>([])
   const [loading, setLoading] = useState(false)
@@ -630,6 +731,8 @@ export function StandaloneRevisionDialog({
             revisions={revisions}
             loading={loading}
             onRestore={() => onOpenChange(false)}
+            quoteNumber={quoteNumber}
+            quoteId={quoteId}
           />
         </div>
       </DialogContent>

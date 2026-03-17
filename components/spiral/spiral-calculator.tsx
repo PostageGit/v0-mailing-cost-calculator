@@ -13,6 +13,8 @@ import type { SpiralInputs, SpiralCalcResult } from "@/lib/spiral-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { Plus, ArrowDown, Save, Pencil, ExternalLink, Truck } from "lucide-react"
+import { GenericMultiQtyTable } from "@/components/multi-qty-comparison-table"
+import type { GenericQtyRow } from "@/components/multi-qty-comparison-table"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 import { usePapersContext } from "@/lib/papers-context"
@@ -29,6 +31,7 @@ export function SpiralCalculator() {
 
   const [inputs, setInputs] = useState<SpiralInputs>(defaultSpiralInputs())
   const [calcResult, setCalcResult] = useState<SpiralCalcResult | null>(null)
+  const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<SpiralCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("inside")
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
@@ -72,6 +75,22 @@ export function SpiralCalculator() {
 
     setCalcResult(result)
     setActiveTab("inside")
+
+    // Multi-qty comparison
+    const mq = inputs.multiQty
+    if (mq?.enabled && mq.quantities.length > 0) {
+      const rows: GenericQtyRow<SpiralCalcResult>[] = mq.quantities
+        .filter((q) => q > 0)
+        .map((q) => {
+          const r = calculateSpiral({ ...inputs, bookQty: q }, paperDataLookup)
+          if ("error" in r) return null
+          return { qty: q, total: r.grandTotal, result: r }
+        })
+        .filter((r): r is GenericQtyRow<SpiralCalcResult> => r !== null)
+      setMultiQtyResults(rows)
+    } else {
+      setMultiQtyResults([])
+    }
   }, [inputs, isFormValid, paperDataLookup])
 
   const handleBrokerChange = useCallback((val: boolean) => {
@@ -99,8 +118,24 @@ export function SpiralCalculator() {
   function resetForm() {
     setInputs(defaultSpiralInputs())
     setCalcResult(null)
+    setMultiQtyResults([])
     setValidationError(null)
   }
+
+  const handleAddMultiQtyToQuote = useCallback((row: GenericQtyRow<SpiralCalcResult>) => {
+    const desc = `${row.result.insideResult.paper}, ${row.result.insideResult.sides}`
+    quote.addItem({
+      category: "spiral",
+      label: `${row.qty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}`,
+      description: desc,
+      amount: row.total,
+      metadata: { paperName: row.result.insideResult.paper, pageCount: inputs.pagesPerBook },
+    })
+  }, [inputs, quote])
+
+  const handleAddAllMultiQty = useCallback(() => {
+    multiQtyResults.forEach((row) => handleAddMultiQtyToQuote(row))
+  }, [multiQtyResults, handleAddMultiQtyToQuote])
 
   const spiralPiece = spiralPieces.length > 0 ? spiralPieces[0] : null
   const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
@@ -315,6 +350,16 @@ export function SpiralCalculator() {
                 <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
               </div>
             </div>
+
+            {/* Multi-Qty Comparison Table */}
+            {multiQtyResults.length > 0 && (
+              <GenericMultiQtyTable
+                rows={multiQtyResults}
+                onAddToQuote={handleAddMultiQtyToQuote}
+                onAddAll={handleAddAllMultiQty}
+                label="Spiral Binding Quantity Comparison"
+              />
+            )}
 
             {/* Add to Quote + Shipping -- below results */}
             <div className="flex gap-2 mt-4">

@@ -13,6 +13,8 @@ import { DEFAULT_PAD_SETTINGS } from "@/lib/pad-types"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { Plus, Truck } from "lucide-react"
+import { GenericMultiQtyTable } from "@/components/multi-qty-comparison-table"
+import type { GenericQtyRow } from "@/components/multi-qty-comparison-table"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import useSWR from "swr"
 import { usePapersContext } from "@/lib/papers-context"
@@ -40,6 +42,7 @@ export function PadCalculator() {
 
   const [inputs, setInputs] = useState<PadInputs>(defaultPadInputs())
   const [calcResult, setCalcResult] = useState<PadCalcResult | null>(null)
+  const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<PadCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
 
@@ -66,6 +69,22 @@ export function PadCalculator() {
     }
 
     setCalcResult(result)
+
+    // Multi-qty comparison
+    const mq = inputs.multiQty
+    if (mq?.enabled && mq.quantities.length > 0) {
+      const rows: GenericQtyRow<PadCalcResult>[] = mq.quantities
+        .filter((q) => q > 0)
+        .map((q) => {
+          const r = calculatePad({ ...inputs, padQty: q }, padSettings, paperDataLookup)
+          if ("error" in r) return null
+          return { qty: q, total: r.grandTotal, result: r }
+        })
+        .filter((r): r is GenericQtyRow<PadCalcResult> => r !== null)
+      setMultiQtyResults(rows)
+    } else {
+      setMultiQtyResults([])
+    }
   }, [inputs, isFormValid, padSettings, paperDataLookup])
 
   const handleBrokerChange = useCallback((val: boolean) => {
@@ -92,8 +111,24 @@ export function PadCalculator() {
   function resetForm() {
     setInputs(defaultPadInputs())
     setCalcResult(null)
+    setMultiQtyResults([])
     setValidationError(null)
   }
+
+  const handleAddMultiQtyToQuote = useCallback((row: GenericQtyRow<PadCalcResult>) => {
+    const desc = `${row.result.insideResult.paper}, ${row.result.insideResult.sides}${inputs.useChipBoard ? ", Chip Board" : ""}`
+    quote.addItem({
+      category: "pad",
+      label: `${row.qty.toLocaleString()} pads - ${inputs.pagesPerPad}sh ${inputs.pageWidth}x${inputs.pageHeight}`,
+      description: desc,
+      amount: row.total,
+      metadata: { paperName: row.result.insideResult.paper },
+    })
+  }, [inputs, quote])
+
+  const handleAddAllMultiQty = useCallback(() => {
+    multiQtyResults.forEach((row) => handleAddMultiQtyToQuote(row))
+  }, [multiQtyResults, handleAddMultiQtyToQuote])
 
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
@@ -163,6 +198,16 @@ export function PadCalculator() {
                 />
               </div>
             </div>
+
+            {/* Multi-Qty Comparison Table */}
+            {multiQtyResults.length > 0 && (
+              <GenericMultiQtyTable
+                rows={multiQtyResults}
+                onAddToQuote={handleAddMultiQtyToQuote}
+                onAddAll={handleAddAllMultiQty}
+                label="Pad Quantity Comparison"
+              />
+            )}
 
             {/* Add to Quote + Shipping -- below results */}
             <div className="flex gap-2 mt-4">

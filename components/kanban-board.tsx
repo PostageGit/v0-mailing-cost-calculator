@@ -1713,6 +1713,7 @@ function QuoteCard({
         onOpenChange={setShowRevisionDialog}
         quoteId={quote.id}
         quoteName={quote.project_name || undefined}
+        quoteNumber={quote.quote_number || undefined}
       />
     </div>
   )
@@ -2033,6 +2034,12 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-[12px] font-medium text-foreground">Rev {rev.revision_number - 1 > 0 ? rev.revision_number - 1 : "Original"}</span>
+                                      {/* Revision name */}
+                                      {rev.name && (
+                                        <span className="text-[10px] font-semibold text-foreground/70 bg-secondary border border-border/50 px-1.5 py-0.5 rounded">
+                                          {rev.name}
+                                        </span>
+                                      )}
                                       {/* Change chips */}
                                       {chips.map((chip, ci) => (
                                         <span key={ci} className={cn(
@@ -2264,7 +2271,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
   const [fancyCardView, setFancyCardView] = useState(false)
-  const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string } | null>(null)
+  const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string; quoteNumber?: number } | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2832,7 +2839,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     {/* Revision */}
                     {jm?.current_revision && jm.current_revision > 1 ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setTableRevisionQuote({ id: q.id, name: q.project_name }) }}
+                        onClick={(e) => { e.stopPropagation(); setTableRevisionQuote({ id: q.id, name: q.project_name, quoteNumber: q.quote_number || undefined }) }}
                         className="mx-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono tabular-nums bg-foreground text-background hover:bg-foreground/90 transition-colors"
                         title="View version history"
                       >
@@ -2915,7 +2922,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           {/* Revision list - expanded */}
                           {showingRevTimeline && revs.length > 0 && (
                             <div className="mt-2 space-y-1.5">
-                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string; metadata?: Record<string, unknown> }[]; created_at?: string }, i: number) => {
+                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string; metadata?: Record<string, unknown> }[]; created_at?: string; name?: string }, i: number) => {
                                 const prev = i > 0 ? revs[i - 1] : null
                                 const priceDiff = prev ? rev.total - prev.total : 0
                                 const changes: string[] = []
@@ -2960,6 +2967,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                             <Clock className="h-2.5 w-2.5" />
                                             {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                          </span>
+                                        )}
+                                        {/* Revision name */}
+                                        {rev.name && (
+                                          <span className="text-[10px] font-semibold text-foreground/70 bg-secondary border border-border/50 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                                            {rev.name}
                                           </span>
                                         )}
                                       </div>
@@ -3610,6 +3623,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           onOpenChange={(v) => { if (!v) setTableRevisionQuote(null) }}
           quoteId={tableRevisionQuote.id}
           quoteName={tableRevisionQuote.name}
+          quoteNumber={tableRevisionQuote.quoteNumber}
         />
       )}
     </div>

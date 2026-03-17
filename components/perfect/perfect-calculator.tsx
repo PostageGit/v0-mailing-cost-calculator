@@ -16,6 +16,8 @@ import { formatCurrency } from "@/lib/pricing"
 import { useGlobalChat } from "@/lib/chat-context"
 import { perfectSpecsToChat } from "@/lib/specs-to-chat"
 import { Plus, ArrowDown, Save, Pencil, ExternalLink, MessageCircle, Truck } from "lucide-react"
+import { GenericMultiQtyTable } from "@/components/multi-qty-comparison-table"
+import type { GenericQtyRow } from "@/components/multi-qty-comparison-table"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
@@ -44,6 +46,7 @@ export function PerfectCalculator() {
 
   const [inputs, setInputs] = useState<PerfectInputs>(defaultPerfectInputs())
   const [calcResult, setCalcResult] = useState<PerfectCalcResult | null>(null)
+  const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<PerfectCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("cover")
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
@@ -95,7 +98,23 @@ export function PerfectCalculator() {
 
     setCalcResult(result)
     setActiveTab("cover")
-  }, [inputs, isFormValid, paperDataLookup])
+
+    // Multi-qty comparison
+    const mq = inputs.multiQty
+    if (mq?.enabled && mq.quantities.length > 0) {
+      const rows: GenericQtyRow<PerfectCalcResult>[] = mq.quantities
+        .filter((q) => q > 0)
+        .map((q) => {
+          const r = calculatePerfect(adjustForSingleSided({ ...inputs, bookQty: q }), paperDataLookup)
+          if ("error" in r) return null
+          return { qty: q, total: r.grandTotal, result: r }
+        })
+        .filter((r): r is GenericQtyRow<PerfectCalcResult> => r !== null)
+      setMultiQtyResults(rows)
+    } else {
+      setMultiQtyResults([])
+    }
+  }, [inputs, isFormValid, paperDataLookup, adjustForSingleSided])
 
   const handleBrokerChange = useCallback((val: boolean) => {
     const updated = { ...inputs, isBroker: val }
@@ -122,8 +141,24 @@ export function PerfectCalculator() {
   function resetForm() {
     setInputs(defaultPerfectInputs())
     setCalcResult(null)
+    setMultiQtyResults([])
     setValidationError(null)
   }
+
+  const handleAddMultiQtyToQuote = useCallback((row: GenericQtyRow<PerfectCalcResult>) => {
+    const desc = `Cover: ${row.result.coverResult.paper}, ${row.result.coverResult.sides} | Pages: ${row.result.insideResult.paper}, ${row.result.insideResult.sides}`
+    quote.addItem({
+      category: "perfect",
+      label: `${row.qty.toLocaleString()} - ${inputs.pagesPerBook}pg Glue Bind ${inputs.pageWidth}x${inputs.pageHeight}`,
+      description: desc,
+      amount: row.total,
+      metadata: { paperName: row.result.insideResult.paper, pageCount: inputs.pagesPerBook },
+    })
+  }, [inputs, quote])
+
+  const handleAddAllMultiQty = useCallback(() => {
+    multiQtyResults.forEach((row) => handleAddMultiQtyToQuote(row))
+  }, [multiQtyResults, handleAddMultiQtyToQuote])
 
   const perfectPiece = perfectPieces.length > 0 ? perfectPieces[0] : null
   const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
@@ -358,6 +393,16 @@ export function PerfectCalculator() {
                 <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} />
               </div>
             </div>
+
+            {/* Multi-Qty Comparison Table */}
+            {multiQtyResults.length > 0 && (
+              <GenericMultiQtyTable
+                rows={multiQtyResults}
+                onAddToQuote={handleAddMultiQtyToQuote}
+                onAddAll={handleAddAllMultiQty}
+                label="Perfect Bind Quantity Comparison"
+              />
+            )}
 
             {/* Add to Quote + Shipping + Compare with Chat */}
             <div className="flex gap-2 mt-4">

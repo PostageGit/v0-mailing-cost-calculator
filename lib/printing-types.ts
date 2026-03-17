@@ -70,6 +70,11 @@ export interface PrintingInputs {
     items: PrintingLot[]
     feePerLot: number  // default $10 per lot
   }
+  /** Multi-quantity comparison mode */
+  multiQty?: {
+    enabled: boolean
+    quantities: number[]
+  }
 }
 
 export interface PrintingCalcResult {

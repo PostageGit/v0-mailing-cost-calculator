@@ -6,6 +6,8 @@ import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
 import { PriceBreakdown } from "./price-breakdown"
 import { PaperStatsRow } from "@/components/calc-price-card"
+import { MultiQtyComparisonTable } from "./multi-qty-comparison-table"
+import type { MultiQtyRow } from "./multi-qty-comparison-table"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -113,6 +115,7 @@ export function PrintingCalculator() {
   const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
   const [selectedOption, setSelectedOption] = useState<SheetOptionRow | null>(null)
   const [fullResult, setFullResult] = useState<FullPrintingResult | null>(null)
+  const [multiQtyResults, setMultiQtyResults] = useState<MultiQtyRow[]>([])
   const [hasCalculated, setHasCalculated] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [calcError, setCalcError] = useState<{
@@ -297,6 +300,7 @@ export function PrintingCalculator() {
 
     setSheetOptions(options)
     setSelectedOption(null)
+    setMultiQtyResults([])
     setFullResult(null)
     setShowResults(false)
     setHasCalculated(true)
@@ -307,13 +311,32 @@ export function PrintingCalculator() {
   // If levelOverride is set, we must re-run calculatePrintingCost to honor it.
   useEffect(() => {
     if (selectedOption && showResults) {
-  const calcResult = inputs.levelOverride
-    ? calculatePrintingCost(inputs, selectedOption.size) || selectedOption.result
-    : selectedOption.result
+      const calcResult = inputs.levelOverride
+        ? calculatePrintingCost(inputs, selectedOption.size) || selectedOption.result
+        : selectedOption.result
       const fcCosts = getFinCalcCosts(inputs.qty, calcResult.sheets, inputs.isBroker || false)
-  const result = buildFullResult(inputs, calcResult, fcCosts, foldSettings, precomputedFoldCost)
-  setFullResult(result)
-  }
+      const result = buildFullResult(inputs, calcResult, fcCosts, foldSettings, precomputedFoldCost)
+      setFullResult(result)
+
+      // Re-compute multi-qty rows whenever settings change
+      const mq = inputs.multiQty
+      if (mq?.enabled && mq.quantities.length > 0) {
+        const rows: MultiQtyRow[] = mq.quantities
+          .filter((q) => q > 0)
+          .map((q) => {
+            const qInputs = { ...inputs, qty: q }
+            const qCalc = calculatePrintingCost(qInputs, selectedOption.size)
+            if (!qCalc) return null
+            const qFcCosts = getFinCalcCosts(q, qCalc.sheets, inputs.isBroker || false)
+            const qResult = buildFullResult(qInputs, qCalc, qFcCosts, foldSettings, precomputedFoldCost)
+            return { qty: q, result: qResult }
+          })
+          .filter((r): r is MultiQtyRow => r !== null)
+        setMultiQtyResults(rows)
+      } else {
+        setMultiQtyResults([])
+      }
+    }
   }, [
   inputs.finishingIds?.join(","),
   inputs.finishingCalcIds?.join(","),
@@ -322,6 +345,7 @@ export function PrintingCalculator() {
     inputs.isBroker,
     JSON.stringify(inputs.lamination),
     JSON.stringify(inputs.foldFinish),
+    JSON.stringify(inputs.multiQty),
     foldSettings,
     precomputedFoldCost,
     selectedOption,
@@ -337,6 +361,25 @@ export function PrintingCalculator() {
       const result = buildFullResult(inputs, option.result, fcCosts, foldSettings, precomputedFoldCost)
       setFullResult(result)
       setShowResults(true)
+
+      // Build multi-qty comparison rows if enabled
+      const mq = inputs.multiQty
+      if (mq?.enabled && mq.quantities.length > 0) {
+        const rows: MultiQtyRow[] = mq.quantities
+          .filter((q) => q > 0)
+          .map((q) => {
+            const qInputs = { ...inputs, qty: q }
+            const qCalc = calculatePrintingCost(qInputs, option.size)
+            if (!qCalc) return null
+            const qFcCosts = getFinCalcCosts(q, qCalc.sheets, inputs.isBroker || false)
+            const qResult = buildFullResult(qInputs, qCalc, qFcCosts, foldSettings, precomputedFoldCost)
+            return { qty: q, result: qResult }
+          })
+          .filter((r): r is MultiQtyRow => r !== null)
+        setMultiQtyResults(rows)
+      } else {
+        setMultiQtyResults([])
+      }
     },
     [inputs, getFinCalcCosts, foldSettings, precomputedFoldCost]
   )
@@ -371,10 +414,35 @@ export function PrintingCalculator() {
 
   // Change sheet size (go back to table)
   const handleChangeSheet = useCallback(() => {
-  setShowResults(false)
-  setSelectedOption(null)
-  setFullResult(null)
+    setShowResults(false)
+    setSelectedOption(null)
+    setFullResult(null)
+    setMultiQtyResults([])
   }, [])
+
+  // Add a single multi-qty row to the quote
+  const handleAddMultiQtyToQuote = useCallback((row: MultiQtyRow) => {
+    const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
+    quote.addItem({
+      category: "flat",
+      label: `${row.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
+      description: desc,
+      amount: row.result.grandTotal,
+      metadata: {
+        pieceDimensions: `${inputs.width}x${inputs.height}`,
+        paperName: inputs.paperName,
+        sides: inputs.sidesValue,
+        hasBleed: inputs.hasBleed || undefined,
+        production: activePiece?.production || "inhouse",
+        calculatorInputs: { ...inputs, qty: row.qty },
+      },
+    })
+  }, [inputs, quote, activePiece])
+
+  // Add all multi-qty rows to the quote
+  const handleAddAllMultiQty = useCallback(() => {
+    multiQtyResults.forEach((row) => handleAddMultiQtyToQuote(row))
+  }, [multiQtyResults, handleAddMultiQtyToQuote])
 
   // Add to order
   function resetForm() {
@@ -382,6 +450,7 @@ export function PrintingCalculator() {
     setSheetOptions([])
     setSelectedOption(null)
     setFullResult(null)
+    setMultiQtyResults([])
     setHasCalculated(false)
     setShowResults(false)
   }
@@ -697,6 +766,15 @@ export function PrintingCalculator() {
                   <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
                 </div>
               </div>
+
+              {/* Multi-Qty Comparison Table */}
+              {multiQtyResults.length > 0 && (
+                <MultiQtyComparisonTable
+                  rows={multiQtyResults}
+                  onAddToQuote={handleAddMultiQtyToQuote}
+                  onAddAll={handleAddAllMultiQty}
+                />
+              )}
 
               {/* Add to Quote + Compare with Chat + Shipping */}
               <div className="flex gap-2 mt-4">

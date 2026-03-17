@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Save, Plus, Trash2 } from "lucide-react"
+import { MultiQtyToggle } from "@/components/multi-qty-comparison-table"
 import {
   getAvailableSizes,
   canPaperLaminate,
@@ -572,6 +573,15 @@ export function BookletForm({
             Please fill in the highlighted fields above to calculate pricing.
           </p>
         </div>
+      )}
+
+      {/* Multi-Qty Compare Toggle (in-house only) */}
+      {!ohpMode && !disabled && (
+        <MultiQtyToggle
+          value={inputs.multiQty ?? { enabled: false, quantities: [] }}
+          onChange={(v) => onInputsChange({ ...inputs, multiQty: v })}
+          defaultBase={inputs.bookQty || 500}
+        />
       )}
 
       {/* Action Buttons */}
