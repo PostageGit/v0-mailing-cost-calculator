@@ -338,76 +338,72 @@ function RevisionCard({
               )
             ) : []
 
+            const unchangedCount = diffs.filter(d => d.status === "unchanged").length
+            const changedDiffs = diffs.filter(d => d.status !== "unchanged")
+
             return (
               <div className="mt-3 space-y-1.5">
-                {diffs.map(({ item, status, prevItem, priceChange }, idx) => (
+                {/* Only show items that actually changed */}
+                {changedDiffs.map(({ item, status, prevItem, priceChange }, idx) => (
                   <div
                     key={idx}
                     className={cn(
                       "flex items-start justify-between gap-3 py-2.5 px-3 rounded-lg border",
-                      status === "unchanged"
-                        ? "bg-secondary/20 border-transparent"
-                        : status === "new"
-                          ? "bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-200/60 dark:border-emerald-800/40"
-                          : "bg-amber-50/60 dark:bg-amber-950/15 border-amber-200/60 dark:border-amber-800/40"
+                      status === "new"
+                        ? "bg-emerald-50/60 dark:bg-emerald-950/15 border-emerald-200/60 dark:border-emerald-800/40"
+                        : "bg-amber-50/60 dark:bg-amber-950/15 border-amber-200/60 dark:border-amber-800/40"
                     )}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-foreground/5 text-muted-foreground border border-border/40">
                           {getCategoryLabel(item.category)}
                         </span>
-                        {/* Status badge */}
                         {status === "new" && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                             NEW
                           </span>
                         )}
                         {status === "changed" && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">
                             MODIFIED
                           </span>
                         )}
                         {status === "price_changed" && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
-                            PRICE UPDATED
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+                            REPRICED
                           </span>
                         )}
                       </div>
-                      <p className={cn(
-                        "text-[13px] font-medium mt-1 leading-snug",
-                        status === "unchanged" ? "text-muted-foreground" : "text-foreground"
-                      )}>
-                        {item.label}
-                      </p>
-                      {/* Show what changed from previous */}
-                      {prevItem && status === "changed" && prevItem.label !== item.label && (
-                        <p className="text-[10px] text-muted-foreground/60 mt-0.5 line-through">
-                          was: {prevItem.label}
+                      {/* For modified items: show before → after */}
+                      {prevItem && (status === "changed" || status === "price_changed") ? (
+                        <div className="space-y-0.5">
+                          <p className="text-[11px] text-muted-foreground/50 line-through leading-snug">
+                            {prevItem.label}
+                          </p>
+                          <p className="text-[13px] font-medium text-foreground leading-snug">
+                            {item.label}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[13px] font-medium text-foreground leading-snug">
+                          {item.label}
                         </p>
                       )}
                       {item.description && (
-                        <p className={cn(
-                          "text-[11px] mt-0.5 leading-snug",
-                          status === "unchanged" ? "text-muted-foreground/50" : "text-muted-foreground"
-                        )}>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
                           {item.description}
                         </p>
                       )}
                     </div>
-                    <div className="text-right shrink-0 pt-4">
-                      <span className={cn(
-                        "text-[13px] font-semibold tabular-nums",
-                        status === "unchanged" ? "text-muted-foreground" : "text-foreground"
-                      )}>
+                    <div className="text-right shrink-0 pt-5">
+                      <span className="text-[13px] font-semibold tabular-nums text-foreground">
                         {formatCurrency(item.amount)}
                       </span>
                       {priceChange && priceChange !== 0 && (
                         <p className={cn(
                           "text-[10px] font-medium tabular-nums",
-                          priceChange > 0
-                            ? "text-rose-500 dark:text-rose-400"
-                            : "text-emerald-600 dark:text-emerald-400"
+                          priceChange > 0 ? "text-rose-500 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
                         )}>
                           {priceChange > 0 ? "+" : ""}{formatCurrency(priceChange)}
                         </p>
@@ -415,6 +411,20 @@ function RevisionCard({
                     </div>
                   </div>
                 ))}
+                {/* Quiet unchanged count — only when there are also changed items to compare against */}
+                {!isOriginal && unchangedCount > 0 && changedDiffs.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground/50 px-1 pt-0.5">
+                    + {unchangedCount} item{unchangedCount !== 1 ? "s" : ""} unchanged
+                  </p>
+                )}
+
+                {/* No-changes fallback */}
+                {!isOriginal && changedDiffs.length === 0 && removedItems.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground/50 px-1">
+                    No changes from previous version
+                  </p>
+                )}
+
                 {/* Removed items */}
                 {removedItems.map((item, idx) => (
                   <div
