@@ -2034,6 +2034,12 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="text-[12px] font-medium text-foreground">Rev {rev.revision_number - 1 > 0 ? rev.revision_number - 1 : "Original"}</span>
+                                      {/* Revision name */}
+                                      {rev.name && (
+                                        <span className="text-[10px] font-semibold text-foreground/70 bg-secondary border border-border/50 px-1.5 py-0.5 rounded">
+                                          {rev.name}
+                                        </span>
+                                      )}
                                       {/* Change chips */}
                                       {chips.map((chip, ci) => (
                                         <span key={ci} className={cn(
@@ -2916,7 +2922,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           {/* Revision list - expanded */}
                           {showingRevTimeline && revs.length > 0 && (
                             <div className="mt-2 space-y-1.5">
-                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string; metadata?: Record<string, unknown> }[]; created_at?: string }, i: number) => {
+                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string; metadata?: Record<string, unknown> }[]; created_at?: string; name?: string }, i: number) => {
                                 const prev = i > 0 ? revs[i - 1] : null
                                 const priceDiff = prev ? rev.total - prev.total : 0
                                 const changes: string[] = []
@@ -2961,6 +2967,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                             <Clock className="h-2.5 w-2.5" />
                                             {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                          </span>
+                                        )}
+                                        {/* Revision name */}
+                                        {rev.name && (
+                                          <span className="text-[10px] font-semibold text-foreground/70 bg-secondary border border-border/50 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                                            {rev.name}
                                           </span>
                                         )}
                                       </div>
