@@ -96,9 +96,10 @@ export function GenericMultiQtyTable<T>({
               ? Math.round(((baseCpp - cpp) / baseCpp) * 100)
               : null
 
+          const rowKey = `mqrow-${idx}-${row.qty}`
           return (
             <div
-              key={`${row.qty}-${idx}`}
+              key={rowKey}
               className={cn(
                 "rounded-xl border transition-all duration-150 overflow-hidden",
                 isBest
