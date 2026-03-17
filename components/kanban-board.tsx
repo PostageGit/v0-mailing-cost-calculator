@@ -23,7 +23,7 @@ import {
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
   LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward, Calendar,
-  List, LayoutGrid, Send, History,
+  List, LayoutGrid, Send, History, GitBranch, ChevronUp,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -2164,7 +2164,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [simpleView, setSimpleView] = useState(true)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null }>>({})
+  const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null; showTimeline?: boolean }>>({})
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
   const [fancyCardView, setFancyCardView] = useState(false)
@@ -2763,76 +2763,67 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       </div>
                     </div>
                   </div>
-                  {/* Expanded Details Panel */}
+                  {/* Expanded Details Panel - Chat Quote inspired */}
                   {isRowExpanded && (() => {
                     const revCache = rowRevisions[q.id]
                     const revs = revCache?.data || []
                     const hasRevisions = jm?.current_revision && jm.current_revision > 0
+                    const showingRevTimeline = rowRevisions[q.id]?.showTimeline
+
+                    // Build spec pairs from quote items metadata
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const specPairs: { label: string; value: string }[] = []
+                    if (q.quantity) specPairs.push({ label: "Qty", value: q.quantity.toLocaleString() })
+                    if (jm?.piece_desc) specPairs.push({ label: "Piece", value: jm.piece_desc })
+                    if (jm?.mailing_class) specPairs.push({ label: "Class", value: jm.mailing_class })
+                    if (jm?.printed_by) specPairs.push({ label: "Printed by", value: jm.printed_by })
+                    if (jm?.vendor_name) specPairs.push({ label: "Vendor", value: jm.vendor_name })
+
+                    // Build line item cost breakdown
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const lineItems = (q as any).line_items || []
+                    const perUnit = q.total && q.quantity ? (q.total / q.quantity) : 0
 
                     return (
-                    <div className="px-10 pb-6 pt-3 ml-6 border-l-2 border-foreground/10">
-                      <div className="grid grid-cols-4 gap-10">
-                        {/* Details */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Details</p>
-                          <div className="space-y-2">
-                            {jm?.mailing_class && <p className="text-[13px]"><span className="text-muted-foreground/60">Class:</span> <span className="font-medium text-foreground ml-2">{jm.mailing_class}</span></p>}
-                            {jm?.printed_by && <p className="text-[13px]"><span className="text-muted-foreground/60">Printed by:</span> <span className="font-medium text-foreground ml-2">{jm.printed_by}</span></p>}
-                            {jm?.vendor_name && <p className="text-[13px]"><span className="text-muted-foreground/60">Vendor:</span> <span className="font-medium text-foreground ml-2">{jm.vendor_name}</span></p>}
-                          </div>
-                        </div>
-                        {/* Status */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Status</p>
-                          <div className="flex flex-wrap gap-2">
-                            {jm?.prints_arrived && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-green-500/10 text-green-600 dark:text-green-400">Prints</span>}
-                            {jm?.bcc_done && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">BCC</span>}
-                            {jm?.paperwork_done && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">Paperwork</span>}
-                            {jm?.job_mailed && <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Mailed</span>}
-                            {!jm?.prints_arrived && !jm?.bcc_done && !jm?.paperwork_done && !jm?.job_mailed && <span className="text-[11px] text-muted-foreground/50">None</span>}
-                          </div>
-                        </div>
-                        {/* Notes preview */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Notes</p>
-                          <p className="text-[12px] text-muted-foreground/80 line-clamp-3">{q.notes || "No notes"}</p>
-                        </div>
-                        {/* Quick Actions */}
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Actions</p>
-                          <div className="flex flex-wrap gap-2">
-                            <div onClick={() => setDetailQuote(q)} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-secondary/80 border border-border/50 cursor-pointer hover:bg-secondary transition-colors">Edit</div>
-                            <div onClick={() => { setExpandedRowId(null); onLoadQuote(q.id) }} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-secondary/80 border border-border/50 cursor-pointer hover:bg-secondary transition-colors">Calculator</div>
-                            <div onClick={() => { setExpandedRowId(null); handleArchive(q.id) }} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20 transition-colors">Archive</div>
-                            <div onClick={() => { setExpandedRowId(null); handleVoid(q.id) }} className="text-[11px] font-medium px-3 py-1.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-500/20 transition-colors">Void</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* ── Revision Timeline ── */}
+                    <div className="border-t border-border">
+                      {/* ── Revision History dropdown ── */}
                       {hasRevisions && (
-                        <div className="mt-6 pt-5 border-t border-border/40">
-                          <div className="flex items-center gap-2 mb-4">
-                            <History className="h-3.5 w-3.5 text-muted-foreground/60" />
-                            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
-                              Version History
-                            </p>
-                            {revCache?.loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/40" />}
-                          </div>
-                          {revs.length > 0 && (
-                            <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2">
-                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string }[]; created_at?: string; notes?: string }, i: number) => {
+                        <div className="px-8 py-2.5 border-b border-border/40">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Toggle inline timeline for this row
+                              setRowRevisions(prev => {
+                                const existing = prev[q.id]
+                                return { ...prev, [q.id]: { loading: existing?.loading || false, data: existing?.data || null, showTimeline: !existing?.showTimeline } }
+                              })
+                              if (!revCache?.data) fetchRowRevisions(q.id)
+                            }}
+                            className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors bg-blue-50 hover:bg-blue-100 border border-blue-200 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:border-blue-800"
+                          >
+                            <div className="flex items-center gap-2">
+                              <GitBranch className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                              <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">
+                                Revision History ({jm?.current_revision || 0})
+                              </span>
+                              {revCache?.loading && <Loader2 className="h-3 w-3 animate-spin text-blue-400" />}
+                            </div>
+                            {showingRevTimeline
+                              ? <ChevronUp className="h-3 w-3 text-blue-500" />
+                              : <ChevronDown className="h-3 w-3 text-blue-500" />
+                            }
+                          </button>
+
+                          {/* Revision list - expanded */}
+                          {showingRevTimeline && revs.length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string; metadata?: Record<string, unknown> }[]; created_at?: string }, i: number) => {
                                 const prev = i > 0 ? revs[i - 1] : null
                                 const priceDiff = prev ? rev.total - prev.total : 0
-                                const qtyChanged = prev?.quantity && rev.quantity && prev.quantity !== rev.quantity
-                                const itemCount = rev.items?.length || 0
-
-                                // Build change chips
                                 const changes: string[] = []
                                 if (prev) {
                                   if (priceDiff !== 0) changes.push(`${priceDiff > 0 ? "+" : ""}${formatCurrency(priceDiff)}`)
-                                  if (qtyChanged) changes.push(`Qty: ${prev.quantity?.toLocaleString()}\u2192${rev.quantity?.toLocaleString()}`)
-                                  // Check item metadata changes
+                                  if (prev.quantity && rev.quantity && prev.quantity !== rev.quantity) changes.push(`Qty: ${prev.quantity.toLocaleString()}\u2192${rev.quantity.toLocaleString()}`)
                                   const prevItems = prev.items || []
                                   for (const ci of (rev.items || [])) {
                                     const pi = prevItems.find((p: { category?: string }) => p.category === ci.category)
@@ -2841,99 +2832,57 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                                     const pm = ((pi as any).metadata?.calculatorInputs || {}) as Record<string, unknown>
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     const cm = ((ci as any).metadata?.calculatorInputs || {}) as Record<string, unknown>
-                                    const pp = pm.paperName || pm.insidePaper || (pi as { metadata?: { paperName?: string } }).metadata?.paperName
-                                    const cp = cm.paperName || cm.insidePaper || (ci as { metadata?: { paperName?: string } }).metadata?.paperName
-                                    if (pp && cp && pp !== cp) changes.push("Paper changed")
-                                    const pLam = pm.laminationType as string | undefined
-                                    const cLam = cm.laminationType as string | undefined
-                                    if ((!pLam || pLam === "none") && cLam && cLam !== "none") changes.push("+Lamination")
-                                    else if (pLam && pLam !== "none" && (!cLam || cLam === "none")) changes.push("-Lamination")
+                                    if ((pm.paperName || pm.insidePaper) && (cm.paperName || cm.insidePaper) && (pm.paperName || pm.insidePaper) !== (cm.paperName || cm.insidePaper)) changes.push("Paper changed")
                                   }
-                                  if (itemCount !== prevItems.length) {
-                                    const diff = itemCount - prevItems.length
-                                    changes.push(`${diff > 0 ? "+" : ""}${diff} ${Math.abs(diff) === 1 ? "item" : "items"}`)
-                                  }
+                                  const itemDiff = (rev.items?.length || 0) - (prev.items?.length || 0)
+                                  if (itemDiff !== 0) changes.push(`${itemDiff > 0 ? "+" : ""}${itemDiff} ${Math.abs(itemDiff) === 1 ? "item" : "items"}`)
                                 }
-                                const uniqueChanges = [...new Set(changes)].slice(0, 3)
-
                                 return (
                                   <div
                                     key={rev.revision_number}
                                     className={cn(
-                                      "flex-shrink-0 w-[220px] rounded-xl border p-4 transition-all",
+                                      "rounded-lg border px-4 py-2.5",
                                       rev.is_current
-                                        ? "bg-background border-foreground/20 shadow-sm ring-1 ring-foreground/5"
-                                        : "bg-secondary/30 border-border/50 hover:border-border"
+                                        ? "border-foreground/15 bg-background shadow-sm"
+                                        : "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20"
                                     )}
                                   >
-                                    {/* Header row */}
-                                    <div className="flex items-center justify-between mb-2.5">
-                                      <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2 min-w-0">
                                         <span className={cn(
-                                          "text-[11px] font-bold font-mono px-2 py-0.5 rounded-md",
+                                          "text-[10px] font-bold px-1.5 py-0.5 rounded font-mono",
                                           rev.is_current
                                             ? "bg-foreground text-background"
-                                            : "bg-secondary text-muted-foreground"
+                                            : "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
                                         )}>
-                                          R{rev.revision_number}
+                                          Q-{q.quote_number}-R{rev.revision_number}
                                         </span>
-                                        {rev.is_current && (
-                                          <span className="text-[9px] font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">
-                                            Current
+                                        {rev.is_current && <span className="text-[9px] font-semibold text-green-600 dark:text-green-400 uppercase">Current</span>}
+                                        {rev.created_at && (
+                                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                            <Clock className="h-2.5 w-2.5" />
+                                            {new Date(rev.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                                           </span>
                                         )}
                                       </div>
+                                      <span className="text-xs font-bold text-foreground tabular-nums">{formatCurrency(rev.total)}</span>
                                     </div>
-
-                                    {/* Total */}
-                                    <p className="text-[18px] font-bold tabular-nums tracking-tight text-foreground leading-none mb-1">
-                                      {formatCurrency(rev.total)}
+                                    {/* Item specs summary */}
+                                    <p className="mt-1 text-[10px] text-muted-foreground truncate">
+                                      {rev.quantity?.toLocaleString()} qty
+                                      {(rev.items || []).map((item: { label?: string; category?: string }) =>
+                                        ` \u00b7 ${item.label || getCategoryLabel(item.category as QuoteCategory)}`
+                                      ).join("")}
                                     </p>
-
                                     {/* Change summary */}
-                                    {uniqueChanges.length > 0 && (
+                                    {changes.length > 0 && (
                                       <p className={cn(
-                                        "text-[10px] font-medium mb-2.5 leading-snug",
-                                        priceDiff < 0
-                                          ? "text-emerald-600 dark:text-emerald-400"
-                                          : priceDiff > 0
-                                            ? "text-rose-500 dark:text-rose-400"
-                                            : "text-blue-600 dark:text-blue-400"
+                                        "mt-0.5 text-[10px] font-medium",
+                                        priceDiff < 0 ? "text-emerald-600 dark:text-emerald-400"
+                                          : priceDiff > 0 ? "text-rose-500 dark:text-rose-400"
+                                          : "text-blue-700 dark:text-blue-300"
                                       )}>
-                                        {uniqueChanges.join(", ")}
-                                      </p>
-                                    )}
-
-                                    {/* Items */}
-                                    <div className="space-y-1 mt-2 pt-2 border-t border-border/30">
-                                      {(rev.items || []).slice(0, 3).map((item: { label?: string; category?: string; amount?: number }, idx: number) => (
-                                        <div key={idx} className="flex items-center justify-between gap-2">
-                                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                            <span className={cn(
-                                              "text-[8px] font-bold uppercase px-1 py-px rounded shrink-0",
-                                              item.category === "booklet" ? "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                                                : item.category === "flat" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                                                : item.category === "postage" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                                                : "bg-secondary text-muted-foreground"
-                                            )}>
-                                              {getCategoryLabel(item.category as QuoteCategory).slice(0, 4)}
-                                            </span>
-                                            <span className="text-[10px] text-muted-foreground truncate">{item.label || "Item"}</span>
-                                          </div>
-                                          <span className="text-[10px] font-mono font-medium tabular-nums text-foreground/80 shrink-0">
-                                            {formatCurrency(item.amount || 0)}
-                                          </span>
-                                        </div>
-                                      ))}
-                                      {itemCount > 3 && (
-                                        <p className="text-[9px] text-muted-foreground/50 pt-0.5">+{itemCount - 3} more</p>
-                                      )}
-                                    </div>
-
-                                    {/* Date */}
-                                    {rev.created_at && (
-                                      <p className="text-[9px] text-muted-foreground/50 mt-2.5 font-mono tabular-nums">
-                                        {new Date(rev.created_at).toLocaleDateString()} {new Date(rev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        Changed: {[...new Set(changes)].slice(0, 4).join(", ")}
                                       </p>
                                     )}
                                   </div>
@@ -2941,11 +2890,84 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                               })}
                             </div>
                           )}
-                          {!revCache?.loading && revs.length === 0 && (
-                            <p className="text-[11px] text-muted-foreground/50">No revisions recorded.</p>
+                        </div>
+                      )}
+
+                      {/* ── Spec details - horizontal flow like Chat Quote ── */}
+                      {specPairs.length > 0 && (
+                        <div className="px-8 py-3 bg-muted/20 border-b border-border/40">
+                          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+                            {specPairs.map(({ label, value }) => (
+                              <span key={label} className="text-[11px]">
+                                <span className="font-semibold text-foreground">{value}</span>
+                                <span className="text-muted-foreground ml-1">{label}</span>
+                              </span>
+                            ))}
+                          </div>
+                          {/* Status chips inline */}
+                          {(jm?.prints_arrived || jm?.bcc_done || jm?.paperwork_done || jm?.job_mailed) && (
+                            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-border/30">
+                              {jm?.prints_arrived && <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-green-500/10 text-green-600 dark:text-green-400">Prints</span>}
+                              {jm?.bcc_done && <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">BCC</span>}
+                              {jm?.paperwork_done && <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400">Paperwork</span>}
+                              {jm?.job_mailed && <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Mailed</span>}
+                            </div>
+                          )}
+                          {/* Line item cost breakdown */}
+                          {lineItems.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pt-2 border-t border-border/30">
+                              {lineItems.map((li: { label?: string; amount?: number }, idx: number) => (
+                                <span key={idx} className="text-[11px]">
+                                  <span className="font-bold text-foreground">{formatCurrency(li.amount || 0)}</span>
+                                  <span className="text-muted-foreground ml-1">{li.label || "Item"}</span>
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
+
+                      {/* ── Notes ── */}
+                      {q.notes && (
+                        <div className="px-8 py-2.5 border-b border-border/40">
+                          <p className="text-[11px] text-muted-foreground/80">{q.notes}</p>
+                        </div>
+                      )}
+
+                      {/* ── Footer: Contact + Actions ── */}
+                      <div className="px-8 py-3 flex items-center justify-between flex-wrap gap-3 bg-muted/10">
+                        <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
+                          <span className="font-medium text-foreground">{q.contact_name || "No contact"}</span>
+                          {perUnit > 0 && (
+                            <span className="font-mono tabular-nums">${perUnit.toFixed(4)}/ea</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setDetailQuote(q)}
+                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Edit / Revise
+                          </button>
+                          <button
+                            onClick={() => { setExpandedRowId(null); onLoadQuote(q.id) }}
+                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-border bg-secondary/80 text-foreground hover:bg-secondary transition-colors"
+                          >
+                            Calculator
+                          </button>
+                          <button
+                            onClick={() => { setExpandedRowId(null); handleArchive(q.id) }}
+                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                          >
+                            <Archive className="h-3 w-3" />
+                            Archive
+                          </button>
+                          <span className="text-sm font-bold text-foreground tabular-nums ml-3">
+                            {formatCurrency(q.total)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     )
                   })()}
