@@ -13,6 +13,17 @@ export interface ActivityLogEntry {
   created_at: string
 }
 
+export interface QuoteRevision {
+  revision_number: number
+  project_name: string
+  items: QuoteLineItem[]
+  total: number
+  notes?: string
+  quantity?: number
+  created_at: string
+  is_current?: boolean
+}
+
 interface QuoteContextValue {
   items: QuoteLineItem[]
   projectName: string
@@ -50,6 +61,14 @@ interface QuoteContextValue {
   setMailingSnapshot: (snap: MailingSnapshot) => void
   /** The mailing snapshot from the last loadQuote (null until a load happens) */
   lastLoadedMailingState: MailingSnapshot | null
+  /** Current revision number */
+  currentRevision: number
+  /** All revisions for this quote */
+  revisions: QuoteRevision[]
+  /** Fetch revisions from API */
+  fetchRevisions: () => Promise<void>
+  /** Load a specific revision */
+  loadRevision: (revisionNumber: number) => void
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
@@ -71,6 +90,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const [skippedSteps, setSkippedStepsRaw] = useState<string[]>([])
   const [lastLoadedMailingState, setLastLoadedMailingState] = useState<MailingSnapshot | null>(null)
   const mailingSnapshotRef = useRef<MailingSnapshot | null>(null)
+  const [currentRevision, setCurrentRevision] = useState(1)
+  const [revisions, setRevisions] = useState<QuoteRevision[]>([])
 
   const setMailingSnapshot = useCallback((snap: MailingSnapshot) => {
     mailingSnapshotRef.current = snap
@@ -291,11 +312,23 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
       }
       dirtyRef.current = false
       setLastSavedAt(Date.now())
+      // Set current revision from job_meta
+      const revNum = data.job_meta?.current_revision || 1
+      setCurrentRevision(revNum)
       // Load activity log
       try {
         const logRes = await fetch(`/api/quotes/${data.id}/log`)
         const logData = await logRes.json()
         if (Array.isArray(logData)) setActivityLog(logData)
+      } catch { /* ignore */ }
+      // Fetch revision history
+      try {
+        const revRes = await fetch(`/api/quotes/${data.id}/revisions`)
+        const revData = await revRes.json()
+        if (revData.revisions) {
+          const allRevisions: QuoteRevision[] = [revData.current, ...revData.revisions]
+          setRevisions(allRevisions)
+        }
       } catch { /* ignore */ }
       return mailingState
     }
@@ -340,7 +373,35 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     mailingSnapshotRef.current = null
     dirtyRef.current = false
     setLastSavedAt(null)
+    setCurrentRevision(1)
+    setRevisions([])
   }, [])
+  
+  const fetchRevisions = useCallback(async () => {
+    const id = savedIdRef.current
+    if (!id) return
+    try {
+      const res = await fetch(`/api/quotes/${id}/revisions`)
+      const data = await res.json()
+      if (data.revisions) {
+        const allRevisions: QuoteRevision[] = [data.current, ...data.revisions]
+        setRevisions(allRevisions)
+        setCurrentRevision(data.current?.revision_number || 1)
+      }
+    } catch { /* ignore */ }
+  }, [])
+  
+  const loadRevision = useCallback((revisionNumber: number) => {
+    const rev = revisions.find(r => r.revision_number === revisionNumber)
+    if (rev && !rev.is_current) {
+      // Load the old revision data into current state
+      setItems(rev.items || [])
+      setProjectNameRaw(rev.project_name || "")
+      if (rev.quantity) setQuantityRaw(rev.quantity)
+      setCurrentRevision(revisionNumber)
+      dirtyRef.current = true // Mark as dirty since we're reverting
+    }
+  }, [revisions])
 
   return (
     <QuoteContext.Provider
@@ -377,6 +438,10 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         setSkippedSteps,
         setMailingSnapshot,
         lastLoadedMailingState,
+        currentRevision,
+        revisions,
+        fetchRevisions,
+        loadRevision,
       }}
     >
       {children}
