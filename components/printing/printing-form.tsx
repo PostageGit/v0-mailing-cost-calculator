@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import { Save, Plus, Trash2, Layers } from "lucide-react"
+import { Save, Plus, Trash2, Layers, BarChart2, X } from "lucide-react"
 import { getAvailableSides } from "@/lib/printing-pricing"
 import { useFlatPrintingPapers, usePapers, papersToOptions } from "@/lib/use-papers"
 import type { PrintingInputs, FullPrintingResult, PrintingLot } from "@/lib/printing-types"
@@ -155,6 +155,11 @@ export function PrintingForm({
 
       {/* Lots Section - Split quantity into different artwork versions */}
       <LotsSection inputs={inputs} onInputsChange={onInputsChange} />
+
+      {/* Multi-Qty Section - Compare pricing across multiple quantities */}
+      {!ohpMode && (
+        <MultiQtySection inputs={inputs} onInputsChange={onInputsChange} />
+      )}
 
       {/* Row 2: Paper Type, Sides, Bleed */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -500,6 +505,144 @@ function LotsSection({
           <p className="mt-3 text-[10px] text-muted-foreground">
             Each lot represents a different artwork version. The total of all lot quantities should equal your total quantity ({totalQty.toLocaleString()}).
             A {formatCurrency(lots.feePerLot)} fee is charged per additional lot.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- Multi-Qty Section ----
+const QUICK_QTYS = [250, 500, 1000, 2500, 5000, 10000]
+
+function MultiQtySection({
+  inputs,
+  onInputsChange,
+}: {
+  inputs: PrintingInputs
+  onInputsChange: (i: PrintingInputs) => void
+}) {
+  const mq = inputs.multiQty || { enabled: false, quantities: [] }
+  const isEnabled = mq.enabled
+
+  function toggle() {
+    if (isEnabled) {
+      onInputsChange({ ...inputs, multiQty: { enabled: false, quantities: [] } })
+    } else {
+      // Pre-seed with the current qty plus two logical next steps
+      const base = inputs.qty || 1000
+      const seed = Array.from(new Set([base, base * 2, base * 5].filter(Boolean))).sort((a, b) => a - b)
+      onInputsChange({ ...inputs, multiQty: { enabled: true, quantities: seed } })
+    }
+  }
+
+  function addQty(qty: number) {
+    if (!qty || mq.quantities.includes(qty) || mq.quantities.length >= 8) return
+    const sorted = [...mq.quantities, qty].sort((a, b) => a - b)
+    onInputsChange({ ...inputs, multiQty: { ...mq, quantities: sorted } })
+  }
+
+  function removeQty(qty: number) {
+    onInputsChange({ ...inputs, multiQty: { ...mq, quantities: mq.quantities.filter((q) => q !== qty) } })
+  }
+
+  function updateQty(index: number, val: number) {
+    const next = [...mq.quantities]
+    next[index] = val
+    onInputsChange({ ...inputs, multiQty: { ...mq, quantities: next } })
+  }
+
+  function sortQtys() {
+    const sorted = [...mq.quantities].filter(Boolean).sort((a, b) => a - b)
+    onInputsChange({ ...inputs, multiQty: { ...mq, quantities: sorted } })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Toggle header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BarChart2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">Compare Quantities</span>
+          {isEnabled && mq.quantities.length > 0 && (
+            <span className="text-xs text-muted-foreground">({mq.quantities.length} qtys)</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border font-semibold transition-colors shadow-sm ${
+            isEnabled
+              ? "bg-blue-500 text-white border-blue-600 hover:bg-blue-600"
+              : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800"
+          }`}
+        >
+          {isEnabled ? (
+            <>Comparing</>
+          ) : (
+            <><BarChart2 className="h-3.5 w-3.5" /> Compare</>
+          )}
+        </button>
+      </div>
+
+      {/* Qty list */}
+      {isEnabled && (
+        <div className="border rounded-lg p-3 bg-blue-50/40 dark:bg-blue-950/10 border-blue-200 dark:border-blue-800/50 flex flex-col gap-3">
+          {/* Qty pill list */}
+          {mq.quantities.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {mq.quantities.map((qty, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full bg-background border border-blue-200 dark:border-blue-700 group"
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    value={qty || ""}
+                    onChange={(e) => updateQty(idx, parseInt(e.target.value) || 0)}
+                    onBlur={sortQtys}
+                    className="w-16 text-[12px] font-semibold text-foreground bg-transparent outline-none tabular-nums text-center"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeQty(qty)}
+                    className="h-5 w-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Quick-add chips */}
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">Quick add</p>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_QTYS.map((q) => {
+                const already = mq.quantities.includes(q)
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    disabled={already || mq.quantities.length >= 8}
+                    onClick={() => addQty(q)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                      already
+                        ? "border-blue-200 bg-blue-100 text-blue-400 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-500 cursor-default"
+                        : "border-border bg-background text-foreground hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                    }`}
+                  >
+                    {q.toLocaleString()}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground/60">
+            Up to 8 quantities. Calculated after selecting a sheet size. All settings (finishing, lamination, broker) apply to every quantity.
           </p>
         </div>
       )}
