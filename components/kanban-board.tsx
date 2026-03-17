@@ -2143,11 +2143,30 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [userFilter, setUserFilter] = useState<string>("all")
   const [simpleView, setSimpleView] = useState(true)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null }>>({})
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
   const [fancyCardView, setFancyCardView] = useState(false)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
+
+  // Fetch revisions for expanded row
+  const fetchRowRevisions = useCallback(async (quoteId: string) => {
+    if (rowRevisions[quoteId]?.data) return // already cached
+    setRowRevisions(prev => ({ ...prev, [quoteId]: { loading: true, data: null } }))
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/revisions`)
+      if (!res.ok) throw new Error("Failed to fetch")
+      const json = await res.json()
+      const all = [json.current, ...(json.revisions || [])]
+        .filter(Boolean)
+        .sort((a: { revision_number: number }, b: { revision_number: number }) => a.revision_number - b.revision_number)
+      setRowRevisions(prev => ({ ...prev, [quoteId]: { loading: false, data: all } }))
+    } catch {
+      setRowRevisions(prev => ({ ...prev, [quoteId]: { loading: false, data: [] } }))
+    }
+  }, [rowRevisions])
 
   // Auto-select first column for sidebar view when columns load
   const resolvedSidebarColId = sidebarColId && columns?.some((c) => c.id === sidebarColId) ? sidebarColId : columns?.[0]?.id || null
@@ -2652,7 +2671,11 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     {/* Expand chevron */}
                     <div
                       className="w-5 flex items-center justify-center cursor-pointer rounded-full hover:bg-secondary/80 p-1 transition-colors"
-                      onClick={() => setExpandedRowId(isRowExpanded ? null : q.id)}
+                      onClick={() => {
+                        const nextId = isRowExpanded ? null : q.id
+                        setExpandedRowId(nextId)
+                        if (nextId && jm?.current_revision) fetchRowRevisions(q.id)
+                      }}
                     >
                       <ChevronRight className={cn("h-4 w-4 text-muted-foreground/60 transition-transform duration-200", isRowExpanded && "rotate-90 text-foreground")} />
                     </div>
@@ -2712,7 +2735,12 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     </div>
                   </div>
                   {/* Expanded Details Panel */}
-                  {isRowExpanded && (
+                  {isRowExpanded && (() => {
+                    const revCache = rowRevisions[q.id]
+                    const revs = revCache?.data || []
+                    const hasRevisions = jm?.current_revision && jm.current_revision > 0
+
+                    return (
                     <div className="px-10 pb-6 pt-3 ml-6 border-l-2 border-foreground/10">
                       <div className="grid grid-cols-4 gap-10">
                         {/* Details */}
@@ -2751,8 +2779,147 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           </div>
                         </div>
                       </div>
+
+                      {/* ── Revision Timeline ── */}
+                      {hasRevisions && (
+                        <div className="mt-6 pt-5 border-t border-border/40">
+                          <div className="flex items-center gap-2 mb-4">
+                            <History className="h-3.5 w-3.5 text-muted-foreground/60" />
+                            <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
+                              Version History
+                            </p>
+                            {revCache?.loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/40" />}
+                          </div>
+                          {revs.length > 0 && (
+                            <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2">
+                              {revs.map((rev: { revision_number: number; is_current?: boolean; total: number; quantity?: number; items?: { label?: string; category?: string; amount?: number; description?: string }[]; created_at?: string; notes?: string }, i: number) => {
+                                const prev = i > 0 ? revs[i - 1] : null
+                                const priceDiff = prev ? rev.total - prev.total : 0
+                                const qtyChanged = prev?.quantity && rev.quantity && prev.quantity !== rev.quantity
+                                const itemCount = rev.items?.length || 0
+
+                                // Build change chips
+                                const changes: string[] = []
+                                if (prev) {
+                                  if (priceDiff !== 0) changes.push(`${priceDiff > 0 ? "+" : ""}${formatCurrency(priceDiff)}`)
+                                  if (qtyChanged) changes.push(`Qty: ${prev.quantity?.toLocaleString()}\u2192${rev.quantity?.toLocaleString()}`)
+                                  // Check item metadata changes
+                                  const prevItems = prev.items || []
+                                  for (const ci of (rev.items || [])) {
+                                    const pi = prevItems.find((p: { category?: string }) => p.category === ci.category)
+                                    if (!pi) continue
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    const pm = ((pi as any).metadata?.calculatorInputs || {}) as Record<string, unknown>
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    const cm = ((ci as any).metadata?.calculatorInputs || {}) as Record<string, unknown>
+                                    const pp = pm.paperName || pm.insidePaper || (pi as { metadata?: { paperName?: string } }).metadata?.paperName
+                                    const cp = cm.paperName || cm.insidePaper || (ci as { metadata?: { paperName?: string } }).metadata?.paperName
+                                    if (pp && cp && pp !== cp) changes.push("Paper changed")
+                                    const pLam = pm.laminationType as string | undefined
+                                    const cLam = cm.laminationType as string | undefined
+                                    if ((!pLam || pLam === "none") && cLam && cLam !== "none") changes.push("+Lamination")
+                                    else if (pLam && pLam !== "none" && (!cLam || cLam === "none")) changes.push("-Lamination")
+                                  }
+                                  if (itemCount !== prevItems.length) {
+                                    const diff = itemCount - prevItems.length
+                                    changes.push(`${diff > 0 ? "+" : ""}${diff} ${Math.abs(diff) === 1 ? "item" : "items"}`)
+                                  }
+                                }
+                                const uniqueChanges = [...new Set(changes)].slice(0, 3)
+
+                                return (
+                                  <div
+                                    key={rev.revision_number}
+                                    className={cn(
+                                      "flex-shrink-0 w-[220px] rounded-xl border p-4 transition-all",
+                                      rev.is_current
+                                        ? "bg-background border-foreground/20 shadow-sm ring-1 ring-foreground/5"
+                                        : "bg-secondary/30 border-border/50 hover:border-border"
+                                    )}
+                                  >
+                                    {/* Header row */}
+                                    <div className="flex items-center justify-between mb-2.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className={cn(
+                                          "text-[11px] font-bold font-mono px-2 py-0.5 rounded-md",
+                                          rev.is_current
+                                            ? "bg-foreground text-background"
+                                            : "bg-secondary text-muted-foreground"
+                                        )}>
+                                          R{rev.revision_number}
+                                        </span>
+                                        {rev.is_current && (
+                                          <span className="text-[9px] font-semibold uppercase tracking-wider text-green-600 dark:text-green-400">
+                                            Current
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Total */}
+                                    <p className="text-[18px] font-bold tabular-nums tracking-tight text-foreground leading-none mb-1">
+                                      {formatCurrency(rev.total)}
+                                    </p>
+
+                                    {/* Change summary */}
+                                    {uniqueChanges.length > 0 && (
+                                      <p className={cn(
+                                        "text-[10px] font-medium mb-2.5 leading-snug",
+                                        priceDiff < 0
+                                          ? "text-emerald-600 dark:text-emerald-400"
+                                          : priceDiff > 0
+                                            ? "text-rose-500 dark:text-rose-400"
+                                            : "text-blue-600 dark:text-blue-400"
+                                      )}>
+                                        {uniqueChanges.join(", ")}
+                                      </p>
+                                    )}
+
+                                    {/* Items */}
+                                    <div className="space-y-1 mt-2 pt-2 border-t border-border/30">
+                                      {(rev.items || []).slice(0, 3).map((item: { label?: string; category?: string; amount?: number }, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                            <span className={cn(
+                                              "text-[8px] font-bold uppercase px-1 py-px rounded shrink-0",
+                                              item.category === "booklet" ? "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                                                : item.category === "flat" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                                : item.category === "postage" ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                                                : "bg-secondary text-muted-foreground"
+                                            )}>
+                                              {getCategoryLabel(item.category as QuoteCategory).slice(0, 4)}
+                                            </span>
+                                            <span className="text-[10px] text-muted-foreground truncate">{item.label || "Item"}</span>
+                                          </div>
+                                          <span className="text-[10px] font-mono font-medium tabular-nums text-foreground/80 shrink-0">
+                                            {formatCurrency(item.amount || 0)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                      {itemCount > 3 && (
+                                        <p className="text-[9px] text-muted-foreground/50 pt-0.5">+{itemCount - 3} more</p>
+                                      )}
+                                    </div>
+
+                                    {/* Date */}
+                                    {rev.created_at && (
+                                      <p className="text-[9px] text-muted-foreground/50 mt-2.5 font-mono tabular-nums">
+                                        {new Date(rev.created_at).toLocaleDateString()} {new Date(rev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                          {!revCache?.loading && revs.length === 0 && (
+                            <p className="text-[11px] text-muted-foreground/50">No revisions recorded.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
+                    )
+                  })()}
                 </div>
               )
             })
