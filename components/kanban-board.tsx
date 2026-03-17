@@ -14,6 +14,7 @@ import { buildQuoteText } from "@/lib/build-quote-text"
 import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
+import { StandaloneRevisionDialog } from "@/components/revision-history-dialog"
 import {
   FileText, Trash2, ArrowRight, ArrowLeft, Ban,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check,
@@ -720,7 +721,7 @@ const DEFAULT_NEXT_STEPS = [
 
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
-/* ═��══������═���══════════��═���════════════��══���═══════════���════
+/* ═���══������═���══════════��═���════════════��══���═══════════���════
    QUICK NOTES POPUP (like PostFlow)
    ═══════════════════════════════════════════════════�� */
 function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
@@ -1017,6 +1018,7 @@ function QuoteCard({
   const [dropPosition, setDropPosition] = useState<"before" | "after" | null>(null)
   const [showFiles, setShowFiles] = useState(false)
   const [showQuickNotes, setShowQuickNotes] = useState(false)
+  const [showRevisionDialog, setShowRevisionDialog] = useState(false)
   const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
   const { data: vendors } = useSWR<Vendor[]>(open ? "/api/vendors" : null, fetcher)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; department: string | null; role: string; is_active: boolean }>>("/api/team", fetcher)
@@ -1166,6 +1168,16 @@ function QuoteCard({
               </span>
             )}
             <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
+            {meta.current_revision && meta.current_revision > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowRevisionDialog(true) }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-colors shadow-sm"
+                title="View version history"
+              >
+                <History className="h-3 w-3" />
+                R{meta.current_revision}
+              </button>
+            )}
           </div>
 
           {/* Row 4: ZD# + INV# reference row */}
@@ -1694,11 +1706,19 @@ function QuoteCard({
       {showFiles && (
         <JobFilesPanel quoteId={quote.id} projectName={quote.project_name} onClose={() => setShowFiles(false)} />
       )}
+
+      {/* Revision history dialog */}
+      <StandaloneRevisionDialog
+        open={showRevisionDialog}
+        onOpenChange={setShowRevisionDialog}
+        quoteId={quote.id}
+        quoteName={quote.project_name || undefined}
+      />
     </div>
   )
 }
 
-/* ═════════════════════════════���═══════════════════���══
+/* ════════════════════════════════════════════════════
    COLUMN SETTINGS
    ════════════════════════════════════════════════════ */
 
@@ -2148,6 +2168,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [fullCardRowId, setFullCardRowId] = useState<string | null>(null)
   const [fullCardModalQuote, setFullCardModalQuote] = useState<Quote | null>(null)
   const [fancyCardView, setFancyCardView] = useState(false)
+  const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string } | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
@@ -2713,9 +2734,17 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       )}
                     </div>
                     {/* Revision */}
-                    <span className="text-[12px] text-center font-mono tabular-nums text-muted-foreground">
-                      {jm?.current_revision ? `R${jm.current_revision}` : "—"}
-                    </span>
+                    {jm?.current_revision ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setTableRevisionQuote({ id: q.id, name: q.project_name }) }}
+                        className="mx-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono tabular-nums bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                        title="View version history"
+                      >
+                        R{jm.current_revision}
+                      </button>
+                    ) : (
+                      <span className="text-[12px] text-center font-mono tabular-nums text-muted-foreground">—</span>
+                    )}
                     {/* Total */}
                     <span className="text-[14px] text-right font-semibold tabular-nums text-foreground">
                       {formatCurrency(q.total)}
@@ -3452,6 +3481,16 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       {detailQuote && (
         <QuoteEditModal quote={detailQuote} onClose={() => setDetailQuote(null)}
           onSaved={refreshAll} onLoadIntoCalculator={(id) => { setDetailQuote(null); onLoadQuote(id) }} />
+      )}
+
+      {/* Shared revision dialog for simple table / list view */}
+      {tableRevisionQuote && (
+        <StandaloneRevisionDialog
+          open={!!tableRevisionQuote}
+          onOpenChange={(v) => { if (!v) setTableRevisionQuote(null) }}
+          quoteId={tableRevisionQuote.id}
+          quoteName={tableRevisionQuote.name}
+        />
       )}
     </div>
   )

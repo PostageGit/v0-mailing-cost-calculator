@@ -322,6 +322,74 @@ function RevisionCard({
   )
 }
 
+// Shared inner content for both dialog variants
+function RevisionDialogInner({
+  revisions,
+  loading,
+  onRestore,
+}: {
+  revisions: QuoteRevision[]
+  loading: boolean
+  onRestore: (revNum: number) => void
+}) {
+  const sorted = [...revisions].sort((a, b) => {
+    if (a.is_current && !b.is_current) return -1
+    if (!a.is_current && b.is_current) return 1
+    return b.revision_number - a.revision_number
+  })
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-xl border border-border/40 p-5 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-secondary" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-24 rounded bg-secondary" />
+                <div className="h-3 w-40 rounded bg-secondary/60" />
+              </div>
+              <div className="h-5 w-20 rounded bg-secondary" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (sorted.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">
+          <Clock className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <p className="text-sm font-medium text-foreground">No versions yet</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Versions are created each time you save changes to your quote.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {sorted.map((rev, idx) => {
+        const prevRev = sorted[idx + 1] || null
+        return (
+          <RevisionCard
+            key={rev.revision_number}
+            rev={rev}
+            prevRev={prevRev}
+            onRestore={onRestore}
+            isLatest={idx === 0}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+/** Used from the quote sidebar (depends on useQuote context) */
 export function RevisionHistoryDialog({ open, onOpenChange }: RevisionHistoryDialogProps) {
   const { revisions, fetchRevisions, loadRevision, savedId } = useQuote()
   const [loading, setLoading] = useState(false)
@@ -342,13 +410,6 @@ export function RevisionHistoryDialog({ open, onOpenChange }: RevisionHistoryDia
     [loadRevision, onOpenChange]
   )
 
-  // Sort: current first, then descending by revision number
-  const sorted = [...revisions].sort((a, b) => {
-    if (a.is_current && !b.is_current) return -1
-    if (!a.is_current && b.is_current) return 1
-    return b.revision_number - a.revision_number
-  })
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
@@ -360,50 +421,61 @@ export function RevisionHistoryDialog({ open, onOpenChange }: RevisionHistoryDia
             {revisions.length} {revisions.length === 1 ? "version" : "versions"} saved
           </p>
         </DialogHeader>
-
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {loading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-xl border border-border/40 p-5 animate-pulse">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-secondary" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-24 rounded bg-secondary" />
-                      <div className="h-3 w-40 rounded bg-secondary/60" />
-                    </div>
-                    <div className="h-5 w-20 rounded bg-secondary" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : sorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-3">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <p className="text-sm font-medium text-foreground">No versions yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Versions are created each time you save changes to your quote.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sorted.map((rev, idx) => {
-                // Find the previous revision (one with lower revision_number)
-                const prevRev = sorted[idx + 1] || null
-                return (
-                  <RevisionCard
-                    key={rev.revision_number}
-                    rev={rev}
-                    prevRev={prevRev}
-                    onRestore={handleRestore}
-                    isLatest={idx === 0}
-                  />
-                )
-              })}
-            </div>
-          )}
+          <RevisionDialogInner revisions={revisions} loading={loading} onRestore={handleRestore} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Standalone version for kanban cards - fetches its own data by quoteId */
+export function StandaloneRevisionDialog({
+  open,
+  onOpenChange,
+  quoteId,
+  quoteName,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  quoteId: string
+  quoteName?: string
+}) {
+  const [revisions, setRevisions] = useState<QuoteRevision[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open || !quoteId) return
+    setLoading(true)
+    fetch(`/api/quotes/${quoteId}/revisions`)
+      .then((r) => r.json())
+      .then((json) => {
+        const all = [json.current, ...(json.revisions || [])]
+          .filter(Boolean)
+          .sort((a: QuoteRevision, b: QuoteRevision) => a.revision_number - b.revision_number)
+        setRevisions(all)
+      })
+      .catch(() => setRevisions([]))
+      .finally(() => setLoading(false))
+  }, [open, quoteId])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50 shrink-0">
+          <DialogTitle className="text-lg font-semibold text-foreground">
+            Version History {quoteName && <span className="text-muted-foreground font-normal ml-2">- {quoteName}</span>}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {revisions.length} {revisions.length === 1 ? "version" : "versions"} saved
+          </p>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <RevisionDialogInner
+            revisions={revisions}
+            loading={loading}
+            onRestore={() => onOpenChange(false)}
+          />
         </div>
       </DialogContent>
     </Dialog>
