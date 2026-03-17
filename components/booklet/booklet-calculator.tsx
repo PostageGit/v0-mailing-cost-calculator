@@ -55,7 +55,6 @@ export function BookletCalculator() {
   // Extract saved inputs from the quote items RIGHT NOW (not in an effect)
   // so they're available on the very first render
   const savedBookletItem = quote.items.find(item => item.category === "booklet")
-  const savedCalcInputs = savedBookletItem?.metadata?.calculatorInputs as BookletInputs | undefined
   const hasSavedQuote = !!(quote.savedId && savedBookletItem)
   
   // Build initial inputs: use saved calculatorInputs if available, else parse from metadata
@@ -82,19 +81,27 @@ export function BookletCalculator() {
     return { ...EMPTY_INPUTS, ...restored }
   }, [hasSavedQuote, savedBookletItem])
 
-  const [inputs, setInputs] = useState<BookletInputs>(EMPTY_INPUTS)
-  const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
+  // Initialize state directly from saved values - no effect needed
+  const [inputs, setInputs] = useState<BookletInputs>(hasSavedQuote ? initialInputs : EMPTY_INPUTS)
+  const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(() => {
+    if (!hasSavedQuote) return null
+    const result = calculateBooklet(initialInputs)
+    return result.isValid ? result : null
+  })
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<string>("cover")
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (hasSavedQuote && initialInputs.separateCover) return "cover"
+    if (hasSavedQuote) return "inside"
+    return "cover"
+  })
 
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [isFrozen, setIsFrozen] = useState(false)
+  const [isFrozen, setIsFrozen] = useState(hasSavedQuote)
   
-  // Track which quote we've restored so we don't re-apply on every render
-  const restoredQuoteRef = useRef<string | null>(null)
+  // Also handle case where quote changes AFTER mount (e.g. loading new quote while on booklet tab)
+  const restoredQuoteRef = useRef<string | null>(hasSavedQuote ? quote.savedId : null)
   
-  // Apply saved inputs whenever a saved quote is detected
   useEffect(() => {
     if (!hasSavedQuote) return
     if (restoredQuoteRef.current === quote.savedId) return
@@ -103,26 +110,12 @@ export function BookletCalculator() {
     setInputs(initialInputs)
     setIsFrozen(true)
     
-    // Auto-calculate after restoring
     const result = calculateBooklet(initialInputs)
     if (result.isValid) {
       setCalcResult(result)
       setActiveTab(initialInputs.separateCover ? "cover" : "inside")
     }
   }, [hasSavedQuote, quote.savedId, initialInputs])
-
-  // Debug: log every render to see what's happening
-  console.log("[v0] BOOKLET RENDER:", { 
-    savedId: quote.savedId, 
-    hasSavedQuote,
-    itemCount: quote.items.length, 
-    isFrozen,
-    bookQty: inputs.bookQty,
-    pagesPerBook: inputs.pagesPerBook,
-    pageWidth: inputs.pageWidth,
-    savedCalcInputs: !!savedCalcInputs,
-    restoredRef: restoredQuoteRef.current,
-  })
   
   const loadPiece = useCallback((piece: MailPiece) => {
     // Don't override inputs if we're viewing a frozen saved quote
