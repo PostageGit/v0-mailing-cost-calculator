@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { PrintingForm } from "./printing-form"
 import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
@@ -96,49 +96,45 @@ export function PrintingCalculator() {
   // Order state
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [restoredFromId, setRestoredFromId] = useState<string | null>(null)
   const [isFrozen, setIsFrozen] = useState(false)
   
-  // Restore calculator inputs from saved quote items when quote is loaded
-  // Fields are FROZEN by default - user must click "Revise" to unlock
-  useEffect(() => {
-    // Skip if no saved quote or already restored this quote
-    if (!quote.savedId || restoredFromId === quote.savedId) return
-    // Skip if no items yet (still loading)
-    if (quote.items.length === 0) return
-    
-    const flatItem = quote.items.find(item => item.category === "flat")
-    
-    if (flatItem?.metadata) {
-      const meta = flatItem.metadata
-      let restored: Partial<PrintingInputs> = {}
-      
-      // If we have calculatorInputs (new format), use it directly
-      if (meta.calculatorInputs) {
-        restored = meta.calculatorInputs as PrintingInputs
-      } else {
-        // Fallback: extract from older metadata format
-        const dims = meta.pieceDimensions?.split("x")
-        if (dims?.length === 2) {
-          restored.width = parseFloat(dims[0]) || 8.5
-          restored.height = parseFloat(dims[1]) || 11
-        }
-        const label = flatItem.label || ""
-        const qtyMatch = label.match(/^([\d,]+)\s*-/)
-        if (qtyMatch) restored.qty = parseInt(qtyMatch[1].replace(/,/g, "")) || 500
-        if (meta.paperName) restored.paperName = meta.paperName
-        if (meta.sides === "D/S") restored.sidesValue = "ds"
-        else if (meta.sides === "S/S") restored.sidesValue = "ss"
-        if (meta.hasBleed !== undefined) restored.hasBleed = meta.hasBleed
-      }
-      
-      if (Object.keys(restored).length > 0) {
-        setInputs(prev => ({ ...prev, ...restored }))
-        setRestoredFromId(quote.savedId)
-        setIsFrozen(true) // Lock fields when loading saved quote
-      }
+  // ── Restore calculator inputs synchronously from saved quote ──
+  const savedFlatItem = quote.items.find(item => item.category === "flat")
+  const hasSavedFlat = !!(quote.savedId && savedFlatItem)
+  
+  const initialFlatInputs = useMemo(() => {
+    if (!hasSavedFlat || !savedFlatItem?.metadata) return null
+    const meta = savedFlatItem.metadata
+    if (meta.calculatorInputs) {
+      return { ...EMPTY_INPUTS, ...(meta.calculatorInputs as PrintingInputs) }
     }
-  }, [quote.items, quote.savedId, restoredFromId])
+    // Fallback: parse from old metadata format
+    const restored: Partial<PrintingInputs> = {}
+    const dims = meta.pieceDimensions?.split("x")
+    if (dims?.length === 2) {
+      restored.width = parseFloat(dims[0]) || 8.5
+      restored.height = parseFloat(dims[1]) || 11
+    }
+    const label = savedFlatItem.label || ""
+    const qtyMatch = label.match(/^([\d,]+)\s*-/)
+    if (qtyMatch) restored.qty = parseInt(qtyMatch[1].replace(/,/g, "")) || 500
+    if (meta.paperName) restored.paperName = meta.paperName
+    if (meta.sides === "D/S") restored.sidesValue = "ds"
+    else if (meta.sides === "S/S") restored.sidesValue = "ss"
+    if (meta.hasBleed !== undefined) restored.hasBleed = meta.hasBleed
+    return { ...EMPTY_INPUTS, ...restored }
+  }, [hasSavedFlat, savedFlatItem])
+  
+  const restoredFlatRef = useRef<string | null>(null)
+  
+  useEffect(() => {
+    if (!hasSavedFlat || !initialFlatInputs) return
+    if (restoredFlatRef.current === quote.savedId) return
+    
+    restoredFlatRef.current = quote.savedId
+    setInputs(initialFlatInputs)
+    setIsFrozen(true)
+  }, [hasSavedFlat, quote.savedId, initialFlatInputs])
 
   // Bridge: get fold cost from the HTML calculator via /api/fold-calc
   const foldBridgeBody = useMemo(() => {
