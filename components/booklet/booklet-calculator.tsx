@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { BookletForm } from "./booklet-form"
@@ -58,6 +58,29 @@ export function BookletCalculator() {
 
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
+  const [hasRestored, setHasRestored] = useState(false)
+  
+  // Restore calculator inputs from saved quote items when quote is loaded
+  useEffect(() => {
+    if (hasRestored) return
+    const bookletItem = quote.items.find(item => item.category === "booklet" && item.metadata?.calculatorInputs)
+    if (bookletItem?.metadata?.calculatorInputs) {
+      const saved = bookletItem.metadata.calculatorInputs as BookletInputs
+      setInputs({
+        ...EMPTY_INPUTS,
+        ...saved,
+      })
+      setHasRestored(true)
+      // Auto-calculate after restoring
+      setTimeout(() => {
+        const result = calculateBooklet(saved)
+        if (result.isValid) {
+          setCalcResult(result)
+          setActiveTab(saved.separateCover ? "cover" : "inside")
+        }
+      }, 100)
+    }
+  }, [quote.items, hasRestored])
 
   const loadPiece = useCallback((piece: MailPiece) => {
     setActivePiece(piece)
@@ -189,6 +212,27 @@ export function BookletCalculator() {
         paperName: inputs.insidePaper,
         sides: calcResult.insideResult.sides,
         pageCount: inputs.pagesPerBook,
+        // Store full calculator inputs for restoration
+        calculatorInputs: {
+          bookQty: inputs.bookQty,
+          pagesPerBook: inputs.pagesPerBook,
+          pageWidth: inputs.pageWidth,
+          pageHeight: inputs.pageHeight,
+          separateCover: inputs.separateCover,
+          coverPaper: inputs.coverPaper,
+          coverSides: inputs.coverSides,
+          coverBleed: inputs.coverBleed,
+          coverSheetSize: inputs.coverSheetSize,
+          insidePaper: inputs.insidePaper,
+          insideSides: inputs.insideSides,
+          insideBleed: inputs.insideBleed,
+          insideSheetSize: inputs.insideSheetSize,
+          bindingType: inputs.bindingType,
+          laminationType: inputs.laminationType,
+          customLevel: inputs.customLevel,
+          isBroker: inputs.isBroker,
+          printingMarkupPct: inputs.printingMarkupPct,
+        },
       },
     })
   }, [calcResult, inputs, quote, effectiveTotal, bookletPiece])
