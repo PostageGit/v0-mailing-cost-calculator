@@ -1168,7 +1168,7 @@ function QuoteCard({
               </span>
             )}
             <MailDatePicker value={meta.due_date || ""} onChange={(v) => updateMeta({ due_date: v })} />
-            {meta.current_revision && meta.current_revision > 0 && (
+            {meta.current_revision && meta.current_revision > 1 && (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowRevisionDialog(true) }}
                 className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-colors shadow-sm"
@@ -2695,7 +2695,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       onClick={() => {
                         const nextId = isRowExpanded ? null : q.id
                         setExpandedRowId(nextId)
-                        if (nextId && jm?.current_revision) fetchRowRevisions(q.id)
+                        if (nextId && jm?.current_revision && jm.current_revision > 1) fetchRowRevisions(q.id)
                       }}
                     >
                       <ChevronRight className={cn("h-4 w-4 text-muted-foreground/60 transition-transform duration-200", isRowExpanded && "rotate-90 text-foreground")} />
@@ -2734,7 +2734,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       )}
                     </div>
                     {/* Revision */}
-                    {jm?.current_revision ? (
+                    {jm?.current_revision && jm.current_revision > 1 ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); setTableRevisionQuote({ id: q.id, name: q.project_name }) }}
                         className="mx-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold font-mono tabular-nums bg-foreground text-background hover:bg-foreground/90 transition-colors"
@@ -2742,8 +2742,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       >
                         R{jm.current_revision}
                       </button>
+                    ) : jm?.current_revision ? (
+                      <span className="text-[11px] text-center font-mono tabular-nums text-muted-foreground/60">R{jm.current_revision}</span>
                     ) : (
-                      <span className="text-[12px] text-center font-mono tabular-nums text-muted-foreground">—</span>
+                      <span className="text-[12px] text-center font-mono tabular-nums text-muted-foreground/40">{"\u2014"}</span>
                     )}
                     {/* Total */}
                     <span className="text-[14px] text-right font-semibold tabular-nums text-foreground">
@@ -2767,7 +2769,8 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                   {isRowExpanded && (() => {
                     const revCache = rowRevisions[q.id]
                     const revs = revCache?.data || []
-                    const hasRevisions = jm?.current_revision && jm.current_revision > 0
+                    // Only show revision dropdown when there are actual past revisions (R2+)
+                    const hasRevisionHistory = jm?.current_revision && jm.current_revision > 1
                     const showingRevTimeline = rowRevisions[q.id]?.showTimeline
 
                     // Build spec pairs from quote items metadata
@@ -2787,12 +2790,11 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     return (
                     <div className="border-t border-border">
                       {/* ── Revision History dropdown ── */}
-                      {hasRevisions && (
+                      {hasRevisionHistory && (
                         <div className="px-8 py-2.5 border-b border-border/40">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              // Toggle inline timeline for this row
                               setRowRevisions(prev => {
                                 const existing = prev[q.id]
                                 return { ...prev, [q.id]: { loading: existing?.loading || false, data: existing?.data || null, showTimeline: !existing?.showTimeline } }
@@ -2804,7 +2806,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                             <div className="flex items-center gap-2">
                               <GitBranch className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                               <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">
-                                Revision History ({jm?.current_revision || 0})
+                                Revision History ({(jm?.current_revision || 1) - 1} {(jm?.current_revision || 1) - 1 === 1 ? "revision" : "revisions"})
                               </span>
                               {revCache?.loading && <Loader2 className="h-3 w-3 animate-spin text-blue-400" />}
                             </div>
