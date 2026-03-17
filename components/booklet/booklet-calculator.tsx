@@ -96,7 +96,6 @@ export function BookletCalculator() {
   // When frozen (viewing saved quote), show saved values directly
   // When unfrozen (editing), show local state
   const inputs = isFrozen && savedInputs ? savedInputs : localInputs
-  console.log("[v0] INPUTS:", { savedId: quote.savedId, hasSavedQuote, isFrozen, userUnfroze, savedInputsNull: savedInputs === null, bookQty: inputs.bookQty, pages: inputs.pagesPerBook, itemCount: quote.items.length, categories: quote.items.map(i=>i.category) })
   const setInputs = useCallback((val: BookletInputs | ((prev: BookletInputs) => BookletInputs)) => {
     if (typeof val === "function") {
       setLocalInputs(val)
@@ -299,6 +298,11 @@ export function BookletCalculator() {
         <h2 className="text-base font-semibold text-foreground mb-2">
           {isOhpMode ? "Booklet Specs (OHP)" : "Saddle Stitch Booklet Calculator"}
         </h2>
+
+        {/* TEMP DEBUG - visible on page */}
+        <div className="mb-2 p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-xs font-mono text-blue-800 dark:text-blue-200 border border-blue-300">
+          DEBUG: savedId={quote.savedId || "null"} | items={quote.items.length} | cats={quote.items.map(i=>i.category).join(",")} | hasSaved={String(hasSavedQuote)} | frozen={String(isFrozen)} | bookQty={inputs.bookQty} | pages={inputs.pagesPerBook} | w={inputs.pageWidth} | h={inputs.pageHeight}
+        </div>
 
         {/* Frozen Quote Banner - shows when viewing a saved quote */}
         {isFrozen && (
