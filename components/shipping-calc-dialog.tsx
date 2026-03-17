@@ -865,7 +865,7 @@ export function ShippingCalcDialog({
                             </div>
                           </div>
 
-                          {/* Packing visualization - always show diagram */}
+                          {/* Packing visualization - always show diagram (v2) */}
                           {(() => {
                             // Use packingLayout if available, otherwise compute one
                             const layout = rec.packingLayout ?? (() => {
