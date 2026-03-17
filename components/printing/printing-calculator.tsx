@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { PrintingForm } from "./printing-form"
 import { SheetOptionsTable } from "./sheet-options-table"
 import { SheetLayoutSvg } from "./sheet-layout-svg"
@@ -79,17 +79,17 @@ export function PrintingCalculator() {
   const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
   const foldSettings = appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
-  // ── Restore calculator inputs synchronously from saved quote ──
+  // ── Saved quote detection ──
   const savedFlatItem = quote.items.find(item => item.category === "flat")
   const hasSavedFlat = !!(quote.savedId && savedFlatItem)
   
-  const initialFlatInputs = useMemo(() => {
-    if (!hasSavedFlat || !savedFlatItem?.metadata) return EMPTY_INPUTS
+  // Build saved inputs from metadata - computed every render
+  const savedFlatInputs = useMemo<PrintingInputs | null>(() => {
+    if (!hasSavedFlat || !savedFlatItem?.metadata) return null
     const meta = savedFlatItem.metadata
     if (meta.calculatorInputs) {
       return { ...EMPTY_INPUTS, ...(meta.calculatorInputs as PrintingInputs) }
     }
-    // Fallback: parse from old metadata format
     const restored: Partial<PrintingInputs> = {}
     const dims = meta.pieceDimensions?.split("x")
     if (dims?.length === 2) {
@@ -106,8 +106,8 @@ export function PrintingCalculator() {
     return { ...EMPTY_INPUTS, ...restored }
   }, [hasSavedFlat, savedFlatItem])
 
-  // Form state - initialize from saved values if available
-  const [inputs, setInputs] = useState<PrintingInputs>(hasSavedFlat ? initialFlatInputs : EMPTY_INPUTS)
+  // Local form state
+  const [localInputs, setLocalInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
   
   // Calculation state
   const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
@@ -123,19 +123,28 @@ export function PrintingCalculator() {
   // Order state
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
-  const [isFrozen, setIsFrozen] = useState(hasSavedFlat)
   
-  // Handle case where quote changes AFTER mount
-  const restoredFlatRef = useRef<string | null>(hasSavedFlat ? quote.savedId : null)
+  // Frozen = user hasn't clicked "Revise" on a saved quote
+  const [userUnfroze, setUserUnfroze] = useState(false)
+  const isFrozen = hasSavedFlat && !userUnfroze
   
-  useEffect(() => {
-    if (!hasSavedFlat) return
-    if (restoredFlatRef.current === quote.savedId) return
-    
-    restoredFlatRef.current = quote.savedId
-    setInputs(initialFlatInputs)
-    setIsFrozen(true)
-  }, [hasSavedFlat, quote.savedId, initialFlatInputs])
+  // THE KEY: inputs are derived at render time
+  const inputs = isFrozen && savedFlatInputs ? savedFlatInputs : localInputs
+  const setInputs = useCallback((val: PrintingInputs | ((prev: PrintingInputs) => PrintingInputs)) => {
+    if (typeof val === "function") {
+      setLocalInputs(val)
+    } else {
+      setLocalInputs(val)
+    }
+  }, [])
+  
+  // When user clicks "Revise", copy saved values into local state
+  const handleUnfreeze = useCallback(() => {
+    if (savedFlatInputs) {
+      setLocalInputs(savedFlatInputs)
+    }
+    setUserUnfroze(true)
+  }, [savedFlatInputs])
 
   // Bridge: get fold cost from the HTML calculator via /api/fold-calc
   const foldBridgeBody = useMemo(() => {
@@ -512,7 +521,7 @@ export function PrintingCalculator() {
                 variant="outline" 
                 size="sm" 
                 className="gap-1.5 border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                onClick={() => setIsFrozen(false)}
+                onClick={handleUnfreeze}
               >
                 <Pencil className="h-3.5 w-3.5" />
                 Revise Quote
