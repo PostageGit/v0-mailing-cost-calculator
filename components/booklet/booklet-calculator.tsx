@@ -63,22 +63,55 @@ export function BookletCalculator() {
   // Restore calculator inputs from saved quote items when quote is loaded
   useEffect(() => {
     if (hasRestored) return
-    const bookletItem = quote.items.find(item => item.category === "booklet" && item.metadata?.calculatorInputs)
-    if (bookletItem?.metadata?.calculatorInputs) {
-      const saved = bookletItem.metadata.calculatorInputs as BookletInputs
-      setInputs({
-        ...EMPTY_INPUTS,
-        ...saved,
-      })
-      setHasRestored(true)
-      // Auto-calculate after restoring
-      setTimeout(() => {
-        const result = calculateBooklet(saved)
-        if (result.isValid) {
-          setCalcResult(result)
-          setActiveTab(saved.separateCover ? "cover" : "inside")
+    const bookletItem = quote.items.find(item => item.category === "booklet")
+    console.log("[v0] Booklet restore check:", { 
+      hasBookletItem: !!bookletItem, 
+      metadata: bookletItem?.metadata,
+      hasCalcInputs: !!bookletItem?.metadata?.calculatorInputs 
+    })
+    
+    if (bookletItem?.metadata) {
+      const meta = bookletItem.metadata
+      let restored: Partial<BookletInputs> = {}
+      
+      // If we have calculatorInputs (new format), use it directly
+      if (meta.calculatorInputs) {
+        restored = meta.calculatorInputs as BookletInputs
+      } else {
+        // Fallback: extract from older metadata format
+        // Parse dimensions from pieceDimensions (e.g. "5x5")
+        const dims = meta.pieceDimensions?.split("x")
+        if (dims?.length === 2) {
+          restored.pageWidth = parseFloat(dims[0]) || 5
+          restored.pageHeight = parseFloat(dims[1]) || 5
         }
-      }, 100)
+        // Parse from label (e.g. "500 - 16pg Booklet 5x5 w/ 80 Cover Gloss Cover")
+        const label = bookletItem.label || ""
+        const qtyMatch = label.match(/^([\d,]+)\s*-/)
+        if (qtyMatch) restored.bookQty = parseInt(qtyMatch[1].replace(/,/g, "")) || 500
+        const pagesMatch = label.match(/(\d+)pg/)
+        if (pagesMatch) restored.pagesPerBook = parseInt(pagesMatch[1]) || 16
+        // Use metadata fields
+        if (meta.pageCount) restored.pagesPerBook = meta.pageCount
+        if (meta.paperName) restored.insidePaper = meta.paperName
+      }
+      
+      console.log("[v0] Restoring booklet inputs:", restored)
+      
+      if (Object.keys(restored).length > 0) {
+        const finalInputs = { ...EMPTY_INPUTS, ...restored }
+        setInputs(finalInputs)
+        setHasRestored(true)
+        // Auto-calculate after restoring
+        setTimeout(() => {
+          const result = calculateBooklet(finalInputs)
+          console.log("[v0] Auto-calc result:", result.isValid, result.grandTotal)
+          if (result.isValid) {
+            setCalcResult(result)
+            setActiveTab(finalInputs.separateCover ? "cover" : "inside")
+          }
+        }, 100)
+      }
     }
   }, [quote.items, hasRestored])
 
