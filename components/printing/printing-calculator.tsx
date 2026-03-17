@@ -96,6 +96,21 @@ export function PrintingCalculator() {
   // Order state
   const [editingItemId] = useState<number | null>(null)
   const [effectiveTotal, setEffectiveTotal] = useState<number>(0)
+  const [hasRestored, setHasRestored] = useState(false)
+  
+  // Restore calculator inputs from saved quote items when quote is loaded
+  useEffect(() => {
+    if (hasRestored) return
+    const flatItem = quote.items.find(item => item.category === "flat" && item.metadata?.calculatorInputs)
+    if (flatItem?.metadata?.calculatorInputs) {
+      const saved = flatItem.metadata.calculatorInputs as PrintingInputs
+      setInputs({
+        ...EMPTY_INPUTS,
+        ...saved,
+      })
+      setHasRestored(true)
+    }
+  }, [quote.items, hasRestored])
 
   // Bridge: get fold cost from the HTML calculator via /api/fold-calc
   const foldBridgeBody = useMemo(() => {
@@ -414,6 +429,23 @@ export function PrintingCalculator() {
         laminationEnabled: lam?.enabled || undefined,
         laminationType: lam?.enabled ? lam.type : undefined,
         laminationSides: lam?.enabled ? lam.sides : undefined,
+        // Store full calculator inputs for restoration
+        calculatorInputs: {
+          qty: inputs.qty,
+          width: inputs.width,
+          height: inputs.height,
+          paperName: inputs.paperName,
+          sidesValue: inputs.sidesValue,
+          hasBleed: inputs.hasBleed,
+          addOnCharge: inputs.addOnCharge,
+          addOnDescription: inputs.addOnDescription,
+          finishingIds: inputs.finishingIds,
+          finishingCalcIds: inputs.finishingCalcIds,
+          isBroker: inputs.isBroker,
+          printingMarkupPct: inputs.printingMarkupPct,
+          lamination: inputs.lamination,
+          foldFinish: inputs.foldFinish,
+        },
       },
     })
   }, [fullResult, inputs, quote, effectiveTotal, activePiece])
