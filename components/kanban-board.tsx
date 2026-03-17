@@ -1750,6 +1750,28 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
   const [name, setName] = useState(quote.project_name)
   const [editItems, setEditItems] = useState<QuoteItem[]>(quote.items || [])
   const [notes, setNotes] = useState(quote.notes || "")
+  const [loading, setLoading] = useState(false)
+  
+  // Fetch fresh data when modal opens to ensure we have latest items
+  useEffect(() => {
+    const fetchFreshData = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/quotes/${quote.id}`)
+        const freshQuote = await res.json()
+        if (freshQuote.id) {
+          setName(freshQuote.project_name || "")
+          setEditItems(freshQuote.items || [])
+          setNotes(freshQuote.notes || "")
+        }
+      } catch (err) {
+        console.error("Failed to fetch quote:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchFreshData()
+  }, [quote.id])
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showPlainText, setShowPlainText] = useState(false)
@@ -1800,7 +1822,19 @@ function QuoteEditModal({ quote, onClose, onSaved, onLoadIntoCalculator }: {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {ALL_CATS.map((cat) => {
+          {loading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <span className="text-sm">Loading quote...</span>
+            </div>
+          ) : editItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
+              <span className="text-sm">No items in this quote yet.</span>
+              <Button variant="outline" size="sm" onClick={() => onLoadIntoCalculator(quote.id)}>
+                Open in Calculator to Add Items
+              </Button>
+            </div>
+          ) : null}
+          {!loading && ALL_CATS.map((cat) => {
             const catItems = editItems.filter((i) => i.category === cat)
             if (catItems.length === 0) return null
             return (
