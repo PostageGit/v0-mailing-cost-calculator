@@ -449,52 +449,54 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* SVG Tabs */}
-                <div className="flex flex-col">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="w-full">
-                      {inputs.separateCover && (
-                        <TabsTrigger value="cover" className="flex-1">Cover</TabsTrigger>
-                      )}
-                      <TabsTrigger value="inside" className="flex-1">Inside Pages</TabsTrigger>
-                    </TabsList>
+              <div className={`grid ${viewMode === "compact" ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"} gap-8`}>
+                {/* SVG Tabs - hidden in compact mode */}
+                {viewMode !== "compact" && (
+                  <div className="flex flex-col">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                      <TabsList className="w-full">
+                        {inputs.separateCover && (
+                          <TabsTrigger value="cover" className="flex-1">Cover</TabsTrigger>
+                        )}
+                        <TabsTrigger value="inside" className="flex-1">Inside Pages</TabsTrigger>
+                      </TabsList>
 
-                    {inputs.separateCover && (
-                      <TabsContent value="cover" className="mt-4">
+                      {inputs.separateCover && (
+                        <TabsContent value="cover" className="mt-4">
+                          <BookletLayoutSvg
+                            result={effectiveCalcResult.coverResult}
+                            spreadWidth={effectiveCalcResult.spreadWidth}
+                            spreadHeight={effectiveCalcResult.spreadHeight}
+                            label="Cover"
+                          />
+                        </TabsContent>
+                      )}
+
+                      <TabsContent value="inside" className="mt-4">
                         <BookletLayoutSvg
-                          result={effectiveCalcResult.coverResult}
+                          result={effectiveCalcResult.insideResult}
                           spreadWidth={effectiveCalcResult.spreadWidth}
                           spreadHeight={effectiveCalcResult.spreadHeight}
-                          label="Cover"
+                          label="Inside Pages"
                         />
                       </TabsContent>
-                    )}
-
-                    <TabsContent value="inside" className="mt-4">
-                      <BookletLayoutSvg
-                        result={effectiveCalcResult.insideResult}
-                        spreadWidth={effectiveCalcResult.spreadWidth}
-                        spreadHeight={effectiveCalcResult.spreadHeight}
-                        label="Inside Pages"
-                      />
-                    </TabsContent>
-                  </Tabs>
-                  {/* Paper stats under layout */}
-                  {(() => {
-                    const r = activeTab === "cover" && effectiveCalcResult.coverResult.paper !== "N/A" ? effectiveCalcResult.coverResult : effectiveCalcResult.insideResult
-                    return (
-                      <div className="mt-3">
-                        <p className="text-center text-xs font-semibold text-foreground mb-1.5">{r.paper}</p>
-                        <PaperStatsRow stats={[
-                          { label: "Sheet", value: r.sheetSize },
-                          { label: "Ups", value: String(r.maxUps) },
-                          { label: "Sheets", value: r.sheets.toLocaleString() },
-                        ]} />
-                      </div>
-                    )
-                  })()}
-                </div>
+                    </Tabs>
+                    {/* Paper stats under layout */}
+                    {(() => {
+                      const r = activeTab === "cover" && effectiveCalcResult.coverResult.paper !== "N/A" ? effectiveCalcResult.coverResult : effectiveCalcResult.insideResult
+                      return (
+                        <div className="mt-3">
+                          <p className="text-center text-xs font-semibold text-foreground mb-1.5">{r.paper}</p>
+                          <PaperStatsRow stats={[
+                            { label: "Sheet", value: r.sheetSize },
+                            { label: "Ups", value: String(r.maxUps) },
+                            { label: "Sheets", value: r.sheets.toLocaleString() },
+                          ]} />
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
 
                 {/* Price Details */}
                 <div className="flex flex-col gap-4">
@@ -505,6 +507,7 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
                     onLevelChange={handleLevelChange}
                     onEffectiveTotalChange={setEffectiveTotal}
                     onBrokerChange={handleBrokerChange}
+                    compact={viewMode === "compact"}
                   />
                 </div>
               </div>
@@ -520,16 +523,16 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
               )}
 
               {/* Add to Quote + Shipping + Compare with Chat */}
-              <div className="flex gap-2 mt-4">
+              <div className={`flex gap-2 ${viewMode === "compact" ? "mt-2" : "mt-4"}`}>
                 <Button
                   onClick={handleAddToQuote}
                   className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                  size="lg"
+                  size={viewMode === "compact" ? "default" : "lg"}
                 >
                   <Plus className="h-4 w-4" />
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}
                 </Button>
-                <ShippingCalcButton
+                {viewMode !== "compact" && <ShippingCalcButton
                   pieceWidth={inputs.pageWidth}
                   pieceHeight={inputs.pageHeight}
                   quantity={inputs.bookQty}
@@ -576,17 +579,19 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
                     
                     return insideTotalOz + coverTotalOz
                   })()}
-                />
-                <Button
-                  onClick={() => sendToChat(bookletSpecsToChat(inputs))}
-                  variant="outline"
-                  className="gap-1.5 rounded-full border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
-                  size="lg"
-                  title="Send these exact specs to the chat AI for a price comparison"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Chat Check
-                </Button>
+                />}
+                {viewMode !== "compact" && (
+                  <Button
+                    onClick={() => sendToChat(bookletSpecsToChat(inputs))}
+                    variant="outline"
+                    className="gap-1.5 rounded-full border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                    size="lg"
+                    title="Send these exact specs to the chat AI for a price comparison"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Chat Check
+                  </Button>
+                )}
               </div>
             </div>
           )}
