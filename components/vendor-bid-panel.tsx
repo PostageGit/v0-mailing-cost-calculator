@@ -106,8 +106,12 @@ interface Props { quoteId: string; onClose?: () => void; inline?: boolean }
 
 export function VendorBidPanel({ quoteId, onClose, inline }: Props) {
   const { data: bids, isLoading, mutate: mutateBids } = useSWR<VendorBid[]>(`/api/vendor-bids?quote_id=${quoteId}`, fetcher)
-  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
+  const { data: vendors, error: vendorsError } = useSWR<Vendor[]>("/api/vendors", fetcher)
   const mailing = useMailing()
+  
+  // Debug: log vendors data
+  console.log("[v0] vendors data:", vendors, "error:", vendorsError)
+  console.log("[v0] external vendors:", vendors?.filter((v) => !v.is_internal))
   const quote = useQuote()
 
   const ohpPieces = mailing.pieces.filter((p) => p.production === "ohp" || p.production === "both")
