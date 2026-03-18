@@ -518,7 +518,6 @@ export function BookletForm({
           {([
             { value: "staple", label: "Staple", desc: "saddle stitch" },
             { value: "fold", label: "Fold Only", desc: "no staple" },
-            { value: "perfect", label: "Perfect Bind", desc: "glue spine" },
           ] as const).map((opt) => {
             const selected = (inputs.bindingType || "staple") === opt.value
             return (
