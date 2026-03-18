@@ -33,6 +33,7 @@ interface PadFormProps {
   validationError: string | null
   settings: PadSettings
   onSettingsSave: (s: PadSettings) => void
+  compact?: boolean
 }
 
 export function PadForm({
@@ -44,6 +45,7 @@ export function PadForm({
   validationError,
   settings,
   onSettingsSave,
+  compact = false,
 }: PadFormProps) {
   const [showAllPapers, setShowAllPapers] = useState(false)
   const { getPaperOptions, papers: allPapers, paperDataLookup } = usePapersContext()

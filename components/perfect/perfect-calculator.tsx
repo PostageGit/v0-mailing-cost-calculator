@@ -21,7 +21,11 @@ import type { GenericQtyRow } from "@/components/qty-comparison-table"
 import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 
-export function PerfectCalculator() {
+interface PerfectCalculatorProps {
+  viewMode?: "detailed" | "compact"
+}
+
+export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -337,6 +341,7 @@ export function PerfectCalculator() {
           validationError={validationError}
           ohpMode={isOhpMode}
           sectionResults={calcResult?.insideSectionResults}
+          compact={viewMode === "compact"}
         />
           </>
         )}
@@ -390,7 +395,7 @@ export function PerfectCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} />
+                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} compact={viewMode === "compact"} />
               </div>
             </div>
 

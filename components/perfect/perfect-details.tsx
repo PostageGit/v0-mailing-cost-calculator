@@ -10,9 +10,10 @@ interface PerfectDetailsProps {
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
   onBrokerChange?: (value: boolean) => void
+  compact?: boolean
 }
 
-export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, onBrokerChange }: PerfectDetailsProps) {
+export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, onBrokerChange, compact = false }: PerfectDetailsProps) {
   const {
     coverResult, insideResult, insideSectionResults, finishedSheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice, sectionFeeTotal,
@@ -244,14 +245,15 @@ export function PerfectDetails({ result, onLevelChange, onEffectiveTotalChange, 
         onLevelChange,
       }}
       costLines={costLines}
-      summaryTable={summaryTable}
-      details={expandedDetails}
+      summaryTable={compact ? undefined : summaryTable}
+      details={compact ? undefined : expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
-      weightOz={bookWeightOz}
+      weightOz={compact ? undefined : bookWeightOz}
       weightLabel="/ book"
-      footerNote={oldSystemNote}
+      footerNote={compact ? undefined : oldSystemNote}
+      compact={compact}
     />
   )
 }

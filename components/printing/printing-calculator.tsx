@@ -62,7 +62,11 @@ const EMPTY_INPUTS: PrintingInputs = {
   },
 }
 
-export function PrintingCalculator() {
+interface PrintingCalculatorProps {
+  viewMode?: "detailed" | "compact"
+}
+
+export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -685,6 +689,7 @@ export function PrintingCalculator() {
   currentResult={isOhpMode ? null : fullResult}
   ohpMode={isOhpMode}
   disabled={isFrozen}
+  compact={viewMode === "compact"}
   />
             </>
           )}
@@ -763,7 +768,7 @@ export function PrintingCalculator() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-4">
-                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
+                  <PriceBreakdown data={fullResult} onChangeSheet={handleChangeSheet} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} compact={viewMode === "compact"} />
                 </div>
               </div>
 

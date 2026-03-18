@@ -19,7 +19,11 @@ import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 import { usePapersContext } from "@/lib/papers-context"
 
-export function SpiralCalculator() {
+interface SpiralCalculatorProps {
+  viewMode?: "detailed" | "compact"
+}
+
+export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { paperDataLookup } = usePapersContext()
@@ -286,6 +290,7 @@ export function SpiralCalculator() {
           isEditing={false}
           validationError={validationError}
           ohpMode={isOhpMode}
+          compact={viewMode === "compact"}
         />
           </>
         )}
@@ -347,7 +352,7 @@ export function SpiralCalculator() {
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
+                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} compact={viewMode === "compact"} />
               </div>
             </div>
 

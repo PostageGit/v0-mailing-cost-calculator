@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
-import { QuickEntryCalculator } from "@/components/quick-entry-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
@@ -249,15 +248,17 @@ function AppContent() {
   [visibleSteps, completedSteps])
 
   const renderStep = () => {
+    // Map view mode: "quick" -> "compact" for the calculator forms
+    const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
     switch (currentStep) {
       case "envelope": return <EnvelopeTab />
       case "usps":     return <USPSPostageCalculator />
       case "labor":    return <ServiceBuilder />
-      case "printing": return calcViewMode === "quick" ? <QuickEntryCalculator /> : <PrintingCalculator />
-      case "booklet":  return <BookletCalculator />
-      case "spiral":   return <SpiralCalculator />
-      case "perfect":  return <PerfectCalculator />
-      case "pad":      return <PadCalculator />
+      case "printing": return <PrintingCalculator viewMode={viewMode} />
+      case "booklet":  return <BookletCalculator viewMode={viewMode} />
+      case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+      case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+      case "pad":      return <PadCalculator viewMode={viewMode} />
       case "ohp":      return <VendorBidTab />
       case "items":    return <ItemsTab /> /* DB items fallback */
     }
@@ -595,8 +596,8 @@ function AppContent() {
                     </button>
                     {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
                     <div className="w-px h-3 bg-border shrink-0" />
-                    {/* View toggle for printing calculator */}
-                    {currentStep === "printing" && (
+                    {/* View toggle for calculators */}
+                    {["printing", "booklet", "spiral", "perfect", "pad"].includes(currentStep) && (
                       <>
                         <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-background/80 border border-border shrink-0">
                           <button
@@ -609,7 +610,7 @@ function AppContent() {
                                 : "text-muted-foreground hover:text-foreground"
                             )}
                           >
-                            Detailed
+                            Full
                           </button>
                           <button
                             type="button"
@@ -621,7 +622,7 @@ function AppContent() {
                                 : "text-muted-foreground hover:text-foreground"
                             )}
                           >
-                            Quick Entry
+                            Compact
                           </button>
                         </div>
                         <div className="w-px h-3 bg-border shrink-0" />

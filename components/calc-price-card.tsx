@@ -59,6 +59,8 @@ export interface CalcPriceCardProps {
   weightLabel?: string
   /** Footer note shown at the bottom (e.g. old system comparison) */
   footerNote?: React.ReactNode
+  /** Compact mode hides extra details for a cleaner look */
+  compact?: boolean
 }
 
 export function CalcPriceCard({
@@ -78,6 +80,7 @@ export function CalcPriceCard({
   weightOz,
   weightLabel = "/ piece",
   footerNote,
+  compact = false,
 }: CalcPriceCardProps) {
   const [showDetails, setShowDetails] = useState(false)
 
@@ -90,11 +93,11 @@ export function CalcPriceCard({
   }, [effectiveTotal, onEffectiveTotalChange])
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={`flex flex-col ${compact ? "gap-2" : "gap-3"}`}>
       {/* ── Hero total ── */}
-      <div className="bg-foreground text-background rounded-2xl px-5 py-4 flex items-baseline justify-between">
+      <div className={`bg-foreground text-background ${compact ? "rounded-xl px-4 py-3" : "rounded-2xl px-5 py-4"} flex items-baseline justify-between`}>
         <div>
-          <p className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(effectiveTotal)}</p>
+          <p className={`${compact ? "text-2xl" : "text-3xl"} font-bold font-mono tracking-tight`}>{formatCurrency(effectiveTotal)}</p>
           <p className="text-xs opacity-60 mt-0.5">
             {formatCurrency(effectivePerUnit, 4)} {perUnitLabel}
           </p>
@@ -110,8 +113,8 @@ export function CalcPriceCard({
         )}
       </div>
 
-      {/* ── Broker toggle bar (before everything) ── */}
-      {onBrokerChange && (
+      {/* ── Broker toggle bar (before everything) - hidden in compact ── */}
+      {!compact && onBrokerChange && (
         <button
           type="button"
           onClick={() => onBrokerChange(!isBroker)}
@@ -135,8 +138,8 @@ export function CalcPriceCard({
         </button>
       )}
 
-      {/* ── Level control ── */}
-      {level && (
+      {/* ── Level control - hidden in compact ── */}
+      {!compact && level && (
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
@@ -202,14 +205,16 @@ export function CalcPriceCard({
         </div>
       )}
 
-      {/* ── Paper name ── */}
-      <div className="rounded-xl border border-border bg-card px-4 py-2.5 flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
-        <span className="text-sm font-semibold text-foreground">{paperName}</span>
-      </div>
+      {/* ── Paper name - hidden in compact ── */}
+      {!compact && (
+        <div className="rounded-xl border border-border bg-card px-4 py-2.5 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paper</span>
+          <span className="text-sm font-semibold text-foreground">{paperName}</span>
+        </div>
+      )}
 
-      {/* ── Weight display ── */}
-      {weightOz !== undefined && weightOz > 0 && (
+      {/* ── Weight display - hidden in compact ── */}
+      {!compact && weightOz !== undefined && weightOz > 0 && (
         <div className="rounded-xl border-2 border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Scale className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -222,8 +227,8 @@ export function CalcPriceCard({
         </div>
       )}
 
-      {/* ── Summary table (always visible, e.g. section breakdown) ── */}
-      {summaryTable && (
+      {/* ── Summary table - hidden in compact ── */}
+      {!compact && summaryTable && (
         <div className="rounded-xl border border-border bg-card p-3">
           {summaryTable}
         </div>
@@ -242,8 +247,8 @@ export function CalcPriceCard({
         </div>
       </div>
 
-      {/* ── Expandable details ── */}
-      {details && (
+      {/* ── Expandable details - hidden in compact ── */}
+      {!compact && details && (
         <button
           type="button"
           onClick={() => setShowDetails(!showDetails)}
@@ -254,7 +259,7 @@ export function CalcPriceCard({
           {showDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
       )}
-      {showDetails && details && (
+      {!compact && showDetails && details && (
         <div className="rounded-xl border border-border bg-card p-4">
           {details}
         </div>

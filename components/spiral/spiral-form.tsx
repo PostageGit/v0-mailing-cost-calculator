@@ -30,6 +30,7 @@ interface SpiralFormProps {
   isEditing: boolean
   validationError: string | null
   ohpMode?: boolean
+  compact?: boolean
 }
 
 export function SpiralForm({
@@ -40,6 +41,7 @@ export function SpiralForm({
   isEditing,
   validationError,
   ohpMode,
+  compact = false,
 }: SpiralFormProps) {
   const [showAllPapers, setShowAllPapers] = useState(false)
   const { getPaperOptions, papers: allPapers, paperDataLookup } = usePapersContext()

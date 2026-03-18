@@ -12,6 +12,7 @@ interface BookletDetailsProps {
   onLevelChange?: (delta: number) => void
   onEffectiveTotalChange?: (total: number) => void
   onBrokerChange?: (value: boolean) => void
+  compact?: boolean
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -31,7 +32,7 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
-export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange, onBrokerChange }: BookletDetailsProps) {
+export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffectiveTotalChange, onBrokerChange, compact = false }: BookletDetailsProps) {
   const {
     insideResult, coverResult, insertResults, totalSheetsPerBooklet,
     bindingPricePerBook, totalBindingPrice, insertFeeTotal,
@@ -259,13 +260,14 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
         onLevelChange,
       }}
       costLines={costLines}
-      details={expandedDetails}
+      details={compact ? [] : expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={inputs.isBroker}
       onBrokerChange={onBrokerChange}
-      weightOz={bookletWeightOz}
+      weightOz={compact ? undefined : bookletWeightOz}
       weightLabel="/ booklet"
-      footerNote={oldSystemNote}
+      footerNote={compact ? undefined : oldSystemNote}
+      compact={compact}
     />
   )
 }

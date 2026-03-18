@@ -38,6 +38,7 @@ interface PrintingFormProps {
   currentResult?: FullPrintingResult | null
   ohpMode?: boolean
   disabled?: boolean
+  compact?: boolean
 }
 
 export function PrintingForm({
@@ -50,6 +51,7 @@ export function PrintingForm({
   currentResult,
   ohpMode,
   disabled = false,
+  compact = false,
 }: PrintingFormProps) {
   const [showAllPapers, setShowAllPapers] = useState(false)
   const { papers: filteredPapers } = useFlatPrintingPapers()

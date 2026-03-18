@@ -37,6 +37,7 @@ interface BookletFormProps {
   validationError: string | null
   ohpMode?: boolean
   disabled?: boolean
+  compact?: boolean
 }
 
 export function BookletForm({
@@ -48,6 +49,7 @@ export function BookletForm({
   validationError,
   ohpMode,
   disabled = false,
+  compact = false,
 }: BookletFormProps) {
   const [showAllCoverPapers, setShowAllCoverPapers] = useState(false)
   const [showAllInsidePapers, setShowAllInsidePapers] = useState(false)
@@ -131,12 +133,12 @@ export function BookletForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className={compact ? "space-y-3" : ""}>
       <fieldset disabled={disabled} className={disabled ? "opacity-60 pointer-events-none" : ""}>
       {/* Row 1: General Info */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="book-qty" className="text-sm font-medium text-foreground">
+      <div className={`grid grid-cols-2 md:grid-cols-4 ${compact ? "gap-2 mb-2" : "gap-4 mb-4"}`}>
+        <div className={`flex flex-col ${compact ? "gap-0.5" : "gap-1.5"}`}>
+          <label htmlFor="book-qty" className={`${compact ? "text-xs" : "text-sm"} font-medium text-foreground`}>
             Booklet Amount{v.req(!inputs.bookQty) && <span className="text-destructive text-xs ml-0.5">*</span>}
           </label>
           <Input
@@ -200,10 +202,10 @@ export function BookletForm({
         />
       )}
 
-      <Separator className="my-4" />
+      <Separator className={compact ? "my-2" : "my-4"} />
 
       {/* Separate Cover Checkbox */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className={`flex items-center gap-2 ${compact ? "mb-2" : "mb-4"}`}>
         <Checkbox
           id="separate-cover"
           checked={inputs.separateCover}
@@ -221,22 +223,24 @@ export function BookletForm({
 
       {/* Cover Row */}
       {inputs.separateCover && (
-        <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
-          <span className="text-sm font-medium text-foreground pb-2">Cover</span>
+        <div className={`grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] ${compact ? "gap-2 mb-2" : "gap-4 mb-4"} items-end`}>
+          <span className={`${compact ? "text-xs" : "text-sm"} font-medium text-foreground pb-2`}>Cover</span>
           <div className="flex flex-col gap-1">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAllCoverPapers(!showAllCoverPapers)}
-                className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${
-                  showAllCoverPapers 
-                    ? "bg-primary text-primary-foreground border-primary" 
-                    : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
-                }`}
-              >
-                {showAllCoverPapers ? "Filtered" : "Show All"}
-              </button>
-            </div>
+            {!compact && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAllCoverPapers(!showAllCoverPapers)}
+                  className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${
+                    showAllCoverPapers 
+                      ? "bg-primary text-primary-foreground border-primary" 
+                      : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
+                  }`}
+                >
+                  {showAllCoverPapers ? "Filtered" : "Show All"}
+                </button>
+              </div>
+            )}
             <Select value={inputs.coverPaper} onValueChange={(val) => updateInputs({ coverPaper: val, coverSheetSize: "cheapest" })}>
               <SelectTrigger className={v.cls(!inputs.coverPaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
               <SelectContent>
@@ -275,22 +279,24 @@ export function BookletForm({
       )}
 
       {/* Inside Pages Row */}
-      <div className="grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] gap-4 mb-4 items-end">
-        <span className="text-sm font-medium text-foreground pb-2">Inside</span>
+      <div className={`grid grid-cols-1 md:grid-cols-[5rem_1fr_1fr_auto_1fr] ${compact ? "gap-2 mb-2" : "gap-4 mb-4"} items-end`}>
+        <span className={`${compact ? "text-xs" : "text-sm"} font-medium text-foreground pb-2`}>Inside</span>
         <div className="flex flex-col gap-1">
-          <div className="flex justify-end">
-              <button
-              type="button"
-              onClick={() => setShowAllInsidePapers(!showAllInsidePapers)}
-              className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${
-                showAllInsidePapers 
-                  ? "bg-primary text-primary-foreground border-primary" 
-                  : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
-              }`}
-            >
-              {showAllInsidePapers ? "Filtered" : "Show All"}
-            </button>
-          </div>
+          {!compact && (
+            <div className="flex justify-end">
+                <button
+                type="button"
+                onClick={() => setShowAllInsidePapers(!showAllInsidePapers)}
+                className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${
+                  showAllInsidePapers 
+                    ? "bg-primary text-primary-foreground border-primary" 
+                    : "bg-secondary text-foreground border-border hover:bg-primary/10 hover:border-primary"
+                }`}
+              >
+                {showAllInsidePapers ? "Filtered" : "Show All"}
+              </button>
+            </div>
+          )}
           <Select value={inputs.insidePaper} onValueChange={(val) => updateInputs({ insidePaper: val, insideSheetSize: "cheapest" })}>
             <SelectTrigger className={v.cls(!inputs.insidePaper)}><SelectValue placeholder="Select Paper" /></SelectTrigger>
             <SelectContent>
@@ -327,8 +333,8 @@ export function BookletForm({
         </Select>
       </div>
 
-      {/* Insert Sections Toggle */}
-      <div className="flex items-center justify-between mb-3 mt-4 pb-2 border-b">
+      {/* Insert Sections Toggle - hidden in compact mode */}
+      {!compact && <div className="flex items-center justify-between mb-3 mt-4 pb-2 border-b">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">Leaf Inserts</span>
           {totalLeaves > 0 && (
@@ -350,10 +356,10 @@ export function BookletForm({
             <><Plus className="h-3.5 w-3.5" /> Add Leaf Inserts</>
           )}
         </button>
-      </div>
+      </div>}
 
-      {/* Insert Sections UI */}
-      {usesInserts && (
+      {/* Insert Sections UI - hidden in compact mode */}
+      {!compact && usesInserts && (
         <div className="border rounded-lg p-3 mb-4 bg-secondary/30">
           {/* Leaf distribution summary */}
           <div className="flex flex-wrap gap-3 items-center mb-3">
