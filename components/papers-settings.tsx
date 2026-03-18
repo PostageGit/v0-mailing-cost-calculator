@@ -18,6 +18,8 @@ interface Paper {
   active: boolean
   prices: Record<string, number>
   available_sizes: string[]
+  // Allowed sides/color options for this paper
+  allowed_sides: string[]
   // Printing context usage flags
   use_in_flat_printing: boolean
   use_in_book_cover: boolean
@@ -46,6 +48,21 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 const ALL_SIZES = ["8.5x11", "11x17", "12x18", "12.5x19", "13x19", "13x26"]
 const SHORT_SIZES = ["Short 11x17", "Short 12x18", "Short 12.5x19"] // For booklet/perfect binding inside pages
+
+// All possible sides options - text papers typically use S/S, D/S; cardstock uses 4/4, 4/0, etc.
+const ALL_SIDES_OPTIONS = [
+  { value: "S/S", label: "S/S", description: "Single Side (text)" },
+  { value: "D/S", label: "D/S", description: "Double Side (text)" },
+  { value: "4/4", label: "4/4", description: "Full Color Both Sides" },
+  { value: "4/0", label: "4/0", description: "Full Color Front Only" },
+  { value: "1/1", label: "1/1", description: "B&W Both Sides" },
+  { value: "1/0", label: "1/0", description: "B&W Front Only" },
+]
+
+// Default sides by paper type
+const DEFAULT_TEXT_SIDES = ["S/S", "D/S", "4/4", "4/0", "1/1", "1/0"]
+const DEFAULT_CARDSTOCK_SIDES = ["4/4", "4/0", "1/1", "1/0"]
+
 const CATEGORIES = [
   { value: "text", label: "Text Weight" },
   { value: "cover", label: "Cover / Cardstock" },
@@ -257,6 +274,9 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
   const [isCardstock, setIsCardstock] = useState(paper?.is_cardstock || false)
   const [thickness, setThickness] = useState(paper?.thickness?.toString() || "0.003")
   const [sizes, setSizes] = useState<string[]>(paper?.available_sizes || ["8.5x11", "11x17"])
+  const [allowedSides, setAllowedSides] = useState<string[]>(
+    paper?.allowed_sides || (paper?.is_cardstock ? DEFAULT_CARDSTOCK_SIDES : DEFAULT_TEXT_SIDES)
+  )
   const [prices, setPrices] = useState<Record<string, string>>(
     paper?.prices ? Object.fromEntries(Object.entries(paper.prices).map(([k, v]) => [k, v.toString()])) : {}
   )
@@ -290,6 +310,7 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
       is_cardstock: isCardstock,
       thickness: parseFloat(thickness) || 0.003,
       available_sizes: sizes,
+      allowed_sides: allowedSides,
       prices: Object.fromEntries(Object.entries(prices).filter(([k]) => sizes.includes(k)).map(([k, v]) => [k, parseFloat(v) || 0])),
       ...usage,
     }
@@ -348,7 +369,19 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
         </div>
         <div className="flex items-end gap-2 col-span-2">
           <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input type="checkbox" checked={isCardstock} onChange={(e) => setIsCardstock(e.target.checked)} className="rounded" />
+            <input 
+              type="checkbox" 
+              checked={isCardstock} 
+              onChange={(e) => {
+                const newIsCardstock = e.target.checked
+                setIsCardstock(newIsCardstock)
+                // Auto-update allowed sides when cardstock status changes (only if no paper is being edited)
+                if (!paper) {
+                  setAllowedSides(newIsCardstock ? DEFAULT_CARDSTOCK_SIDES : DEFAULT_TEXT_SIDES)
+                }
+              }} 
+              className="rounded" 
+            />
             Is Cardstock
           </label>
         </div>
@@ -391,6 +424,53 @@ function PaperForm({ paper, onClose, onSave }: { paper?: Paper; onClose: () => v
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Allowed Sides Options */}
+      <div>
+        <Label className="text-xs">Allowed Sides / Color Options</Label>
+        <p className="text-[10px] text-muted-foreground mb-1">
+          Select which print options are available for this paper. Booklet calculators will only show papers with 2-sided options (D/S, 4/4, 1/1).
+        </p>
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {ALL_SIDES_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                setAllowedSides((prev) => 
+                  prev.includes(opt.value) 
+                    ? prev.filter((s) => s !== opt.value) 
+                    : [...prev, opt.value]
+                )
+              }}
+              className={cn(
+                "px-2 py-1 text-xs rounded-md border transition-colors",
+                allowedSides.includes(opt.value)
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-background text-muted-foreground border-border hover:border-foreground"
+              )}
+              title={opt.description}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-2">
+          <button
+            type="button"
+            onClick={() => setAllowedSides(DEFAULT_TEXT_SIDES)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+          >
+            Set Text Defaults
+          </button>
+          <button
+            type="button"
+            onClick={() => setAllowedSides(DEFAULT_CARDSTOCK_SIDES)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+          >
+            Set Cardstock Defaults
+          </button>
         </div>
       </div>
 

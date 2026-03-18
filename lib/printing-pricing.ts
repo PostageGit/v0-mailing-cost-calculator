@@ -140,10 +140,23 @@ const BLEED_MARGIN = 0.25
 
 // ==================== HELPER FUNCTIONS ====================
 
-export function getAvailableSides(paperName: string, paperInfo?: { isCardstock: boolean }): string[] {
+export function getAvailableSides(paperName: string, paperInfo?: { isCardstock: boolean; allowedSides?: string[] }): string[] {
+  // If paper has explicit allowed_sides, use them directly
+  if (paperInfo?.allowedSides && paperInfo.allowedSides.length > 0) {
+    return paperInfo.allowedSides
+  }
+  
   // Use provided paper info, or look up from dynamic options then defaults
   const allPapers = getFlatPaperOptions()
   const paper = paperInfo || allPapers.find((p) => p.name === paperName)
+  
+  // Check if the paper from allPapers has allowedSides
+  const foundPaper = allPapers.find((p) => p.name === paperName)
+  if (foundPaper && 'allowedSides' in foundPaper && Array.isArray((foundPaper as { allowedSides?: string[] }).allowedSides)) {
+    const sides = (foundPaper as { allowedSides: string[] }).allowedSides
+    if (sides.length > 0) return sides
+  }
+  
   if (!paper) {
     // If paper not found in defaults, check if it looks like cardstock by name
     const lowerName = paperName.toLowerCase()
