@@ -200,6 +200,7 @@ export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
                   onEffectiveTotalChange={setEffectiveTotal}
                   isBroker={inputs.isBroker}
                   onBrokerChange={handleBrokerChange}
+                  compact={viewMode === "compact"}
                 />
               </div>
             </div>

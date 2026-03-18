@@ -33,9 +33,10 @@ interface SpiralDetailsProps {
   onEffectiveTotalChange?: (total: number) => void
   isBroker?: boolean
   onBrokerChange?: (value: boolean) => void
+  compact?: boolean
 }
 
-export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: SpiralDetailsProps) {
+export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange, compact = false }: SpiralDetailsProps) {
   const {
     insideResult, frontResult, backResult, sheetsPerBook,
     totalPrintingCost, bindingPricePerBook, totalBindingPrice,
@@ -222,12 +223,13 @@ export function SpiralDetails({ result, onLevelChange, onEffectiveTotalChange, i
         onLevelChange,
       }}
       costLines={costLines}
-      details={expandedDetails}
+      details={compact ? undefined : expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
-      weightOz={bookWeightOz}
+      weightOz={compact ? undefined : bookWeightOz}
       weightLabel="/ book"
+      compact={compact}
     />
   )
 }

@@ -12,6 +12,7 @@ interface PriceBreakdownProps {
   onEffectiveTotalChange?: (total: number) => void
   isBroker?: boolean
   onBrokerChange?: (value: boolean) => void
+  compact?: boolean
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -23,7 +24,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: PriceBreakdownProps) {
+export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange, compact = false }: PriceBreakdownProps) {
   const {
     result, inputs, printingCostPlus10, cuttingCost,
     addOnCharge, addOnDescription,
@@ -162,13 +163,14 @@ export function PriceBreakdown({ data, onChangeSheet, onLevelChange, onEffective
         onLevelChange,
       }}
       costLines={costLines}
-      details={expandedDetails}
+      details={compact ? undefined : expandedDetails}
       onChangeSize={onChangeSheet}
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
-      weightOz={pieceWeightOz ?? undefined}
+      weightOz={compact ? undefined : (pieceWeightOz ?? undefined)}
       weightLabel="/ piece"
+      compact={compact}
     />
   )
 }

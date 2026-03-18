@@ -352,7 +352,7 @@ export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProp
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} />
+                <SpiralDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} isBroker={inputs.isBroker} onBrokerChange={handleBrokerChange} compact={viewMode === "compact"} />
               </div>
             </div>
 

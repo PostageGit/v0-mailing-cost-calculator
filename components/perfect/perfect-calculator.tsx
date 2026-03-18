@@ -395,7 +395,7 @@ export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorPr
 
               {/* Price Details */}
               <div className="flex flex-col gap-4">
-                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} />
+                <PerfectDetails result={calcResult} onLevelChange={handleLevelChange} onEffectiveTotalChange={setEffectiveTotal} onBrokerChange={handleBrokerChange} compact={viewMode === "compact"} />
               </div>
             </div>
 

@@ -33,9 +33,10 @@ interface PadDetailsProps {
   onEffectiveTotalChange?: (total: number) => void
   isBroker?: boolean
   onBrokerChange?: (value: boolean) => void
+  compact?: boolean
 }
 
-export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange }: PadDetailsProps) {
+export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBroker, onBrokerChange, compact = false }: PadDetailsProps) {
   const {
     insideResult, sheetsPerPad,
     totalPrintingCost, paddingRate, totalPaddingCost,
@@ -175,12 +176,13 @@ export function PadDetails({ result, onLevelChange, onEffectiveTotalChange, isBr
         onLevelChange,
       }}
       costLines={costLines}
-      details={expandedDetails}
+      details={compact ? undefined : expandedDetails}
       onEffectiveTotalChange={onEffectiveTotalChange}
       isBroker={isBroker}
       onBrokerChange={onBrokerChange}
-      weightOz={padWeightOz}
+      weightOz={compact ? undefined : padWeightOz}
       weightLabel="/ pad"
+      compact={compact}
     />
   )
 }
