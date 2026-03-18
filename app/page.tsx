@@ -20,7 +20,6 @@ import { DeliveriesDashboard } from "@/components/deliveries-dashboard"
 import { BillingDashboard } from "@/components/billing-dashboard"
 import { OhpBidsDashboard } from "@/components/ohp-bids-dashboard"
 import { VendorBidTab } from "@/components/vendor-bid-tab"
-import { ItemsTab } from "@/components/items-tab"
 import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { ChatQuotesDashboard } from "@/components/chat-quotes-dashboard"
@@ -31,14 +30,14 @@ import { usePricingConfig } from "@/lib/use-pricing-config"
 import { StepCelebration, useCelebration } from "@/components/step-celebration"
 import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
-  Send, Package, Check, ChevronRight, FileText, Receipt, Briefcase,
+  Send, Check, ChevronRight, FileText, Receipt, Briefcase,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
   SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
-type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "pad" | "ohp" | "items"
+type StepId = "envelope" | "usps" | "labor" | "printing" | "booklet" | "spiral" | "perfect" | "pad" | "ohp"
 const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "envelope",  label: "Envelope",  icon: <Mail className="h-3.5 w-3.5" /> },
   { id: "usps",      label: "Postage",   icon: <Stamp className="h-3.5 w-3.5" /> },
@@ -49,11 +48,10 @@ const ALL_STEPS: { id: StepId; label: string; icon: React.ReactNode }[] = [
   { id: "perfect",   label: "Perfect",   icon: <BookOpen className="h-3.5 w-3.5" /> },
   { id: "pad",       label: "Pad",       icon: <Layers className="h-3.5 w-3.5" /> },
   { id: "ohp",       label: "OHP",       icon: <Send className="h-3.5 w-3.5" /> },
-  { id: "items",     label: "Items",     icon: <Package className="h-3.5 w-3.5" /> },
 ]
 const STEP_CATS: Record<StepId, string[]> = {
   envelope: ["envelope"], usps: ["postage"], labor: ["listwork", "item"],
-  printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], perfect: ["perfect"], pad: ["pad"], ohp: ["ohp"], items: ["item"],
+  printing: ["flat"], booklet: ["booklet"], spiral: ["spiral"], perfect: ["perfect"], pad: ["pad"], ohp: ["ohp"],
 }
 
 class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string }, { error: Error | null }> {
@@ -260,7 +258,6 @@ function AppContent() {
       case "perfect":  return <PerfectCalculator viewMode={viewMode} />
       case "pad":      return <PadCalculator viewMode={viewMode} />
       case "ohp":      return <VendorBidTab />
-      case "items":    return <ItemsTab /> /* DB items fallback */
     }
   }
 
