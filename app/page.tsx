@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
-import { QuickEntryCalculator } from "@/components/quick-entry-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
@@ -249,16 +248,14 @@ function AppContent() {
   [visibleSteps, completedSteps])
 
   const renderStep = () => {
-    // Quick Entry mode shows simplified table view for print calculators
-    if (calcViewMode === "quick" && ["printing", "booklet", "spiral", "perfect", "pad"].includes(currentStep)) {
-      return <QuickEntryCalculator calcType={currentStep as "printing" | "booklet" | "spiral" | "perfect" | "pad"} />
-    }
+    // Map view mode: "quick" -> "compact" for the calculator forms
+    const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
     switch (currentStep) {
       case "envelope": return <EnvelopeTab />
       case "usps":     return <USPSPostageCalculator />
       case "labor":    return <ServiceBuilder />
       case "printing": return <PrintingCalculator />
-      case "booklet":  return <BookletCalculator />
+      case "booklet":  return <BookletCalculator viewMode={viewMode} />
       case "spiral":   return <SpiralCalculator />
       case "perfect":  return <PerfectCalculator />
       case "pad":      return <PadCalculator />
@@ -613,7 +610,7 @@ function AppContent() {
                                 : "text-muted-foreground hover:text-foreground"
                             )}
                           >
-                            Detailed
+                            Full
                           </button>
                           <button
                             type="button"
@@ -625,7 +622,7 @@ function AppContent() {
                                 : "text-muted-foreground hover:text-foreground"
                             )}
                           >
-                            Quick Entry
+                            Compact
                           </button>
                         </div>
                         <div className="w-px h-3 bg-border shrink-0" />

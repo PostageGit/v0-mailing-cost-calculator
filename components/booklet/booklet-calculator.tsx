@@ -43,7 +43,11 @@ const EMPTY_INPUTS: BookletInputs = {
   printingMarkupPct: 0,
 }
 
-export function BookletCalculator() {
+interface BookletCalculatorProps {
+  viewMode?: "detailed" | "compact"
+}
+
+export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -420,16 +424,17 @@ export function BookletCalculator() {
           {/* Form: show when NOT in saved OHP state */}
           {!(isOhpMode && ohpSpecsSaved) && (
             <>
-          <BookletForm
-            inputs={inputs}
-            onInputsChange={setInputs}
-            onCalculate={isOhpMode ? handleSaveOhpSpecs : handleCalculate}
-            onReset={() => { resetForm(); setOhpSpecsSaved(false) }}
-            isEditing={editingItemId !== null}
-            validationError={validationError}
-            ohpMode={isOhpMode}
-            disabled={isFrozen}
-          />
+        <BookletForm
+          inputs={inputs}
+          onInputsChange={setInputs}
+          onCalculate={handleCalculate}
+          onReset={resetForm}
+          isEditing={false}
+          validationError={validationError}
+          ohpMode={isOhpMode}
+          disabled={isFrozen}
+          compact={viewMode === "compact"}
+        />
             </>
           )}
 
