@@ -595,8 +595,8 @@ function AppContent() {
                     </button>
                     {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
                     <div className="w-px h-3 bg-border shrink-0" />
-                    {/* View toggle for printing calculator */}
-                    {currentStep === "printing" && (
+                    {/* View toggle for calculators */}
+                    {["printing", "booklet", "spiral", "perfect", "pad"].includes(currentStep) && (
                       <>
                         <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-background/80 border border-border shrink-0">
                           <button
