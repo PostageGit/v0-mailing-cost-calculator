@@ -496,7 +496,7 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
             {(vendors ?? []).length === 0 && (
               <div className="px-2 py-1.5 text-sm text-muted-foreground">No vendors found</div>
             )}
-            {(vendors ?? []).filter((v) => v.is_internal === false).map((v) => (
+            {(vendors ?? []).filter((v) => !v.is_internal).map((v) => (
               <SelectItem key={v.id} value={v.id}>{v.company_name}</SelectItem>
             ))}
           </SelectContent>
