@@ -55,11 +55,25 @@ function createEmptyRow(): QuickEntryRow {
 }
 
 // ── Quick Entry Calculator ───────────────────────────────────────────────────
-export function QuickEntryCalculator() {
+interface QuickEntryCalculatorProps {
+  calcType?: "printing" | "booklet" | "spiral" | "perfect" | "pad"
+}
+
+const CALC_TYPE_LABELS: Record<string, string> = {
+  printing: "Flat Printing",
+  booklet: "Saddle Stitch Booklet",
+  spiral: "Spiral Bound",
+  perfect: "Perfect Bound",
+  pad: "Notepad",
+}
+
+export function QuickEntryCalculator({ calcType = "printing" }: QuickEntryCalculatorProps) {
   const quote = useQuote()
   const { getPaperOptions, getPaperPrices } = usePapersContext()
   const paperOptions = getPaperOptions("flat_printing")
   const paperPrices = getPaperPrices()
+  
+  const calcLabel = CALC_TYPE_LABELS[calcType] || "Flat Printing"
 
   const [rows, setRows] = useState<QuickEntryRow[]>([createEmptyRow()])
 
@@ -193,7 +207,7 @@ export function QuickEntryCalculator() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-foreground">Quick Entry</h2>
+          <h2 className="text-base font-semibold text-foreground">Quick Entry — {calcLabel}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">Fast batch pricing — fill basics, get instant quotes</p>
         </div>
         {rows.some((r) => !r.result && r.qty > 0 && r.width > 0 && r.height > 0) && (

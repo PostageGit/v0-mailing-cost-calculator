@@ -249,11 +249,15 @@ function AppContent() {
   [visibleSteps, completedSteps])
 
   const renderStep = () => {
+    // Quick Entry mode shows simplified table view for print calculators
+    if (calcViewMode === "quick" && ["printing", "booklet", "spiral", "perfect", "pad"].includes(currentStep)) {
+      return <QuickEntryCalculator calcType={currentStep as "printing" | "booklet" | "spiral" | "perfect" | "pad"} />
+    }
     switch (currentStep) {
       case "envelope": return <EnvelopeTab />
       case "usps":     return <USPSPostageCalculator />
       case "labor":    return <ServiceBuilder />
-      case "printing": return calcViewMode === "quick" ? <QuickEntryCalculator /> : <PrintingCalculator />
+      case "printing": return <PrintingCalculator />
       case "booklet":  return <BookletCalculator />
       case "spiral":   return <SpiralCalculator />
       case "perfect":  return <PerfectCalculator />
