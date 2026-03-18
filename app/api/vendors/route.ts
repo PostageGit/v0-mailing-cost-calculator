@@ -18,7 +18,6 @@ export async function GET(req: Request) {
   }
 
   const { data, error } = await query
-  console.log("[v0] /api/vendors - fetched:", data?.length, "vendors, error:", error)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
