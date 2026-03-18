@@ -30,7 +30,7 @@ import { usePricingConfig } from "@/lib/use-pricing-config"
 import { StepCelebration, useCelebration } from "@/components/step-celebration"
 import {
   Plus, Settings, Mail, Stamp, Wrench, Printer, BookOpen, Disc3,
-  Send, Check, ChevronRight, FileText, Receipt, Briefcase,
+  Send, Check, ChevronRight, FileText, Receipt, Briefcase, Package,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
   SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare,
