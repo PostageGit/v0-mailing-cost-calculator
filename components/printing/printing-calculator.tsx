@@ -85,6 +85,11 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
   const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
   const foldSettings = appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
+  // Track which planner piece was loaded so we can pass its metadata along
+  const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
+  const isOhpMode = activePiece?.production === "ohp"
+  const [ohpSpecsSaved, setOhpSpecsSaved] = useState(false)
+
   // ── Saved quote detection ──
   const savedFlatItem = quote.items.find(item => item.category === "flat")
   const hasSavedFlat = !!(quote.savedId && savedFlatItem)
@@ -458,11 +463,6 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
     setHasCalculated(false)
     setShowResults(false)
   }
-
-  // Track which planner piece was loaded so we can pass its metadata along
-  const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
-  const isOhpMode = activePiece?.production === "ohp"
-  const [ohpSpecsSaved, setOhpSpecsSaved] = useState(false)
 
   // OHP Spec Builder: save specs as a quote item with amount=0
   const handleSaveOhpSpecs = useCallback(() => {
