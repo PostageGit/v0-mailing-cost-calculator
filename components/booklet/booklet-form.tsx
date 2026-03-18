@@ -205,7 +205,7 @@ export function BookletForm({
       <Separator className={compact ? "my-2" : "my-4"} />
 
       {/* Separate Cover Checkbox */}
-      <div className={`flex items-center gap-2 ${compact ? "mb-2" : "mb-4"}`}
+      <div className={`flex items-center gap-2 ${compact ? "mb-2" : "mb-4"}`}>
         <Checkbox
           id="separate-cover"
           checked={inputs.separateCover}
