@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, Component, type ReactNode } from "react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
+import { QuickEntryCalculator } from "@/components/quick-entry-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
@@ -102,6 +103,7 @@ function AppContent() {
   const [currentStep, setCurrentStep] = useState<StepId>("usps")
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
+  const [calcViewMode, setCalcViewMode] = useState<"detailed" | "quick">("detailed")
   const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
@@ -251,7 +253,7 @@ function AppContent() {
       case "envelope": return <EnvelopeTab />
       case "usps":     return <USPSPostageCalculator />
       case "labor":    return <ServiceBuilder />
-      case "printing": return <PrintingCalculator />
+      case "printing": return calcViewMode === "quick" ? <QuickEntryCalculator /> : <PrintingCalculator />
       case "booklet":  return <BookletCalculator />
       case "spiral":   return <SpiralCalculator />
       case "perfect":  return <PerfectCalculator />
@@ -593,6 +595,38 @@ function AppContent() {
                     </button>
                     {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
                     <div className="w-px h-3 bg-border shrink-0" />
+                    {/* View toggle for printing calculator */}
+                    {currentStep === "printing" && (
+                      <>
+                        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-background/80 border border-border shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setCalcViewMode("detailed")}
+                            className={cn(
+                              "px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
+                              calcViewMode === "detailed"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            Detailed
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCalcViewMode("quick")}
+                            className={cn(
+                              "px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
+                              calcViewMode === "quick"
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            Quick Entry
+                          </button>
+                        </div>
+                        <div className="w-px h-3 bg-border shrink-0" />
+                      </>
+                    )}
                     {mailing.pieces.map((p) => {
                       const meta = PIECE_TYPE_META[p.type]
                       return (
