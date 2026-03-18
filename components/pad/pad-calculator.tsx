@@ -21,7 +21,11 @@ import { usePapersContext } from "@/lib/papers-context"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-export function PadCalculator() {
+interface PadCalculatorProps {
+  viewMode?: "detailed" | "compact"
+}
+
+export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
   const quote = useQuote()
   const { paperDataLookup } = usePapersContext()
 
@@ -163,6 +167,7 @@ export function PadCalculator() {
           validationError={validationError}
           settings={padSettings}
           onSettingsSave={setPadSettings}
+          compact={viewMode === "compact"}
         />
 
         {/* Results */}

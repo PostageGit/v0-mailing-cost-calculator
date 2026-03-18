@@ -32,6 +32,7 @@ interface PerfectFormProps {
   ohpMode?: boolean
   /** Section calculation results (after Calculate is pressed) */
   sectionResults?: PerfectPartResult[]
+  compact?: boolean
 }
 
 export function PerfectForm({
@@ -43,6 +44,7 @@ export function PerfectForm({
   validationError,
   ohpMode,
   sectionResults,
+  compact = false,
 }: PerfectFormProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
   

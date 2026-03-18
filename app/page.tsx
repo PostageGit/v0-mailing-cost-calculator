@@ -254,11 +254,11 @@ function AppContent() {
       case "envelope": return <EnvelopeTab />
       case "usps":     return <USPSPostageCalculator />
       case "labor":    return <ServiceBuilder />
-      case "printing": return <PrintingCalculator />
+      case "printing": return <PrintingCalculator viewMode={viewMode} />
       case "booklet":  return <BookletCalculator viewMode={viewMode} />
-      case "spiral":   return <SpiralCalculator />
-      case "perfect":  return <PerfectCalculator />
-      case "pad":      return <PadCalculator />
+      case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+      case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+      case "pad":      return <PadCalculator viewMode={viewMode} />
       case "ohp":      return <VendorBidTab />
       case "items":    return <ItemsTab /> /* DB items fallback */
     }

@@ -62,7 +62,11 @@ const EMPTY_INPUTS: PrintingInputs = {
   },
 }
 
-export function PrintingCalculator() {
+interface PrintingCalculatorProps {
+  viewMode?: "detailed" | "compact"
+}
+
+export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -685,6 +689,7 @@ export function PrintingCalculator() {
   currentResult={isOhpMode ? null : fullResult}
   ohpMode={isOhpMode}
   disabled={isFrozen}
+  compact={viewMode === "compact"}
   />
             </>
           )}
