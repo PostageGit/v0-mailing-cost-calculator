@@ -204,17 +204,17 @@ export function BookletForm({
 
       <Separator className={compact ? "my-2" : "my-4"} />
 
-      {/* Separate Cover Checkbox */}
+      {/* Use Separate Cover Stock checkbox */}
       <div className={`flex items-center gap-2 ${compact ? "mb-2" : "mb-4"}`}>
         <Checkbox
           id="separate-cover"
           checked={inputs.separateCover}
-          onCheckedChange={(checked) =>
+          onCheckedChange={(checked) => {
             updateInputs({
               separateCover: checked === true,
               laminationType: checked ? inputs.laminationType : "none",
             })
-          }
+          }}
         />
         <label htmlFor="separate-cover" className="text-sm font-medium text-foreground cursor-pointer">
           Use Separate Cover Stock
@@ -518,7 +518,6 @@ export function BookletForm({
           {([
             { value: "staple", label: "Staple", desc: "saddle stitch" },
             { value: "fold", label: "Fold Only", desc: "no staple" },
-            { value: "perfect", label: "Perfect Bind", desc: "glue spine" },
           ] as const).map((opt) => {
             const selected = (inputs.bindingType || "staple") === opt.value
             return (

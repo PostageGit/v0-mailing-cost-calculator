@@ -85,6 +85,11 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
   const { data: appSettings } = useSWR("/api/app-settings", swrFetcher)
   const foldSettings = appSettings?.fold_finishing_settings || DEFAULT_FOLD_SETTINGS
 
+  // Track which planner piece was loaded so we can pass its metadata along (must be declared before useCallback hooks)
+  const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
+  const isOhpMode = activePiece?.production === "ohp"
+  const [ohpSpecsSaved, setOhpSpecsSaved] = useState(false)
+
   // ── Saved quote detection ──
   const savedFlatItem = quote.items.find(item => item.category === "flat")
   const hasSavedFlat = !!(quote.savedId && savedFlatItem)
@@ -424,24 +429,27 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
     setMultiQtyResults([])
   }, [])
 
-  // Add a single multi-qty row to the quote
-  const handleAddMultiQtyToQuote = useCallback((row: MultiQtyRow) => {
-    const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
-    quote.addItem({
-      category: "flat",
-      label: `${row.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
-      description: desc,
-      amount: row.result.grandTotal,
-      metadata: {
-        pieceDimensions: `${inputs.width}x${inputs.height}`,
-        paperName: inputs.paperName,
-        sides: inputs.sidesValue,
-        hasBleed: inputs.hasBleed || undefined,
-        production: activePiece?.production || "inhouse",
-        calculatorInputs: { ...inputs, qty: row.qty },
-      },
-    })
-  }, [inputs, quote, activePiece])
+  // Add a single multi-qty row to the quote (activePiece declared at line 89)
+  const handleAddMultiQtyToQuote = useCallback(
+    (row: MultiQtyRow) => {
+      const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
+      quote.addItem({
+        category: "flat",
+        label: `${row.qty.toLocaleString()} - ${inputs.width}x${inputs.height} Flat Prints`,
+        description: desc,
+        amount: row.result.grandTotal,
+        metadata: {
+          pieceDimensions: `${inputs.width}x${inputs.height}`,
+          paperName: inputs.paperName,
+          sides: inputs.sidesValue,
+          hasBleed: inputs.hasBleed || undefined,
+          production: activePiece?.production || "inhouse",
+          calculatorInputs: { ...inputs, qty: row.qty },
+        },
+      })
+    },
+    [inputs, quote, activePiece]
+  )
 
   // Add all multi-qty rows to the quote
   const handleAddAllMultiQty = useCallback(() => {
@@ -458,11 +466,6 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
     setHasCalculated(false)
     setShowResults(false)
   }
-
-  // Track which planner piece was loaded so we can pass its metadata along
-  const [activePiece, setActivePiece] = useState<MailPiece | null>(null)
-  const isOhpMode = activePiece?.production === "ohp"
-  const [ohpSpecsSaved, setOhpSpecsSaved] = useState(false)
 
   // OHP Spec Builder: save specs as a quote item with amount=0
   const handleSaveOhpSpecs = useCallback(() => {

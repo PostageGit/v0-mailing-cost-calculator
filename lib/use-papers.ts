@@ -12,6 +12,8 @@ export interface Paper {
   active: boolean
   prices: Record<string, number>
   available_sizes: string[]
+  // Allowed sides/color options for this paper (e.g., ["S/S", "D/S"] for text, ["4/4", "4/0"] for cardstock)
+  allowed_sides: string[]
   // Printing context usage flags
   use_in_flat_printing: boolean
   use_in_book_cover: boolean
