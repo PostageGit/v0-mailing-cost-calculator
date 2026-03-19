@@ -54,9 +54,9 @@ export function UberDeliveryCalculator() {
       setQuote(data)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Failed to get delivery quote"
-      // Check for scope error and provide helpful message
-      if (errorMsg.includes("invalid_scope")) {
-        setError("Your Uber Direct API access is pending approval. Please contact Uber Direct support to enable the 'eats.deliveries' scope for your account.")
+      // Check for scope error - instructions are already shown above
+      if (errorMsg.includes("invalid_scope") || errorMsg.includes("scope")) {
+        setError("API access not yet enabled. Follow the setup instructions above.")
       } else {
         setError(errorMsg)
       }
@@ -98,26 +98,24 @@ export function UberDeliveryCalculator() {
         </p>
       </div>
 
-      {error?.includes("pending approval") && (
-        <Card className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
-          <CardContent className="pt-4">
-            <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-2 text-sm">
-                <p className="font-medium text-amber-800 dark:text-amber-200">API Access Pending</p>
-                <p className="text-amber-700 dark:text-amber-300">
-                  Your Uber Direct account needs API access enabled. Contact Uber Direct support:
-                </p>
-                <ol className="list-decimal list-inside text-amber-700 dark:text-amber-300 space-y-1">
-                  <li>Go to <a href="https://direct.uber.com" target="_blank" rel="noopener" className="underline">direct.uber.com</a> and click Help/Support</li>
-                  <li>Request that the <code className="bg-amber-200 dark:bg-amber-900 px-1 rounded">eats.deliveries</code> scope be enabled</li>
-                  <li>Once approved, the calculator will work automatically</li>
-                </ol>
-              </div>
+      <Card className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+        <CardContent className="pt-4">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-200">Setup Required: Enable API Access</p>
+              <p className="text-amber-700 dark:text-amber-300">
+                To use this feature, you need to enable API access on your Uber Direct account:
+              </p>
+              <ol className="list-decimal list-inside text-amber-700 dark:text-amber-300 space-y-1">
+                <li>Go to <a href="https://direct.uber.com" target="_blank" rel="noopener" className="underline font-medium">direct.uber.com</a> and click Help/Support</li>
+                <li>Request that the <code className="bg-amber-200 dark:bg-amber-900 px-1 rounded">eats.deliveries</code> API scope be enabled for your account</li>
+                <li>Once Uber approves, this calculator will work automatically</li>
+              </ol>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-4">
