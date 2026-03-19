@@ -217,7 +217,7 @@ export function BookletDetails({ result, bookQty, inputs, onLevelChange, onEffec
         </div>
 
         <div className="border-t border-muted pt-2 mt-2">
-          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Per Booklet</div>
+          <div className="text-[10px] font-semibold text-muted-foreground mb-1">Per Piece</div>
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div><span className="text-muted-foreground">Sheets:</span> {totalSheetsPerBooklet}</div>
             <div><span className="text-muted-foreground">Printing:</span> {formatCurrency(bookQty > 0 ? totalPrintingCost / bookQty : 0)}</div>
