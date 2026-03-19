@@ -13,7 +13,7 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token
   }
 
-  const response = await fetch("https://login.uber.com/oauth/v2/token", {
+  const response = await fetch("https://auth.uber.com/oauth/v2/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { pickup, dropoff } = body
+    const { pickup, dropoff, vehicleType = "car" } = body
 
     if (!pickup || !dropoff) {
       return NextResponse.json(
@@ -63,6 +63,19 @@ export async function POST(request: NextRequest) {
 
     const token = await getAccessToken()
 
+    // Build request body with optional vehicle type
+    // Uber supports: "car", "bike", "walker" (walking courier)
+    const requestBody: Record<string, unknown> = {
+      pickup_address: typeof pickup === "string" ? pickup : JSON.stringify(pickup),
+      dropoff_address: typeof dropoff === "string" ? dropoff : JSON.stringify(dropoff),
+    }
+
+    // Add deliverable_action for bike/small package deliveries
+    if (vehicleType === "bike") {
+      requestBody.deliverable_action = "deliverable_action_meet_at_door"
+      requestBody.testSpecifications = { roboCourierSpecification: { mode: "bike" } }
+    }
+
     // Create a delivery quote
     const quoteResponse = await fetch(
       `https://api.uber.com/v1/customers/${UBER_CUSTOMER_ID}/delivery_quotes`,
@@ -72,10 +85,7 @@ export async function POST(request: NextRequest) {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          pickup_address: typeof pickup === "string" ? pickup : JSON.stringify(pickup),
-          dropoff_address: typeof dropoff === "string" ? dropoff : JSON.stringify(dropoff),
-        }),
+        body: JSON.stringify(requestBody),
       }
     )
 
