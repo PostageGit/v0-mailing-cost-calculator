@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, MapPin, Navigation, DollarSign, Clock, Car, Bike } from "lucide-react"
+import { Loader2, MapPin, Navigation, DollarSign, Clock, Car, Bike, AlertCircle } from "lucide-react"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 interface UberQuote {
@@ -53,7 +53,13 @@ export function UberDeliveryCalculator() {
 
       setQuote(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to get delivery quote")
+      const errorMsg = err instanceof Error ? err.message : "Failed to get delivery quote"
+      // Check for scope error and provide helpful message
+      if (errorMsg.includes("invalid_scope")) {
+        setError("Your Uber Direct API access is pending approval. Please contact Uber Direct support to enable the 'eats.deliveries' scope for your account.")
+      } else {
+        setError(errorMsg)
+      }
     } finally {
       setLoading(false)
     }
@@ -91,6 +97,27 @@ export function UberDeliveryCalculator() {
           Get real-time delivery quotes from Uber Direct
         </p>
       </div>
+
+      {error?.includes("pending approval") && (
+        <Card className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+          <CardContent className="pt-4">
+            <div className="flex gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-2 text-sm">
+                <p className="font-medium text-amber-800 dark:text-amber-200">API Access Pending</p>
+                <p className="text-amber-700 dark:text-amber-300">
+                  Your Uber Direct account needs API access enabled. Contact Uber Direct support:
+                </p>
+                <ol className="list-decimal list-inside text-amber-700 dark:text-amber-300 space-y-1">
+                  <li>Go to <a href="https://direct.uber.com" target="_blank" rel="noopener" className="underline">direct.uber.com</a> and click Help/Support</li>
+                  <li>Request that the <code className="bg-amber-200 dark:bg-amber-900 px-1 rounded">eats.deliveries</code> scope be enabled</li>
+                  <li>Once approved, the calculator will work automatically</li>
+                </ol>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-4">
