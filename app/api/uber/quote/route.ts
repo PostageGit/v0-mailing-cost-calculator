@@ -13,14 +13,16 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token
   }
 
-  const response = await fetch("https://auth.uber.com/oauth/v2/token", {
+  // Use Basic Auth header as per OAuth2 spec
+  const credentials = Buffer.from(`${UBER_CLIENT_ID}:${UBER_CLIENT_SECRET}`).toString("base64")
+  
+  const response = await fetch("https://login.uber.com/oauth/v2/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${credentials}`,
     },
     body: new URLSearchParams({
-      client_id: UBER_CLIENT_ID!,
-      client_secret: UBER_CLIENT_SECRET!,
       grant_type: "client_credentials",
       scope: "eats.deliveries",
     }),
