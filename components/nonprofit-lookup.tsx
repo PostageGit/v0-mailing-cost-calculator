@@ -95,7 +95,7 @@ export function NonprofitLookup() {
   const [stateFilter, setStateFilter] = useState("")
 
   const searchUrl = submittedQuery
-    ? `https://projects.propublica.org/nonprofits/api/v2/search.json?q=${encodeURIComponent(submittedQuery)}${stateFilter ? `&state%5Bid%5D=${stateFilter}` : ""}`
+    ? `/api/nonprofit/search?q=${encodeURIComponent(submittedQuery)}${stateFilter ? `&state=${stateFilter}` : ""}`
     : null
 
   const { data: searchData, isLoading: searchLoading, error: searchError } = useSWR<SearchResponse>(
@@ -105,7 +105,7 @@ export function NonprofitLookup() {
   )
 
   const { data: orgDetail, isLoading: detailLoading } = useSWR<OrganizationDetail>(
-    selectedEin ? `https://projects.propublica.org/nonprofits/api/v2/organizations/${selectedEin}.json` : null,
+    selectedEin ? `/api/nonprofit/${selectedEin}` : null,
     fetcher,
     { revalidateOnFocus: false }
   )
