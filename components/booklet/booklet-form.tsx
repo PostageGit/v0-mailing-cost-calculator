@@ -139,7 +139,7 @@ export function BookletForm({
       <div className={`grid grid-cols-2 md:grid-cols-4 ${compact ? "gap-2 mb-2" : "gap-4 mb-4"}`}>
         <div className={`flex flex-col ${compact ? "gap-0.5" : "gap-1.5"}`}>
           <label htmlFor="book-qty" className={`${compact ? "text-xs" : "text-sm"} font-medium text-foreground`}>
-            Booklet Amount{v.req(!inputs.bookQty) && <span className="text-destructive text-xs ml-0.5">*</span>}
+            Quantity{v.req(!inputs.bookQty) && <span className="text-destructive text-xs ml-0.5">*</span>}
           </label>
           <Input
             id="book-qty" type="number" inputMode="numeric" min={1} autoComplete="off"
