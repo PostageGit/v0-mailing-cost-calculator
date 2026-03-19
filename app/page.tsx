@@ -24,6 +24,8 @@ import { EnvelopeTab } from "@/components/envelope-tab"
 import { InvoiceList } from "@/components/invoice-list"
 import { ChatQuotesDashboard } from "@/components/chat-quotes-dashboard"
 import { ExportToQB } from "@/components/export-to-qb"
+import { NonprofitLookup } from "@/components/nonprofit-lookup"
+import { UberDeliveryCalculator } from "@/components/uber-delivery-calculator"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { usePricingConfig } from "@/lib/use-pricing-config"
@@ -33,7 +35,7 @@ import {
   Send, Check, ChevronRight, FileText, Receipt, Briefcase, Package,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
-  SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare,
+  SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare, Building2, Car,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -73,9 +75,10 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 type Section =
   | "quotes-board" | "jobs-board" | "deliveries" | "billing" | "ohp-bids"
   | "customers" | "invoices" | "export-qb" | "chat-quotes"
+  | "nonprofit-lookup" | "uber-delivery"
   | "job"
 
-interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" }
+interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
 const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
   { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
@@ -86,6 +89,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
+  { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
+  { id: "uber-delivery", label: "Uber Delivery", icon: <Car className="h-4 w-4" />, group: "tools" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -319,11 +324,11 @@ function AppContent() {
             "flex-1 pt-2 pb-4 flex flex-col gap-4 overflow-y-auto overflow-x-hidden",
             sidebarOpen ? "px-3" : "px-[7px]"
           )} style={{ scrollbarWidth: "none", scrollbarGutter: "stable" }}>
-            {(["dashboards", "data"] as const).map((group) => (
+            {(["dashboards", "data", "tools"] as const).map((group) => (
               <div key={group}>
                 {sidebarOpen && (
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 px-3">
-                    {group === "dashboards" ? "Boards" : "Manage"}
+                    {group === "dashboards" ? "Boards" : group === "data" ? "Manage" : "Tools"}
                   </p>
                 )}
                 <div className="flex flex-col gap-0.5">
@@ -372,10 +377,10 @@ function AppContent() {
               </Button>
             </div>
             <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4 flex flex-col gap-4">
-              {(["dashboards", "data"] as const).map((group) => (
+              {(["dashboards", "data", "tools"] as const).map((group) => (
                 <div key={group}>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
-                    {group === "dashboards" ? "Boards" : "Manage"}
+                    {group === "dashboards" ? "Boards" : group === "data" ? "Manage" : "Tools"}
                   </p>
                   <div className="flex flex-col gap-0.5">
                     {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
@@ -491,6 +496,20 @@ function AppContent() {
           {section === "chat-quotes" && (
             <div className="flex-1 overflow-auto">
               <ChatQuotesDashboard />
+            </div>
+          )}
+
+          {/* == NONPROFIT LOOKUP == */}
+          {section === "nonprofit-lookup" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
+              <NonprofitLookup />
+            </div>
+          )}
+
+          {/* == UBER DELIVERY CALCULATOR == */}
+          {section === "uber-delivery" && (
+            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
+              <UberDeliveryCalculator />
             </div>
           )}
 
