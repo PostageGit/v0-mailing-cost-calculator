@@ -59,6 +59,13 @@ const formatCurrency = (amount: number | undefined) => {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount)
 }
 
+const formatEin = (ein: number | string | undefined, strein?: string): string => {
+  if (strein) return strein
+  if (!ein) return "N/A"
+  const einStr = ein.toString().padStart(9, "0")
+  return `${einStr.slice(0, 2)}-${einStr.slice(2)}`
+}
+
 const NTEE_CATEGORIES: Record<string, string> = {
   A: "Arts, Culture & Humanities",
   B: "Education",
@@ -177,8 +184,8 @@ export function NonprofitLookup() {
                   <div className="font-medium text-sm">{org.name}</div>
                   {org.sub_name && <div className="text-xs opacity-70">{org.sub_name}</div>}
                   <div className="flex items-center gap-2 mt-1 text-xs opacity-70">
-                    <span>{org.strein}</span>
-                    {org.city && org.state && <span>{org.city}, {org.state}</span>}
+                    <span className="font-mono">EIN: {formatEin(org.ein, org.strein)}</span>
+                    {org.city && org.state && <span>• {org.city}, {org.state}</span>}
                     {org.ntee_code && (
                       <Badge variant="outline" className="text-[10px] px-1 py-0">
                         {org.ntee_code}
@@ -218,7 +225,7 @@ export function NonprofitLookup() {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <div className="text-xs text-muted-foreground">EIN</div>
-                      <div className="font-mono">{orgDetail.organization.strein}</div>
+                      <div className="font-mono">{formatEin(orgDetail.organization.ein, orgDetail.organization.strein)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Tax Status</div>
