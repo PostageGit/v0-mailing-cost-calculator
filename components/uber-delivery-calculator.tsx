@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, MapPin, Navigation, DollarSign, Clock, Car } from "lucide-react"
+import { Loader2, MapPin, Navigation, DollarSign, Clock, Car, Bike, AlertCircle } from "lucide-react"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 interface UberQuote {
   id: string
@@ -22,6 +23,7 @@ interface UberQuote {
 export function UberDeliveryCalculator() {
   const [pickup, setPickup] = useState("")
   const [dropoff, setDropoff] = useState("")
+  const [vehicleType, setVehicleType] = useState<"car" | "bike">("car")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [quote, setQuote] = useState<UberQuote | null>(null)
@@ -40,7 +42,7 @@ export function UberDeliveryCalculator() {
       const response = await fetch("/api/uber/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pickup: pickup.trim(), dropoff: dropoff.trim() }),
+        body: JSON.stringify({ pickup: pickup.trim(), dropoff: dropoff.trim(), vehicleType }),
       })
 
       const data = await response.json()
@@ -51,7 +53,13 @@ export function UberDeliveryCalculator() {
 
       setQuote(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to get delivery quote")
+      const errorMsg = err instanceof Error ? err.message : "Failed to get delivery quote"
+      // Check for scope error - instructions are already shown above
+      if (errorMsg.includes("invalid_scope") || errorMsg.includes("scope")) {
+        setError("API access not yet enabled. Follow the setup instructions above.")
+      } else {
+        setError(errorMsg)
+      }
     } finally {
       setLoading(false)
     }
@@ -90,17 +98,60 @@ export function UberDeliveryCalculator() {
         </p>
       </div>
 
+      <Card className="mb-4 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+        <CardContent className="pt-4">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-200">Setup Required: Enable API Access</p>
+              <p className="text-amber-700 dark:text-amber-300">
+                To use this feature, you need to enable API access on your Uber Direct account:
+              </p>
+              <ol className="list-decimal list-inside text-amber-700 dark:text-amber-300 space-y-1">
+                <li>Go to <a href="https://direct.uber.com" target="_blank" rel="noopener" className="underline font-medium">direct.uber.com</a> and click Help/Support</li>
+                <li>Request that the <code className="bg-amber-200 dark:bg-amber-900 px-1 rounded">eats.deliveries</code> API scope be enabled for your account</li>
+                <li>Once Uber approves, this calculator will work automatically</li>
+              </ol>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Car className="h-4 w-4" />
+            {vehicleType === "car" ? <Car className="h-4 w-4" /> : <Bike className="h-4 w-4" />}
             Get Delivery Quote
           </CardTitle>
           <CardDescription>
-            Enter pickup and dropoff addresses to get a delivery price estimate
+            Enter pickup and dropoff addresses to get a delivery price estimate. Choose car for larger packages or bike for smaller items.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Vehicle Type</Label>
+            <ToggleGroup
+              type="single"
+              value={vehicleType}
+              onValueChange={(value) => value && setVehicleType(value as "car" | "bike")}
+              className="justify-start"
+            >
+              <ToggleGroupItem value="car" aria-label="Car delivery" className="gap-1.5 px-3">
+                <Car className="h-4 w-4" />
+                Car
+              </ToggleGroupItem>
+              <ToggleGroupItem value="bike" aria-label="Bike delivery" className="gap-1.5 px-3">
+                <Bike className="h-4 w-4" />
+                Bike
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <p className="text-xs text-muted-foreground">
+              {vehicleType === "car" 
+                ? "Best for larger packages and heavier items" 
+                : "Best for small packages and documents - often faster & cheaper"}
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="pickup" className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 text-green-600" />

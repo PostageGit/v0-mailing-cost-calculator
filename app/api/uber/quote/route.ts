@@ -4,7 +4,7 @@ const UBER_CLIENT_ID = process.env.UBER_CLIENT_ID
 const UBER_CLIENT_SECRET = process.env.UBER_CLIENT_SECRET
 const UBER_CUSTOMER_ID = process.env.UBER_CUSTOMER_ID
 
-// Cache token in memory (in production, use Redis or similar)
+// Cache token in memory
 let cachedToken: { token: string; expires: number } | null = null
 
 async function getAccessToken(): Promise<string> {
@@ -13,46 +13,61 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.token
   }
 
-  const response = await fetch("https://login.uber.com/oauth/v2/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
+  // Try different scopes - Uber Direct typically uses eats.deliveries
+  // Some accounts may need different scopes or no scope at all
+  const scopeOptions = ["eats.deliveries", "direct.organizations", ""]
+  let lastError = ""
+  
+  for (const scope of scopeOptions) {
+    const params: Record<string, string> = {
       client_id: UBER_CLIENT_ID!,
       client_secret: UBER_CLIENT_SECRET!,
       grant_type: "client_credentials",
-      scope: "eats.deliveries",
-    }),
-  })
+    }
+    
+    if (scope) {
+      params.scope = scope
+    }
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to get access token: ${error}`)
+    const response = await fetch("https://auth.uber.com/oauth/v2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams(params),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      
+      // Cache the token (expires_in is in seconds, subtract 60 for safety)
+      cachedToken = {
+        token: data.access_token,
+        expires: Date.now() + (data.expires_in - 60) * 1000,
+      }
+
+      console.log(`[v0] Uber auth successful${scope ? ` with scope: ${scope}` : ""}`)
+      return data.access_token
+    }
+    
+    lastError = await response.text()
+    console.log(`[v0] Uber auth attempt with scope "${scope}" failed: ${lastError}`)
   }
 
-  const data = await response.json()
-  
-  // Cache the token (expires_in is in seconds, subtract 60 for safety)
-  cachedToken = {
-    token: data.access_token,
-    expires: Date.now() + (data.expires_in - 60) * 1000,
-  }
-
-  return data.access_token
+  throw new Error(`Failed to authenticate with Uber. Please check your API credentials in Uber Direct dashboard. Last error: ${lastError}`)
 }
 
 export async function POST(request: NextRequest) {
   try {
     if (!UBER_CLIENT_ID || !UBER_CLIENT_SECRET || !UBER_CUSTOMER_ID) {
       return NextResponse.json(
-        { error: "Uber API credentials not configured" },
+        { error: "Uber API credentials not configured. Please add UBER_CLIENT_ID, UBER_CLIENT_SECRET, and UBER_CUSTOMER_ID environment variables." },
         { status: 500 }
       )
     }
 
     const body = await request.json()
-    const { pickup, dropoff } = body
+    const { pickup, dropoff, vehicleType = "car" } = body
 
     if (!pickup || !dropoff) {
       return NextResponse.json(
@@ -63,6 +78,17 @@ export async function POST(request: NextRequest) {
 
     const token = await getAccessToken()
 
+    // Build request body
+    const requestBody: Record<string, unknown> = {
+      pickup_address: typeof pickup === "string" ? pickup : JSON.stringify(pickup),
+      dropoff_address: typeof dropoff === "string" ? dropoff : JSON.stringify(dropoff),
+    }
+
+    // Add deliverable_action for bike/small package deliveries
+    if (vehicleType === "bike") {
+      requestBody.deliverable_action = "deliverable_action_meet_at_door"
+    }
+
     // Create a delivery quote
     const quoteResponse = await fetch(
       `https://api.uber.com/v1/customers/${UBER_CUSTOMER_ID}/delivery_quotes`,
@@ -72,18 +98,15 @@ export async function POST(request: NextRequest) {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          pickup_address: typeof pickup === "string" ? pickup : JSON.stringify(pickup),
-          dropoff_address: typeof dropoff === "string" ? dropoff : JSON.stringify(dropoff),
-        }),
+        body: JSON.stringify(requestBody),
       }
     )
 
     if (!quoteResponse.ok) {
       const error = await quoteResponse.text()
-      console.error("Uber API error:", error)
+      console.error("[v0] Uber API error:", error)
       return NextResponse.json(
-        { error: `Uber API error: ${quoteResponse.status}` },
+        { error: `Uber API error: ${quoteResponse.status} - ${error}` },
         { status: quoteResponse.status }
       )
     }
@@ -92,7 +115,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json(quoteData)
   } catch (error) {
-    console.error("Error getting Uber quote:", error)
+    console.error("[v0] Error getting Uber quote:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to get delivery quote" },
       { status: 500 }
