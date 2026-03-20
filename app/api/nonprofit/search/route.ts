@@ -5,23 +5,33 @@ export async function GET(request: Request) {
   const query = searchParams.get("q")
   const state = searchParams.get("state")
 
-  if (!query) {
-    return NextResponse.json({ error: "Query parameter 'q' is required" }, { status: 400 })
+  if (!query || query.trim().length === 0) {
+    return NextResponse.json({ organizations: [], total_results: 0 })
   }
 
   try {
-    let url = `https://projects.propublica.org/nonprofits/api/v2/search.json?q=${encodeURIComponent(query)}`
+    // Build URL with proper encoding
+    const params = new URLSearchParams()
+    params.set("q", query.trim())
     if (state) {
-      url += `&state%5Bid%5D=${encodeURIComponent(state)}`
+      params.set("state[id]", state)
     }
+
+    const url = `https://projects.propublica.org/nonprofits/api/v2/search.json?${params.toString()}`
 
     const res = await fetch(url, {
       headers: {
         "Accept": "application/json",
+        "User-Agent": "PostagePlus/1.0",
       },
+      cache: "no-store",
     })
 
     if (!res.ok) {
+      // Return empty results instead of error for 404 (no results found)
+      if (res.status === 404) {
+        return NextResponse.json({ organizations: [], total_results: 0 })
+      }
       throw new Error(`ProPublica API returned ${res.status}`)
     }
 
@@ -29,6 +39,6 @@ export async function GET(request: Request) {
     return NextResponse.json(data)
   } catch (error) {
     console.error("Nonprofit search error:", error)
-    return NextResponse.json({ error: "Failed to search nonprofits" }, { status: 500 })
+    return NextResponse.json({ organizations: [], total_results: 0, error: "Search temporarily unavailable" })
   }
 }
