@@ -15,6 +15,7 @@ import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
 import { StandaloneRevisionDialog } from "@/components/revision-history-dialog"
+import { CustomerSearchCombobox } from "@/components/customer-search-combobox"
 import {
   FileText, Trash2, ArrowRight, ArrowLeft, Ban,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check, RotateCcw,
@@ -23,7 +24,7 @@ import {
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
   LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward, Calendar,
-  List, LayoutGrid, Send, History, GitBranch, ChevronUp,
+  List, LayoutGrid, Send, History, GitBranch, ChevronUp, CheckCircle2,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -893,15 +894,19 @@ function SmartNextStepBanner({
   quote, 
   step, 
   team,
+  customers,
   onUpdateQuote,
   onUpdateMeta,
+  onSelectCustomer,
   size = "normal"
 }: { 
   quote: Quote
   step: NextStepResult
   team: Array<{ id: string; name: string; color: string }>
+  customers?: Array<{ id: string; company_name: string; contact_name?: string }>
   onUpdateQuote: (updates: Partial<Quote>) => void
   onUpdateMeta: (updates: Partial<JobMeta>) => void
+  onSelectCustomer?: (customerId: string) => void
   size?: "normal" | "compact"
 }) {
   const [editing, setEditing] = useState(false)
@@ -964,6 +969,39 @@ function SmartNextStepBanner({
   // Editing mode - show inline input
   if (editing) {
     const action = step.action
+
+    // Customer picker - use real customer search
+    if (action.type === "input" && action.field === "contact_name") {
+      return (
+        <div 
+          className={cn(
+            "w-full rounded-lg border-2 overflow-hidden",
+            isCompact ? "text-[11px]" : "text-[13px]"
+          )}
+          style={{ backgroundColor: step.bg, borderColor: step.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 flex items-center justify-between border-b" style={{ borderColor: step.border }}>
+            <span className="font-semibold" style={{ color: step.color }}>Select Customer:</span>
+            <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-2">
+            <CustomerSearchCombobox
+              customers={customers as any}
+              selectedId={quote.customer_id || null}
+              onSelect={(id) => {
+                if (id && onSelectCustomer) {
+                  onSelectCustomer(id)
+                }
+                setEditing(false)
+              }}
+            />
+          </div>
+        </div>
+      )
+    }
 
     // Assignee select dropdown
     if (action.type === "select" && action.field === "assignee") {
@@ -1250,7 +1288,7 @@ function NextStepAdd({ steps, onAdd, existingSteps }: { steps: string[]; onAdd: 
 
 /* ������═══════════════����════��═════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ══════════════�����═════�����════════���═══════════��═════════ */
+   ══════════════�����═════�������════════���═══════════��═════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -1353,6 +1391,7 @@ function QuoteCard({
   const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
   const { data: vendors } = useSWR<Vendor[]>(open ? "/api/vendors" : null, fetcher)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; department: string | null; role: string; is_active: boolean }>>("/api/team", fetcher)
+  const { data: customers } = useSWR<Array<{ id: string; company_name: string; contact_name?: string }>>("/api/customers", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
   const nextSteps: string[] = (appSettings?.next_steps as string[] | undefined) || DEFAULT_NEXT_STEPS
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
@@ -1456,8 +1495,19 @@ function QuoteCard({
                   quote={quote}
                   step={step}
                   team={activeTeam}
+                  customers={customers}
                   onUpdateQuote={(updates) => patchQuote(quote.id, updates)}
                   onUpdateMeta={(updates) => updateMeta(updates)}
+                  onSelectCustomer={(customerId) => {
+                    // Find customer and update quote with customer_id and contact_name
+                    const customer = customers?.find(c => c.id === customerId)
+                    if (customer) {
+                      patchQuote(quote.id, { 
+                        customer_id: customerId, 
+                        contact_name: customer.contact_name || customer.company_name 
+                      })
+                    }
+                  }}
                   size="compact"
                 />
               </div>
@@ -2663,6 +2713,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [fancyCardView, setFancyCardView] = useState(false)
   const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string; quoteNumber?: number } | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
+  const { data: customers } = useSWR<Array<{ id: string; company_name: string; contact_name?: string }>>("/api/customers", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
   // Fetch revisions for expanded row
@@ -3891,6 +3942,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                             quote={q}
                             step={step}
                             team={activeTeam}
+                            customers={customers}
                             onUpdateQuote={(updates) => {
                               handlePatch(q.id, updates as Record<string, unknown>)
                               setFullCardModalQuote(prev => prev ? { ...prev, ...updates } : null)
@@ -3899,6 +3951,14 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                               const newMeta = { ...jm, ...metaUpdates }
                               handlePatch(q.id, { job_meta: newMeta })
                               setFullCardModalQuote(prev => prev ? { ...prev, job_meta: newMeta } : null)
+                            }}
+                            onSelectCustomer={(customerId) => {
+                              const customer = customers?.find(c => c.id === customerId)
+                              if (customer) {
+                                const updates = { customer_id: customerId, contact_name: customer.contact_name || customer.company_name }
+                                handlePatch(q.id, updates)
+                                setFullCardModalQuote(prev => prev ? { ...prev, ...updates } : null)
+                              }
                             }}
                             size="normal"
                           />
