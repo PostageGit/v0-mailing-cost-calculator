@@ -133,19 +133,20 @@ function getProgress(job: Job): number {
 }
 
 function getNextStep(job: Job): { msg: string; color: string; bg: string } {
+  const meta = job.job_meta || {}
   const customerName = job.customer?.company_name || ""
-  const salesRep = (job.job_meta?.salesRep as string) || ""
-  const zdTicket = (job.job_meta?.zdTicket as string) || ""
+  const salesRep = (meta.salesRep as string) || ""
   
+  // Check required fields in order of priority
   if (!customerName) return { msg: "Add customer name", color: "#EF4444", bg: "#FEF2F2" }
   if (!salesRep || salesRep === "Unas.") return { msg: "Assign a sales rep", color: "#F97316", bg: "#FFF7ED" }
-  if (!zdTicket) return { msg: "Add ZD ticket #", color: "#B45309", bg: "#FFFBEB" }
-  if (!job.quantity) return { msg: "Add piece quantity", color: "#3B82F6", bg: "#EFF6FF" }
-  if (!job.mailing_date) return { msg: "Set mailing date", color: "#8B5CF6", bg: "#F5F3FF" }
+  if (!job.quantity || job.quantity === 0) return { msg: "Add piece quantity", color: "#3B82F6", bg: "#EFF6FF" }
+  if (!job.mailing_date || job.mailing_date === "") return { msg: "Set mailing date", color: "#8B5CF6", bg: "#F5F3FF" }
   
   const pct = getProgress(job)
   if (pct === 100) return { msg: "Ready to mark done!", color: "#22C55E", bg: "#F0FDF4" }
   
+  // Find next unchecked item
   const nextItem = ALL_ITEMS.find(item => !isChecked(job, item.key))
   return { msg: `Next: ${nextItem?.label || "checklist"}`, color: "#64748B", bg: "#F8FAFC" }
 }
@@ -170,7 +171,7 @@ function getProgressColor(pct: number): string {
   return "#EF4444"
 }
 
-// ── FETCHER ───────────────────────────────────────
+// ── FETCHER ──────────────────────────────────���────
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 // ── CHECKLIST DOT COMPONENT ─────────────────────────
@@ -976,12 +977,15 @@ export function ProductionDashboard() {
     const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     
+    const existingMeta = job.job_meta || {}
+    const existingChecklist = (existingMeta.checklist as Record<string, unknown>) || {}
+    
     const newChecklist = {
-      ...((job.job_meta?.checklist as Record<string, unknown>) || {}),
+      ...existingChecklist,
       [key]: value
     }
     
-    const newMeta = { ...job.job_meta, checklist: newChecklist }
+    const newMeta = { ...existingMeta, checklist: newChecklist }
     
     // Optimistic update
     mutateJobs(
@@ -990,7 +994,7 @@ export function ProductionDashboard() {
     )
     
     // API call
-    await fetch(`/api/production-jobs/${jobId}`, {
+    const res = await fetch(`/api/production-jobs/${jobId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ job_meta: newMeta })
@@ -1012,7 +1016,8 @@ export function ProductionDashboard() {
     const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     
-    const newMeta = { ...job.job_meta, salesRep: rep }
+    const existingMeta = job.job_meta || {}
+    const newMeta = { ...existingMeta, salesRep: rep }
     
     mutateJobs(
       safeJobs.map(j => j.id === jobId ? { ...j, job_meta: newMeta } : j),
