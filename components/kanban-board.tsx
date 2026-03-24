@@ -76,32 +76,74 @@ function fmtDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-// Helper to determine the "Next Step" for a job based on its job_meta
-function getJobNextStep(q: Quote): { msg: string; color: string; bg: string } | null {
+// ══════════════════════════════════════════════════════════════════════════════
+// SMART NEXT STEP SYSTEM
+// Every job card shows ONE colored banner indicating the most important blocker.
+// The system checks conditions in STRICT order - first unmet condition wins.
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface NextStepResult {
+  msg: string
+  color: string      // text color
+  bg: string         // background color
+  border: string     // border color
+  priority: number   // 1=critical, 2=setup, 3=workflow, 4=billing, 5=done
+}
+
+// Checklist items in workflow order for "Next: X" display
+const CHECKLIST_ORDER: Array<{ key: keyof JobMeta; label: string }> = [
+  { key: "prints_arrived", label: "Prints Arrived" },
+  { key: "bcc_done", label: "BCC" },
+  { key: "paperwork_done", label: "Paperwork" },
+  { key: "folder_archived", label: "Archive Folder" },
+  { key: "job_mailed", label: "Mail Job" },
+  { key: "invoice_updated", label: "Update Invoice" },
+  { key: "invoice_emailed", label: "Email Invoice" },
+  { key: "paid_postage", label: "Postage Payment" },
+  { key: "paid_full", label: "Full Payment" },
+]
+
+function getJobNextStep(q: Quote): NextStepResult | null {
   if (!q.is_job) return null
   const jm = q.job_meta || {}
+  const customerName = q.contact_name || ""
+  const assignee = (jm.assignee as string) || ""
+  const zdTicket = (jm.zendesk_ticket as string) || ""
   
-  // Priority 1: Missing critical info
-  if (!q.contact_name) return { msg: "Add contact", color: "#EF4444", bg: "#FEF2F2" }
-  if (!jm.assignee || jm.assignee === "Unas.") return { msg: "Assign person", color: "#F97316", bg: "#FFF7ED" }
-  if (!q.mailing_date) return { msg: "Set mail date", color: "#8B5CF6", bg: "#F5F3FF" }
-  if (!jm.zendesk_ticket) return { msg: "Add ZD ticket", color: "#B45309", bg: "#FFFBEB" }
+  // ═══ PRIORITY 1: No customer name (RED - critical) ═══
+  if (!customerName) {
+    return { msg: "Add customer name", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", priority: 1 }
+  }
   
-  // Priority 2: Workflow checklist
-  if (!jm.prints_arrived) return { msg: "Awaiting prints", color: "#3B82F6", bg: "#EFF6FF" }
-  if (!jm.bcc_done) return { msg: "Run BCC", color: "#6366F1", bg: "#EEF2FF" }
-  if (!jm.paperwork_done) return { msg: "Paperwork", color: "#A855F7", bg: "#FAF5FF" }
-  if (!jm.folder_archived) return { msg: "Archive folder", color: "#D946EF", bg: "#FDF4FF" }
-  if (!jm.job_mailed) return { msg: "Mark mailed", color: "#EC4899", bg: "#FDF2F8" }
+  // ═══ PRIORITY 2: No sales rep assigned (ORANGE) ═══
+  if (!assignee || assignee === "Unas." || assignee === "Unassigned") {
+    return { msg: "Assign a sales rep", color: "#EA580C", bg: "#FFF7ED", border: "#FED7AA", priority: 1 }
+  }
   
-  // Priority 3: Billing
-  if (!jm.invoice_updated) return { msg: "Update invoice", color: "#14B8A6", bg: "#F0FDFA" }
-  if (!jm.invoice_emailed) return { msg: "Email invoice", color: "#06B6D4", bg: "#ECFEFF" }
-  if (!jm.paid_postage) return { msg: "Postage payment", color: "#0EA5E9", bg: "#F0F9FF" }
-  if (!jm.paid_full) return { msg: "Awaiting payment", color: "#22C55E", bg: "#F0FDF4" }
+  // ═══ PRIORITY 3: No ZD ticket (AMBER) ═══
+  if (!zdTicket) {
+    return { msg: "Add ZD ticket #", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", priority: 2 }
+  }
   
-  // All done!
-  return { msg: "Complete!", color: "#22C55E", bg: "#F0FDF4" }
+  // ═══ PRIORITY 4: No quantity (BLUE) ═══
+  if (!q.quantity || q.quantity === 0) {
+    return { msg: "Add piece quantity", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", priority: 2 }
+  }
+  
+  // ═══ PRIORITY 5: No mailing date (PURPLE) ═══
+  if (!q.mailing_date) {
+    return { msg: "Set mailing date", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", priority: 2 }
+  }
+  
+  // ═══ PRIORITY 6: Checklist items in workflow order (GRAY) ═══
+  for (const item of CHECKLIST_ORDER) {
+    if (!jm[item.key]) {
+      return { msg: `Next: ${item.label}`, color: "#4B5563", bg: "#F9FAFB", border: "#E5E7EB", priority: 3 }
+    }
+  }
+  
+  // ═══ PRIORITY 7: All done! (GREEN) ═══
+  return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5 }
 }
 
 function matchesSearch(q: Quote, term: string): boolean {
@@ -1175,6 +1217,20 @@ function QuoteCard({
 
           {/* Row 2: Contact name as subtitle */}
           <p className="text-sm font-medium text-muted-foreground truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
+
+          {/* SMART NEXT STEP BANNER - Always visible for jobs */}
+          {boardType === "job" && (() => {
+            const step = getJobNextStep(quote)
+            if (!step) return null
+            return (
+              <div 
+                className="w-full px-3 py-2 rounded-lg border text-center font-bold text-[12px] mb-3"
+                style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
+              >
+                {step.msg}
+              </div>
+            )
+          })()}
 
           {/* Row 3: Tags strip -- Overdue + Assignee + Mail Class + Date */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -3025,14 +3081,14 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className={cn("text-[12px] text-center tabular-nums", q.mailing_date ? "text-foreground/80" : "text-muted-foreground/40")}>
                       {q.mailing_date ? fmtDate(q.mailing_date) : "—"}
                     </span>
-                    {/* Next Step (jobs only) */}
+                    {/* Next Step (jobs only) - SMART banner showing ONE blocker */}
                     {isJob && (() => {
                       const step = getJobNextStep(q)
                       if (!step) return <span className="text-[12px] text-center text-muted-foreground/40">—</span>
                       return (
                         <span 
-                          className="text-[11px] text-center font-medium px-2 py-1 rounded-md truncate"
-                          style={{ backgroundColor: step.bg, color: step.color }}
+                          className="text-[11px] text-center font-semibold px-2.5 py-1 rounded-md truncate border"
+                          style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
                           title={step.msg}
                         >
                           {step.msg}
@@ -3593,6 +3649,20 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         {q.reference_number && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">INV {q.reference_number}</span>}
                         {jm.zendesk_ticket && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">ZD# {jm.zendesk_ticket}</span>}
                       </div>
+
+                      {/* SMART NEXT STEP BANNER - Always visible, shows ONE blocker */}
+                      {(() => {
+                        const step = getJobNextStep(q)
+                        if (!step) return null
+                        return (
+                          <div 
+                            className="w-full px-4 py-3 rounded-xl border-2 text-center font-bold text-[14px]"
+                            style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
+                          >
+                            {step.msg}
+                          </div>
+                        )
+                      })()}
 
                       {/* Assignee */}
                       <div className="bg-secondary/30 rounded-xl p-4">
