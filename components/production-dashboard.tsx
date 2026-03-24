@@ -99,7 +99,7 @@ interface Job {
   quantity: number | null
   mailing_class: string | null
   notes: string | null
-  job_meta: Record<string, unknown>
+  job_meta: Record<string, unknown> | null
   invoice_id: string | null
   invoice?: { invoice_number: number } | null
   created_at: string
@@ -113,7 +113,8 @@ interface Customer {
 
 // ── HELPER FUNCTIONS ──────────────────────────────
 function getChecklistValue(job: Job, key: string): boolean | string | null {
-  const meta = job.job_meta || {}
+  if (!job || !job.job_meta) return null
+  const meta = job.job_meta
   const checklist = (meta.checklist as Record<string, unknown>) || {}
   const val = checklist[key]
   if (typeof val === "boolean") return val
@@ -419,8 +420,9 @@ function CompactRow({
   const nextStep = getNextStep(job)
   const isDone = isChecked(job, "done")
   const customerName = job.customer?.company_name || "No customer"
-  const salesRep = (job.job_meta?.salesRep as string) || null
-  const zdTicket = (job.job_meta?.zdTicket as string) || null
+  const meta = job.job_meta || {}
+  const salesRep = (meta.salesRep as string) || null
+  const zdTicket = (meta.zdTicket as string) || null
   const invoiceNum = job.invoice?.invoice_number || null
 
   return (
@@ -524,10 +526,11 @@ function JobCard({
   const isDone = isChecked(job, "done")
   const progressColor = getProgressColor(pct)
   const customerName = job.customer?.company_name || "No customer"
-  const salesRep = (job.job_meta?.salesRep as string) || null
-  const zdTicket = (job.job_meta?.zdTicket as string) || null
+  const meta = job.job_meta || {}
+  const salesRep = (meta.salesRep as string) || null
+  const zdTicket = (meta.zdTicket as string) || null
   const invoiceNum = job.invoice?.invoice_number || null
-  const jobInfo = (job.job_meta?.jobInfo as string) || null
+  const jobInfo = (meta.jobInfo as string) || null
 
   return (
     <Card className={cn("relative overflow-hidden", isDone && "opacity-60")}>
@@ -625,14 +628,14 @@ function JobCard({
                           <span className="text-xs font-medium">{item.label}</span>
                         </div>
                         <Select 
-                          value={typeof val === "string" ? val : ""} 
-                          onValueChange={v => onToggle(item.key, v || null)}
+                          value={typeof val === "string" && val ? val : "__none__"} 
+                          onValueChange={v => onToggle(item.key, v === "__none__" ? null : v)}
                         >
                           <SelectTrigger className="h-7 text-xs">
                             <SelectValue placeholder="Not set" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Not set</SelectItem>
+                            <SelectItem value="__none__">Not set</SelectItem>
                             {item.opts?.map(opt => (
                               <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                             ))}
@@ -949,9 +952,6 @@ export function ProductionDashboard() {
 
   // Ensure jobs is always an array
   const safeJobs = Array.isArray(jobs) ? jobs : []
-  
-  // Debug logging
-  console.log("[v0] Production Dashboard - jobs received:", jobs, "safeJobs:", safeJobs.length)
 
   // Filter jobs
   const activeJobs = useMemo(() => {

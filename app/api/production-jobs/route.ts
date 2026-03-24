@@ -34,7 +34,5 @@ export async function GET() {
     customer: j.customer_id ? customerMap.get(j.customer_id) : null
   }))
   
-  console.log("[v0] Production jobs fetched:", data.length, "jobs")
-  
   return NextResponse.json(data)
 }
