@@ -1250,7 +1250,7 @@ function NextStepAdd({ steps, onAdd, existingSteps }: { steps: string[]; onAdd: 
 
 /* ������═══════════════����════��═════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ══════════════�����═════���════════���═══════════��═════════ */
+   ══════════════�����═════�����════════���═══════════��═════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -1371,6 +1371,11 @@ function QuoteCard({
 
   const updateMeta = (patch: Partial<JobMeta>) => {
     onPatch(quote.id, { job_meta: { ...rawMeta, ...patch } })
+  }
+  
+  // Wrapper for SmartNextStepBanner to update quote fields directly
+  const patchQuote = (id: string, updates: Partial<Quote>) => {
+    onPatch(id, updates as Record<string, unknown>)
   }
 
   return (
@@ -3886,8 +3891,15 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                             quote={q}
                             step={step}
                             team={activeTeam}
-                            onUpdateQuote={(updates) => patchQuote(q.id, updates)}
-                            onUpdateMeta={(updates) => updateMeta(updates)}
+                            onUpdateQuote={(updates) => {
+                              handlePatch(q.id, updates as Record<string, unknown>)
+                              setFullCardModalQuote(prev => prev ? { ...prev, ...updates } : null)
+                            }}
+                            onUpdateMeta={(metaUpdates) => {
+                              const newMeta = { ...jm, ...metaUpdates }
+                              handlePatch(q.id, { job_meta: newMeta })
+                              setFullCardModalQuote(prev => prev ? { ...prev, job_meta: newMeta } : null)
+                            }}
                             size="normal"
                           />
                         )
