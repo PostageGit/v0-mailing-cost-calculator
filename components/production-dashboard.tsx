@@ -1034,6 +1034,7 @@ function JobEditModal({
 export function ProductionDashboard() {
   const [view, setView] = useState<"cards" | "compact">("compact")
   const [search, setSearch] = useState("")
+  const [repFilter, setRepFilter] = useState<string>("all")
   const [editingJob, setEditingJob] = useState<Job | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [tab, setTab] = useState<"jobs" | "billing">("jobs")
@@ -1059,6 +1060,14 @@ export function ProductionDashboard() {
     return safeJobs
       .filter(j => !isChecked(j, "done"))
       .filter(j => {
+        // Rep filter
+        if (repFilter === "all") return true
+        const meta = (j.job_meta || {}) as Record<string, unknown>
+        const assignee = (meta.assignee as string) || ""
+        if (repFilter === "unassigned") return !assignee || assignee === "Unas."
+        return assignee === repFilter
+      })
+      .filter(j => {
         if (!search) return true
         const q = search.toLowerCase()
         const meta = (j.job_meta || {}) as Record<string, unknown>
@@ -1073,9 +1082,20 @@ export function ProductionDashboard() {
           j.job_number?.toString().includes(q)
         )
       })
-  }, [safeJobs, search])
+  }, [safeJobs, search, repFilter])
 
-  const billingJobs = useMemo(() => safeJobs.filter(j => isChecked(j, "done")), [safeJobs])
+  const billingJobs = useMemo(() => {
+    return safeJobs
+      .filter(j => isChecked(j, "done"))
+      .filter(j => {
+        // Rep filter
+        if (repFilter === "all") return true
+        const meta = (j.job_meta || {}) as Record<string, unknown>
+        const assignee = (meta.assignee as string) || ""
+        if (repFilter === "unassigned") return !assignee || assignee === "Unas."
+        return assignee === repFilter
+      })
+  }, [safeJobs, repFilter])
 
   // Toggle checklist item - writes directly to job_meta.{key}, NOT job_meta.checklist.{key}
   const handleToggle = useCallback(async (jobId: string, key: string, value: unknown) => {
@@ -1163,6 +1183,27 @@ export function ProductionDashboard() {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
+            {/* Rep Filter */}
+            <div className="flex border rounded-lg overflow-hidden bg-muted/30">
+              {["all", "unassigned", ...REPS.filter(r => r !== "Unas.")].map(r => (
+                <Button 
+                  key={r}
+                  variant={repFilter === r ? "default" : "ghost"} 
+                  size="sm" 
+                  className={cn(
+                    "rounded-none text-xs px-3",
+                    repFilter === r && r !== "all" && "text-white",
+                    r === "Lazer" && repFilter === r && "bg-blue-600 hover:bg-blue-700",
+                    r === "Shia" && repFilter === r && "bg-purple-600 hover:bg-purple-700",
+                    r === "Dovy" && repFilter === r && "bg-green-600 hover:bg-green-700"
+                  )}
+                  onClick={() => setRepFilter(r)}
+                >
+                  {r === "all" ? "All" : r === "unassigned" ? "Unas." : r}
+                </Button>
+              ))}
+            </div>
+            {/* View Toggle */}
             <div className="flex border rounded-lg overflow-hidden">
               <Button 
                 variant={view === "cards" ? "default" : "ghost"} 
