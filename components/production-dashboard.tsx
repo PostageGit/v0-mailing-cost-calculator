@@ -62,26 +62,26 @@ interface ChecklistGroup {
   items: ChecklistItem[]
 }
 
+// NOTE: These keys match the existing job_meta fields used in kanban-board.tsx
 const CL_GROUPS: ChecklistGroup[] = [
   { id: "prod", label: "Production", items: [
-    { key: "priced",      label: "Priced",    short: "Prcd",  type: "bool" },
-    { key: "sentToPrint", label: "Print",     short: "Print", type: "select", opts: PRINT_OPTIONS },
-    { key: "pickup",      label: "Pickup",    short: "Pick",  type: "bool" },
+    { key: "prints_arrived",  label: "Prints",      short: "Prt",  type: "bool" },
+    { key: "printed_by",      label: "Print Vendor", short: "Vndr", type: "select", opts: PRINT_OPTIONS },
+    { key: "bcc_done",        label: "BCC Done",    short: "BCC",  type: "bool" },
   ]},
   { id: "files", label: "Files", items: [
-    { key: "list",      label: "List",      short: "List", type: "bool" },
-    { key: "ivUpdated", label: "IV Upd.",   short: "IV",   type: "bool" },
-    { key: "folder",    label: "Folder",    short: "Fldr", type: "select", opts: FOLDER_OPTIONS },
+    { key: "paperwork_done",   label: "Paperwork",   short: "Papr", type: "bool" },
+    { key: "folder_archived",  label: "Folder",      short: "Fldr", type: "bool" },
   ]},
   { id: "comms", label: "Comms", items: [
-    { key: "emailed",   label: "Emailed",   short: "Email", type: "bool" },
-    { key: "paperwork", label: "Paperwork", short: "Paper", type: "bool" },
-    { key: "jobSent",   label: "Job Sent",  short: "Sent",  type: "bool" },
+    { key: "invoice_emailed", label: "Inv Emailed", short: "Email", type: "bool" },
+    { key: "invoice_updated", label: "Inv Updated", short: "Upd",   type: "bool" },
+    { key: "job_mailed",      label: "Job Mailed",  short: "Mail",  type: "bool" },
   ]},
   { id: "bill", label: "Billing", items: [
-    { key: "paid",     label: "Paid",      short: "Paid", type: "bool" },
-    { key: "billSent", label: "Bill Sent", short: "Bill", type: "bool" },
-    { key: "done",     label: "DONE",      short: "Done", type: "bool" },
+    { key: "paid_postage", label: "Paid Postage", short: "Post", type: "bool" },
+    { key: "paid_full",    label: "Paid Full",    short: "Full", type: "bool" },
+    { key: "done",         label: "DONE",         short: "Done", type: "bool" },
   ]},
 ]
 
@@ -113,12 +113,11 @@ interface Customer {
 
 // ── HELPER FUNCTIONS ──────────────────────────────
 function getChecklistValue(job: Job, key: string): boolean | string | null {
-  if (!job || !job.job_meta) return null
-  const meta = job.job_meta
-  const checklist = (meta.checklist as Record<string, unknown>) || {}
-  const val = checklist[key]
-  if (typeof val === "boolean") return val
-  if (typeof val === "string") return val
+  if (!job) return null
+  const meta = (job.job_meta || {}) as Record<string, unknown>
+  // Read directly from job_meta.{key}, NOT job_meta.checklist.{key}
+  const val = meta[key]
+  if (typeof val === "boolean" || typeof val === "string") return val
   return null
 }
 
@@ -133,15 +132,16 @@ function getProgress(job: Job): number {
 }
 
 function getNextStep(job: Job): { msg: string; color: string; bg: string } {
-  const meta = job.job_meta || {}
+  const meta = (job.job_meta || {}) as Record<string, unknown>
   const customerName = job.customer?.company_name || ""
-  const salesRep = (meta.salesRep as string) || ""
+  const assignee = (meta.assignee as string) || ""
+  const dueDate = (meta.due_date as string) || job.mailing_date || ""
   
   // Check required fields in order of priority
   if (!customerName) return { msg: "Add customer name", color: "#EF4444", bg: "#FEF2F2" }
-  if (!salesRep || salesRep === "Unas.") return { msg: "Assign a sales rep", color: "#F97316", bg: "#FFF7ED" }
+  if (!assignee || assignee === "Unas.") return { msg: "Assign person", color: "#F97316", bg: "#FFF7ED" }
   if (!job.quantity || job.quantity === 0) return { msg: "Add piece quantity", color: "#3B82F6", bg: "#EFF6FF" }
-  if (!job.mailing_date || job.mailing_date === "") return { msg: "Set mailing date", color: "#8B5CF6", bg: "#F5F3FF" }
+  if (!dueDate) return { msg: "Set mail date", color: "#8B5CF6", bg: "#F5F3FF" }
   
   const pct = getProgress(job)
   if (pct === 100) return { msg: "Ready to mark done!", color: "#22C55E", bg: "#F0FDF4" }
@@ -421,13 +421,13 @@ function CompactRow({
   const nextStep = getNextStep(job)
   const isDone = isChecked(job, "done")
   const customerName = job.customer?.company_name || "No customer"
-  const meta = job.job_meta || {}
-  const salesRep = (meta.salesRep as string) || null
-  const zdTicket = (meta.zdTicket as string) || null
+  const meta = (job.job_meta || {}) as Record<string, unknown>
+  // Use existing field names from kanban-board.tsx
+  const assignee = (meta.assignee as string) || null
+  const zdTicket = (meta.zendesk_ticket as string) || null
   const invoiceNum = job.invoice?.invoice_number || null
   const dropOff = (meta.drop_off as string) || null
   const mailingClass = (meta.mailing_class as string) || job.mailing_class || null
-  const jobInfo = (meta.jobInfo as string) || null
 
   return (
     <div className={cn(
@@ -445,9 +445,9 @@ function CompactRow({
           {job.project_name && <div className="text-xs text-muted-foreground truncate">{job.project_name}</div>}
         </div>
         
-        {/* Rep */}
+        {/* Assignee */}
         <div className="w-[90px] shrink-0">
-          <RepPicker rep={salesRep} onChange={onRepChange} />
+          <RepPicker rep={assignee} onChange={onRepChange} />
         </div>
         
         {/* Date */}
@@ -470,10 +470,10 @@ function CompactRow({
         
         {/* IDs */}
         <div className="w-[160px] shrink-0 flex flex-col gap-0.5">
-          {zdTicket && <span className="text-[10px] font-medium text-muted-foreground">ZD #{zdTicket}</span>}
-          {invoiceNum && <span className="text-[10px] font-medium text-muted-foreground">INV #{invoiceNum}</span>}
-          {jobInfo && <span className="text-[10px] font-medium text-blue-600">JOB {jobInfo}</span>}
-          {!zdTicket && !invoiceNum && !jobInfo && <span className="text-xs text-muted-foreground">—</span>}
+          {job.job_number && <span className="text-[10px] font-bold text-teal-600">J-{job.job_number}</span>}
+          {zdTicket && <span className="text-[10px] font-medium text-orange-600">ZD# {zdTicket}</span>}
+          {invoiceNum && <span className="text-[10px] font-medium text-muted-foreground">INV {invoiceNum}</span>}
+          {!job.job_number && !zdTicket && !invoiceNum && <span className="text-xs text-muted-foreground">—</span>}
         </div>
         
         {/* Next Step */}
@@ -529,14 +529,14 @@ function JobCard({
   const isDone = isChecked(job, "done")
   const progressColor = getProgressColor(pct)
   const customerName = job.customer?.company_name || "No customer"
-  const meta = job.job_meta || {}
-  const checklist = (meta.checklist as Record<string, unknown>) || {}
-  const salesRep = (meta.salesRep as string) || null
-  const zdTicket = (meta.zdTicket as string) || null
+  const meta = (job.job_meta || {}) as Record<string, unknown>
+  // Use existing field names from kanban-board.tsx
+  const assignee = (meta.assignee as string) || null
+  const zdTicket = (meta.zendesk_ticket as string) || null
   const invoiceNum = job.invoice?.invoice_number || null
-  const jobInfo = (meta.jobInfo as string) || null
   const dropOff = (meta.drop_off as string) || null
   const mailingClass = (meta.mailing_class as string) || job.mailing_class || null
+  const dueDate = (meta.due_date as string) || job.mailing_date || null
 
   return (
     <Card className={cn("relative overflow-hidden", isDone && "opacity-60")}>
@@ -550,7 +550,7 @@ function JobCard({
           <div>
             <div className="font-bold text-base">{customerName}</div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <RepPicker rep={salesRep} onChange={onRepChange} />
+              <RepPicker rep={assignee} onChange={onRepChange} />
               {mailingClass && <Badge variant="secondary" className="text-[10px]">{mailingClass}</Badge>}
               {dropOff && <Badge variant="outline" className="text-[10px]">{dropOff}</Badge>}
               {job.quantity && <Badge variant="outline" className="text-[10px]">{job.quantity.toLocaleString()} pcs</Badge>}
@@ -978,20 +978,15 @@ export function ProductionDashboard() {
 
   const billingJobs = useMemo(() => safeJobs.filter(j => isChecked(j, "done")), [safeJobs])
 
-  // Toggle checklist item
+  // Toggle checklist item - writes directly to job_meta.{key}, NOT job_meta.checklist.{key}
   const handleToggle = useCallback(async (jobId: string, key: string, value: unknown) => {
     const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     
     const existingMeta = job.job_meta || {}
-    const existingChecklist = (existingMeta.checklist as Record<string, unknown>) || {}
     
-    const newChecklist = {
-      ...existingChecklist,
-      [key]: value
-    }
-    
-    const newMeta = { ...existingMeta, checklist: newChecklist }
+    // Write directly to job_meta.{key} to match existing kanban-board data structure
+    const newMeta = { ...existingMeta, [key]: value }
     
     // Optimistic update
     mutateJobs(
@@ -1000,7 +995,7 @@ export function ProductionDashboard() {
     )
     
     // API call
-    const res = await fetch(`/api/production-jobs/${jobId}`, {
+    await fetch(`/api/production-jobs/${jobId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ job_meta: newMeta })
@@ -1017,13 +1012,13 @@ export function ProductionDashboard() {
     handleToggle(jobId, "done", !currentDone)
   }, [safeJobs, handleToggle])
 
-  // Change rep
+  // Change assignee (matches kanban-board field name)
   const handleRepChange = useCallback(async (jobId: string, rep: string) => {
     const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     
     const existingMeta = job.job_meta || {}
-    const newMeta = { ...existingMeta, salesRep: rep }
+    const newMeta = { ...existingMeta, assignee: rep }
     
     mutateJobs(
       safeJobs.map(j => j.id === jobId ? { ...j, job_meta: newMeta } : j),
