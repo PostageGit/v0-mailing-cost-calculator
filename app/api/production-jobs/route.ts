@@ -28,10 +28,27 @@ export async function GET() {
   
   const customerMap = new Map((customers || []).map(c => [c.id, c]))
   
-  // Attach customer data to jobs
+  // Fetch purchase orders for all jobs
+  const jobIds = (jobs || []).map(j => j.id)
+  const { data: purchaseOrders } = jobIds.length > 0
+    ? await supabase
+        .from("purchase_orders")
+        .select("id, job_id, po_number, ohp_job_number, ohp_location, status, needed_date, sent_at, received_at, in_production_at, confirmed_at")
+        .in("job_id", jobIds)
+    : { data: [] }
+  
+  // Group purchase orders by job_id
+  const poMap = new Map<string, typeof purchaseOrders>()
+  for (const po of purchaseOrders || []) {
+    if (!poMap.has(po.job_id)) poMap.set(po.job_id, [])
+    poMap.get(po.job_id)!.push(po)
+  }
+  
+  // Attach customer and purchase order data to jobs
   const data = (jobs || []).map(j => ({
     ...j,
-    customer: j.customer_id ? customerMap.get(j.customer_id) : null
+    customer: j.customer_id ? customerMap.get(j.customer_id) : null,
+    purchase_orders: poMap.get(j.id) || []
   }))
   
   return NextResponse.json(data)

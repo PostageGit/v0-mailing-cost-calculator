@@ -32,7 +32,15 @@ import { cn } from "@/lib/utils"
 
 // ── CONSTANTS ──────────────────────────────────────
 const REPS = ["Lazer", "Shia", "Dovy", "Unas."]
-const PRINT_OPTIONS = ["Print Out BP", "Print Out NJ", "Publimax", "Tri-Star", "4 Over", "Client Provides"]
+// Vendors from database - internal (PrintOut locations) first, then external
+const PRINT_OPTIONS = [
+  // Internal
+  "PrintOut Bedford", "PrintOut Main St", "PrintOut RSH",
+  // External
+  "Publimax", "PrintMax", "Sharp Image", "Tri Star Offset", "Cai Hong enterprises",
+  // Special
+  "Client Provides"
+]
 const FOLDER_OPTIONS = ["Local", "Cloud", "NAS", "Shared"]
 const MAILER_TYPES = ["Letter", "Flat", "Postcard", "Self-Mailer", "Booklet", "Snap-Pack"]
 const MAIL_CLASSES = ["First Class", "Marketing Mail", "Non-Profit", "Periodical", "Priority"]
@@ -88,6 +96,27 @@ const CL_GROUPS: ChecklistGroup[] = [
 const ALL_ITEMS = CL_GROUPS.flatMap(g => g.items)
 
 // ── TYPES ──────────────────────────────────────────
+interface PurchaseOrder {
+  id: string
+  job_id: string
+  po_number: string | null
+  ohp_job_number: string | null
+  ohp_location: string | null
+  status: string | null
+  needed_date: string | null
+  sent_at: string | null
+  received_at: string | null
+  in_production_at: string | null
+  confirmed_at: string | null
+}
+
+interface Vendor {
+  id: string
+  company_name: string
+  is_internal: boolean
+  pickup_cost: string | null
+}
+
 interface Job {
   id: string
   quote_number: number
@@ -102,6 +131,7 @@ interface Job {
   job_meta: Record<string, unknown> | null
   invoice_id: string | null
   invoice?: { invoice_number: number } | null
+  purchase_orders?: PurchaseOrder[]
   created_at: string
   updated_at: string
 }
@@ -403,7 +433,7 @@ function RepPicker({ rep, onChange }: { rep: string | null; onChange: (rep: stri
   )
 }
 
-// ── COMPACT ROW ─────────────────────────────────────
+// ── COMPACT ROW ────────────────────────────────���────
 function CompactRow({ 
   job, 
   onToggle, 
@@ -428,6 +458,9 @@ function CompactRow({
   const invoiceNum = job.invoice?.invoice_number || null
   const dropOff = (meta.drop_off as string) || null
   const mailingClass = (meta.mailing_class as string) || job.mailing_class || null
+  
+  // Purchase order / vendor info
+  const po = job.purchase_orders?.[0] || null
 
   return (
     <div className={cn(
@@ -461,15 +494,37 @@ function CompactRow({
           )}
         </div>
         
-        {/* Mail Class & Drop-off */}
-        <div className="w-[120px] shrink-0 flex flex-col gap-1">
-          {mailingClass && <Badge variant="secondary" className="text-[10px] w-fit">{mailingClass}</Badge>}
-          {dropOff && <span className="text-[10px] text-muted-foreground">{dropOff}</span>}
-          {!mailingClass && !dropOff && <span className="text-xs text-muted-foreground">—</span>}
+        {/* Vendor / PO Info */}
+        <div className="w-[140px] shrink-0 flex flex-col gap-0.5">
+          {po ? (
+            <>
+              <span className="text-[10px] font-semibold text-blue-600 truncate" title={po.ohp_location || ""}>
+                {po.ohp_location}
+              </span>
+              {po.ohp_job_number && (
+                <span className="text-[10px] font-mono text-muted-foreground">#{po.ohp_job_number}</span>
+              )}
+              {po.status && (
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[9px] w-fit px-1.5",
+                    po.status === "received" && "bg-green-100 text-green-700 border-green-300",
+                    po.status === "in_production" && "bg-amber-100 text-amber-700 border-amber-300",
+                    po.status === "sent" && "bg-blue-100 text-blue-700 border-blue-300",
+                  )}
+                >
+                  {po.status.replace("_", " ")}
+                </Badge>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">No vendor</span>
+          )}
         </div>
         
         {/* IDs */}
-        <div className="w-[160px] shrink-0 flex flex-col gap-0.5">
+        <div className="w-[130px] shrink-0 flex flex-col gap-0.5">
           {job.job_number && <span className="text-[10px] font-bold text-teal-600">J-{job.job_number}</span>}
           {zdTicket && <span className="text-[10px] font-medium text-orange-600">ZD# {zdTicket}</span>}
           {invoiceNum && <span className="text-[10px] font-medium text-muted-foreground">INV {invoiceNum}</span>}
@@ -536,7 +591,9 @@ function JobCard({
   const invoiceNum = job.invoice?.invoice_number || null
   const dropOff = (meta.drop_off as string) || null
   const mailingClass = (meta.mailing_class as string) || job.mailing_class || null
-  const dueDate = (meta.due_date as string) || job.mailing_date || null
+  
+  // Purchase order / vendor info
+  const po = job.purchase_orders?.[0] || null
 
   return (
     <Card className={cn("relative overflow-hidden", isDone && "opacity-60")}>
@@ -565,10 +622,44 @@ function JobCard({
         
         {/* IDs */}
         <div className="flex flex-wrap gap-2 text-xs mb-3">
-          {zdTicket && <span className="font-medium"><strong>ZD</strong> #{zdTicket}</span>}
+          {job.job_number && <span className="font-bold text-teal-600">J-{job.job_number}</span>}
+          {zdTicket && <span className="font-medium text-orange-600">ZD# {zdTicket}</span>}
           {invoiceNum && <span className="font-medium"><strong>INV</strong> #{invoiceNum}</span>}
-          {jobInfo && <span className="font-medium"><strong>JOB</strong> {jobInfo}</span>}
         </div>
+        
+        {/* Vendor / Purchase Order Info */}
+        {po && (
+          <div className="mb-3 p-2 rounded-md bg-blue-50 border border-blue-200">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Truck className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-800">{po.ohp_location}</span>
+                {po.ohp_job_number && (
+                  <span className="text-xs bg-blue-100 px-2 py-0.5 rounded font-mono">#{po.ohp_job_number}</span>
+                )}
+              </div>
+              {po.status && (
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[10px]",
+                    po.status === "received" && "bg-green-100 text-green-700 border-green-300",
+                    po.status === "in_production" && "bg-amber-100 text-amber-700 border-amber-300",
+                    po.status === "sent" && "bg-blue-100 text-blue-700 border-blue-300",
+                  )}
+                >
+                  {po.status.replace("_", " ")}
+                </Badge>
+              )}
+            </div>
+            {po.needed_date && (
+              <div className="text-xs text-blue-600 mt-1">
+                Needed: {format(parseISO(po.needed_date), "MMM d")}
+                {po.received_at && <span className="ml-2 text-green-600">Received: {format(parseISO(po.received_at), "MMM d")}</span>}
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Details */}
         {(job.project_name || job.mailing_date) && (
@@ -956,6 +1047,9 @@ export function ProductionDashboard() {
   
   // Fetch customers for the edit modal
   const { data: customers = [] } = useSWR<Customer[]>("/api/customers", fetcher)
+  
+  // Fetch vendors for dropdowns
+  const { data: vendors = [] } = useSWR<Vendor[]>("/api/vendors", fetcher)
 
   // Ensure jobs is always an array
   const safeJobs = Array.isArray(jobs) ? jobs : []
@@ -967,11 +1061,16 @@ export function ProductionDashboard() {
       .filter(j => {
         if (!search) return true
         const q = search.toLowerCase()
+        const meta = (j.job_meta || {}) as Record<string, unknown>
+        const zdTicket = (meta.zendesk_ticket as string) || ""
+        const ohpJobNum = j.purchase_orders?.[0]?.ohp_job_number || ""
         return (
           j.customer?.company_name?.toLowerCase().includes(q) ||
           j.project_name?.toLowerCase().includes(q) ||
-          j.job_meta?.zdTicket?.toString().includes(q) ||
-          j.quote_number?.toString().includes(q)
+          zdTicket.toLowerCase().includes(q) ||
+          ohpJobNum.toLowerCase().includes(q) ||
+          j.quote_number?.toString().includes(q) ||
+          j.job_number?.toString().includes(q)
         )
       })
   }, [safeJobs, search])
