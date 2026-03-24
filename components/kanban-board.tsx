@@ -747,6 +747,44 @@ const DEFAULT_NEXT_STEPS = [
   "Brand New",
 ]
 
+// Map workflow steps to the job_meta field they complete when done
+// When a step is removed (marked complete), we set the corresponding field to true
+const STEP_TO_FIELD_MAP: Record<string, keyof JobMeta> = {
+  "Prints Arrived": "prints_arrived",
+  "Working on Mailing": "bcc_done",
+  "Ready to Mail": "paperwork_done",
+  "Out for Delivery": "job_mailed",
+}
+
+// Reverse: Map job_meta fields to their corresponding workflow step
+// Used to auto-suggest the next step based on incomplete fields
+const FIELD_TO_STEP_MAP: Record<string, string> = {
+  "prints_arrived": "Waiting for Prints",
+  "bcc_done": "Working on Mailing",
+  "paperwork_done": "Ready to Mail",
+  "folder_archived": "Archive Folder",
+  "job_mailed": "Out for Delivery",
+  "invoice_updated": "Update Invoice",
+  "invoice_emailed": "Email Invoice",
+  "paid_postage": "Awaiting Postage Payment",
+  "paid_full": "Awaiting Full Payment",
+}
+
+// Get smart suggested next step based on incomplete checklist items
+function getSmartNextStep(meta: JobMeta): string | null {
+  // Priority order of workflow steps
+  if (!meta.prints_arrived) return "Waiting for Prints"
+  if (!meta.bcc_done) return "Working on Mailing"
+  if (!meta.paperwork_done) return "Paperwork Needed"
+  if (!meta.folder_archived) return "Archive Folder"
+  if (!meta.job_mailed) return "Ready to Mail"
+  if (!meta.invoice_updated) return "Update Invoice"
+  if (!meta.invoice_emailed) return "Email Invoice"
+  if (!meta.paid_postage) return "Awaiting Postage"
+  if (!meta.paid_full) return "Awaiting Payment"
+  return null // All done!
+}
+
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
 /* ═���══������═���══════════��═���════════════��══���═══════════���════
@@ -1262,7 +1300,27 @@ function QuoteCard({
                     ? [...(meta.active_steps as string[])]
                     : meta.next_step ? [meta.next_step] : []
                   currentSteps.splice(idx, 1)
-                  updateMeta({ active_steps: currentSteps, next_step: currentSteps[0] || "" })
+                  
+                  // SMART: When step is removed (completed), also update corresponding checklist field
+                  const fieldToUpdate = STEP_TO_FIELD_MAP[step]
+                  const metaUpdates: Partial<JobMeta> = { 
+                    active_steps: currentSteps, 
+                    next_step: currentSteps[0] || "" 
+                  }
+                  if (fieldToUpdate) {
+                    metaUpdates[fieldToUpdate] = true
+                  }
+                  
+                  // Auto-add next suggested step if list becomes empty
+                  if (currentSteps.length === 0) {
+                    const suggested = getSmartNextStep({ ...meta, ...metaUpdates })
+                    if (suggested) {
+                      metaUpdates.active_steps = [suggested]
+                      metaUpdates.next_step = suggested
+                    }
+                  }
+                  
+                  updateMeta(metaUpdates)
                 }}
                 onReplace={(v) => {
                   const currentSteps = meta.active_steps && meta.active_steps.length > 0
@@ -1273,6 +1331,22 @@ function QuoteCard({
                 }}
               />
             ))}
+            {/* Smart suggestion: Show suggested next step when no active steps */}
+            {(!meta.active_steps || (meta.active_steps as string[]).length === 0) && !meta.next_step && (() => {
+              const suggested = getSmartNextStep(meta)
+              if (!suggested) return null
+              return (
+                <button
+                  onClick={() => updateMeta({ active_steps: [suggested], next_step: suggested })}
+                  className="flex items-center gap-2 w-full rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/30 px-3 py-2 text-[12px] hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                  <span className="font-medium text-blue-700 dark:text-blue-300">Suggested: {suggested}</span>
+                  <span className="ml-auto text-[10px] text-blue-500 dark:text-blue-400">Click to add</span>
+                </button>
+              )
+            })()}
+            
             {/* Always show "Nxt step" add button */}
             <NextStepAdd
               steps={nextSteps}
