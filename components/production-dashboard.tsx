@@ -700,17 +700,20 @@ function Pipeline({ jobs }: { jobs: Job[] }) {
   const today = new Date()
   const tomorrow = addDays(today, 1)
   
+  // Defensive check - ensure jobs is an array
+  const safeJobs = Array.isArray(jobs) ? jobs : []
+  
   const groups = useMemo(() => {
     return [
-      { id: "overdue", label: "Overdue", color: "#EF4444", jobs: jobs.filter(j => j.mailing_date && isPast(parseISO(j.mailing_date)) && !isToday(parseISO(j.mailing_date))) },
-      { id: "today", label: "Today", color: "#EF4444", jobs: jobs.filter(j => j.mailing_date && isToday(parseISO(j.mailing_date))) },
-      { id: "tomorrow", label: "Tomorrow", color: "#F97316", jobs: jobs.filter(j => j.mailing_date && isTomorrow(parseISO(j.mailing_date))) },
-      { id: "upcoming", label: "Upcoming", color: "#3B82F6", jobs: jobs.filter(j => j.mailing_date && parseISO(j.mailing_date) > tomorrow) },
-      { id: "nodate", label: "No Date", color: "#94A3B8", jobs: jobs.filter(j => !j.mailing_date) },
+      { id: "overdue", label: "Overdue", color: "#EF4444", jobs: safeJobs.filter(j => j.mailing_date && isPast(parseISO(j.mailing_date)) && !isToday(parseISO(j.mailing_date))) },
+      { id: "today", label: "Today", color: "#EF4444", jobs: safeJobs.filter(j => j.mailing_date && isToday(parseISO(j.mailing_date))) },
+      { id: "tomorrow", label: "Tomorrow", color: "#F97316", jobs: safeJobs.filter(j => j.mailing_date && isTomorrow(parseISO(j.mailing_date))) },
+      { id: "upcoming", label: "Upcoming", color: "#3B82F6", jobs: safeJobs.filter(j => j.mailing_date && parseISO(j.mailing_date) > tomorrow) },
+      { id: "nodate", label: "No Date", color: "#94A3B8", jobs: safeJobs.filter(j => !j.mailing_date) },
     ].filter(g => g.jobs.length > 0)
-  }, [jobs])
+  }, [safeJobs])
   
-  const avgProgress = jobs.length ? Math.round(jobs.reduce((sum, j) => sum + getProgress(j), 0) / jobs.length) : 0
+  const avgProgress = safeJobs.length ? Math.round(safeJobs.reduce((sum, j) => sum + getProgress(j), 0) / safeJobs.length) : 0
 
   return (
     <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-xl border mb-4 overflow-x-auto">
@@ -944,9 +947,12 @@ export function ProductionDashboard() {
   // Fetch customers for the edit modal
   const { data: customers = [] } = useSWR<Customer[]>("/api/customers", fetcher)
 
+  // Ensure jobs is always an array
+  const safeJobs = Array.isArray(jobs) ? jobs : []
+
   // Filter jobs
   const activeJobs = useMemo(() => {
-    return jobs
+    return safeJobs
       .filter(j => !isChecked(j, "done"))
       .filter(j => {
         if (!search) return true
@@ -958,13 +964,13 @@ export function ProductionDashboard() {
           j.quote_number?.toString().includes(q)
         )
       })
-  }, [jobs, search])
+  }, [safeJobs, search])
 
-  const billingJobs = useMemo(() => jobs.filter(j => isChecked(j, "done")), [jobs])
+  const billingJobs = useMemo(() => safeJobs.filter(j => isChecked(j, "done")), [safeJobs])
 
   // Toggle checklist item
   const handleToggle = useCallback(async (jobId: string, key: string, value: unknown) => {
-    const job = jobs.find(j => j.id === jobId)
+    const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     
     const newChecklist = {
@@ -976,7 +982,7 @@ export function ProductionDashboard() {
     
     // Optimistic update
     mutateJobs(
-      jobs.map(j => j.id === jobId ? { ...j, job_meta: newMeta } : j),
+      safeJobs.map(j => j.id === jobId ? { ...j, job_meta: newMeta } : j),
       false
     )
     
@@ -988,25 +994,25 @@ export function ProductionDashboard() {
     })
     
     mutateJobs()
-  }, [jobs, mutateJobs])
+  }, [safeJobs, mutateJobs])
 
   // Toggle done
   const handleDone = useCallback((jobId: string) => {
-    const job = jobs.find(j => j.id === jobId)
+    const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     const currentDone = isChecked(job, "done")
     handleToggle(jobId, "done", !currentDone)
-  }, [jobs, handleToggle])
+  }, [safeJobs, handleToggle])
 
   // Change rep
   const handleRepChange = useCallback(async (jobId: string, rep: string) => {
-    const job = jobs.find(j => j.id === jobId)
+    const job = safeJobs.find(j => j.id === jobId)
     if (!job) return
     
     const newMeta = { ...job.job_meta, salesRep: rep }
     
     mutateJobs(
-      jobs.map(j => j.id === jobId ? { ...j, job_meta: newMeta } : j),
+      safeJobs.map(j => j.id === jobId ? { ...j, job_meta: newMeta } : j),
       false
     )
     
@@ -1017,7 +1023,7 @@ export function ProductionDashboard() {
     })
     
     mutateJobs()
-  }, [jobs, mutateJobs])
+  }, [safeJobs, mutateJobs])
 
   // Save job edit
   const handleSaveJob = useCallback(async (data: Partial<Job>) => {
