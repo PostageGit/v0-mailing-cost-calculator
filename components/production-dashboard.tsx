@@ -171,7 +171,7 @@ function getProgressColor(pct: number): string {
   return "#EF4444"
 }
 
-// ── FETCHER ──────────────────────────────────���────
+// ── FETCHER ─────────────────────────────────������────
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 // ── CHECKLIST DOT COMPONENT ─────────────────────────
@@ -425,6 +425,9 @@ function CompactRow({
   const salesRep = (meta.salesRep as string) || null
   const zdTicket = (meta.zdTicket as string) || null
   const invoiceNum = job.invoice?.invoice_number || null
+  const dropOff = (meta.drop_off as string) || null
+  const mailingClass = (meta.mailing_class as string) || job.mailing_class || null
+  const jobInfo = (meta.jobInfo as string) || null
 
   return (
     <div className={cn(
@@ -458,20 +461,19 @@ function CompactRow({
           )}
         </div>
         
-        {/* Mail Class */}
-        <div className="w-[100px] shrink-0">
-          {job.mailing_class ? (
-            <Badge variant="secondary" className="text-[10px]">{job.mailing_class}</Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
+        {/* Mail Class & Drop-off */}
+        <div className="w-[120px] shrink-0 flex flex-col gap-1">
+          {mailingClass && <Badge variant="secondary" className="text-[10px] w-fit">{mailingClass}</Badge>}
+          {dropOff && <span className="text-[10px] text-muted-foreground">{dropOff}</span>}
+          {!mailingClass && !dropOff && <span className="text-xs text-muted-foreground">—</span>}
         </div>
         
         {/* IDs */}
-        <div className="w-[140px] shrink-0 flex gap-2">
-          {zdTicket && <span className="text-xs font-medium text-muted-foreground">ZD #{zdTicket}</span>}
-          {invoiceNum && <span className="text-xs font-medium text-muted-foreground">INV #{invoiceNum}</span>}
-          {!zdTicket && !invoiceNum && <span className="text-xs text-muted-foreground">—</span>}
+        <div className="w-[160px] shrink-0 flex flex-col gap-0.5">
+          {zdTicket && <span className="text-[10px] font-medium text-muted-foreground">ZD #{zdTicket}</span>}
+          {invoiceNum && <span className="text-[10px] font-medium text-muted-foreground">INV #{invoiceNum}</span>}
+          {jobInfo && <span className="text-[10px] font-medium text-blue-600">JOB {jobInfo}</span>}
+          {!zdTicket && !invoiceNum && !jobInfo && <span className="text-xs text-muted-foreground">—</span>}
         </div>
         
         {/* Next Step */}
@@ -528,10 +530,13 @@ function JobCard({
   const progressColor = getProgressColor(pct)
   const customerName = job.customer?.company_name || "No customer"
   const meta = job.job_meta || {}
+  const checklist = (meta.checklist as Record<string, unknown>) || {}
   const salesRep = (meta.salesRep as string) || null
   const zdTicket = (meta.zdTicket as string) || null
   const invoiceNum = job.invoice?.invoice_number || null
   const jobInfo = (meta.jobInfo as string) || null
+  const dropOff = (meta.drop_off as string) || null
+  const mailingClass = (meta.mailing_class as string) || job.mailing_class || null
 
   return (
     <Card className={cn("relative overflow-hidden", isDone && "opacity-60")}>
@@ -546,7 +551,8 @@ function JobCard({
             <div className="font-bold text-base">{customerName}</div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <RepPicker rep={salesRep} onChange={onRepChange} />
-              {job.mailing_class && <Badge variant="secondary" className="text-[10px]">{job.mailing_class}</Badge>}
+              {mailingClass && <Badge variant="secondary" className="text-[10px]">{mailingClass}</Badge>}
+              {dropOff && <Badge variant="outline" className="text-[10px]">{dropOff}</Badge>}
               {job.quantity && <Badge variant="outline" className="text-[10px]">{job.quantity.toLocaleString()} pcs</Badge>}
             </div>
           </div>
