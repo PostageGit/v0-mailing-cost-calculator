@@ -949,6 +949,9 @@ export function ProductionDashboard() {
 
   // Ensure jobs is always an array
   const safeJobs = Array.isArray(jobs) ? jobs : []
+  
+  // Debug logging
+  console.log("[v0] Production Dashboard - jobs received:", jobs, "safeJobs:", safeJobs.length)
 
   // Filter jobs
   const activeJobs = useMemo(() => {

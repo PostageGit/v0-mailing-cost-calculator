@@ -29,9 +29,11 @@ export async function GET() {
     .order("mailing_date", { ascending: true, nullsFirst: false })
   
   if (error) {
-    console.error("Error fetching production jobs:", error)
+    console.error("[v0] Error fetching production jobs:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+  
+  console.log("[v0] Production jobs fetched:", data?.length || 0, "jobs")
   
   return NextResponse.json(data || [])
 }
