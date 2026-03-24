@@ -82,12 +82,20 @@ function fmtDate(dateStr: string) {
 // The system checks conditions in STRICT order - first unmet condition wins.
 // ══════════════════════════════════════════════════════════════════════════════
 
+type NextStepAction = 
+  | { type: "input"; field: "contact_name" | "zendesk_ticket" | "quantity" }
+  | { type: "select"; field: "assignee" }
+  | { type: "date"; field: "mailing_date" }
+  | { type: "checkbox"; field: keyof JobMeta }
+  | { type: "done" }
+
 interface NextStepResult {
   msg: string
   color: string      // text color
   bg: string         // background color
   border: string     // border color
   priority: number   // 1=critical, 2=setup, 3=workflow, 4=billing, 5=done
+  action: NextStepAction
 }
 
 // Checklist items in workflow order for "Next: X" display
@@ -112,38 +120,38 @@ function getJobNextStep(q: Quote): NextStepResult | null {
   
   // ═══ PRIORITY 1: No customer name (RED - critical) ═══
   if (!customerName) {
-    return { msg: "Add customer name", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", priority: 1 }
+    return { msg: "Add customer name", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", priority: 1, action: { type: "input", field: "contact_name" } }
   }
   
   // ═══ PRIORITY 2: No sales rep assigned (ORANGE) ═══
   if (!assignee || assignee === "Unas." || assignee === "Unassigned") {
-    return { msg: "Assign a sales rep", color: "#EA580C", bg: "#FFF7ED", border: "#FED7AA", priority: 1 }
+    return { msg: "Assign a sales rep", color: "#EA580C", bg: "#FFF7ED", border: "#FED7AA", priority: 1, action: { type: "select", field: "assignee" } }
   }
   
   // ═══ PRIORITY 3: No ZD ticket (AMBER) ═══
   if (!zdTicket) {
-    return { msg: "Add ZD ticket #", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", priority: 2 }
+    return { msg: "Add ZD ticket #", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", priority: 2, action: { type: "input", field: "zendesk_ticket" } }
   }
   
   // ═══ PRIORITY 4: No quantity (BLUE) ═══
   if (!q.quantity || q.quantity === 0) {
-    return { msg: "Add piece quantity", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", priority: 2 }
+    return { msg: "Add piece quantity", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", priority: 2, action: { type: "input", field: "quantity" } }
   }
   
   // ═══ PRIORITY 5: No mailing date (PURPLE) ═══
   if (!q.mailing_date) {
-    return { msg: "Set mailing date", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", priority: 2 }
+    return { msg: "Set mailing date", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", priority: 2, action: { type: "date", field: "mailing_date" } }
   }
   
   // ═══ PRIORITY 6: Checklist items in workflow order (GRAY) ═══
   for (const item of CHECKLIST_ORDER) {
     if (!jm[item.key]) {
-      return { msg: `Next: ${item.label}`, color: "#4B5563", bg: "#F9FAFB", border: "#E5E7EB", priority: 3 }
+      return { msg: `Next: ${item.label}`, color: "#4B5563", bg: "#F9FAFB", border: "#E5E7EB", priority: 3, action: { type: "checkbox", field: item.key } }
     }
   }
   
   // ═══ PRIORITY 7: All done! (GREEN) ═══
-  return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5 }
+  return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
 function matchesSearch(q: Quote, term: string): boolean {
@@ -878,6 +886,221 @@ function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange
 }
 
 /* ════════════════════════════════════════════════════
+   SMART NEXT STEP BANNER - Interactive, actionable banner
+   Shows ONE blocker and lets user fix it inline
+   ════════════════════════════════════════════════════ */
+function SmartNextStepBanner({ 
+  quote, 
+  step, 
+  team,
+  onUpdateQuote,
+  onUpdateMeta,
+  size = "normal"
+}: { 
+  quote: Quote
+  step: NextStepResult
+  team: Array<{ id: string; name: string; color: string }>
+  onUpdateQuote: (updates: Partial<Quote>) => void
+  onUpdateMeta: (updates: Partial<JobMeta>) => void
+  size?: "normal" | "compact"
+}) {
+  const [editing, setEditing] = useState(false)
+  const [inputValue, setInputValue] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [editing])
+
+  const handleAction = () => {
+    if (step.action.type === "done") return
+    
+    if (step.action.type === "checkbox") {
+      // Immediately toggle the checkbox
+      onUpdateMeta({ [step.action.field]: true })
+      return
+    }
+    
+    // For other types, enter edit mode
+    setEditing(true)
+    setInputValue("")
+  }
+
+  const handleSubmit = () => {
+    if (!inputValue.trim()) {
+      setEditing(false)
+      return
+    }
+    
+    const action = step.action
+    if (action.type === "input") {
+      if (action.field === "contact_name") {
+        onUpdateQuote({ contact_name: inputValue.trim() })
+      } else if (action.field === "zendesk_ticket") {
+        onUpdateMeta({ zendesk_ticket: inputValue.trim() })
+      } else if (action.field === "quantity") {
+        const qty = parseInt(inputValue.replace(/,/g, ""), 10)
+        if (!isNaN(qty) && qty > 0) {
+          onUpdateQuote({ quantity: qty })
+        }
+      }
+    } else if (action.type === "date") {
+      onUpdateQuote({ mailing_date: inputValue })
+    }
+    
+    setEditing(false)
+    setInputValue("")
+  }
+
+  const handleSelectAssignee = (name: string) => {
+    onUpdateMeta({ assignee: name })
+    setEditing(false)
+  }
+
+  const isCompact = size === "compact"
+
+  // Editing mode - show inline input
+  if (editing) {
+    const action = step.action
+
+    // Assignee select dropdown
+    if (action.type === "select" && action.field === "assignee") {
+      return (
+        <div 
+          className={cn(
+            "w-full rounded-lg border-2 overflow-hidden",
+            isCompact ? "text-[11px]" : "text-[13px]"
+          )}
+          style={{ backgroundColor: step.bg, borderColor: step.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 flex items-center justify-between border-b" style={{ borderColor: step.border }}>
+            <span className="font-semibold" style={{ color: step.color }}>Select Rep:</span>
+            <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-1">
+            {team.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => handleSelectAssignee(m.name)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-white/50 transition-colors text-left"
+              >
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
+                <span className="font-medium text-gray-700">{m.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Date picker
+    if (action.type === "date") {
+      return (
+        <div 
+          className={cn(
+            "w-full rounded-lg border-2 flex items-center gap-2",
+            isCompact ? "px-2 py-1.5" : "px-3 py-2"
+          )}
+          style={{ backgroundColor: step.bg, borderColor: step.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Calendar className={cn("shrink-0", isCompact ? "h-3 w-3" : "h-4 w-4")} style={{ color: step.color }} />
+          <input
+            ref={inputRef}
+            type="date"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSubmit()
+              if (e.key === "Escape") setEditing(false)
+            }}
+            className={cn(
+              "flex-1 bg-transparent outline-none font-semibold",
+              isCompact ? "text-[11px]" : "text-[13px]"
+            )}
+            style={{ color: step.color }}
+          />
+          <button onClick={handleSubmit} className="shrink-0 px-2 py-0.5 rounded bg-white/50 font-semibold text-[11px]" style={{ color: step.color }}>
+            Save
+          </button>
+          <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+            <X className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />
+          </button>
+        </div>
+      )
+    }
+
+    // Text/number input
+    return (
+      <div 
+        className={cn(
+          "w-full rounded-lg border-2 flex items-center gap-2",
+          isCompact ? "px-2 py-1.5" : "px-3 py-2"
+        )}
+        style={{ backgroundColor: step.bg, borderColor: step.border }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          ref={inputRef}
+          type={action.type === "input" && action.field === "quantity" ? "number" : "text"}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit()
+            if (e.key === "Escape") setEditing(false)
+          }}
+          placeholder={
+            action.type === "input" && action.field === "contact_name" ? "Enter customer name..." :
+            action.type === "input" && action.field === "zendesk_ticket" ? "Enter ZD ticket #..." :
+            action.type === "input" && action.field === "quantity" ? "Enter quantity..." :
+            "Enter value..."
+          }
+          className={cn(
+            "flex-1 bg-transparent outline-none font-semibold placeholder:font-normal placeholder:opacity-60",
+            isCompact ? "text-[11px]" : "text-[13px]"
+          )}
+          style={{ color: step.color }}
+        />
+        <button onClick={handleSubmit} className="shrink-0 px-2 py-0.5 rounded bg-white/50 font-semibold text-[11px]" style={{ color: step.color }}>
+          Save
+        </button>
+        <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+          <X className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />
+        </button>
+      </div>
+    )
+  }
+
+  // Default display mode - clickable banner
+  const isCheckbox = step.action.type === "checkbox"
+  const isDone = step.action.type === "done"
+
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); handleAction() }}
+      disabled={isDone}
+      className={cn(
+        "w-full rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2",
+        isCompact ? "px-2.5 py-1.5 text-[11px]" : "px-4 py-3 text-[13px]",
+        !isDone && "hover:opacity-80 cursor-pointer",
+        isDone && "cursor-default"
+      )}
+      style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
+    >
+      {isCheckbox && <Check className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />}
+      {isDone && <CheckCircle2 className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />}
+      <span>{step.msg}</span>
+      {!isDone && !isCheckbox && <ChevronRight className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />}
+    </button>
+  )
+}
+
+/* ════════════════════════════════════════════════════
    EDITABLE ZD# INLINE (click to edit, links to Zendesk)
    ════════════════════════════════════════════════════ */
 function ZendeskField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -1218,16 +1441,20 @@ function QuoteCard({
           {/* Row 2: Contact name as subtitle */}
           <p className="text-sm font-medium text-muted-foreground truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
 
-          {/* SMART NEXT STEP BANNER - Always visible for jobs */}
+          {/* SMART NEXT STEP BANNER - Interactive, click to complete action */}
           {boardType === "job" && (() => {
             const step = getJobNextStep(quote)
             if (!step) return null
             return (
-              <div 
-                className="w-full px-3 py-2 rounded-lg border text-center font-bold text-[12px] mb-3"
-                style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
-              >
-                {step.msg}
+              <div className="mb-3">
+                <SmartNextStepBanner
+                  quote={quote}
+                  step={step}
+                  team={activeTeam}
+                  onUpdateQuote={(updates) => patchQuote(quote.id, updates)}
+                  onUpdateMeta={(updates) => updateMeta(updates)}
+                  size="compact"
+                />
               </div>
             )
           })()}
@@ -3650,17 +3877,19 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         {jm.zendesk_ticket && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">ZD# {jm.zendesk_ticket}</span>}
                       </div>
 
-                      {/* SMART NEXT STEP BANNER - Only for jobs, shows ONE blocker */}
+                      {/* SMART NEXT STEP BANNER - Interactive, click to complete action */}
                       {isJob && (() => {
                         const step = getJobNextStep(q)
                         if (!step) return null
                         return (
-                          <div 
-                            className="w-full px-4 py-3 rounded-xl border-2 text-center font-bold text-[14px]"
-                            style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
-                          >
-                            {step.msg}
-                          </div>
+                          <SmartNextStepBanner
+                            quote={q}
+                            step={step}
+                            team={activeTeam}
+                            onUpdateQuote={(updates) => patchQuote(q.id, updates)}
+                            onUpdateMeta={(updates) => updateMeta(updates)}
+                            size="normal"
+                          />
                         )
                       })()}
 
