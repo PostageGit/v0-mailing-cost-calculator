@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createSafeClient } from "@/lib/supabase/server"
+
+const DB_ERR = NextResponse.json({ error: "Database connection unavailable" }, { status: 503 })
 
 export async function GET() {
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   
   // Fetch all jobs (is_job = true) that are not archived
   const { data, error } = await supabase

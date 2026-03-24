@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createSafeClient } from "@/lib/supabase/server"
+
+const DB_ERR = NextResponse.json({ error: "Database connection unavailable" }, { status: 503 })
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   
   const { data, error } = await supabase
     .from("quotes")
@@ -43,7 +46,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createSafeClient()
+  if (!supabase) return DB_ERR
   const body = await request.json()
   
   // Extract allowed fields to update
