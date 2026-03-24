@@ -13,23 +13,7 @@ export async function GET(
   
   const { data, error } = await supabase
     .from("quotes")
-    .select(`
-      id,
-      quote_number,
-      job_number,
-      project_name,
-      customer_id,
-      mailing_date,
-      quantity,
-      mailing_class,
-      notes,
-      job_meta,
-      invoice_id,
-      created_at,
-      updated_at,
-      customer:customers(id, company_name),
-      invoice:invoices(id, invoice_number)
-    `)
+    .select("*")
     .eq("id", id)
     .eq("is_job", true)
     .single()
@@ -38,7 +22,18 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 404 })
   }
   
-  return NextResponse.json(data)
+  // Fetch customer if exists
+  let customer = null
+  if (data.customer_id) {
+    const { data: cust } = await supabase
+      .from("customers")
+      .select("id, company_name")
+      .eq("id", data.customer_id)
+      .single()
+    customer = cust
+  }
+  
+  return NextResponse.json({ ...data, customer })
 }
 
 export async function PATCH(
@@ -76,23 +71,7 @@ export async function PATCH(
     .update(updateData)
     .eq("id", id)
     .eq("is_job", true)
-    .select(`
-      id,
-      quote_number,
-      job_number,
-      project_name,
-      customer_id,
-      mailing_date,
-      quantity,
-      mailing_class,
-      notes,
-      job_meta,
-      invoice_id,
-      created_at,
-      updated_at,
-      customer:customers(id, company_name),
-      invoice:invoices(id, invoice_number)
-    `)
+    .select("*")
     .single()
   
   if (error) {
@@ -100,5 +79,16 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   
-  return NextResponse.json(data)
+  // Fetch customer if exists
+  let customer = null
+  if (data.customer_id) {
+    const { data: cust } = await supabase
+      .from("customers")
+      .select("id, company_name")
+      .eq("id", data.customer_id)
+      .single()
+    customer = cust
+  }
+  
+  return NextResponse.json({ ...data, customer })
 }

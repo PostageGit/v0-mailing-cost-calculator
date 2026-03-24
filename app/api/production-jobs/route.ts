@@ -8,25 +8,9 @@ export async function GET() {
   if (!supabase) return DB_ERR
   
   // Fetch all jobs (is_job = true) that are not archived
-  const { data, error } = await supabase
+  const { data: jobs, error } = await supabase
     .from("quotes")
-    .select(`
-      id,
-      quote_number,
-      job_number,
-      project_name,
-      customer_id,
-      mailing_date,
-      quantity,
-      mailing_class,
-      notes,
-      job_meta,
-      invoice_id,
-      created_at,
-      updated_at,
-      customer:customers(id, company_name),
-      invoice:invoices(id, invoice_number)
-    `)
+    .select("*")
     .eq("is_job", true)
     .eq("archived", false)
     .order("mailing_date", { ascending: true, nullsFirst: false })
@@ -36,7 +20,21 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   
-  console.log("[v0] Production jobs fetched:", data?.length || 0, "jobs")
+  // Fetch customers for all jobs
+  const customerIds = [...new Set((jobs || []).map(j => j.customer_id).filter(Boolean))]
+  const { data: customers } = customerIds.length > 0 
+    ? await supabase.from("customers").select("id, company_name").in("id", customerIds)
+    : { data: [] }
   
-  return NextResponse.json(data || [])
+  const customerMap = new Map((customers || []).map(c => [c.id, c]))
+  
+  // Attach customer data to jobs
+  const data = (jobs || []).map(j => ({
+    ...j,
+    customer: j.customer_id ? customerMap.get(j.customer_id) : null
+  }))
+  
+  console.log("[v0] Production jobs fetched:", data.length, "jobs")
+  
+  return NextResponse.json(data)
 }
