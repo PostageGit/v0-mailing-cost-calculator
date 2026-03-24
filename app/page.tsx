@@ -25,7 +25,7 @@ import { InvoiceList } from "@/components/invoice-list"
 import { ChatQuotesDashboard } from "@/components/chat-quotes-dashboard"
 import { ExportToQB } from "@/components/export-to-qb"
 import { NonprofitLookup } from "@/components/nonprofit-lookup"
-import { ProductionDashboard } from "@/components/production-dashboard"
+
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -77,14 +77,12 @@ type Section =
   | "quotes-board" | "jobs-board" | "deliveries" | "billing" | "ohp-bids"
   | "customers" | "invoices" | "export-qb" | "chat-quotes"
   | "nonprofit-lookup"
-  | "production"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
 const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
-  { id: "production",   label: "Production",  icon: <CheckCircle2 className="h-4 w-4" />,    group: "dashboards" },
-  { id: "jobs-board",   label: "Active Jobs (Old)",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
   { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
   { id: "ohp-bids",     label: "OHP Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
@@ -436,12 +434,7 @@ function AppContent() {
             </div>
           )}
 
-          {/* == PRODUCTION DASHBOARD (NEW) == */}
-          {section === "production" && (
-            <ProductionDashboard />
-          )}
-
-          {/* == JOBS BOARD (OLD - to be removed) == */}
+          {/* == ACTIVE JOBS BOARD == */}
           {section === "jobs-board" && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">

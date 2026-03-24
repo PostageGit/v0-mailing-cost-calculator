@@ -76,6 +76,34 @@ function fmtDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
+// Helper to determine the "Next Step" for a job based on its job_meta
+function getJobNextStep(q: Quote): { msg: string; color: string; bg: string } | null {
+  if (!q.is_job) return null
+  const jm = q.job_meta || {}
+  
+  // Priority 1: Missing critical info
+  if (!q.contact_name) return { msg: "Add contact", color: "#EF4444", bg: "#FEF2F2" }
+  if (!jm.assignee || jm.assignee === "Unas.") return { msg: "Assign person", color: "#F97316", bg: "#FFF7ED" }
+  if (!q.mailing_date) return { msg: "Set mail date", color: "#8B5CF6", bg: "#F5F3FF" }
+  if (!jm.zendesk_ticket) return { msg: "Add ZD ticket", color: "#B45309", bg: "#FFFBEB" }
+  
+  // Priority 2: Workflow checklist
+  if (!jm.prints_arrived) return { msg: "Awaiting prints", color: "#3B82F6", bg: "#EFF6FF" }
+  if (!jm.bcc_done) return { msg: "Run BCC", color: "#6366F1", bg: "#EEF2FF" }
+  if (!jm.paperwork_done) return { msg: "Paperwork", color: "#A855F7", bg: "#FAF5FF" }
+  if (!jm.folder_archived) return { msg: "Archive folder", color: "#D946EF", bg: "#FDF4FF" }
+  if (!jm.job_mailed) return { msg: "Mark mailed", color: "#EC4899", bg: "#FDF2F8" }
+  
+  // Priority 3: Billing
+  if (!jm.invoice_updated) return { msg: "Update invoice", color: "#14B8A6", bg: "#F0FDFA" }
+  if (!jm.invoice_emailed) return { msg: "Email invoice", color: "#06B6D4", bg: "#ECFEFF" }
+  if (!jm.paid_postage) return { msg: "Postage payment", color: "#0EA5E9", bg: "#F0F9FF" }
+  if (!jm.paid_full) return { msg: "Awaiting payment", color: "#22C55E", bg: "#F0FDF4" }
+  
+  // All done!
+  return { msg: "Complete!", color: "#22C55E", bg: "#F0FDF4" }
+}
+
 function matchesSearch(q: Quote, term: string): boolean {
   if (!term) return true
   const s = term.toLowerCase()
@@ -2630,6 +2658,94 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
 
       {showSettings && <ColumnSettings columns={cols} onAdd={addColumn} onRename={renameColumn} onDelete={deleteColumn} onReorder={reorderColumns} onClose={() => setShowSettings(false)} />}
 
+      {/* Pipeline Summary for Jobs - shows urgency breakdown */}
+      {isJob && (() => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const nextWeek = new Date(today)
+        nextWeek.setDate(nextWeek.getDate() + 7)
+        
+        const urgencyGroups = {
+          overdue: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d < today
+          }),
+          today: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d.getTime() === today.getTime()
+          }),
+          tomorrow: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d.getTime() === tomorrow.getTime()
+          }),
+          upcoming: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d > tomorrow && d <= nextWeek
+          }),
+          later: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d > nextWeek
+          }),
+          noDate: filteredQuotes.filter(q => !q.mailing_date)
+        }
+        
+        return (
+          <div className="flex items-center gap-2 mb-3 px-1">
+            {urgencyGroups.overdue.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[11px] font-semibold text-red-600">{urgencyGroups.overdue.length} Overdue</span>
+              </div>
+            )}
+            {urgencyGroups.today.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-[11px] font-semibold text-amber-600">{urgencyGroups.today.length} Today</span>
+              </div>
+            )}
+            {urgencyGroups.tomorrow.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-[11px] font-semibold text-yellow-600">{urgencyGroups.tomorrow.length} Tomorrow</span>
+              </div>
+            )}
+            {urgencyGroups.upcoming.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-[11px] font-semibold text-blue-600">{urgencyGroups.upcoming.length} This Week</span>
+              </div>
+            )}
+            {urgencyGroups.later.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-500/10 border border-slate-500/20">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span className="text-[11px] font-semibold text-slate-500">{urgencyGroups.later.length} Later</span>
+              </div>
+            )}
+            {urgencyGroups.noDate.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-500/10 border border-gray-500/20">
+                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                <span className="text-[11px] font-semibold text-gray-500">{urgencyGroups.noDate.length} No Date</span>
+              </div>
+            )}
+            <div className="ml-auto text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{filteredQuotes.length}</span> active jobs
+            </div>
+          </div>
+        )
+      })()}
+
       {/* History panel with tabs: Archived, Done, Voided */}
       {showHistory && (
         <div className="rounded-xl border border-border bg-card p-3 mb-3 shrink-0">
@@ -2767,7 +2883,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto bg-background">
           {/* Table Header */}
-          <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px] items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10">
+          <div className={cn(
+            "grid items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10",
+            isJob ? "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_140px_100px_60px_100px_110px]" : "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px]"
+          )}>
             <span className="w-5"></span>
             <span>{isJob ? "Job" : "Quote"}</span>
             <span>Project / Contact</span>
@@ -2775,6 +2894,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             <span className="text-center">Assignee</span>
             <span className="text-right">Quantity</span>
             <span className="text-center">Mail Date</span>
+            {isJob && <span className="text-center">Next Step</span>}
             <span className="text-center">Stage</span>
             <span className="text-center">Rev</span>
             <span className="text-right">Total</span>
@@ -2791,7 +2911,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               return (
                 <div key={q.id} className={cn("border-b border-border/30 transition-all duration-150", isRowExpanded ? "bg-secondary/40" : "hover:bg-secondary/20")}>
                   {/* Main Row */}
-                  <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px] items-center gap-6 px-8 py-5">
+                  <div className={cn(
+                    "grid items-center gap-6 px-8 py-5",
+                    isJob ? "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_140px_100px_60px_100px_110px]" : "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px]"
+                  )}>
                     {/* Expand chevron */}
                     <div
                       className="w-5 flex items-center justify-center cursor-pointer rounded-full hover:bg-secondary/80 p-1 transition-colors"
@@ -2828,6 +2951,20 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className={cn("text-[12px] text-center tabular-nums", q.mailing_date ? "text-foreground/80" : "text-muted-foreground/40")}>
                       {q.mailing_date ? fmtDate(q.mailing_date) : "—"}
                     </span>
+                    {/* Next Step (jobs only) */}
+                    {isJob && (() => {
+                      const step = getJobNextStep(q)
+                      if (!step) return <span className="text-[12px] text-center text-muted-foreground/40">—</span>
+                      return (
+                        <span 
+                          className="text-[11px] text-center font-medium px-2 py-1 rounded-md truncate"
+                          style={{ backgroundColor: step.bg, color: step.color }}
+                          title={step.msg}
+                        >
+                          {step.msg}
+                        </span>
+                      )
+                    })()}
                     {/* Stage badge */}
                     <div className="flex justify-center">
                       {col && (
