@@ -3650,8 +3650,8 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         {jm.zendesk_ticket && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">ZD# {jm.zendesk_ticket}</span>}
                       </div>
 
-                      {/* SMART NEXT STEP BANNER - Always visible, shows ONE blocker */}
-                      {(() => {
+                      {/* SMART NEXT STEP BANNER - Only for jobs, shows ONE blocker */}
+                      {isJob && (() => {
                         const step = getJobNextStep(q)
                         if (!step) return null
                         return (
