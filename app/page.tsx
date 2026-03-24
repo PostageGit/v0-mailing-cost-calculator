@@ -82,7 +82,7 @@ type Section =
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
 const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
-  { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
   { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
   { id: "ohp-bids",     label: "OHP Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
@@ -434,7 +434,7 @@ function AppContent() {
             </div>
           )}
 
-          {/* == ACTIVE JOBS BOARD == */}
+          {/* == PRODUCTION DASHBOARD == */}
           {section === "jobs-board" && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
