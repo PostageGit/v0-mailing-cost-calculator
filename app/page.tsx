@@ -26,6 +26,7 @@ import { ChatQuotesDashboard } from "@/components/chat-quotes-dashboard"
 import { ExportToQB } from "@/components/export-to-qb"
 import { NonprofitLookup } from "@/components/nonprofit-lookup"
 import WorkflowPage from "@/app/workflow/page"
+import { CalculatorsHub } from "@/components/calculators-hub"
 
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
@@ -77,7 +78,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 type Section =
   | "quotes-board" | "jobs-board" | "deliveries" | "billing" | "ohp-bids"
   | "customers" | "invoices" | "export-qb" | "chat-quotes"
-  | "nonprofit-lookup" | "workflow"
+  | "nonprofit-lookup" | "workflow" | "calculators"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
@@ -93,6 +94,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
   { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
   { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools" },
+  { id: "calculators", label: "Calculators", icon: <Stamp className="h-4 w-4" />, group: "tools" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -512,6 +514,13 @@ function AppContent() {
           {section === "workflow" && (
             <div className="flex-1 overflow-auto">
               <WorkflowPage />
+            </div>
+          )}
+
+          {/* == CALCULATORS HUB == */}
+          {section === "calculators" && (
+            <div className="flex-1 overflow-auto">
+              <CalculatorsHub />
             </div>
           )}
 

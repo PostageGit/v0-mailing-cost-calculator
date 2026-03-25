@@ -45,9 +45,10 @@ const EMPTY_INPUTS: BookletInputs = {
 
 interface BookletCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorProps) {
+export function BookletCalculator({ viewMode = "detailed", standalone = false }: BookletCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()

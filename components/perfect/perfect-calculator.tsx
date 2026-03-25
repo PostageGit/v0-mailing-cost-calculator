@@ -23,9 +23,10 @@ import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-conte
 
 interface PerfectCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorProps) {
+export function PerfectCalculator({ viewMode = "detailed", standalone = false }: PerfectCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()

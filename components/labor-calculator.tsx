@@ -46,7 +46,7 @@ function calcItemCost(item: LaborItem, qty: number): number {
   }
 }
 
-export function LaborCalculator() {
+export function LaborCalculator({ standalone = false }: { standalone?: boolean } = {}) {
   const mailing = useMailing()
   const quote = useQuote()
   const { data: allSettings, isLoading } = useSWR<MailClassSetting[]>(

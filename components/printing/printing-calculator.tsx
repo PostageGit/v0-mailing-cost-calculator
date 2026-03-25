@@ -64,9 +64,10 @@ const EMPTY_INPUTS: PrintingInputs = {
 
 interface PrintingCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculatorProps) {
+export function PrintingCalculator({ viewMode = "detailed", standalone = false }: PrintingCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()

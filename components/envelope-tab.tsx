@@ -79,7 +79,7 @@ function matchPlannerEnvelope(
   return null
 }
 
-export function EnvelopeTab() {
+export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {}) {
   const quote = useQuote()
   const mailing = useMailing()
   const v = useFormValidation()

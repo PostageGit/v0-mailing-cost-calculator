@@ -23,9 +23,10 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface PadCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
+export function PadCalculator({ viewMode = "detailed", standalone = false }: PadCalculatorProps) {
   const quote = useQuote()
   const { paperDataLookup } = usePapersContext()
 

@@ -1258,7 +1258,7 @@ function ListRentalsAddOn({ quantity }: { quantity: number }) {
 //  MAIN EXPORT -- Tab switcher
 // ═══════════════════════════════════════════════════════════════
 
-export function USPSPostageCalculator() {
+export function USPSPostageCalculator({ standalone = false }: { standalone?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const mailing = useMailing()
   const suggestedShapes = mailing.suggestedShapes

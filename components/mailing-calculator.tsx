@@ -12,7 +12,7 @@ import { calculateCosts, formatCurrency, type MailingInputs } from "@/lib/pricin
 import { useQuote } from "@/lib/quote-context"
 import { Info, Plus } from "lucide-react"
 
-export function MailingCalculator() {
+export function MailingCalculator({ standalone = false }: { standalone?: boolean } = {}) {
   const [inputs, setInputs] = useState<MailingInputs>({
     mailPiece: "",
     quantity: 0,

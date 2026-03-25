@@ -21,9 +21,10 @@ import { usePapersContext } from "@/lib/papers-context"
 
 interface SpiralCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProps) {
+export function SpiralCalculator({ viewMode = "detailed", standalone = false }: SpiralCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { paperDataLookup } = usePapersContext()
