@@ -798,6 +798,8 @@ export function PrintingCalculator({ viewMode = "detailed", standalone = false }
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
               </Button>
               )}
+              {!standalone && (
+              <>
               <ShippingCalcButton
                 pieceWidth={inputs.width}
                 pieceHeight={inputs.height}
@@ -820,6 +822,8 @@ export function PrintingCalculator({ viewMode = "detailed", standalone = false }
                 <MessageCircle className="h-4 w-4" />
                 Chat Check
               </Button>
+              </>
+              )}
               </div>
             </div>
           )}

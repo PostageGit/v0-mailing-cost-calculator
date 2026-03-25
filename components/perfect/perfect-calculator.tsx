@@ -423,6 +423,8 @@ export function PerfectCalculator({ viewMode = "detailed", standalone = false }:
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
               )}
+              {!standalone && (
+              <>
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
@@ -449,6 +451,8 @@ export function PerfectCalculator({ viewMode = "detailed", standalone = false }:
                 <MessageCircle className="h-4 w-4" />
                 Chat Check
               </Button>
+              </>
+              )}
             </div>
           </div>
         )}

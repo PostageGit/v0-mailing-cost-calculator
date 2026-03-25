@@ -380,6 +380,7 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
               )}
+              {!standalone && (
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
@@ -389,6 +390,7 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
                 itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book`}
                 productType="spiralBinding"
               />
+              )}
             </div>
           </div>
         )}

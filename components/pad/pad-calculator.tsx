@@ -229,6 +229,7 @@ export function PadCalculator({ viewMode = "detailed", standalone = false }: Pad
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
               )}
+              {!standalone && (
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
@@ -237,6 +238,7 @@ export function PadCalculator({ viewMode = "detailed", standalone = false }: Pad
                 sheetsPerPiece={inputs.pagesPerPad + (inputs.useChipBoard ? 1 : 0)}
                 itemLabel={`${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad`}
               />
+              )}
             </div>
           </div>
         )}

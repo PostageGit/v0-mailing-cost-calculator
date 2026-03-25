@@ -536,7 +536,7 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false }:
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}
                 </Button>
                 )}
-                {viewMode !== "compact" && <ShippingCalcButton
+                {viewMode !== "compact" && !standalone && <ShippingCalcButton
                   pieceWidth={inputs.pageWidth}
                   pieceHeight={inputs.pageHeight}
                   quantity={inputs.bookQty}
@@ -584,7 +584,7 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false }:
                     return insideTotalOz + coverTotalOz
                   })()}
                 />}
-                {viewMode !== "compact" && (
+                {viewMode !== "compact" && !standalone && (
                   <Button
                     onClick={() => sendToChat(bookletSpecsToChat(inputs))}
                     variant="outline"
