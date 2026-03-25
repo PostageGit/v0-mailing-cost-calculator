@@ -175,7 +175,8 @@ export function MailingCalculator({ standalone = false }: { standalone?: boolean
 
                   <Separator className="bg-border" />
 
-                  {/* Add to Quote buttons */}
+                  {/* Add to Quote buttons - hidden in standalone mode */}
+                  {!standalone && (
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Add to Quote</p>
                     <Button
@@ -203,6 +204,7 @@ export function MailingCalculator({ standalone = false }: { standalone?: boolean
                       <span className="font-mono tabular-nums">{formatCurrency(postageTotal)}</span>
                     </Button>
                   </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center">

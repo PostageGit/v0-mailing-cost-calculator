@@ -342,6 +342,7 @@ export function LaborCalculator({ standalone = false }: { standalone?: boolean }
             )}
 
             {/* Add to quote */}
+            {!standalone && (
             <Button
               className="gap-2 mt-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
               onClick={handleAddToQuote}
@@ -359,6 +360,7 @@ export function LaborCalculator({ standalone = false }: { standalone?: boolean }
                 </>
               )}
             </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -407,6 +409,7 @@ export function LaborCalculator({ standalone = false }: { standalone?: boolean }
                     <span className="text-xs font-semibold text-foreground w-16 text-right">
                       {formatCurrency(total)}
                     </span>
+                    {!standalone && (
                     <Button
                       size="sm"
                       className={`h-7 text-xs gap-1 min-w-[60px] transition-colors ${
@@ -422,6 +425,7 @@ export function LaborCalculator({ standalone = false }: { standalone?: boolean }
                         <><ShoppingCart className="h-3 w-3" /> Add</>
                       )}
                     </Button>
+                    )}
                   </div>
                 </div>
               )

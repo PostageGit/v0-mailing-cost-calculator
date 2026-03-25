@@ -415,6 +415,7 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
               onEffectiveTotalChange={setEffectiveTotal}
             />
             <div className="flex gap-2">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -423,6 +424,7 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
               </Button>
+              )}
               {(() => {
                 // Derive approximate dimensions from envelope name for shipping calc
                 const envDims: Record<string, [number, number]> = {

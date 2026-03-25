@@ -369,6 +369,7 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
 
             {/* Add to Quote + Shipping -- below results */}
             <div className="flex gap-2 mt-4">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -377,6 +378,7 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
+              )}
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}

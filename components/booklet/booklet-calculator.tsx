@@ -520,11 +520,13 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false }:
                   onAddToQuote={handleAddMultiQtyToQuote}
                   onAddAll={handleAddAllMultiQty}
                   label="Booklet Quantity Comparison"
+                  hideAddButtons={standalone}
                 />
               )}
 
               {/* Add to Quote + Shipping + Compare with Chat */}
               <div className={`flex gap-2 ${viewMode === "compact" ? "mt-2" : "mt-4"}`}>
+                {!standalone && (
                 <Button
                   onClick={handleAddToQuote}
                   className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -533,6 +535,7 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false }:
                   <Plus className="h-4 w-4" />
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}
                 </Button>
+                )}
                 {viewMode !== "compact" && <ShippingCalcButton
                   pieceWidth={inputs.pageWidth}
                   pieceHeight={inputs.pageHeight}

@@ -10,16 +10,18 @@ import {
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// Import all calculators
-import { PrintingCalculator } from "@/components/printing/printing-calculator"
-import { BookletCalculator } from "@/components/booklet/booklet-calculator"
-import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
-import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
-import { PadCalculator } from "@/components/pad/pad-calculator"
-import { EnvelopeTab } from "@/components/envelope-tab"
-import { MailingCalculator } from "@/components/mailing-calculator"
-import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
-import { LaborCalculator } from "@/components/labor-calculator"
+// Import standalone calculator wrappers (no quote dependencies)
+import {
+  StandalonePrintingCalculator,
+  StandaloneBookletCalculator,
+  StandalonePerfectCalculator,
+  StandaloneSpiralCalculator,
+  StandalonePadCalculator,
+  StandaloneEnvelopeCalculator,
+  StandaloneMailingCalculator,
+  StandaloneUSPSPostageCalculator,
+  StandaloneLaborCalculator,
+} from "@/components/standalone-calculator-wrappers"
 
 // Import all settings
 import { PapersSettings } from "@/components/papers-settings"
@@ -162,27 +164,27 @@ export function CalculatorsHub() {
   const [activeCalculator, setActiveCalculator] = useState<string | null>(null)
   const [activeSetting, setActiveSetting] = useState<string | null>(null)
 
-  // Render active calculator
+  // Render active calculator (using standalone wrappers - no quote dependencies)
   const renderCalculator = () => {
     switch (activeCalculator) {
       case "flat-printing":
-        return <PrintingCalculator standalone />
+        return <StandalonePrintingCalculator />
       case "booklet":
-        return <BookletCalculator standalone />
+        return <StandaloneBookletCalculator />
       case "perfect":
-        return <PerfectCalculator standalone />
+        return <StandalonePerfectCalculator />
       case "spiral":
-        return <SpiralCalculator standalone />
+        return <StandaloneSpiralCalculator />
       case "pad":
-        return <PadCalculator standalone />
+        return <StandalonePadCalculator />
       case "envelope":
-        return <EnvelopeTab standalone />
+        return <StandaloneEnvelopeCalculator />
       case "mailing":
-        return <MailingCalculator standalone />
+        return <StandaloneMailingCalculator />
       case "usps":
-        return <USPSPostageCalculator standalone />
+        return <StandaloneUSPSPostageCalculator />
       case "labor":
-        return <LaborCalculator standalone />
+        return <StandaloneLaborCalculator />
       default:
         return null
     }
