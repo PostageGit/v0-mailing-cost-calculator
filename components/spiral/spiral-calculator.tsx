@@ -364,6 +364,7 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
                 onAddToQuote={handleAddMultiQtyToQuote}
                 onAddAll={handleAddAllMultiQty}
                 label="Spiral Binding Quantity Comparison"
+                hideAddButtons={standalone}
               />
             )}
 

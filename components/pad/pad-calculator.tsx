@@ -213,6 +213,7 @@ export function PadCalculator({ viewMode = "detailed", standalone = false }: Pad
                 onAddToQuote={handleAddMultiQtyToQuote}
                 onAddAll={handleAddAllMultiQty}
                 label="Pad Quantity Comparison"
+                hideAddButtons={standalone}
               />
             )}
 

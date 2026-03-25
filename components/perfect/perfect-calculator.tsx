@@ -407,6 +407,7 @@ export function PerfectCalculator({ viewMode = "detailed", standalone = false }:
                 onAddToQuote={handleAddMultiQtyToQuote}
                 onAddAll={handleAddAllMultiQty}
                 label="Perfect Bind Quantity Comparison"
+                hideAddButtons={standalone}
               />
             )}
 
