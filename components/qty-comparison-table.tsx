@@ -20,6 +20,7 @@ interface GenericMultiQtyTableProps<T> {
   renderDetail?: (row: GenericQtyRow<T>) => React.ReactNode
   isLoading?: boolean
   label?: string
+  hideAddButtons?: boolean
 }
 
 export function GenericMultiQtyTable<T>({
@@ -29,6 +30,7 @@ export function GenericMultiQtyTable<T>({
   renderDetail,
   isLoading,
   label,
+  hideAddButtons = false,
 }: GenericMultiQtyTableProps<T>) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
@@ -58,6 +60,7 @@ export function GenericMultiQtyTable<T>({
             </p>
           </div>
         </div>
+        {!hideAddButtons && (
         <Button
           variant="outline"
           size="sm"
@@ -68,6 +71,7 @@ export function GenericMultiQtyTable<T>({
           <Plus className="h-3.5 w-3.5" />
           Add All to Quote
         </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
@@ -144,6 +148,7 @@ export function GenericMultiQtyTable<T>({
               {isExpanded && renderDetail && (
                 <div className="border-t border-border/50 px-4 py-3 bg-secondary/20">
                   {renderDetail(row)}
+                  {!hideAddButtons && (
                   <div className="flex justify-end pt-3 border-t border-border/40 mt-3">
                     <Button
                       size="sm"
@@ -154,10 +159,11 @@ export function GenericMultiQtyTable<T>({
                       <Plus className="h-3 w-3" /> Add {row.qty.toLocaleString()} to Quote
                     </Button>
                   </div>
+                  )}
                 </div>
               )}
 
-              {!renderDetail && (
+              {!renderDetail && !hideAddButtons && (
                 <div className="px-3 pb-3 flex justify-end -mt-1">
                   <Button
                     size="sm"

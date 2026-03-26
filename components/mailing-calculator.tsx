@@ -12,7 +12,7 @@ import { calculateCosts, formatCurrency, type MailingInputs } from "@/lib/pricin
 import { useQuote } from "@/lib/quote-context"
 import { Info, Plus } from "lucide-react"
 
-export function MailingCalculator() {
+export function MailingCalculator({ standalone = false }: { standalone?: boolean } = {}) {
   const [inputs, setInputs] = useState<MailingInputs>({
     mailPiece: "",
     quantity: 0,
@@ -175,7 +175,8 @@ export function MailingCalculator() {
 
                   <Separator className="bg-border" />
 
-                  {/* Add to Quote buttons */}
+                  {/* Add to Quote buttons - hidden in standalone mode */}
+                  {!standalone && (
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Add to Quote</p>
                     <Button
@@ -203,6 +204,7 @@ export function MailingCalculator() {
                       <span className="font-mono tabular-nums">{formatCurrency(postageTotal)}</span>
                     </Button>
                   </div>
+                  )}
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center">

@@ -18,6 +18,7 @@ interface MultiQtyComparisonTableProps {
   onAddToQuote: (row: MultiQtyRow) => void
   onAddAll: () => void
   isLoading?: boolean
+  hideAddButtons?: boolean
 }
 
 export function MultiQtyComparisonTable({
@@ -25,6 +26,7 @@ export function MultiQtyComparisonTable({
   onAddToQuote,
   onAddAll,
   isLoading,
+  hideAddButtons = false,
 }: MultiQtyComparisonTableProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
 
@@ -52,6 +54,7 @@ export function MultiQtyComparisonTable({
           <h3 className="text-sm font-semibold text-foreground">Quantity Comparison</h3>
           <p className="text-[11px] text-muted-foreground mt-0.5">{uniqueRows.length} quantities · same specs, same sheet</p>
         </div>
+        {!hideAddButtons && (
         <Button
           variant="outline"
           size="sm"
@@ -62,6 +65,7 @@ export function MultiQtyComparisonTable({
           <Plus className="h-3.5 w-3.5" />
           Add All to Quote
         </Button>
+        )}
       </div>
 
       {/* Column headers */}
@@ -194,6 +198,7 @@ export function MultiQtyComparisonTable({
                       <p className="text-[11px] text-muted-foreground">Subtotal</p>
                       <p className="text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(row.result.grandTotal)}</p>
                     </div>
+                    {!hideAddButtons && (
                     <Button
                       size="sm"
                       className="gap-1.5 rounded-full bg-foreground text-background hover:bg-foreground/90 text-xs h-8 px-4"
@@ -203,6 +208,7 @@ export function MultiQtyComparisonTable({
                       <Plus className="h-3 w-3" />
                       Add {row.qty.toLocaleString()} to Quote
                     </Button>
+                    )}
                   </div>
                 </div>
               )}

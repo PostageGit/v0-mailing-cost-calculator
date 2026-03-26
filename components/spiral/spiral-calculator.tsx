@@ -21,9 +21,10 @@ import { usePapersContext } from "@/lib/papers-context"
 
 interface SpiralCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProps) {
+export function SpiralCalculator({ viewMode = "detailed", standalone = false }: SpiralCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { paperDataLookup } = usePapersContext()
@@ -363,11 +364,13 @@ export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProp
                 onAddToQuote={handleAddMultiQtyToQuote}
                 onAddAll={handleAddAllMultiQty}
                 label="Spiral Binding Quantity Comparison"
+                hideAddButtons={standalone}
               />
             )}
 
             {/* Add to Quote + Shipping -- below results */}
             <div className="flex gap-2 mt-4">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -376,6 +379,8 @@ export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProp
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
+              )}
+              {!standalone && (
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
@@ -385,6 +390,7 @@ export function SpiralCalculator({ viewMode = "detailed" }: SpiralCalculatorProp
                 itemLabel={`${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book`}
                 productType="spiralBinding"
               />
+              )}
             </div>
           </div>
         )}

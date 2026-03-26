@@ -23,9 +23,10 @@ import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-conte
 
 interface PerfectCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorProps) {
+export function PerfectCalculator({ viewMode = "detailed", standalone = false }: PerfectCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -406,11 +407,13 @@ export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorPr
                 onAddToQuote={handleAddMultiQtyToQuote}
                 onAddAll={handleAddAllMultiQty}
                 label="Perfect Bind Quantity Comparison"
+                hideAddButtons={standalone}
               />
             )}
 
             {/* Add to Quote + Shipping + Compare with Chat */}
             <div className="flex gap-2 mt-4">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -419,6 +422,9 @@ export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorPr
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
+              )}
+              {!standalone && (
+              <>
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
@@ -445,6 +451,8 @@ export function PerfectCalculator({ viewMode = "detailed" }: PerfectCalculatorPr
                 <MessageCircle className="h-4 w-4" />
                 Chat Check
               </Button>
+              </>
+              )}
             </div>
           </div>
         )}

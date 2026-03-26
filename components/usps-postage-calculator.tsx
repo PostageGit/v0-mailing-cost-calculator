@@ -91,7 +91,7 @@ function Pill({
 //  TAB 2 COMPONENT (Parcels & Special) -- kept as-is
 // ═══════════════════════════════════════════════════════════════
 
-function Tab2Parcels() {
+function Tab2Parcels({ standalone = false }: { standalone?: boolean }) {
   const mailing = useMailing()
   const [inputs, setInputs] = useState<Tab2Inputs>(() => ({
     service: "PS",
@@ -318,6 +318,7 @@ function Tab2Parcels() {
           />
           <span className="text-muted-foreground text-[10px]">c</span>
         </div>
+        {!standalone && (
         <button
           onClick={handleAddToQuote}
           disabled={!result.isValid}
@@ -326,6 +327,7 @@ function Tab2Parcels() {
           <Plus className="h-4 w-4" />
           Add
         </button>
+        )}
       </div>
     </div>
   )
@@ -336,7 +338,7 @@ function Tab2Parcels() {
 //  TAB 1 COMPONENT (Letters & Flats) -- REDESIGNED
 // ═══════════════════════════════════════════════════════════════
 
-function Tab1LettersFlats() {
+function Tab1LettersFlats({ standalone = false }: { standalone?: boolean }) {
   const mailing = useMailing()
   const [inputs, setInputs] = useState<USPSInputs>(() => ({
     service: (mailing.mailService as USPSInputs["service"]) || "FCM_COMM",
@@ -1079,6 +1081,7 @@ function Tab1LettersFlats() {
               />
               <span className="text-muted-foreground text-[10px]">c</span>
             </div>
+            {!standalone && (
             <button
               onClick={handleAddToQuote}
               disabled={!result.isValid}
@@ -1087,6 +1090,7 @@ function Tab1LettersFlats() {
               <Plus className="h-4 w-4" />
               Add to Quote
             </button>
+            )}
           </div>
         </div>
 
@@ -1258,7 +1262,7 @@ function ListRentalsAddOn({ quantity }: { quantity: number }) {
 //  MAIN EXPORT -- Tab switcher
 // ═══════════════════════════════════════════════════════════════
 
-export function USPSPostageCalculator() {
+export function USPSPostageCalculator({ standalone = false }: { standalone?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<1 | 2>(1)
   const mailing = useMailing()
   const suggestedShapes = mailing.suggestedShapes
@@ -1298,7 +1302,7 @@ export function USPSPostageCalculator() {
         </button>
       </div>
 
-      {activeTab === 1 ? <Tab1LettersFlats /> : <Tab2Parcels />}
+      {activeTab === 1 ? <Tab1LettersFlats standalone={standalone} /> : <Tab2Parcels standalone={standalone} />}
     </div>
   )
 }

@@ -45,9 +45,10 @@ const EMPTY_INPUTS: BookletInputs = {
 
 interface BookletCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorProps) {
+export function BookletCalculator({ viewMode = "detailed", standalone = false }: BookletCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -519,11 +520,13 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
                   onAddToQuote={handleAddMultiQtyToQuote}
                   onAddAll={handleAddAllMultiQty}
                   label="Booklet Quantity Comparison"
+                  hideAddButtons={standalone}
                 />
               )}
 
               {/* Add to Quote + Shipping + Compare with Chat */}
               <div className={`flex gap-2 ${viewMode === "compact" ? "mt-2" : "mt-4"}`}>
+                {!standalone && (
                 <Button
                   onClick={handleAddToQuote}
                   className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -532,7 +535,8 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
                   <Plus className="h-4 w-4" />
                   Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}
                 </Button>
-                {viewMode !== "compact" && <ShippingCalcButton
+                )}
+                {viewMode !== "compact" && !standalone && <ShippingCalcButton
                   pieceWidth={inputs.pageWidth}
                   pieceHeight={inputs.pageHeight}
                   quantity={inputs.bookQty}
@@ -580,7 +584,7 @@ export function BookletCalculator({ viewMode = "detailed" }: BookletCalculatorPr
                     return insideTotalOz + coverTotalOz
                   })()}
                 />}
-                {viewMode !== "compact" && (
+                {viewMode !== "compact" && !standalone && (
                   <Button
                     onClick={() => sendToChat(bookletSpecsToChat(inputs))}
                     variant="outline"

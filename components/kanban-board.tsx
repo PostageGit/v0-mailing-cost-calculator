@@ -15,6 +15,7 @@ import { buildQuotePDF, quotePdfFilename } from "@/lib/build-quote-pdf"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
 import { StandaloneRevisionDialog } from "@/components/revision-history-dialog"
+import { CustomerSearchCombobox } from "@/components/customer-search-combobox"
 import {
   FileText, Trash2, ArrowRight, ArrowLeft, Ban,
   Pencil, Clock, Loader2, X, Save, ClipboardCopy, Check, RotateCcw,
@@ -23,7 +24,7 @@ import {
   Paperclip, Upload, File, FileImage, FileSpreadsheet, Download,
   Hash, GripVertical, NotepadText, ExternalLink, User, CirclePlus,
   LayoutPanelLeft, Zap, Info, MapPin, Users, SkipForward, Calendar,
-  List, LayoutGrid, Send, History, GitBranch, ChevronUp,
+  List, LayoutGrid, Send, History, GitBranch, ChevronUp, CheckCircle2,
 } from "lucide-react"
 
 /* ── Types ── */
@@ -74,6 +75,84 @@ const fetcher = async (url: string) => {
 
 function fmtDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SMART NEXT STEP SYSTEM
+// Every job card shows ONE colored banner indicating the most important blocker.
+// The system checks conditions in STRICT order - first unmet condition wins.
+// ══════════════════════════════════════════════════════════════════════════════
+
+type NextStepAction = 
+  | { type: "input"; field: "contact_name" | "zendesk_ticket" | "quantity" }
+  | { type: "select"; field: "assignee" }
+  | { type: "date"; field: "mailing_date" }
+  | { type: "checkbox"; field: keyof JobMeta }
+  | { type: "done" }
+
+interface NextStepResult {
+  msg: string
+  color: string      // text color
+  bg: string         // background color
+  border: string     // border color
+  priority: number   // 1=critical, 2=setup, 3=workflow, 4=billing, 5=done
+  action: NextStepAction
+}
+
+// Checklist items in workflow order for "Next: X" display
+const CHECKLIST_ORDER: Array<{ key: keyof JobMeta; label: string }> = [
+  { key: "prints_arrived", label: "Prints Arrived" },
+  { key: "bcc_done", label: "BCC" },
+  { key: "paperwork_done", label: "Paperwork" },
+  { key: "folder_archived", label: "Archive Folder" },
+  { key: "job_mailed", label: "Mail Job" },
+  { key: "invoice_updated", label: "Update Invoice" },
+  { key: "invoice_emailed", label: "Email Invoice" },
+  { key: "paid_postage", label: "Postage Payment" },
+  { key: "paid_full", label: "Full Payment" },
+]
+
+function getJobNextStep(q: Quote): NextStepResult | null {
+  if (!q.is_job) return null
+  const jm = q.job_meta || {}
+  const customerName = q.contact_name || ""
+  const assignee = (jm.assignee as string) || ""
+  const zdTicket = (jm.zendesk_ticket as string) || ""
+  
+  // ═══ PRIORITY 1: No customer name (RED - critical) ═══
+  if (!customerName) {
+    return { msg: "Add customer name", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", priority: 1, action: { type: "input", field: "contact_name" } }
+  }
+  
+  // ═══ PRIORITY 2: No sales rep assigned (ORANGE) ═══
+  if (!assignee || assignee === "Unas." || assignee === "Unassigned") {
+    return { msg: "Assign a sales rep", color: "#EA580C", bg: "#FFF7ED", border: "#FED7AA", priority: 1, action: { type: "select", field: "assignee" } }
+  }
+  
+  // ═══ PRIORITY 3: No ZD ticket (AMBER) ═══
+  if (!zdTicket) {
+    return { msg: "Add ZD ticket #", color: "#B45309", bg: "#FFFBEB", border: "#FDE68A", priority: 2, action: { type: "input", field: "zendesk_ticket" } }
+  }
+  
+  // ═══ PRIORITY 4: No quantity (BLUE) ═══
+  if (!q.quantity || q.quantity === 0) {
+    return { msg: "Add piece quantity", color: "#2563EB", bg: "#EFF6FF", border: "#BFDBFE", priority: 2, action: { type: "input", field: "quantity" } }
+  }
+  
+  // ═══ PRIORITY 5: No mailing date (PURPLE) ═══
+  if (!q.mailing_date) {
+    return { msg: "Set mailing date", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE", priority: 2, action: { type: "date", field: "mailing_date" } }
+  }
+  
+  // ═══ PRIORITY 6: Checklist items in workflow order (GRAY) ═══
+  for (const item of CHECKLIST_ORDER) {
+    if (!jm[item.key]) {
+      return { msg: `Next: ${item.label}`, color: "#4B5563", bg: "#F9FAFB", border: "#E5E7EB", priority: 3, action: { type: "checkbox", field: item.key } }
+    }
+  }
+  
+  // ═══ PRIORITY 7: All done! (GREEN) ═══
+  return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
 function matchesSearch(q: Quote, term: string): boolean {
@@ -719,6 +798,44 @@ const DEFAULT_NEXT_STEPS = [
   "Brand New",
 ]
 
+// Map workflow steps to the job_meta field they complete when done
+// When a step is removed (marked complete), we set the corresponding field to true
+const STEP_TO_FIELD_MAP: Record<string, keyof JobMeta> = {
+  "Prints Arrived": "prints_arrived",
+  "Working on Mailing": "bcc_done",
+  "Ready to Mail": "paperwork_done",
+  "Out for Delivery": "job_mailed",
+}
+
+// Reverse: Map job_meta fields to their corresponding workflow step
+// Used to auto-suggest the next step based on incomplete fields
+const FIELD_TO_STEP_MAP: Record<string, string> = {
+  "prints_arrived": "Waiting for Prints",
+  "bcc_done": "Working on Mailing",
+  "paperwork_done": "Ready to Mail",
+  "folder_archived": "Archive Folder",
+  "job_mailed": "Out for Delivery",
+  "invoice_updated": "Update Invoice",
+  "invoice_emailed": "Email Invoice",
+  "paid_postage": "Awaiting Postage Payment",
+  "paid_full": "Awaiting Full Payment",
+}
+
+// Get smart suggested next step based on incomplete checklist items
+function getSmartNextStep(meta: JobMeta): string | null {
+  // Priority order of workflow steps
+  if (!meta.prints_arrived) return "Waiting for Prints"
+  if (!meta.bcc_done) return "Working on Mailing"
+  if (!meta.paperwork_done) return "Paperwork Needed"
+  if (!meta.folder_archived) return "Archive Folder"
+  if (!meta.job_mailed) return "Ready to Mail"
+  if (!meta.invoice_updated) return "Update Invoice"
+  if (!meta.invoice_emailed) return "Email Invoice"
+  if (!meta.paid_postage) return "Awaiting Postage"
+  if (!meta.paid_full) return "Awaiting Payment"
+  return null // All done!
+}
+
 const ZENDESK_BASE = "https://postageplus.zendesk.com/agent/tickets/"
 
 /* ═���══������═���══════════��═���════════════��══���═══════════���════
@@ -766,6 +883,258 @@ function QuickNotesPopup({ value, onChange, onClose }: { value: string; onChange
           className="text-[10px] font-medium text-foreground hover:text-foreground/70 transition-colors">Done</button>
       </div>
     </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════
+   SMART NEXT STEP BANNER - Interactive, actionable banner
+   Shows ONE blocker and lets user fix it inline
+   ════════════════════════════════════════════════════ */
+function SmartNextStepBanner({ 
+  quote, 
+  step, 
+  team,
+  customers,
+  onUpdateQuote,
+  onUpdateMeta,
+  onSelectCustomer,
+  size = "normal"
+}: { 
+  quote: Quote
+  step: NextStepResult
+  team: Array<{ id: string; name: string; color: string }>
+  customers?: Array<{ id: string; company_name: string; contact_name?: string }>
+  onUpdateQuote: (updates: Partial<Quote>) => void
+  onUpdateMeta: (updates: Partial<JobMeta>) => void
+  onSelectCustomer?: (customerId: string) => void
+  size?: "normal" | "compact"
+}) {
+  const [editing, setEditing] = useState(false)
+  const [inputValue, setInputValue] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [editing])
+
+  const handleAction = () => {
+    if (step.action.type === "done") return
+    
+    if (step.action.type === "checkbox") {
+      // Immediately toggle the checkbox
+      onUpdateMeta({ [step.action.field]: true })
+      return
+    }
+    
+    // For other types, enter edit mode
+    setEditing(true)
+    setInputValue("")
+  }
+
+  const handleSubmit = () => {
+    if (!inputValue.trim()) {
+      setEditing(false)
+      return
+    }
+    
+    const action = step.action
+    if (action.type === "input") {
+      if (action.field === "contact_name") {
+        onUpdateQuote({ contact_name: inputValue.trim() })
+      } else if (action.field === "zendesk_ticket") {
+        onUpdateMeta({ zendesk_ticket: inputValue.trim() })
+      } else if (action.field === "quantity") {
+        const qty = parseInt(inputValue.replace(/,/g, ""), 10)
+        if (!isNaN(qty) && qty > 0) {
+          onUpdateQuote({ quantity: qty })
+        }
+      }
+    } else if (action.type === "date") {
+      onUpdateQuote({ mailing_date: inputValue })
+    }
+    
+    setEditing(false)
+    setInputValue("")
+  }
+
+  const handleSelectAssignee = (name: string) => {
+    onUpdateMeta({ assignee: name })
+    setEditing(false)
+  }
+
+  const isCompact = size === "compact"
+
+  // Editing mode - show inline input
+  if (editing) {
+    const action = step.action
+
+    // Customer picker - use real customer search
+    if (action.type === "input" && action.field === "contact_name") {
+      return (
+        <div 
+          className={cn(
+            "w-full rounded-lg border-2 overflow-hidden",
+            isCompact ? "text-[11px]" : "text-[13px]"
+          )}
+          style={{ backgroundColor: step.bg, borderColor: step.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 flex items-center justify-between border-b" style={{ borderColor: step.border }}>
+            <span className="font-semibold" style={{ color: step.color }}>Select Customer:</span>
+            <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-2">
+            <CustomerSearchCombobox
+              customers={customers as any}
+              selectedId={quote.customer_id || null}
+              onSelect={(id) => {
+                if (id && onSelectCustomer) {
+                  onSelectCustomer(id)
+                }
+                setEditing(false)
+              }}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    // Assignee select dropdown
+    if (action.type === "select" && action.field === "assignee") {
+      return (
+        <div 
+          className={cn(
+            "w-full rounded-lg border-2 overflow-hidden",
+            isCompact ? "text-[11px]" : "text-[13px]"
+          )}
+          style={{ backgroundColor: step.bg, borderColor: step.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 flex items-center justify-between border-b" style={{ borderColor: step.border }}>
+            <span className="font-semibold" style={{ color: step.color }}>Select Rep:</span>
+            <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-1">
+            {team.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => handleSelectAssignee(m.name)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-white/50 transition-colors text-left"
+              >
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
+                <span className="font-medium text-gray-700">{m.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Date picker
+    if (action.type === "date") {
+      return (
+        <div 
+          className={cn(
+            "w-full rounded-lg border-2 flex items-center gap-2",
+            isCompact ? "px-2 py-1.5" : "px-3 py-2"
+          )}
+          style={{ backgroundColor: step.bg, borderColor: step.border }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Calendar className={cn("shrink-0", isCompact ? "h-3 w-3" : "h-4 w-4")} style={{ color: step.color }} />
+          <input
+            ref={inputRef}
+            type="date"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSubmit()
+              if (e.key === "Escape") setEditing(false)
+            }}
+            className={cn(
+              "flex-1 bg-transparent outline-none font-semibold",
+              isCompact ? "text-[11px]" : "text-[13px]"
+            )}
+            style={{ color: step.color }}
+          />
+          <button onClick={handleSubmit} className="shrink-0 px-2 py-0.5 rounded bg-white/50 font-semibold text-[11px]" style={{ color: step.color }}>
+            Save
+          </button>
+          <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+            <X className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />
+          </button>
+        </div>
+      )
+    }
+
+    // Text/number input
+    return (
+      <div 
+        className={cn(
+          "w-full rounded-lg border-2 flex items-center gap-2",
+          isCompact ? "px-2 py-1.5" : "px-3 py-2"
+        )}
+        style={{ backgroundColor: step.bg, borderColor: step.border }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          ref={inputRef}
+          type={action.type === "input" && action.field === "quantity" ? "number" : "text"}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit()
+            if (e.key === "Escape") setEditing(false)
+          }}
+          placeholder={
+            action.type === "input" && action.field === "contact_name" ? "Enter customer name..." :
+            action.type === "input" && action.field === "zendesk_ticket" ? "Enter ZD ticket #..." :
+            action.type === "input" && action.field === "quantity" ? "Enter quantity..." :
+            "Enter value..."
+          }
+          className={cn(
+            "flex-1 bg-transparent outline-none font-semibold placeholder:font-normal placeholder:opacity-60",
+            isCompact ? "text-[11px]" : "text-[13px]"
+          )}
+          style={{ color: step.color }}
+        />
+        <button onClick={handleSubmit} className="shrink-0 px-2 py-0.5 rounded bg-white/50 font-semibold text-[11px]" style={{ color: step.color }}>
+          Save
+        </button>
+        <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
+          <X className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />
+        </button>
+      </div>
+    )
+  }
+
+  // Default display mode - clickable banner
+  const isCheckbox = step.action.type === "checkbox"
+  const isDone = step.action.type === "done"
+
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); handleAction() }}
+      disabled={isDone}
+      className={cn(
+        "w-full rounded-lg border-2 font-bold transition-all flex items-center justify-center gap-2",
+        isCompact ? "px-2.5 py-1.5 text-[11px]" : "px-4 py-3 text-[13px]",
+        !isDone && "hover:opacity-80 cursor-pointer",
+        isDone && "cursor-default"
+      )}
+      style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
+    >
+      {isCheckbox && <Check className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />}
+      {isDone && <CheckCircle2 className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />}
+      <span>{step.msg}</span>
+      {!isDone && !isCheckbox && <ChevronRight className={cn(isCompact ? "h-3 w-3" : "h-4 w-4")} />}
+    </button>
   )
 }
 
@@ -919,7 +1288,7 @@ function NextStepAdd({ steps, onAdd, existingSteps }: { steps: string[]; onAdd: 
 
 /* ������═══════════════����════��═════════════════════════════
    MAIL DATE PICKER (Yesterday / Today / Tomorrow / custom)
-   ══════════════�����═════���════════���═══════════��═════════ */
+   ══════════════�����═════�������════════���═══════════��═════════ */
 function getDateLabel(dateStr: string | undefined) {
   if (!dateStr) return null
   const d = new Date(dateStr + "T12:00:00")
@@ -1022,6 +1391,7 @@ function QuoteCard({
   const { data: appSettings } = useSWR<Record<string, unknown>>("/api/app-settings", fetcher)
   const { data: vendors } = useSWR<Vendor[]>(open ? "/api/vendors" : null, fetcher)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; department: string | null; role: string; is_active: boolean }>>("/api/team", fetcher)
+  const { data: customers } = useSWR<Array<{ id: string; company_name: string; contact_name?: string }>>("/api/customers", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
   const nextSteps: string[] = (appSettings?.next_steps as string[] | undefined) || DEFAULT_NEXT_STEPS
   const colIdx = columns.findIndex((c) => c.id === quote.column_id)
@@ -1040,6 +1410,11 @@ function QuoteCard({
 
   const updateMeta = (patch: Partial<JobMeta>) => {
     onPatch(quote.id, { job_meta: { ...rawMeta, ...patch } })
+  }
+  
+  // Wrapper for SmartNextStepBanner to update quote fields directly
+  const patchQuote = (id: string, updates: Partial<Quote>) => {
+    onPatch(id, updates as Record<string, unknown>)
   }
 
   return (
@@ -1109,6 +1484,35 @@ function QuoteCard({
 
           {/* Row 2: Contact name as subtitle */}
           <p className="text-sm font-medium text-muted-foreground truncate mb-2.5">{quote.contact_name || "\u00A0"}</p>
+
+          {/* SMART NEXT STEP BANNER - Interactive, click to complete action */}
+          {boardType === "job" && (() => {
+            const step = getJobNextStep(quote)
+            if (!step) return null
+            return (
+              <div className="mb-3">
+                <SmartNextStepBanner
+                  quote={quote}
+                  step={step}
+                  team={activeTeam}
+                  customers={customers}
+                  onUpdateQuote={(updates) => patchQuote(quote.id, updates)}
+                  onUpdateMeta={(updates) => updateMeta(updates)}
+                  onSelectCustomer={(customerId) => {
+                    // Find customer and update quote with customer_id and contact_name
+                    const customer = customers?.find(c => c.id === customerId)
+                    if (customer) {
+                      patchQuote(quote.id, { 
+                        customer_id: customerId, 
+                        contact_name: customer.contact_name || customer.company_name 
+                      })
+                    }
+                  }}
+                  size="compact"
+                />
+              </div>
+            )
+          })()}
 
           {/* Row 3: Tags strip -- Overdue + Assignee + Mail Class + Date */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -1234,7 +1638,27 @@ function QuoteCard({
                     ? [...(meta.active_steps as string[])]
                     : meta.next_step ? [meta.next_step] : []
                   currentSteps.splice(idx, 1)
-                  updateMeta({ active_steps: currentSteps, next_step: currentSteps[0] || "" })
+                  
+                  // SMART: When step is removed (completed), also update corresponding checklist field
+                  const fieldToUpdate = STEP_TO_FIELD_MAP[step]
+                  const metaUpdates: Partial<JobMeta> = { 
+                    active_steps: currentSteps, 
+                    next_step: currentSteps[0] || "" 
+                  }
+                  if (fieldToUpdate) {
+                    metaUpdates[fieldToUpdate] = true
+                  }
+                  
+                  // Auto-add next suggested step if list becomes empty
+                  if (currentSteps.length === 0) {
+                    const suggested = getSmartNextStep({ ...meta, ...metaUpdates })
+                    if (suggested) {
+                      metaUpdates.active_steps = [suggested]
+                      metaUpdates.next_step = suggested
+                    }
+                  }
+                  
+                  updateMeta(metaUpdates)
                 }}
                 onReplace={(v) => {
                   const currentSteps = meta.active_steps && meta.active_steps.length > 0
@@ -1245,6 +1669,22 @@ function QuoteCard({
                 }}
               />
             ))}
+            {/* Smart suggestion: Show suggested next step when no active steps */}
+            {(!meta.active_steps || (meta.active_steps as string[]).length === 0) && !meta.next_step && (() => {
+              const suggested = getSmartNextStep(meta)
+              if (!suggested) return null
+              return (
+                <button
+                  onClick={() => updateMeta({ active_steps: [suggested], next_step: suggested })}
+                  className="flex items-center gap-2 w-full rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200/50 dark:border-blue-800/30 px-3 py-2 text-[12px] hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
+                  <span className="font-medium text-blue-700 dark:text-blue-300">Suggested: {suggested}</span>
+                  <span className="ml-auto text-[10px] text-blue-500 dark:text-blue-400">Click to add</span>
+                </button>
+              )
+            })()}
+            
             {/* Always show "Nxt step" add button */}
             <NextStepAdd
               steps={nextSteps}
@@ -2273,6 +2713,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [fancyCardView, setFancyCardView] = useState(false)
   const [tableRevisionQuote, setTableRevisionQuote] = useState<{ id: string; name?: string; quoteNumber?: number } | null>(null)
   const { data: teamMembers } = useSWR<Array<{ id: string; name: string; color: string; is_active: boolean }>>("/api/team", fetcher)
+  const { data: customers } = useSWR<Array<{ id: string; company_name: string; contact_name?: string }>>("/api/customers", fetcher)
   const activeTeam = useMemo(() => (teamMembers || []).filter((m) => m.is_active), [teamMembers])
 
   // Fetch revisions for expanded row
@@ -2630,6 +3071,94 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
 
       {showSettings && <ColumnSettings columns={cols} onAdd={addColumn} onRename={renameColumn} onDelete={deleteColumn} onReorder={reorderColumns} onClose={() => setShowSettings(false)} />}
 
+      {/* Pipeline Summary for Jobs - shows urgency breakdown */}
+      {isJob && (() => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const tomorrow = new Date(today)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const nextWeek = new Date(today)
+        nextWeek.setDate(nextWeek.getDate() + 7)
+        
+        const urgencyGroups = {
+          overdue: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d < today
+          }),
+          today: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d.getTime() === today.getTime()
+          }),
+          tomorrow: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d.getTime() === tomorrow.getTime()
+          }),
+          upcoming: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d > tomorrow && d <= nextWeek
+          }),
+          later: filteredQuotes.filter(q => {
+            if (!q.mailing_date) return false
+            const d = new Date(q.mailing_date)
+            d.setHours(0, 0, 0, 0)
+            return d > nextWeek
+          }),
+          noDate: filteredQuotes.filter(q => !q.mailing_date)
+        }
+        
+        return (
+          <div className="flex items-center gap-2 mb-3 px-1">
+            {urgencyGroups.overdue.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[11px] font-semibold text-red-600">{urgencyGroups.overdue.length} Overdue</span>
+              </div>
+            )}
+            {urgencyGroups.today.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-[11px] font-semibold text-amber-600">{urgencyGroups.today.length} Today</span>
+              </div>
+            )}
+            {urgencyGroups.tomorrow.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-[11px] font-semibold text-yellow-600">{urgencyGroups.tomorrow.length} Tomorrow</span>
+              </div>
+            )}
+            {urgencyGroups.upcoming.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-[11px] font-semibold text-blue-600">{urgencyGroups.upcoming.length} This Week</span>
+              </div>
+            )}
+            {urgencyGroups.later.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-500/10 border border-slate-500/20">
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span className="text-[11px] font-semibold text-slate-500">{urgencyGroups.later.length} Later</span>
+              </div>
+            )}
+            {urgencyGroups.noDate.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-500/10 border border-gray-500/20">
+                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                <span className="text-[11px] font-semibold text-gray-500">{urgencyGroups.noDate.length} No Date</span>
+              </div>
+            )}
+            <div className="ml-auto text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{filteredQuotes.length}</span> active jobs
+            </div>
+          </div>
+        )
+      })()}
+
       {/* History panel with tabs: Archived, Done, Voided */}
       {showHistory && (
         <div className="rounded-xl border border-border bg-card p-3 mb-3 shrink-0">
@@ -2767,7 +3296,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
       {viewMode === "board" && simpleView && (
         <div className="flex-1 min-h-0 overflow-y-auto bg-background">
           {/* Table Header */}
-          <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px] items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10">
+          <div className={cn(
+            "grid items-center gap-6 px-8 py-5 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-widest border-b border-border/40 sticky top-0 bg-background/98 backdrop-blur-md z-10",
+            isJob ? "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_140px_100px_60px_100px_110px]" : "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px]"
+          )}>
             <span className="w-5"></span>
             <span>{isJob ? "Job" : "Quote"}</span>
             <span>Project / Contact</span>
@@ -2775,6 +3307,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
             <span className="text-center">Assignee</span>
             <span className="text-right">Quantity</span>
             <span className="text-center">Mail Date</span>
+            {isJob && <span className="text-center">Next Step</span>}
             <span className="text-center">Stage</span>
             <span className="text-center">Rev</span>
             <span className="text-right">Total</span>
@@ -2791,7 +3324,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
               return (
                 <div key={q.id} className={cn("border-b border-border/30 transition-all duration-150", isRowExpanded ? "bg-secondary/40" : "hover:bg-secondary/20")}>
                   {/* Main Row */}
-                  <div className="grid grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px] items-center gap-6 px-8 py-5">
+                  <div className={cn(
+                    "grid items-center gap-6 px-8 py-5",
+                    isJob ? "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_140px_100px_60px_100px_110px]" : "grid-cols-[auto_80px_1fr_140px_120px_100px_100px_100px_60px_100px_110px]"
+                  )}>
                     {/* Expand chevron */}
                     <div
                       className="w-5 flex items-center justify-center cursor-pointer rounded-full hover:bg-secondary/80 p-1 transition-colors"
@@ -2828,6 +3364,20 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className={cn("text-[12px] text-center tabular-nums", q.mailing_date ? "text-foreground/80" : "text-muted-foreground/40")}>
                       {q.mailing_date ? fmtDate(q.mailing_date) : "—"}
                     </span>
+                    {/* Next Step (jobs only) - SMART banner showing ONE blocker */}
+                    {isJob && (() => {
+                      const step = getJobNextStep(q)
+                      if (!step) return <span className="text-[12px] text-center text-muted-foreground/40">—</span>
+                      return (
+                        <span 
+                          className="text-[11px] text-center font-semibold px-2.5 py-1 rounded-md truncate border"
+                          style={{ backgroundColor: step.bg, color: step.color, borderColor: step.border }}
+                          title={step.msg}
+                        >
+                          {step.msg}
+                        </span>
+                      )
+                    })()}
                     {/* Stage badge */}
                     <div className="flex justify-center">
                       {col && (
@@ -3382,6 +3932,38 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         {q.reference_number && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">INV {q.reference_number}</span>}
                         {jm.zendesk_ticket && <span className="text-sm font-bold font-mono px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400">ZD# {jm.zendesk_ticket}</span>}
                       </div>
+
+                      {/* SMART NEXT STEP BANNER - Interactive, click to complete action */}
+                      {isJob && (() => {
+                        const step = getJobNextStep(q)
+                        if (!step) return null
+                        return (
+                          <SmartNextStepBanner
+                            quote={q}
+                            step={step}
+                            team={activeTeam}
+                            customers={customers}
+                            onUpdateQuote={(updates) => {
+                              handlePatch(q.id, updates as Record<string, unknown>)
+                              setFullCardModalQuote(prev => prev ? { ...prev, ...updates } : null)
+                            }}
+                            onUpdateMeta={(metaUpdates) => {
+                              const newMeta = { ...jm, ...metaUpdates }
+                              handlePatch(q.id, { job_meta: newMeta })
+                              setFullCardModalQuote(prev => prev ? { ...prev, job_meta: newMeta } : null)
+                            }}
+                            onSelectCustomer={(customerId) => {
+                              const customer = customers?.find(c => c.id === customerId)
+                              if (customer) {
+                                const updates = { customer_id: customerId, contact_name: customer.contact_name || customer.company_name }
+                                handlePatch(q.id, updates)
+                                setFullCardModalQuote(prev => prev ? { ...prev, ...updates } : null)
+                              }
+                            }}
+                            size="normal"
+                          />
+                        )
+                      })()}
 
                       {/* Assignee */}
                       <div className="bg-secondary/30 rounded-xl p-4">

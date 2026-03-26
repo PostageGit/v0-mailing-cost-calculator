@@ -64,9 +64,10 @@ const EMPTY_INPUTS: PrintingInputs = {
 
 interface PrintingCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculatorProps) {
+export function PrintingCalculator({ viewMode = "detailed", standalone = false }: PrintingCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -781,11 +782,13 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
                   rows={multiQtyResults}
                   onAddToQuote={handleAddMultiQtyToQuote}
                   onAddAll={handleAddAllMultiQty}
+                  hideAddButtons={standalone}
                 />
               )}
 
               {/* Add to Quote + Compare with Chat + Shipping */}
               <div className="flex gap-2 mt-4">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -794,6 +797,9 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
               </Button>
+              )}
+              {!standalone && (
+              <>
               <ShippingCalcButton
                 pieceWidth={inputs.width}
                 pieceHeight={inputs.height}
@@ -816,6 +822,8 @@ export function PrintingCalculator({ viewMode = "detailed" }: PrintingCalculator
                 <MessageCircle className="h-4 w-4" />
                 Chat Check
               </Button>
+              </>
+              )}
               </div>
             </div>
           )}

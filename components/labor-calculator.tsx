@@ -46,7 +46,7 @@ function calcItemCost(item: LaborItem, qty: number): number {
   }
 }
 
-export function LaborCalculator() {
+export function LaborCalculator({ standalone = false }: { standalone?: boolean } = {}) {
   const mailing = useMailing()
   const quote = useQuote()
   const { data: allSettings, isLoading } = useSWR<MailClassSetting[]>(
@@ -54,15 +54,23 @@ export function LaborCalculator() {
     fetcher
   )
 
+  // In standalone mode, allow user to set quantity and class directly
+  const [standaloneQty, setStandaloneQty] = useState(1000)
+  const [standaloneClass, setStandaloneClass] = useState("Marketing Mail")
+  
+  // Use standalone values or mailing context values
+  const effectiveQuantity = standalone ? standaloneQty : mailing.quantity
+  const effectiveClassName = standalone ? standaloneClass : mailing.className
+
   // Find settings matching the current USPS class
   const classSetting = useMemo(() => {
     if (!allSettings) return null
     return (
       allSettings.find(
-        (s) => s.class_name.toLowerCase() === mailing.className.toLowerCase()
+        (s) => s.class_name.toLowerCase() === effectiveClassName.toLowerCase()
       ) ?? null
     )
-  }, [allSettings, mailing.className])
+  }, [allSettings, effectiveClassName])
 
   // Track which optional items the user has toggled on
   const [optionalToggles, setOptionalToggles] = useState<
@@ -87,9 +95,9 @@ export function LaborCalculator() {
       .map((item) => ({
         ...item,
         active: isItemActive(item),
-        cost: isItemActive(item) ? calcItemCost(item, mailing.quantity) : 0,
+        cost: isItemActive(item) ? calcItemCost(item, effectiveQuantity) : 0,
       }))
-  }, [classSetting, mailing.quantity, optionalToggles])
+  }, [classSetting, effectiveQuantity, optionalToggles])
 
   const totalLabor = useMemo(
     () => breakdown.reduce((sum, b) => sum + b.cost, 0),
@@ -103,18 +111,18 @@ export function LaborCalculator() {
 
     const activeItems = breakdown.filter((b) => b.active && b.cost > 0)
     const parts = activeItems.map((b) => b.name).join(", ")
-    const desc = `${mailing.className} - ${mailing.quantity.toLocaleString()} pcs - ${parts}`
+    const desc = `${effectiveClassName} - ${effectiveQuantity.toLocaleString()} pcs - ${parts}`
 
     quote.addItem({
       category: "listwork",
-      label: `Labor: ${mailing.className} Class`,
+      label: `Labor: ${effectiveClassName} Class`,
       description: desc,
       amount: Math.round(totalLabor * 100) / 100,
     })
 
     setAddedToQuote(true)
     setTimeout(() => setAddedToQuote(false), 2000)
-  }, [classSetting, breakdown, totalLabor, mailing, quote])
+  }, [classSetting, breakdown, totalLabor, effectiveClassName, effectiveQuantity, quote])
 
   // ---------- Related items for this labor class ----------
   interface DbItem {
@@ -174,37 +182,69 @@ export function LaborCalculator() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Current context from USPS calc */}
-          <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/40 rounded-lg">
-            <div className="flex items-center gap-1.5">
-              <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">
-                {mailing.quantity.toLocaleString()}
-              </span>
-              <span className="text-xs text-muted-foreground">pieces</span>
+          {/* Standalone mode inputs OR context display */}
+          {standalone ? (
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/40 rounded-lg">
+              <div className="flex items-center gap-1.5">
+                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="number"
+                  min="1"
+                  value={standaloneQty}
+                  onChange={(e) => setStandaloneQty(parseInt(e.target.value) || 1)}
+                  className="h-8 text-sm w-28"
+                  placeholder="Quantity"
+                />
+                <span className="text-xs text-muted-foreground">pieces</span>
+              </div>
+              <Separator orientation="vertical" className="h-5" />
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={standaloneClass}
+                  onChange={(e) => setStandaloneClass(e.target.value)}
+                  className="h-8 text-sm px-2 rounded border border-input bg-background"
+                >
+                  {availableClasses.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <span className="text-xs text-muted-foreground">
+                  mail class
+                </span>
+              </div>
             </div>
-            <Separator orientation="vertical" className="h-5" />
-            <div className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="text-xs font-semibold">
-                {mailing.className}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                mail class
-              </span>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/40 rounded-lg">
+              <div className="flex items-center gap-1.5">
+                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">
+                  {effectiveQuantity.toLocaleString()}
+                </span>
+                <span className="text-xs text-muted-foreground">pieces</span>
+              </div>
+              <Separator orientation="vertical" className="h-5" />
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="text-xs font-semibold">
+                  {effectiveClassName}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  mail class
+                </span>
+              </div>
+              {availableClasses.length > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-5" />
+                  <div className="flex items-center gap-1.5">
+                    <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {availableClasses.length} class
+                      {availableClasses.length !== 1 ? "es" : ""} configured
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
-            {availableClasses.length > 0 && (
-              <>
-                <Separator orientation="vertical" className="h-5" />
-                <div className="flex items-center gap-1.5">
-                  <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    {availableClasses.length} class
-                    {availableClasses.length !== 1 ? "es" : ""} configured
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -223,11 +263,11 @@ export function LaborCalculator() {
             <AlertCircle className="h-8 w-8 text-amber-500 opacity-60" />
             <p className="text-sm font-medium text-foreground text-center text-balance">
               No labor settings found for{" "}
-              <span className="font-bold">{mailing.className}</span>
+              <span className="font-bold">{effectiveClassName}</span>
             </p>
             <p className="text-xs text-muted-foreground text-center text-pretty max-w-md">
               Open the Settings panel (gear icon in the header) and add a mail
-              class named &quot;{mailing.className}&quot; with your labor rates.
+              class named &quot;{effectiveClassName}&quot; with your labor rates.
               Available classes:{" "}
               {availableClasses.length > 0
                 ? availableClasses.join(", ")
@@ -330,18 +370,19 @@ export function LaborCalculator() {
             </div>
 
             {/* Per piece */}
-            {mailing.quantity > 0 && totalLabor > 0 && (
+            {effectiveQuantity > 0 && totalLabor > 0 && (
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs text-muted-foreground">
                   Per piece labor
                 </span>
                 <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                  {formatCurrency(totalLabor / mailing.quantity)}
+                  {formatCurrency(totalLabor / effectiveQuantity)}
                 </span>
               </div>
             )}
 
             {/* Add to quote */}
+            {!standalone && (
             <Button
               className="gap-2 mt-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
               onClick={handleAddToQuote}
@@ -359,6 +400,7 @@ export function LaborCalculator() {
                 </>
               )}
             </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -407,6 +449,7 @@ export function LaborCalculator() {
                     <span className="text-xs font-semibold text-foreground w-16 text-right">
                       {formatCurrency(total)}
                     </span>
+                    {!standalone && (
                     <Button
                       size="sm"
                       className={`h-7 text-xs gap-1 min-w-[60px] transition-colors ${
@@ -422,6 +465,7 @@ export function LaborCalculator() {
                         <><ShoppingCart className="h-3 w-3" /> Add</>
                       )}
                     </Button>
+                    )}
                   </div>
                 </div>
               )

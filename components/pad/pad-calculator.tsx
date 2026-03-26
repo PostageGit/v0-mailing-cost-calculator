@@ -23,9 +23,10 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface PadCalculatorProps {
   viewMode?: "detailed" | "compact"
+  standalone?: boolean
 }
 
-export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
+export function PadCalculator({ viewMode = "detailed", standalone = false }: PadCalculatorProps) {
   const quote = useQuote()
   const { paperDataLookup } = usePapersContext()
 
@@ -212,11 +213,13 @@ export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
                 onAddToQuote={handleAddMultiQtyToQuote}
                 onAddAll={handleAddAllMultiQty}
                 label="Pad Quantity Comparison"
+                hideAddButtons={standalone}
               />
             )}
 
             {/* Add to Quote + Shipping -- below results */}
             <div className="flex gap-2 mt-4">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -225,6 +228,8 @@ export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
               </Button>
+              )}
+              {!standalone && (
               <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
@@ -233,6 +238,7 @@ export function PadCalculator({ viewMode = "detailed" }: PadCalculatorProps) {
                 sheetsPerPiece={inputs.pagesPerPad + (inputs.useChipBoard ? 1 : 0)}
                 itemLabel={`${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad`}
               />
+              )}
             </div>
           </div>
         )}

@@ -79,7 +79,7 @@ function matchPlannerEnvelope(
   return null
 }
 
-export function EnvelopeTab() {
+export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {}) {
   const quote = useQuote()
   const mailing = useMailing()
   const v = useFormValidation()
@@ -415,6 +415,7 @@ export function EnvelopeTab() {
               onEffectiveTotalChange={setEffectiveTotal}
             />
             <div className="flex gap-2">
+              {!standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -423,13 +424,8 @@ export function EnvelopeTab() {
                 <Plus className="h-4 w-4" />
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
               </Button>
-              {(() => {
-                // Derive approximate dimensions from envelope name for shipping calc
-                const envDims: Record<string, [number, number]> = {
-                  "#6": [3.625, 6.5], "#9": [3.875, 8.875],
-                  "#10 no window": [4.125, 9.5], "#10 with window": [4.125, 9.5],
-                  "6x9": [6, 9], "6x9.5": [6, 9.5], "9x12": [9, 12], "10x13": [10, 13],
-                }
+              )}
+              {!standalone && (() => {
                 const dims = envDims[inputs.itemName]
                 if (!dims) return null
                 return (

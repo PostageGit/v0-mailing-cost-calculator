@@ -25,6 +25,9 @@ import { InvoiceList } from "@/components/invoice-list"
 import { ChatQuotesDashboard } from "@/components/chat-quotes-dashboard"
 import { ExportToQB } from "@/components/export-to-qb"
 import { NonprofitLookup } from "@/components/nonprofit-lookup"
+import WorkflowPage from "@/app/workflow/page"
+import { CalculatorsHub } from "@/components/calculators-hub"
+
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -35,7 +38,7 @@ import {
   Send, Check, ChevronRight, FileText, Receipt, Briefcase, Package,
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
-  SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare, Building2,
+  SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare, Building2, GitBranch,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -75,13 +78,13 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 type Section =
   | "quotes-board" | "jobs-board" | "deliveries" | "billing" | "ohp-bids"
   | "customers" | "invoices" | "export-qb" | "chat-quotes"
-  | "nonprofit-lookup"
+  | "nonprofit-lookup" | "workflow" | "calculators"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
 const NAV_ITEMS: NavItem[] = [
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
-  { id: "jobs-board",   label: "Active Jobs",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
   { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
   { id: "ohp-bids",     label: "OHP Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
@@ -90,6 +93,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
   { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
+  { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools" },
+  { id: "calculators", label: "Calculators", icon: <Stamp className="h-4 w-4" />, group: "tools" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -433,7 +438,7 @@ function AppContent() {
             </div>
           )}
 
-          {/* == JOBS BOARD == */}
+          {/* == PRODUCTION DASHBOARD == */}
           {section === "jobs-board" && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
@@ -502,6 +507,20 @@ function AppContent() {
           {section === "nonprofit-lookup" && (
             <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-6">
               <NonprofitLookup />
+            </div>
+          )}
+
+          {/* == WORKFLOW GUIDE == */}
+          {section === "workflow" && (
+            <div className="flex-1 overflow-auto">
+              <WorkflowPage />
+            </div>
+          )}
+
+          {/* == CALCULATORS HUB == */}
+          {section === "calculators" && (
+            <div className="flex-1 overflow-auto">
+              <CalculatorsHub />
             </div>
           )}
 
