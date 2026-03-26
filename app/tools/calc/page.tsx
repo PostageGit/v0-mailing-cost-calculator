@@ -1,20 +1,24 @@
 "use client"
 
 import { CalculatorsHub } from "@/components/calculators-hub"
+import { PapersProvider } from "@/lib/papers-context"
 
 /**
- * Secret Calculator Tools Page
+ * STANDALONE CALCULATOR TOOLS PAGE
  * 
- * This page is completely separate from the main app.
- * Share this URL only with people who need access.
- * Not linked from anywhere in the main navigation.
+ * Completely isolated from the main PostFlow app.
+ * - No header
+ * - No sidebar  
+ * - No navigation
+ * - Just the calculators
  * 
- * URL: /tools/calc
+ * Share this link with people who only need calculator access:
+ * /tools/calc
  */
 export default function CalculatorToolsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PapersProvider>
       <CalculatorsHub />
-    </div>
+    </PapersProvider>
   )
 }
