@@ -50,17 +50,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Protected routes - require login
-  const protectedPaths = [
-    '/protected',
-    '/standalone/calculators',
-  ]
-
-  const isProtectedPath = protectedPaths.some(path => 
-    request.nextUrl.pathname.startsWith(path)
-  )
-
-  if (isProtectedPath && !user) {
-    // no user, redirect to the login page
+  if (request.nextUrl.pathname.startsWith('/protected') && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
