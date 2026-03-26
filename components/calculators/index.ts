@@ -2,7 +2,14 @@
  * Calculator Components Export
  * 
  * All standalone calculator components exported from here.
+ * Other apps import these and get the EXACT same UX.
  */
+
+// Context Providers (needed for calculators to work)
+export { QuoteProvider } from '../../lib/quote-context'
+export { MailingProvider } from '../../lib/mailing-context'
+export { PapersProvider } from '../../lib/papers-context'
+export { ChatProvider } from '../../lib/chat-context'
 
 // Flat Printing Calculator
 export { PrintingCalculator } from '../printing/printing-calculator'
