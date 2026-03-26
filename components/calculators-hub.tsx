@@ -18,9 +18,7 @@ import {
   StandaloneSpiralCalculator,
   StandalonePadCalculator,
   StandaloneEnvelopeCalculator,
-  StandaloneMailingCalculator,
   StandaloneUSPSPostageCalculator,
-  StandaloneLaborCalculator,
 } from "@/components/standalone-calculator-wrappers"
 
 // Import all settings
@@ -78,25 +76,11 @@ const CALCULATORS = [
     color: "bg-pink-500",
   },
   { 
-    id: "mailing", 
-    name: "Mailing Services", 
-    description: "Addressing, inserting, tabbing, postage",
-    icon: Package,
-    color: "bg-teal-500",
-  },
-  { 
     id: "usps", 
     name: "USPS Postage", 
     description: "Postage rates by class and weight",
     icon: Stamp,
     color: "bg-indigo-500",
-  },
-  { 
-    id: "labor", 
-    name: "Labor Calculator", 
-    description: "Time-based labor pricing",
-    icon: Calculator,
-    color: "bg-slate-500",
   },
 ]
 
@@ -179,12 +163,8 @@ export function CalculatorsHub() {
         return <StandalonePadCalculator />
       case "envelope":
         return <StandaloneEnvelopeCalculator />
-      case "mailing":
-        return <StandaloneMailingCalculator />
       case "usps":
         return <StandaloneUSPSPostageCalculator />
-      case "labor":
-        return <StandaloneLaborCalculator />
       default:
         return null
     }
