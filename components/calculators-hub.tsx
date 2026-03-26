@@ -197,7 +197,8 @@ export function CalculatorsHub({
     const setting = SETTINGS_CATEGORIES.find(s => s.id === activeSetting)
     if (!setting) return null
     const SettingComponent = setting.component
-    return <SettingComponent />
+    // Pass readOnly prop when settings are locked
+    return <SettingComponent readOnly={!settingsUnlocked} />
   }
 
   // If a calculator is active, show it full screen
@@ -268,8 +269,20 @@ export function CalculatorsHub({
           </div>
         </div>
         
+        {/* Read-only banner */}
+        {!settingsUnlocked && (
+          <div className="mx-6 mt-4 p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+            <p className="text-sm text-amber-700 dark:text-amber-300 text-center">
+              View Only - Enter password on Settings page to make changes
+            </p>
+          </div>
+        )}
+        
         {/* Setting content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className={cn(
+          "flex-1 overflow-auto p-6",
+          !settingsUnlocked && "pointer-events-none select-none opacity-80"
+        )}>
           {renderSetting()}
         </div>
       </div>
@@ -342,34 +355,38 @@ export function CalculatorsHub({
 
         {/* Settings Tab */}
         <TabsContent value="settings" className="flex-1 overflow-auto p-6 mt-0">
-          {/* Password lock overlay */}
+          {/* View-only banner when locked */}
           {!settingsUnlocked && (
-            <div className="mb-6 p-6 rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-              <div className="flex items-center gap-3 mb-4">
-                <Settings className="h-5 w-5 text-amber-600" />
-                <h3 className="font-semibold text-amber-800 dark:text-amber-200">Settings Locked</h3>
-              </div>
-              <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
-                Enter password to make changes to settings.
-              </p>
-              <div className="flex gap-3">
-                <input
-                  type="password"
-                  value={passwordInput}
-                  onChange={(e) => {
-                    setPasswordInput(e.target.value)
-                    setShowPasswordError(false)
-                  }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleUnlockSettings()}
-                  placeholder="Enter password"
-                  className="flex-1 px-3 py-2 rounded-lg border bg-white dark:bg-slate-900 text-sm"
-                />
-                <button
-                  onClick={handleUnlockSettings}
-                  className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
-                >
-                  Unlock
-                </button>
+            <div className="mb-6 p-4 rounded-xl border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Settings className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h3 className="font-semibold text-blue-800 dark:text-blue-200">View Only Mode</h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      You can view settings but cannot make changes.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value)
+                      setShowPasswordError(false)
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUnlockSettings()}
+                    placeholder="Password"
+                    className="w-28 px-3 py-1.5 rounded-lg border bg-white dark:bg-slate-900 text-sm"
+                  />
+                  <button
+                    onClick={handleUnlockSettings}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+                  >
+                    Unlock
+                  </button>
+                </div>
               </div>
               {showPasswordError && (
                 <p className="text-sm text-red-600 mt-2">Incorrect password</p>
@@ -381,14 +398,8 @@ export function CalculatorsHub({
             {SETTINGS_CATEGORIES.map((setting) => (
               <button
                 key={setting.id}
-                onClick={() => settingsUnlocked && setActiveSetting(setting.id)}
-                disabled={!settingsUnlocked}
-                className={cn(
-                  "group flex items-start gap-4 p-5 rounded-xl border bg-card transition-all text-left",
-                  settingsUnlocked 
-                    ? "hover:bg-accent/50 hover:border-primary/30 cursor-pointer" 
-                    : "opacity-60 cursor-not-allowed"
-                )}
+                onClick={() => setActiveSetting(setting.id)}
+                className="group flex items-start gap-4 p-5 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all text-left cursor-pointer"
               >
                 <div className="p-3 rounded-xl shrink-0 bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
                   <setting.icon className="h-6 w-6 text-slate-600 dark:text-slate-300" />
