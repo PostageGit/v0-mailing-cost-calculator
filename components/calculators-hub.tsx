@@ -144,9 +144,31 @@ const SETTINGS_CATEGORIES = [
   },
 ]
 
-export function CalculatorsHub() {
+interface CalculatorsHubProps {
+  /** If true, Settings are read-only and require password to edit */
+  settingsLocked?: boolean
+  /** Password to unlock settings editing (default: "1234") */
+  settingsPassword?: string
+}
+
+export function CalculatorsHub({ 
+  settingsLocked = false, 
+  settingsPassword = "1234" 
+}: CalculatorsHubProps) {
   const [activeCalculator, setActiveCalculator] = useState<string | null>(null)
   const [activeSetting, setActiveSetting] = useState<string | null>(null)
+  const [settingsUnlocked, setSettingsUnlocked] = useState(!settingsLocked)
+  const [passwordInput, setPasswordInput] = useState("")
+  const [showPasswordError, setShowPasswordError] = useState(false)
+
+  const handleUnlockSettings = () => {
+    if (passwordInput === settingsPassword) {
+      setSettingsUnlocked(true)
+      setShowPasswordError(false)
+    } else {
+      setShowPasswordError(true)
+    }
+  }
 
   // Render active calculator (using standalone wrappers - no quote dependencies)
   const renderCalculator = () => {
@@ -290,13 +312,6 @@ export function CalculatorsHub() {
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </TabsTrigger>
-            <TabsTrigger 
-              value="inventory" 
-              className="h-12 px-0 pb-3 pt-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-medium"
-            >
-              <Database className="h-4 w-4 mr-2" />
-              Inventory
-            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -327,12 +342,53 @@ export function CalculatorsHub() {
 
         {/* Settings Tab */}
         <TabsContent value="settings" className="flex-1 overflow-auto p-6 mt-0">
+          {/* Password lock overlay */}
+          {!settingsUnlocked && (
+            <div className="mb-6 p-6 rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-3 mb-4">
+                <Settings className="h-5 w-5 text-amber-600" />
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200">Settings Locked</h3>
+              </div>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+                Enter password to make changes to settings.
+              </p>
+              <div className="flex gap-3">
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value)
+                    setShowPasswordError(false)
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleUnlockSettings()}
+                  placeholder="Enter password"
+                  className="flex-1 px-3 py-2 rounded-lg border bg-white dark:bg-slate-900 text-sm"
+                />
+                <button
+                  onClick={handleUnlockSettings}
+                  className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
+                >
+                  Unlock
+                </button>
+              </div>
+              {showPasswordError && (
+                <p className="text-sm text-red-600 mt-2">Incorrect password</p>
+              )}
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {SETTINGS_CATEGORIES.map((setting) => (
               <button
                 key={setting.id}
-                onClick={() => setActiveSetting(setting.id)}
-                className="group flex items-start gap-4 p-5 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all text-left"
+                onClick={() => settingsUnlocked && setActiveSetting(setting.id)}
+                disabled={!settingsUnlocked}
+                className={cn(
+                  "group flex items-start gap-4 p-5 rounded-xl border bg-card transition-all text-left",
+                  settingsUnlocked 
+                    ? "hover:bg-accent/50 hover:border-primary/30 cursor-pointer" 
+                    : "opacity-60 cursor-not-allowed"
+                )}
               >
                 <div className="p-3 rounded-xl shrink-0 bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
                   <setting.icon className="h-6 w-6 text-slate-600 dark:text-slate-300" />
@@ -350,133 +406,7 @@ export function CalculatorsHub() {
           </div>
         </TabsContent>
 
-        {/* Inventory Tab */}
-        <TabsContent value="inventory" className="flex-1 overflow-auto p-6 mt-0">
-          <div className="space-y-8">
-            {/* Paper Stocks Section */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <Layers className="h-5 w-5 text-blue-500" />
-                <h2 className="text-lg font-bold">Paper Stocks</h2>
-                <button 
-                  onClick={() => setActiveSetting("papers")}
-                  className="ml-auto text-sm text-primary hover:underline"
-                >
-                  Manage Papers
-                </button>
-              </div>
-              <InventoryPaperPreview onManage={() => setActiveSetting("papers")} />
-            </div>
-
-            {/* Shipping Boxes Section */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <Package className="h-5 w-5 text-orange-500" />
-                <h2 className="text-lg font-bold">Shipping Boxes</h2>
-                <button 
-                  onClick={() => setActiveSetting("boxes")}
-                  className="ml-auto text-sm text-primary hover:underline"
-                >
-                  Manage Boxes
-                </button>
-              </div>
-              <InventoryBoxPreview onManage={() => setActiveSetting("boxes")} />
-            </div>
-
-            {/* Suppliers Section */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <Truck className="h-5 w-5 text-green-500" />
-                <h2 className="text-lg font-bold">Suppliers & Supplies</h2>
-                <button 
-                  onClick={() => setActiveSetting("suppliers")}
-                  className="ml-auto text-sm text-primary hover:underline"
-                >
-                  Manage Suppliers
-                </button>
-              </div>
-              <InventorySupplierPreview onManage={() => setActiveSetting("suppliers")} />
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
-}
-
-// Inventory preview components
-function InventoryPaperPreview({ onManage }: { onManage: () => void }) {
-  return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-blue-600">12</div>
-          <div className="text-xs text-muted-foreground mt-1">Text Stocks</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-emerald-600">8</div>
-          <div className="text-xs text-muted-foreground mt-1">Cover Stocks</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-purple-600">6</div>
-          <div className="text-xs text-muted-foreground mt-1">Sheet Sizes</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-orange-600">4</div>
-          <div className="text-xs text-muted-foreground mt-1">Envelope Types</div>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground mt-4 text-center">
-        Click &quot;Manage Papers&quot; to add, edit, or remove paper stocks
-      </p>
-    </div>
-  )
-}
-
-function InventoryBoxPreview({ onManage }: { onManage: () => void }) {
-  return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="grid grid-cols-3 gap-4 text-center">
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-orange-600">15</div>
-          <div className="text-xs text-muted-foreground mt-1">Box Sizes</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-blue-600">8</div>
-          <div className="text-xs text-muted-foreground mt-1">In Stock</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-red-600">3</div>
-          <div className="text-xs text-muted-foreground mt-1">Low Stock</div>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground mt-4 text-center">
-        Click &quot;Manage Boxes&quot; to update inventory and dimensions
-      </p>
-    </div>
-  )
-}
-
-function InventorySupplierPreview({ onManage }: { onManage: () => void }) {
-  return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="grid grid-cols-3 gap-4 text-center">
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-green-600">5</div>
-          <div className="text-xs text-muted-foreground mt-1">Suppliers</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-blue-600">24</div>
-          <div className="text-xs text-muted-foreground mt-1">Supply Items</div>
-        </div>
-        <div className="p-4 rounded-lg bg-muted/50">
-          <div className="text-2xl font-bold text-purple-600">6</div>
-          <div className="text-xs text-muted-foreground mt-1">Categories</div>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground mt-4 text-center">
-        Click &quot;Manage Suppliers&quot; to update vendor info and supply catalog
-      </p>
+        </Tabs>
     </div>
   )
 }

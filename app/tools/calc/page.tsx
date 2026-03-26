@@ -18,7 +18,7 @@ import { PapersProvider } from "@/lib/papers-context"
 export default function CalculatorToolsPage() {
   return (
     <PapersProvider>
-      <CalculatorsHub />
+      <CalculatorsHub settingsLocked={true} settingsPassword="1234" />
     </PapersProvider>
   )
 }
