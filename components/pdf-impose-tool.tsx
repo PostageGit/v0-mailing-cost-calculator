@@ -956,17 +956,21 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
   return nd
 }
 
-// N-Up with CROP MARKS built in
-// NOTE: sheetW, sheetH, margin are expected in POINTS (already multiplied by IN)
-// For Step & Repeat with bleed: 
-//   - Grid is calculated based on TRIM size (cards placed at trim intervals)
-//   - Pages are drawn at full size (with bleed) so bleeds OVERLAP between adjacent cards
-//   - Crop marks placed at trim edges
-// This matches Quite Imposing behavior: trim edges touch, bleeds overlap
+// N-Up / Step & Repeat - EXACT Quite Imposing Plus behavior
+// From QI XML: HSpace=0, VSpace=0, DoScaling=ToFit, FitAcross=0, FitDown=0
+// CropDist=10, CropLength=20, CropWidth=0.3, CropStyle=Corners, SheetAlign=C
+//
+// QI BEHAVIOR (from your sequences XML):
+// 1. Pages placed at FULL MediaBox size (including bleed) - NO scaling
+// 2. HSpace=0, VSpace=0 means pages are EDGE-TO-EDGE (MediaBox edges touch)
+// 3. Bleeds naturally OVERLAP because adjacent pages share the bleed space
+// 4. Grid auto-calculated from MediaBox when FitAcross=0, FitDown=0
+// 5. Crop marks at page corners with CropDist offset
+// 6. SheetAlign=C centers entire grid on sheet
 async function opNUp(doc: PDFDocument, params: { 
   rows: number, cols: number, sheetW: number, sheetH: number, margin: number, 
   cropMarks: boolean, stepRepeat?: boolean,
-  trimW?: number, trimH?: number // Optional trim size for layout and crop marks
+  trimW?: number, trimH?: number
 }) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
@@ -975,39 +979,36 @@ async function opNUp(doc: PDFDocument, params: {
   const nd = await PDFDocument.create()
   const sheetW = params.sheetW
   const sheetH = params.sheetH
-  const marginAll = params.margin
+  const margin = params.margin
   
-  // Get source page dimensions (MediaBox - full size including bleed)
+  // Source page = MediaBox (FULL size including bleed) - QI uses this for layout
   const srcPage = pgs[0]
   const srcW = srcPage.getWidth()
   const srcH = srcPage.getHeight()
   
-  // Trim dimensions (if provided) - used for grid layout and crop marks
-  // If no trim specified, assume no bleed (trim = media)
-  const trimW = params.trimW || srcW
-  const trimH = params.trimH || srcH
-  const bleedX = (srcW - trimW) / 2 // bleed amount on each side
-  const bleedY = (srcH - trimH) / 2
-  const hasBleed = bleedX > 0.5 || bleedY > 0.5 // more than ~0.007" bleed
+  // QI crop mark params (from XML: CropDist=10, CropLength=20, CropWidth=0.3)
+  const cropDist = 10
+  const cropLength = 20
+  const cropWidth = 0.3
   
-  // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
-  // KEY: Use TRIM size for grid calculation - this makes trim edges touch
-  // The bleeds will overlap into neighboring cells (which is correct!)
+  // Available area
+  const availW = sheetW - margin * 2
+  const availH = sheetH - margin * 2
+  
+  // Auto-calculate grid (QI: FitAcross=0, FitDown=0 means auto)
+  // QI uses FULL MediaBox size for calculation (HSpace=0, VSpace=0)
   let rows = params.rows
   let cols = params.cols
-  if (rows <= 0 || cols <= 0) {
-    const availW = sheetW - marginAll * 2
-    const availH = sheetH - marginAll * 2
-    // Grid based on TRIM size, not full MediaBox
-    cols = Math.max(1, Math.floor(availW / trimW))
-    rows = Math.max(1, Math.floor(availH / trimH))
-  }
+  if (cols <= 0) cols = Math.max(1, Math.floor(availW / srcW))
+  if (rows <= 0) rows = Math.max(1, Math.floor(availH / srcH))
   
-  // Cell size for positioning
-  // Step & Repeat: cells are TRIM size (pages drawn larger, overlapping)
-  // N-Up: cells are calculated from available space
-  const cW = params.stepRepeat ? trimW : (sheetW - marginAll * 2) / cols
-  const cH = params.stepRepeat ? trimH : (sheetH - marginAll * 2) / rows
+  // Grid dimensions
+  const gridW = cols * srcW
+  const gridH = rows * srcH
+  
+  // QI SheetAlign=C: center grid on sheet
+  const startX = margin + (availW - gridW) / 2
+  const startY = margin + (availH - gridH) / 2
   
   let idx = 0
   const total = params.stepRepeat ? rows * cols : pgs.length
@@ -1022,76 +1023,50 @@ async function opNUp(doc: PDFDocument, params: {
         
         const [e] = await nd.embedPdf(doc, [pi])
         
+        // Position: QI places pages EDGE-TO-EDGE at full MediaBox size
+        // Row 0 is TOP (y increases downward in PDF coords, so we flip)
+        const x = startX + c * srcW
+        const y = startY + (rows - 1 - r) * srcH
+        
         if (params.stepRepeat) {
-          // Step & Repeat: position based on TRIM grid, draw at FULL size
-          // This makes trim edges align while bleeds overlap
-          const trimX = marginAll + c * trimW  // Grid position (trim-based)
-          const trimY = sheetH - marginAll - (r + 1) * trimH
-          // Draw page offset by -bleed so the TRIM aligns with grid position
-          const drawX = trimX - bleedX
-          const drawY = trimY - bleedY
-          sh.drawPage(e, { x: drawX, y: drawY, width: srcW, height: srcH })
-          
-          // CROP MARKS at trim edges (the grid lines)
-          if (params.cropMarks) {
-            const cropLen = 12, cropDist = 3
-            const trimRight = trimX + trimW
-            const trimTop = trimY + trimH
-            
-            // Only draw crop marks if there's bleed to draw into
-            // or at outer edges where there's margin
-            const drawCornerMarks = (cx: number, cy: number, dx: number, dy: number, isOuter: boolean) => {
-              // Check if we have space for marks (bleed or margin)
-              const hasHSpace = isOuter || bleedX > cropLen + cropDist
-              const hasVSpace = isOuter || bleedY > cropLen + cropDist
-              if (hasHSpace) {
-                sh.drawLine({ 
-                  start: { x: cx + cropDist * dx, y: cy }, 
-                  end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
-                  thickness: 0.25, color: rgb(0, 0, 0) 
-                })
-              }
-              if (hasVSpace) {
-                sh.drawLine({ 
-                  start: { x: cx, y: cy + cropDist * dy }, 
-                  end: { x: cx, y: cy + (cropDist + cropLen) * dy }, 
-                  thickness: 0.25, color: rgb(0, 0, 0) 
-                })
-              }
-            }
-            
-            // Determine if this card is on an edge (has margin space for marks)
-            const isLeftEdge = c === 0
-            const isRightEdge = c === cols - 1
-            const isTopEdge = r === 0
-            const isBottomEdge = r === rows - 1
-            
-            // Draw marks at corners - outer edges always have margin space
-            drawCornerMarks(trimX, trimY, -1, -1, isLeftEdge || isBottomEdge)
-            drawCornerMarks(trimRight, trimY, 1, -1, isRightEdge || isBottomEdge)
-            drawCornerMarks(trimX, trimTop, -1, 1, isLeftEdge || isTopEdge)
-            drawCornerMarks(trimRight, trimTop, 1, 1, isRightEdge || isTopEdge)
-          }
+          // Step & Repeat: 1:1 scale, no resizing
+          sh.drawPage(e, { x, y, width: srcW, height: srcH })
         } else {
-          // N-Up: scale to fit cell, center in cell
-          const x = marginAll + c * cW
-          const y = sheetH - marginAll - (r + 1) * cH
-          const s = Math.min(cW / e.width, cH / e.height)
-          const dw = e.width * s, dh = e.height * s
-          sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
+          // N-Up: scale to fit cell, centered
+          const cellW = availW / cols
+          const cellH = availH / rows
+          const scale = Math.min(cellW / e.width, cellH / e.height)
+          const dw = e.width * scale, dh = e.height * scale
+          const cx = margin + c * cellW + (cellW - dw) / 2
+          const cy = margin + (rows - 1 - r) * cellH + (cellH - dh) / 2
+          sh.drawPage(e, { x: cx, y: cy, width: dw, height: dh })
+        }
+        
+        // CROP MARKS - QI style: CropStyle=Corners, at page edges with CropDist offset
+        if (params.cropMarks) {
+          const left = x
+          const right = x + srcW
+          const bottom = y
+          const top = y + srcH
           
-          // Crop marks at cell edges for N-up
-          if (params.cropMarks) {
-            const cropLen = 10, cropDist = 3
-            const corners: [number, number, number, number][] = [
-              [x, y, -1, -1], [x + cW, y, 1, -1],
-              [x, y + cH, -1, 1], [x + cW, y + cH, 1, 1]
-            ]
-            for (const [cx, cy, dx, dy] of corners) {
-              sh.drawLine({ start: { x: cx + cropDist * dx, y: cy }, end: { x: cx + (cropDist + cropLen) * dx, y: cy }, thickness: 0.25, color: rgb(0, 0, 0) })
-              sh.drawLine({ start: { x: cx, y: cy + cropDist * dy }, end: { x: cx, y: cy + (cropDist + cropLen) * dy }, thickness: 0.25, color: rgb(0, 0, 0) })
-            }
+          // L-shaped corner marks (QI CropStyle: Corners)
+          const mark = (cx: number, cy: number, dx: number, dy: number) => {
+            sh.drawLine({ 
+              start: { x: cx + cropDist * dx, y: cy }, 
+              end: { x: cx + (cropDist + cropLength) * dx, y: cy }, 
+              thickness: cropWidth, color: rgb(0, 0, 0) 
+            })
+            sh.drawLine({ 
+              start: { x: cx, y: cy + cropDist * dy }, 
+              end: { x: cx, y: cy + (cropDist + cropLength) * dy }, 
+              thickness: cropWidth, color: rgb(0, 0, 0) 
+            })
           }
+          
+          mark(left, bottom, -1, -1)   // bottom-left
+          mark(right, bottom, 1, -1)   // bottom-right
+          mark(left, top, -1, 1)       // top-left
+          mark(right, top, 1, 1)       // top-right
         }
         idx++
       }
