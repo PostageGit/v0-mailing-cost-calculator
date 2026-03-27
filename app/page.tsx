@@ -28,6 +28,7 @@ import { NonprofitLookup } from "@/components/nonprofit-lookup"
 import WorkflowPage from "@/app/workflow/page"
 import { CalculatorsHub } from "@/components/calculators-hub"
 import { PDFBatchTool } from "@/components/pdf-batch-tool"
+import { PDFImposeTool } from "@/components/pdf-impose-tool"
 
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
@@ -40,7 +41,7 @@ import {
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
   SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare, Building2, GitBranch,
-  FileStack,
+  FileStack, Layers3, FolderOpen,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -101,6 +102,60 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 type JobPhase = "planner" | "pricing"
+
+// ---- PDF Tools Section with tabs ----
+function PDFToolsSection() {
+  const [activeTab, setActiveTab] = useState<"batch" | "impose">("batch")
+  
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header with tabs */}
+      <div className="shrink-0 border-b border-border bg-card/50">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">PDF Tools</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">Batch organize and impose PDF files</p>
+            </div>
+          </div>
+          {/* Tab buttons */}
+          <div className="flex items-center gap-1 mt-4">
+            <button
+              onClick={() => setActiveTab("batch")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                activeTab === "batch"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              <FolderOpen className="h-4 w-4" />
+              Batch Organizer
+            </button>
+            <button
+              onClick={() => setActiveTab("impose")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                activeTab === "impose"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              )}
+            >
+              <Layers3 className="h-4 w-4" />
+              Impose
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === "batch" && <PDFBatchTool />}
+        {activeTab === "impose" && <PDFImposeTool />}
+      </div>
+    </div>
+  )
+}
 
 function AppContent() {
   const [section, setSection] = useState<Section>("quotes-board")
@@ -529,9 +584,7 @@ function AppContent() {
 
           {/* == PDF TOOLS == */}
           {section === "pdf-tools" && (
-            <div className="flex-1 overflow-hidden">
-              <PDFBatchTool />
-            </div>
+            <PDFToolsSection />
           )}
 
           {/* == JOB VIEW (Planner) == */}
