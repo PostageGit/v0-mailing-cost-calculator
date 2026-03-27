@@ -480,15 +480,15 @@ const SEQUENCES: Sequence[] = [
   },
   {
     name: "Business Cards (3.5x2)",
-    desc: "Resize to 3.5x2 then step & repeat on 12x18",
+    desc: "Fit to 3.5x2 then step & repeat on 12x18 with crop marks",
     steps: [
-      { tool: "PageSizes", params: { mode: "scale", w: 3.5, h: 2, range: "all pages" } },
+      { tool: "PageSizes", params: { mode: "fit", w: 3.5, h: 2, range: "all pages" } },
       { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
   {
     name: "Business Cards (pre-sized)",
-    desc: "For PDFs already trimmed to card size - step & repeat on 12x18",
+    desc: "For PDFs already at 3.5x2 - step & repeat on 12x18",
     steps: [
       { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
@@ -1012,9 +1012,15 @@ async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, 
     
     if (skip) {
       pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
-    } else if (params.mode === "scale") {
+    } else if (params.mode === "scale" || params.mode === "stretch") {
       // Stretch to fill exactly - no aspect ratio preservation
       pg.drawPage(e, { x: 0, y: 0, width: w, height: h })
+    } else if (params.mode === "fit") {
+      // Fit within bounds while preserving aspect ratio, centered
+      const srcW = e.width, srcH = e.height
+      const scale = Math.min(w / srcW, h / srcH)
+      const dw = srcW * scale, dh = srcH * scale
+      pg.drawPage(e, { x: (w - dw) / 2, y: (h - dh) / 2, width: dw, height: dh })
     } else if (params.mode === "proportional") {
       // Fit inside, preserve aspect ratio, center with white border
       const s = Math.min(w / e.width, h / e.height)
