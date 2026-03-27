@@ -891,24 +891,43 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
 }
 
 // N-Up with CROP MARKS built in
+// NOTE: sheetW, sheetH, margin are expected in POINTS (already multiplied by IN)
 async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, sheetW: number, sheetH: number, margin: number, cropMarks: boolean, stepRepeat?: boolean }) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
+  if (pgs.length === 0) return doc
+  
   const nd = await PDFDocument.create()
-  const sheetW = params.sheetW * IN
-  const sheetH = params.sheetH * IN
-  const marginAll = params.margin * IN
-  const cW = (sheetW - marginAll * 2) / params.cols
-  const cH = (sheetH - marginAll * 2) / params.rows
+  const sheetW = params.sheetW
+  const sheetH = params.sheetH
+  const marginAll = params.margin
+  
+  // Get source page dimensions for auto-calculation
+  const srcPage = pgs[0]
+  const srcW = srcPage.getWidth()
+  const srcH = srcPage.getHeight()
+  
+  // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
+  let rows = params.rows
+  let cols = params.cols
+  if (rows <= 0 || cols <= 0) {
+    const availW = sheetW - marginAll * 2
+    const availH = sheetH - marginAll * 2
+    cols = Math.max(1, Math.floor(availW / srcW))
+    rows = Math.max(1, Math.floor(availH / srcH))
+  }
+  
+  const cW = (sheetW - marginAll * 2) / cols
+  const cH = (sheetH - marginAll * 2) / rows
   
   let idx = 0
-  const total = params.stepRepeat ? params.rows * params.cols : pgs.length
+  const total = params.stepRepeat ? rows * cols : pgs.length
   
   while (idx < total) {
     const sh = nd.addPage([sheetW, sheetH])
     
-    for (let r = 0; r < params.rows; r++) {
-      for (let c = 0; c < params.cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         const pi = params.stepRepeat ? 0 : idx
         if (!params.stepRepeat && idx >= pgs.length) break
         
@@ -1272,9 +1291,9 @@ const selectTool = (toolId: string) => {
           doc = await opNUp(doc, {
             rows: params.rows as number,
             cols: params.cols as number,
-            sheetW: params.sheetW as number,
-            sheetH: params.sheetH as number,
-            margin: params.margin as number,
+            sheetW: (params.sheetW as number) * IN,
+            sheetH: (params.sheetH as number) * IN,
+            margin: (params.margin as number) * IN,
             cropMarks: params.cropMarks === "yes"
           })
           break
@@ -1282,9 +1301,9 @@ const selectTool = (toolId: string) => {
           doc = await opNUp(doc, {
             rows: params.rows as number,
             cols: params.cols as number,
-            sheetW: params.sheetW as number,
-            sheetH: params.sheetH as number,
-            margin: params.margin as number,
+            sheetW: (params.sheetW as number) * IN,
+            sheetH: (params.sheetH as number) * IN,
+            margin: (params.margin as number) * IN,
             cropMarks: params.cropMarks === "yes",
             stepRepeat: true
           })
