@@ -6,7 +6,7 @@ import {
   Upload, Download, FileText, Play, Plus, X, RotateCw, Copy, 
   Trash2, ArrowUpDown, BookOpen, Grid3X3, Stamp, LayoutGrid, 
   Scissors, FileSearch, Layers, MoveVertical, ArrowDown, ArrowUp,
-  Info, ChevronRight, Loader2
+  Info, ChevronRight, Loader2, AlertTriangle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -556,23 +556,88 @@ async function opGenBleed(doc: PDFDocument, params: { method: string, bleed: num
 // Main Component
 // ============================================
 
+type FileInfo = {
+  pageCount: number
+  fileSize: number
+  pages: { page: number, w: number, h: number, orientation: string }[]
+  hasMixedSizes: boolean
+  firstPageW: number
+  firstPageH: number
+  colorHint: string // CMYK/RGB detection hint
+  creationDate?: string
+  producer?: string
+}
+
 export function PDFImposeTool() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
   const [pdfName, setPdfName] = useState("")
   const [activeTool, setActiveTool] = useState<string | null>(null)
-  const [params, setParams] = useState<Record<string, unknown>>({})
+  const [params, setParams] = useState<Record<string, string | number>>({})
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState("")
   const [result, setResult] = useState<Uint8Array | null>(null)
   const [info, setInfo] = useState<{ pageCount: number, sizes: { page: number, w: number, h: number }[] } | null>(null)
+  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  const handleFile = useCallback(async (file: File) => {
+const handleFile = useCallback(async (file: File) => {
     const bytes = new Uint8Array(await file.arrayBuffer())
     setPdfBytes(bytes)
     setPdfName(file.name)
     setResult(null)
     setInfo(null)
+    
+    // Extract file info for the bottom panel
+    try {
+      const doc = await PDFDocument.load(bytes)
+      const pgs = doc.getPages()
+      const pages = pgs.map((pg, i) => {
+        const w = pg.getWidth()
+        const h = pg.getHeight()
+        return {
+          page: i + 1,
+          w,
+          h,
+          orientation: w > h ? "Landscape" : w < h ? "Portrait" : "Square"
+        }
+      })
+      
+      // Check for mixed sizes
+      const firstW = pages[0]?.w || 0
+      const firstH = pages[0]?.h || 0
+      const hasMixedSizes = pages.some(p => Math.abs(p.w - firstW) > 1 || Math.abs(p.h - firstH) > 1)
+      
+      // Try to detect color space from PDF content (heuristic)
+      const pdfString = new TextDecoder().decode(bytes.slice(0, 50000))
+      let colorHint = "Unknown"
+      if (pdfString.includes("/DeviceCMYK") || (pdfString.includes("/ICCBased") && pdfString.includes("CMYK"))) {
+        colorHint = "CMYK"
+      } else if (pdfString.includes("/DeviceRGB")) {
+        colorHint = "RGB"
+      } else if (pdfString.includes("/DeviceGray")) {
+        colorHint = "Grayscale"
+      } else if (pdfString.includes("/Separation")) {
+        colorHint = "Spot Colors"
+      }
+      
+      // Get metadata
+      const creationDate = doc.getCreationDate()?.toLocaleDateString() || undefined
+      const producer = doc.getProducer() || undefined
+      
+      setFileInfo({
+        pageCount: pgs.length,
+        fileSize: file.size,
+        pages,
+        hasMixedSizes,
+        firstPageW: firstW,
+        firstPageH: firstH,
+        colorHint,
+        creationDate,
+        producer
+      })
+    } catch (err) {
+      console.error("Error extracting file info:", err)
+    }
   }, [])
   
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -754,8 +819,38 @@ export function PDFImposeTool() {
   
   const tool = activeTool ? TOOLS.find(t => 'id' in t && t.id === activeTool) as Extract<ToolDef, { id: string }> : null
   
+  // Format file size
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  }
+  
+  // Get standard page size name
+  const getPageSizeName = (w: number, h: number) => {
+    const wIn = w / IN
+    const hIn = h / IN
+    const sizes: [string, number, number][] = [
+      ["Letter", 8.5, 11],
+      ["Legal", 8.5, 14],
+      ["Tabloid", 11, 17],
+      ["A4", 8.27, 11.69],
+      ["A3", 11.69, 16.54],
+      ["A5", 5.83, 8.27],
+      ["Half Letter", 5.5, 8.5],
+    ]
+    for (const [name, sw, sh] of sizes) {
+      if ((Math.abs(wIn - sw) < 0.1 && Math.abs(hIn - sh) < 0.1) ||
+          (Math.abs(wIn - sh) < 0.1 && Math.abs(hIn - sw) < 0.1)) {
+        return name
+      }
+    }
+    return "Custom"
+  }
+
   return (
-    <div className="h-full flex bg-muted/30">
+    <div className="h-full flex flex-col bg-muted/30">
+      <div className="flex-1 flex min-h-0">
       {/* Sidebar - Tools */}
       <div className="w-72 border-r bg-card overflow-y-auto">
         <div className="p-4 border-b">
@@ -957,6 +1052,7 @@ export function PDFImposeTool() {
             </div>
           </div>
         ) : null}
+        </div>
       </div>
       
       {/* Processing overlay */}
@@ -966,6 +1062,89 @@ export function PDFImposeTool() {
             <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
             <div className="font-bold mb-1">Processing PDF...</div>
             <div className="text-sm text-muted-foreground">{progress}</div>
+          </div>
+        </div>
+      )}
+      
+      {/* Bottom File Info Panel - Pre-press info */}
+      {fileInfo && (
+        <div className="shrink-0 border-t bg-card">
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-6 overflow-x-auto">
+              {/* File name */}
+              <div className="flex items-center gap-2 shrink-0">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold text-sm truncate max-w-48">{pdfName}</span>
+              </div>
+              
+              <div className="h-6 w-px bg-border shrink-0" />
+              
+              {/* Pages */}
+              <div className="flex flex-col shrink-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Pages</span>
+                <span className="text-sm font-bold font-mono">{fileInfo.pageCount}</span>
+              </div>
+              
+              {/* File Size */}
+              <div className="flex flex-col shrink-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Size</span>
+                <span className="text-sm font-mono">{formatSize(fileInfo.fileSize)}</span>
+              </div>
+              
+              {/* Page Dimensions */}
+              <div className="flex flex-col shrink-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Dimensions</span>
+                <span className="text-sm font-mono">
+                  {(fileInfo.firstPageW / IN).toFixed(2)}&quot; x {(fileInfo.firstPageH / IN).toFixed(2)}&quot;
+                </span>
+              </div>
+              
+              {/* Page Size Name */}
+              <div className="flex flex-col shrink-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Page Size</span>
+                <span className="text-sm">{getPageSizeName(fileInfo.firstPageW, fileInfo.firstPageH)}</span>
+              </div>
+              
+              {/* Orientation */}
+              <div className="flex flex-col shrink-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Orientation</span>
+                <span className="text-sm">{fileInfo.pages[0]?.orientation || "Unknown"}</span>
+              </div>
+              
+              {/* Color Space */}
+              <div className="flex flex-col shrink-0">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Color</span>
+                <span className={cn(
+                  "text-sm font-semibold",
+                  fileInfo.colorHint === "CMYK" ? "text-cyan-600 dark:text-cyan-400" :
+                  fileInfo.colorHint === "RGB" ? "text-green-600 dark:text-green-400" :
+                  fileInfo.colorHint === "Grayscale" ? "text-slate-500" :
+                  fileInfo.colorHint === "Spot Colors" ? "text-purple-600 dark:text-purple-400" :
+                  "text-muted-foreground"
+                )}>
+                  {fileInfo.colorHint}
+                </span>
+              </div>
+              
+              {/* Mixed Sizes Warning */}
+              {fileInfo.hasMixedSizes && (
+                <>
+                  <div className="h-6 w-px bg-border shrink-0" />
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 dark:bg-amber-950 rounded text-amber-700 dark:text-amber-300 shrink-0">
+                    <Info className="h-3.5 w-3.5" />
+                    <span className="text-xs font-semibold">Mixed Page Sizes</span>
+                  </div>
+                </>
+              )}
+              
+              {/* Producer */}
+              {fileInfo.producer && (
+                <div className="flex flex-col shrink-0 ml-auto">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Created With</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-32">{fileInfo.producer}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
