@@ -958,12 +958,15 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
 
 // N-Up with CROP MARKS built in
 // NOTE: sheetW, sheetH, margin are expected in POINTS (already multiplied by IN)
-// For Step & Repeat: places pages at 1:1 scale (no scaling) to preserve bleed
-// Crop marks are placed at TRIM edges (inside bleed area) if trimW/trimH provided
+// For Step & Repeat with bleed: 
+//   - Grid is calculated based on TRIM size (cards placed at trim intervals)
+//   - Pages are drawn at full size (with bleed) so bleeds OVERLAP between adjacent cards
+//   - Crop marks placed at trim edges
+// This matches Quite Imposing behavior: trim edges touch, bleeds overlap
 async function opNUp(doc: PDFDocument, params: { 
   rows: number, cols: number, sheetW: number, sheetH: number, margin: number, 
   cropMarks: boolean, stepRepeat?: boolean,
-  trimW?: number, trimH?: number // Optional trim size for crop mark placement
+  trimW?: number, trimH?: number // Optional trim size for layout and crop marks
 }) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
@@ -979,27 +982,32 @@ async function opNUp(doc: PDFDocument, params: {
   const srcW = srcPage.getWidth()
   const srcH = srcPage.getHeight()
   
-  // Trim dimensions (if provided) - for crop mark placement
+  // Trim dimensions (if provided) - used for grid layout and crop marks
+  // If no trim specified, assume no bleed (trim = media)
   const trimW = params.trimW || srcW
   const trimH = params.trimH || srcH
   const bleedX = (srcW - trimW) / 2 // bleed amount on each side
   const bleedY = (srcH - trimH) / 2
+  const hasBleed = bleedX > 0.5 || bleedY > 0.5 // more than ~0.007" bleed
   
   // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
-  // Use FULL source size (with bleed) for layout - this preserves bleed in output
+  // KEY: Use TRIM size for grid calculation - this makes trim edges touch
+  // The bleeds will overlap into neighboring cells (which is correct!)
   let rows = params.rows
   let cols = params.cols
   if (rows <= 0 || cols <= 0) {
     const availW = sheetW - marginAll * 2
     const availH = sheetH - marginAll * 2
-    cols = Math.max(1, Math.floor(availW / srcW))
-    rows = Math.max(1, Math.floor(availH / srcH))
+    // Grid based on TRIM size, not full MediaBox
+    cols = Math.max(1, Math.floor(availW / trimW))
+    rows = Math.max(1, Math.floor(availH / trimH))
   }
   
-  // Cell size = source page size (1:1, no scaling for step & repeat)
-  // For N-up with specified rows/cols, we may need to scale
-  const cW = params.stepRepeat ? srcW : (sheetW - marginAll * 2) / cols
-  const cH = params.stepRepeat ? srcH : (sheetH - marginAll * 2) / rows
+  // Cell size for positioning
+  // Step & Repeat: cells are TRIM size (pages drawn larger, overlapping)
+  // N-Up: cells are calculated from available space
+  const cW = params.stepRepeat ? trimW : (sheetW - marginAll * 2) / cols
+  const cH = params.stepRepeat ? trimH : (sheetH - marginAll * 2) / rows
   
   let idx = 0
   const total = params.stepRepeat ? rows * cols : pgs.length
@@ -1013,48 +1021,76 @@ async function opNUp(doc: PDFDocument, params: {
         if (!params.stepRepeat && idx >= pgs.length) break
         
         const [e] = await nd.embedPdf(doc, [pi])
-        const x = marginAll + c * cW
-        const y = sheetH - marginAll - (r + 1) * cH
         
         if (params.stepRepeat) {
-          // Step & Repeat: place at 1:1 scale, no scaling - preserves bleed
-          sh.drawPage(e, { x, y, width: srcW, height: srcH })
+          // Step & Repeat: position based on TRIM grid, draw at FULL size
+          // This makes trim edges align while bleeds overlap
+          const trimX = marginAll + c * trimW  // Grid position (trim-based)
+          const trimY = sheetH - marginAll - (r + 1) * trimH
+          // Draw page offset by -bleed so the TRIM aligns with grid position
+          const drawX = trimX - bleedX
+          const drawY = trimY - bleedY
+          sh.drawPage(e, { x: drawX, y: drawY, width: srcW, height: srcH })
+          
+          // CROP MARKS at trim edges (the grid lines)
+          if (params.cropMarks) {
+            const cropLen = 12, cropDist = 3
+            const trimRight = trimX + trimW
+            const trimTop = trimY + trimH
+            
+            // Only draw crop marks if there's bleed to draw into
+            // or at outer edges where there's margin
+            const drawCornerMarks = (cx: number, cy: number, dx: number, dy: number, isOuter: boolean) => {
+              // Check if we have space for marks (bleed or margin)
+              const hasHSpace = isOuter || bleedX > cropLen + cropDist
+              const hasVSpace = isOuter || bleedY > cropLen + cropDist
+              if (hasHSpace) {
+                sh.drawLine({ 
+                  start: { x: cx + cropDist * dx, y: cy }, 
+                  end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
+                  thickness: 0.25, color: rgb(0, 0, 0) 
+                })
+              }
+              if (hasVSpace) {
+                sh.drawLine({ 
+                  start: { x: cx, y: cy + cropDist * dy }, 
+                  end: { x: cx, y: cy + (cropDist + cropLen) * dy }, 
+                  thickness: 0.25, color: rgb(0, 0, 0) 
+                })
+              }
+            }
+            
+            // Determine if this card is on an edge (has margin space for marks)
+            const isLeftEdge = c === 0
+            const isRightEdge = c === cols - 1
+            const isTopEdge = r === 0
+            const isBottomEdge = r === rows - 1
+            
+            // Draw marks at corners - outer edges always have margin space
+            drawCornerMarks(trimX, trimY, -1, -1, isLeftEdge || isBottomEdge)
+            drawCornerMarks(trimRight, trimY, 1, -1, isRightEdge || isBottomEdge)
+            drawCornerMarks(trimX, trimTop, -1, 1, isLeftEdge || isTopEdge)
+            drawCornerMarks(trimRight, trimTop, 1, 1, isRightEdge || isTopEdge)
+          }
         } else {
-          // N-Up: scale to fit cell
+          // N-Up: scale to fit cell, center in cell
+          const x = marginAll + c * cW
+          const y = sheetH - marginAll - (r + 1) * cH
           const s = Math.min(cW / e.width, cH / e.height)
           const dw = e.width * s, dh = e.height * s
           sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
-        }
-        
-        // CROP MARKS - placed at TRIM edges (inside the bleed area)
-        if (params.cropMarks) {
-          const cropLen = 12, cropDist = 4
-          // Trim box position within the cell (offset by bleed amount)
-          const trimX = x + bleedX
-          const trimY = y + bleedY
-          const trimRight = trimX + trimW
-          const trimTop = trimY + trimH
           
-          // Draw L-shaped crop marks at each trim corner
-          const corners: [number, number, number, number][] = [
-            [trimX, trimY, -1, -1],           // bottom-left
-            [trimRight, trimY, 1, -1],        // bottom-right
-            [trimX, trimTop, -1, 1],          // top-left
-            [trimRight, trimTop, 1, 1]        // top-right
-          ]
-          for (const [cx, cy, dx, dy] of corners) {
-            // Horizontal mark (extends outward into bleed/margin)
-            sh.drawLine({ 
-              start: { x: cx + cropDist * dx, y: cy }, 
-              end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
-              thickness: 0.3, color: rgb(0, 0, 0) 
-            })
-            // Vertical mark
-            sh.drawLine({ 
-              start: { x: cx, y: cy + cropDist * dy }, 
-              end: { x: cx, y: cy + (cropDist + cropLen) * dy }, 
-              thickness: 0.3, color: rgb(0, 0, 0) 
-            })
+          // Crop marks at cell edges for N-up
+          if (params.cropMarks) {
+            const cropLen = 10, cropDist = 3
+            const corners: [number, number, number, number][] = [
+              [x, y, -1, -1], [x + cW, y, 1, -1],
+              [x, y + cH, -1, 1], [x + cW, y + cH, 1, 1]
+            ]
+            for (const [cx, cy, dx, dy] of corners) {
+              sh.drawLine({ start: { x: cx + cropDist * dx, y: cy }, end: { x: cx + (cropDist + cropLen) * dx, y: cy }, thickness: 0.25, color: rgb(0, 0, 0) })
+              sh.drawLine({ start: { x: cx, y: cy + cropDist * dy }, end: { x: cx, y: cy + (cropDist + cropLen) * dy }, thickness: 0.25, color: rgb(0, 0, 0) })
+            }
           }
         }
         idx++
