@@ -12,6 +12,309 @@ import { cn } from "@/lib/utils"
 
 const IN = 72 // 1 inch = 72 points
 
+// ============================================
+// Live Imposition Preview Component
+// ============================================
+function ImpositionPreview({ toolId, params, fileInfo }: { 
+  toolId: string
+  params: Record<string, string | number>
+  fileInfo: { firstPageW: number, firstPageH: number, pageCount: number } | null 
+}) {
+  const previewW = 260
+  const previewH = 200
+  const padding = 16
+  
+  // Get source page size (from loaded PDF or default)
+  const srcW = fileInfo ? fileInfo.firstPageW / IN : 8.5
+  const srcH = fileInfo ? fileInfo.firstPageH / IN : 11
+  const pageCount = fileInfo?.pageCount || 8
+  
+  // Common SVG styles
+  const sheetStyle = "fill-slate-100 dark:fill-slate-800 stroke-slate-300 dark:stroke-slate-600"
+  const pageStyle = "fill-blue-100 dark:fill-blue-900/50 stroke-blue-400 dark:stroke-blue-500"
+  const cropMarkStyle = "stroke-rose-500 dark:stroke-rose-400"
+  const foldLineStyle = "stroke-amber-500 dark:stroke-amber-400 stroke-dasharray-4"
+  const labelStyle = "fill-slate-500 dark:fill-slate-400 text-[8px] font-mono"
+  
+  // Render based on tool
+  if (toolId === "SimpleBooklet") {
+    // Booklet: show a spread with fold line
+    const margin = Number(params.margin) || 0.25
+    const sheetW = srcW * 2 + margin * 2
+    const sheetH = srcH + margin * 2
+    const scale = Math.min((previewW - padding * 2) / sheetW, (previewH - padding * 2) / sheetH)
+    const sW = sheetW * scale, sH = sheetH * scale
+    const pW = srcW * scale, pH = srcH * scale
+    const mS = margin * scale
+    const ox = (previewW - sW) / 2, oy = (previewH - sH) / 2
+    const showCrop = params.cropMarks === "yes"
+    
+    return (
+      <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
+        {/* Sheet */}
+        <rect x={ox} y={oy} width={sW} height={sH} className={sheetStyle} strokeWidth={1} />
+        {/* Left page */}
+        <rect x={ox + mS} y={oy + mS} width={pW} height={pH} className={pageStyle} strokeWidth={1} />
+        <text x={ox + mS + pW/2} y={oy + mS + pH/2} textAnchor="middle" dominantBaseline="middle" className={labelStyle}>
+          {Math.ceil(pageCount / 4) * 4}
+        </text>
+        {/* Right page */}
+        <rect x={ox + mS + pW} y={oy + mS} width={pW} height={pH} className={pageStyle} strokeWidth={1} />
+        <text x={ox + mS + pW + pW/2} y={oy + mS + pH/2} textAnchor="middle" dominantBaseline="middle" className={labelStyle}>
+          1
+        </text>
+        {/* Fold line */}
+        <line x1={ox + sW/2} y1={oy} x2={ox + sW/2} y2={oy + sH} className={foldLineStyle} strokeWidth={1} strokeDasharray="4 2" />
+        <text x={ox + sW/2} y={oy - 4} textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[7px]">FOLD</text>
+        {/* Crop marks */}
+        {showCrop && (
+          <g className={cropMarkStyle} strokeWidth={0.5}>
+            {[[ox + mS, oy + mS], [ox + mS, oy + mS + pH], [ox + sW/2, oy + mS], [ox + sW/2, oy + mS + pH]].map(([cx, cy], i) => (
+              <g key={i}>
+                <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} />
+                <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} />
+              </g>
+            ))}
+          </g>
+        )}
+      </svg>
+    )
+  }
+  
+  if (toolId === "Nup" || toolId === "StepRepeat") {
+    const rows = Number(params.rows) || 2
+    const cols = Number(params.cols) || 2
+    const sheetW = Number(params.sheetW) || 11
+    const sheetH = Number(params.sheetH) || 17
+    const margin = Number(params.margin) || 0
+    const showCrop = params.cropMarks === "yes"
+    const isStepRepeat = toolId === "StepRepeat"
+    
+    const scale = Math.min((previewW - padding * 2) / sheetW, (previewH - padding * 2) / sheetH)
+    const sW = sheetW * scale, sH = sheetH * scale
+    const mS = margin * scale
+    const cellW = (sW - mS * 2) / cols
+    const cellH = (sH - mS * 2) / rows
+    const ox = (previewW - sW) / 2, oy = (previewH - sH) / 2
+    
+    return (
+      <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
+        {/* Sheet */}
+        <rect x={ox} y={oy} width={sW} height={sH} className={sheetStyle} strokeWidth={1} />
+        {/* Grid cells */}
+        {Array.from({ length: rows }).map((_, r) =>
+          Array.from({ length: cols }).map((_, c) => {
+            const cellX = ox + mS + c * cellW
+            const cellY = oy + mS + r * cellH
+            const pageNum = isStepRepeat ? 1 : r * cols + c + 1
+            return (
+              <g key={`${r}-${c}`}>
+                <rect 
+                  x={cellX + 2} y={cellY + 2} 
+                  width={cellW - 4} height={cellH - 4} 
+                  className={pageStyle} strokeWidth={1} 
+                />
+                <text 
+                  x={cellX + cellW/2} y={cellY + cellH/2} 
+                  textAnchor="middle" dominantBaseline="middle" 
+                  className={labelStyle}
+                >
+                  {pageNum}
+                </text>
+                {/* Crop marks at corners */}
+                {showCrop && (
+                  <g className={cropMarkStyle} strokeWidth={0.4}>
+                    {[[cellX, cellY], [cellX + cellW, cellY], [cellX, cellY + cellH], [cellX + cellW, cellY + cellH]].map(([cx, cy], i) => (
+                      <g key={i}>
+                        <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} />
+                        <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} />
+                      </g>
+                    ))}
+                  </g>
+                )}
+              </g>
+            )
+          })
+        )}
+        {/* Label */}
+        <text x={previewW/2} y={previewH - 6} textAnchor="middle" className="fill-slate-400 text-[7px]">
+          {cols}x{rows} = {cols * rows} {isStepRepeat ? "copies" : "pages"} per sheet
+        </text>
+      </svg>
+    )
+  }
+  
+  if (toolId === "TilePages") {
+    const rows = Number(params.rows) || 2
+    const cols = Number(params.cols) || 2
+    const overlap = Number(params.overlap) || 0
+    
+    const scale = Math.min((previewW - padding * 2) / srcW, (previewH - padding * 2) / srcH)
+    const pW = srcW * scale, pH = srcH * scale
+    const ox = (previewW - pW) / 2, oy = (previewH - pH) / 2
+    const tileW = pW / cols
+    const tileH = pH / rows
+    const overlapPx = overlap * scale * 5 // Exaggerate for visibility
+    
+    return (
+      <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
+        {/* Original page outline */}
+        <rect x={ox} y={oy} width={pW} height={pH} className="fill-blue-50 dark:fill-blue-950/30 stroke-blue-300 dark:stroke-blue-700" strokeWidth={1} />
+        {/* Tile grid */}
+        {Array.from({ length: rows }).map((_, r) =>
+          Array.from({ length: cols }).map((_, c) => (
+            <rect
+              key={`${r}-${c}`}
+              x={ox + c * tileW - (c > 0 ? overlapPx/2 : 0)}
+              y={oy + r * tileH - (r > 0 ? overlapPx/2 : 0)}
+              width={tileW + (c > 0 && c < cols - 1 ? overlapPx : c > 0 || c < cols - 1 ? overlapPx/2 : 0)}
+              height={tileH + (r > 0 && r < rows - 1 ? overlapPx : r > 0 || r < rows - 1 ? overlapPx/2 : 0)}
+              className="fill-none stroke-rose-400 dark:stroke-rose-500"
+              strokeWidth={1}
+              strokeDasharray="3 2"
+            />
+          ))
+        )}
+        {/* Tile numbers */}
+        {Array.from({ length: rows }).map((_, r) =>
+          Array.from({ length: cols }).map((_, c) => (
+            <text
+              key={`t-${r}-${c}`}
+              x={ox + c * tileW + tileW/2}
+              y={oy + r * tileH + tileH/2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-rose-500 dark:fill-rose-400 text-[9px] font-bold"
+            >
+              {r * cols + c + 1}
+            </text>
+          ))
+        )}
+        {/* Label */}
+        <text x={previewW/2} y={previewH - 6} textAnchor="middle" className="fill-slate-400 text-[7px]">
+          Split into {cols * rows} tiles
+        </text>
+      </svg>
+    )
+  }
+  
+  if (toolId === "PageSizes") {
+    const mode = params.mode as string || "proportional"
+    const targetW = Number(params.w) || 8.5
+    const targetH = Number(params.h) || 11
+    
+    // Show before/after comparison
+    const maxDim = Math.max(srcW, srcH, targetW, targetH)
+    const scale = Math.min((previewW/2 - padding * 2) / maxDim, (previewH - padding * 2) / maxDim)
+    
+    const srcPW = srcW * scale, srcPH = srcH * scale
+    const tgtPW = targetW * scale, tgtPH = targetH * scale
+    
+    // Source (left)
+    const srcOx = padding + (previewW/2 - padding * 2 - srcPW) / 2
+    const srcOy = padding + (previewH - padding * 2 - srcPH) / 2
+    // Target (right)
+    const tgtOx = previewW/2 + padding + (previewW/2 - padding * 2 - tgtPW) / 2
+    const tgtOy = padding + (previewH - padding * 2 - tgtPH) / 2
+    
+    // Calculate how content fits in target based on mode
+    let contentW = srcPW, contentH = srcPH
+    if (mode === "scale") {
+      contentW = tgtPW; contentH = tgtPH
+    } else if (mode === "proportional") {
+      const s = Math.min(tgtPW / srcPW, tgtPH / srcPH)
+      contentW = srcPW * s; contentH = srcPH * s
+    } else if (mode === "crop") {
+      const s = Math.max(tgtPW / srcPW, tgtPH / srcPH)
+      contentW = srcPW * s; contentH = srcPH * s
+    }
+    const contentX = tgtOx + (tgtPW - contentW) / 2
+    const contentY = tgtOy + (tgtPH - contentH) / 2
+    
+    return (
+      <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
+        {/* Arrow */}
+        <path d={`M ${previewW/2 - 12} ${previewH/2} L ${previewW/2 + 12} ${previewH/2}`} className="stroke-slate-400" strokeWidth={1.5} markerEnd="url(#arrow)" />
+        <defs>
+          <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" className="fill-slate-400" />
+          </marker>
+        </defs>
+        
+        {/* Source page */}
+        <rect x={srcOx} y={srcOy} width={srcPW} height={srcPH} className={pageStyle} strokeWidth={1} />
+        <text x={srcOx + srcPW/2} y={srcOy - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">BEFORE</text>
+        <text x={srcOx + srcPW/2} y={srcOy + srcPH + 10} textAnchor="middle" className={labelStyle}>
+          {srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;
+        </text>
+        
+        {/* Target page */}
+        <rect x={tgtOx} y={tgtOy} width={tgtPW} height={tgtPH} className={sheetStyle} strokeWidth={1} />
+        {/* Content in target (clipped for crop mode) */}
+        <clipPath id="targetClip">
+          <rect x={tgtOx} y={tgtOy} width={tgtPW} height={tgtPH} />
+        </clipPath>
+        <rect x={contentX} y={contentY} width={contentW} height={contentH} className={pageStyle} strokeWidth={1} clipPath="url(#targetClip)" />
+        <text x={tgtOx + tgtPW/2} y={tgtOy - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">AFTER ({mode})</text>
+        <text x={tgtOx + tgtPW/2} y={tgtOy + tgtPH + 10} textAnchor="middle" className={labelStyle}>
+          {targetW.toFixed(1)}&quot;x{targetH.toFixed(1)}&quot;
+        </text>
+      </svg>
+    )
+  }
+  
+  if (toolId === "Rotate") {
+    const angle = params.angle?.toString() || "180"
+    const rotation = angle.includes("90") ? (angle.includes("counter") ? -90 : 90) : 180
+    
+    const scale = Math.min((previewW/2 - padding * 2) / Math.max(srcW, srcH), (previewH - padding * 2) / Math.max(srcW, srcH))
+    const pW = srcW * scale, pH = srcH * scale
+    
+    // Before (left)
+    const ox1 = padding + (previewW/2 - padding * 2 - pW) / 2
+    const oy1 = padding + (previewH - padding * 2 - pH) / 2
+    
+    // After (right) - rotated dimensions
+    const rotW = Math.abs(rotation) === 90 ? pH : pW
+    const rotH = Math.abs(rotation) === 90 ? pW : pH
+    const ox2 = previewW/2 + padding + (previewW/2 - padding * 2 - rotW) / 2
+    const oy2 = padding + (previewH - padding * 2 - rotH) / 2
+    
+    return (
+      <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
+        {/* Arrow */}
+        <path d={`M ${previewW/2 - 12} ${previewH/2} L ${previewW/2 + 12} ${previewH/2}`} className="stroke-slate-400" strokeWidth={1.5} markerEnd="url(#arrow2)" />
+        <defs>
+          <marker id="arrow2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" className="fill-slate-400" />
+          </marker>
+        </defs>
+        
+        {/* Before */}
+        <rect x={ox1} y={oy1} width={pW} height={pH} className={pageStyle} strokeWidth={1} />
+        <text x={ox1 + 6} y={oy1 + 12} className="fill-blue-500 text-[8px] font-bold">A</text>
+        <text x={ox1 + pW/2} y={oy1 - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">BEFORE</text>
+        
+        {/* After */}
+        <rect x={ox2} y={oy2} width={rotW} height={rotH} className={pageStyle} strokeWidth={1} />
+        {/* Rotated "A" indicator */}
+        <text 
+          x={ox2 + rotW/2} y={oy2 + rotH/2} 
+          textAnchor="middle" dominantBaseline="middle"
+          className="fill-blue-500 text-[8px] font-bold"
+          transform={`rotate(${rotation} ${ox2 + rotW/2} ${oy2 + rotH/2})`}
+        >
+          A
+        </text>
+        <text x={ox2 + rotW/2} y={oy2 - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">{rotation}°</text>
+      </svg>
+    )
+  }
+  
+  // Default: no preview for this tool
+  return null
+}
+
 // Sheet presets
 const SHEETS = [
   { name: 'US Letter (8.5×11")', w: 8.5, h: 11 },
@@ -1016,6 +1319,16 @@ const handleFile = useCallback(async (file: File) => {
                       <span>{(s.w / IN).toFixed(2)}&quot; x {(s.h / IN).toFixed(2)}&quot;</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Live Preview */}
+            {["SimpleBooklet", "Nup", "StepRepeat", "TilePages", "PageSizes", "Rotate"].includes(tool.id) && (
+              <div className="bg-card rounded-xl shadow-sm p-4 mb-4">
+                <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wide mb-3">Live Preview</h3>
+                <div className="flex justify-center">
+                  <ImpositionPreview toolId={tool.id} params={params} fileInfo={fileInfo} />
                 </div>
               </div>
             )}
