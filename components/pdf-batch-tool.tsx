@@ -1,9 +1,13 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
-import { PDFDocument } from "pdf-lib"
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import JSZip from "jszip"
-import { Upload, FileText, Download, Trash2, Plus, X, Check, Loader2 } from "lucide-react"
+import { 
+  Upload, FileText, Download, Trash2, Plus, X, Loader2, 
+  FolderPlus, Layers, FileStack, ChevronDown, ChevronRight,
+  GripVertical, Check, AlertCircle, Copy, Printer
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface PDFFile {
@@ -16,25 +20,32 @@ interface PDFFile {
   pageH: number | null
   status: "loading" | "ready" | "error"
   error: string | null
+  batchId: number | null
+}
+
+interface Batch {
+  id: number
+  name: string
+  sets: number
+  collapsed: boolean
 }
 
 type SortColumn = "name" | "bytes" | "pages"
-type DimensionFilter = "all" | "letter" | "tabloid" | "legal" | "a4" | "square" | "landscape" | "portrait"
 
 export function PDFBatchTool() {
   const [files, setFiles] = useState<PDFFile[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [unbatchedCollapsed, setUnbatchedCollapsed] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
-  const [sortCol, setSortCol] = useState<SortColumn>("name")
+  const [sortCol, setSortCol] = useState<SortColumn>("pages")
   const [sortAsc, setSortAsc] = useState(true)
-  const [dimFilter, setDimFilter] = useState<DimensionFilter>("all")
-  const [minPages, setMinPages] = useState<string>("")
-  const [maxPages, setMaxPages] = useState<string>("")
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processMsg, setProcessMsg] = useState("")
   const [processProgress, setProcessProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const uidRef = useRef(0)
+  const batchUidRef = useRef(0)
 
   // Format bytes
   const formatBytes = (b: number) => 
@@ -42,18 +53,14 @@ export function PDFBatchTool() {
 
   // Format dimensions
   const formatDim = (e: PDFFile) => 
-    e.pageW ? `${(e.pageW / 72).toFixed(2)}" × ${(e.pageH! / 72).toFixed(2)}"` : "—"
-
-  // New filename with page count prefix
-  const newName = (e: PDFFile) => 
-    typeof e.pages === "number" ? `${e.pages} ${e.name}` : e.name
+    e.pageW ? `${(e.pageW / 72).toFixed(1)}" x ${(e.pageH! / 72).toFixed(1)}"` : "-"
 
   // Add files
   const addFiles = useCallback(async (fileList: FileList | File[]) => {
     const arr = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith(".pdf"))
     if (!arr.length) return
 
-    const batch: PDFFile[] = arr.map(file => {
+    const newFiles: PDFFile[] = arr.map(file => {
       const id = ++uidRef.current
       return {
         id,
@@ -64,19 +71,20 @@ export function PDFBatchTool() {
         pageW: null,
         pageH: null,
         status: "loading" as const,
-        error: null
+        error: null,
+        batchId: null
       }
     })
 
-    setFiles(prev => [...prev, ...batch])
+    setFiles(prev => [...prev, ...newFiles])
     setSelected(prev => {
       const newSet = new Set(prev)
-      batch.forEach(e => newSet.add(e.id))
+      newFiles.forEach(e => newSet.add(e.id))
       return newSet
     })
 
     // Load all PDFs in parallel
-    await Promise.all(batch.map(async (entry) => {
+    await Promise.all(newFiles.map(async (entry) => {
       try {
         const ab = await entry.file.arrayBuffer()
         const doc = await PDFDocument.load(new Uint8Array(ab), { ignoreEncryption: true })
@@ -103,35 +111,42 @@ export function PDFBatchTool() {
     }))
   }, [])
 
-  // Filter files
-  const filteredFiles = useCallback(() => {
-    const pmin = parseInt(minPages) || 0
-    const pmax = parseInt(maxPages) || Infinity
+  // Create new batch from selected files
+  const createBatch = () => {
+    const batchNum = batches.length + 1
+    const newBatch: Batch = {
+      id: ++batchUidRef.current,
+      name: `Batch ${batchNum}`,
+      sets: 1,
+      collapsed: false
+    }
+    setBatches(prev => [...prev, newBatch])
+    
+    // Move selected files to this batch
+    setFiles(prev => prev.map(f => 
+      selected.has(f.id) ? { ...f, batchId: newBatch.id } : f
+    ))
+    setSelected(new Set())
+  }
 
-    return files.filter(e => {
-      if (e.pages !== null && typeof e.pages === "number") {
-        if (pmin && e.pages < pmin) return false
-        if (pmax < Infinity && e.pages > pmax) return false
-      }
-      if (dimFilter === "all" || !e.pageW) return true
-      
-      const w = e.pageW / 72, h = e.pageH! / 72, t = 0.15
-      switch (dimFilter) {
-        case "letter": return Math.abs(w - 8.5) < t && Math.abs(h - 11) < t
-        case "tabloid": return Math.abs(w - 11) < t && Math.abs(h - 17) < t
-        case "legal": return Math.abs(w - 8.5) < t && Math.abs(h - 14) < t
-        case "a4": return Math.abs(w - 8.27) < t && Math.abs(h - 11.69) < t
-        case "square": return Math.abs(w - h) < 0.2
-        case "landscape": return w > h + 0.1
-        case "portrait": return h > w + 0.1
-        default: return true
-      }
-    })
-  }, [files, dimFilter, minPages, maxPages])
+  // Update batch
+  const updateBatch = (id: number, updates: Partial<Batch>) => {
+    setBatches(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))
+  }
+
+  // Delete batch (moves files back to unbatched)
+  const deleteBatch = (id: number) => {
+    setFiles(prev => prev.map(f => f.batchId === id ? { ...f, batchId: null } : f))
+    setBatches(prev => prev.filter(b => b.id !== id))
+  }
+
+  // Move file to batch
+  const moveFileToBatch = (fileId: number, batchId: number | null) => {
+    setFiles(prev => prev.map(f => f.id === fileId ? { ...f, batchId } : f))
+  }
 
   // Sort files
-  const sortedFiles = useCallback(() => {
-    const list = filteredFiles()
+  const sortFiles = (list: PDFFile[]) => {
     return [...list].sort((a, b) => {
       let va: string | number = a[sortCol] ?? ""
       let vb: string | number = b[sortCol] ?? ""
@@ -147,7 +162,12 @@ export function PDFBatchTool() {
       if (va === vb) return 0
       return sortAsc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
     })
-  }, [filteredFiles, sortCol, sortAsc])
+  }
+
+  // Get files for a batch
+  const getFilesForBatch = (batchId: number | null) => {
+    return sortFiles(files.filter(f => f.batchId === batchId))
+  }
 
   // Handle sort click
   const handleSort = (col: SortColumn) => {
@@ -172,16 +192,6 @@ export function PDFBatchTool() {
     })
   }
 
-  // Select all
-  const selectAll = () => {
-    setSelected(new Set(files.map(e => e.id)))
-  }
-
-  // Select filtered
-  const selectFiltered = () => {
-    setSelected(new Set(filteredFiles().map(e => e.id)))
-  }
-
   // Remove file
   const removeFile = (id: number) => {
     setFiles(prev => prev.filter(e => e.id !== id))
@@ -195,32 +205,187 @@ export function PDFBatchTool() {
   // Clear all
   const clearAll = () => {
     setFiles([])
+    setBatches([])
     setSelected(new Set())
   }
 
-  // Download ZIP
+  // Generate cover page PDF
+  const generateCoverPage = async (batch: Batch, batchFiles: PDFFile[], batchNumber: number, totalBatches: number) => {
+    const doc = await PDFDocument.create()
+    const page = doc.addPage([612, 792]) // Letter size
+    const font = await doc.embedFont(StandardFonts.HelveticaBold)
+    const fontRegular = await doc.embedFont(StandardFonts.Helvetica)
+    
+    const { height } = page.getSize()
+    let y = height - 80
+    
+    // Header
+    page.drawText("BATCH COVER SHEET", {
+      x: 50,
+      y,
+      size: 28,
+      font,
+      color: rgb(0.1, 0.1, 0.1)
+    })
+    
+    y -= 50
+    
+    // Batch info box
+    page.drawRectangle({
+      x: 50,
+      y: y - 120,
+      width: 512,
+      height: 120,
+      borderColor: rgb(0.8, 0.8, 0.8),
+      borderWidth: 2,
+      color: rgb(0.97, 0.97, 0.97)
+    })
+    
+    y -= 30
+    page.drawText(`Batch ${batchNumber} of ${totalBatches}`, {
+      x: 70,
+      y,
+      size: 18,
+      font,
+      color: rgb(0.2, 0.4, 0.8)
+    })
+    
+    y -= 35
+    page.drawText(batch.name, {
+      x: 70,
+      y,
+      size: 24,
+      font,
+      color: rgb(0, 0, 0)
+    })
+    
+    y -= 35
+    page.drawText(`${batch.sets} SET${batch.sets > 1 ? "S" : ""}`, {
+      x: 70,
+      y,
+      size: 36,
+      font,
+      color: rgb(0.9, 0.3, 0.1)
+    })
+    
+    y -= 80
+    
+    // Stats
+    const totalPages = batchFiles.reduce((sum, f) => sum + (f.pages || 0), 0)
+    const totalSheets = totalPages * batch.sets
+    
+    page.drawText("Batch Statistics", {
+      x: 50,
+      y,
+      size: 14,
+      font,
+      color: rgb(0.4, 0.4, 0.4)
+    })
+    
+    y -= 30
+    const stats = [
+      ["Files in Batch:", `${batchFiles.length}`],
+      ["Total Pages per Set:", `${totalPages}`],
+      ["Number of Sets:", `${batch.sets}`],
+      ["Total Sheets to Print:", `${totalSheets}`]
+    ]
+    
+    for (const [label, value] of stats) {
+      page.drawText(label, { x: 70, y, size: 12, font: fontRegular, color: rgb(0.3, 0.3, 0.3) })
+      page.drawText(value, { x: 250, y, size: 12, font, color: rgb(0, 0, 0) })
+      y -= 22
+    }
+    
+    y -= 30
+    
+    // File list
+    page.drawText("Files in this Batch:", {
+      x: 50,
+      y,
+      size: 14,
+      font,
+      color: rgb(0.4, 0.4, 0.4)
+    })
+    
+    y -= 25
+    
+    // Sort by pages ascending for the list
+    const sortedFiles = [...batchFiles].sort((a, b) => (a.pages || 0) - (b.pages || 0))
+    
+    for (let i = 0; i < sortedFiles.length && y > 80; i++) {
+      const f = sortedFiles[i]
+      const displayName = f.name.length > 50 ? f.name.substring(0, 47) + "..." : f.name
+      page.drawText(`${i + 1}. ${displayName}`, { 
+        x: 70, y, size: 10, font: fontRegular, color: rgb(0.2, 0.2, 0.2) 
+      })
+      page.drawText(`${f.pages} pg`, { 
+        x: 480, y, size: 10, font, color: rgb(0.5, 0.5, 0.5) 
+      })
+      y -= 18
+    }
+    
+    if (sortedFiles.length > 25) {
+      page.drawText(`... and ${sortedFiles.length - 25} more files`, {
+        x: 70, y, size: 10, font: fontRegular, color: rgb(0.5, 0.5, 0.5)
+      })
+    }
+    
+    // Footer
+    page.drawText(`Generated: ${new Date().toLocaleString()}`, {
+      x: 50,
+      y: 40,
+      size: 9,
+      font: fontRegular,
+      color: rgb(0.6, 0.6, 0.6)
+    })
+    
+    return await doc.save()
+  }
+
+  // Download ZIP with cover pages
   const downloadZip = async () => {
-    const sel = files.filter(e => selected.has(e.id) && e.status === "ready")
-    if (!sel.length) return
+    if (batches.length === 0) {
+      alert("Create at least one batch before downloading")
+      return
+    }
 
     setIsProcessing(true)
-    setProcessMsg("Preparing files...")
+    setProcessMsg("Preparing batches...")
     setProcessProgress(0)
 
     try {
-      // Sort by pages ascending
-      const sorted = [...sel].sort((a, b) => (a.pages || 0) - (b.pages || 0))
-      
       const zip = new JSZip()
       
-      for (let i = 0; i < sorted.length; i++) {
-        const e = sorted[i]
-        setProcessMsg(`Adding ${e.name}...`)
-        setProcessProgress(Math.round((i / sorted.length) * 100))
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex]
+        const batchFiles = getFilesForBatch(batch.id).filter(f => f.status === "ready")
         
-        const ab = await e.file.arrayBuffer()
-        const renamed = newName(e)
-        zip.file(renamed, ab)
+        if (batchFiles.length === 0) continue
+        
+        const batchFolder = zip.folder(`Batch_${batchIndex + 1}_${batch.name.replace(/[^a-zA-Z0-9]/g, "_")}`)
+        if (!batchFolder) continue
+        
+        setProcessMsg(`Creating cover for ${batch.name}...`)
+        setProcessProgress(Math.round(((batchIndex * 2) / (batches.length * 2)) * 100))
+        
+        // Add cover page
+        const coverPdf = await generateCoverPage(batch, batchFiles, batchIndex + 1, batches.length)
+        batchFolder.file("00_COVER_SHEET.pdf", coverPdf)
+        
+        // Sort files by pages ascending
+        const sortedFiles = [...batchFiles].sort((a, b) => (a.pages || 0) - (b.pages || 0))
+        
+        // Add files with page count prefix
+        for (let i = 0; i < sortedFiles.length; i++) {
+          const f = sortedFiles[i]
+          setProcessMsg(`Adding ${f.name}...`)
+          setProcessProgress(Math.round((((batchIndex * 2) + 1 + (i / sortedFiles.length)) / (batches.length * 2)) * 100))
+          
+          const ab = await f.file.arrayBuffer()
+          const paddedNum = String(i + 1).padStart(2, "0")
+          const newName = `${paddedNum}_${f.pages}pg_${f.name}`
+          batchFolder.file(newName, ab)
+        }
       }
 
       setProcessMsg("Creating ZIP...")
@@ -231,7 +396,7 @@ export function PDFBatchTool() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `PDFs_${new Date().toISOString().slice(0, 10)}.zip`
+      a.download = `PDF_Batches_${new Date().toISOString().slice(0, 10)}.zip`
       a.click()
       URL.revokeObjectURL(url)
 
@@ -262,14 +427,76 @@ export function PDFBatchTool() {
   }
 
   // Stats
-  const totalBytes = files.reduce((a, e) => a + e.bytes, 0)
-  const visibleFiles = sortedFiles()
-  const selectedCount = files.filter(e => selected.has(e.id)).length
-  const readySelected = files.filter(e => selected.has(e.id) && e.status === "ready").length
+  const totalFiles = files.length
+  const totalPages = files.reduce((sum, f) => sum + (f.pages || 0), 0)
+  const unbatchedFiles = files.filter(f => f.batchId === null)
+  const selectedCount = selected.size
+
+  // File row component
+  const FileRow = ({ file, showBatchActions = false }: { file: PDFFile; showBatchActions?: boolean }) => (
+    <div
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 border-b last:border-b-0 transition-colors",
+        selected.has(file.id) 
+          ? "bg-blue-50 dark:bg-blue-950/30" 
+          : "hover:bg-muted/50"
+      )}
+    >
+      <input 
+        type="checkbox" 
+        checked={selected.has(file.id)}
+        onChange={() => toggleSelect(file.id)}
+        className="w-4 h-4 rounded border-2"
+      />
+      
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm truncate">{file.name}</div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+          <span>{formatBytes(file.bytes)}</span>
+          <span>{formatDim(file)}</span>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        {file.status === "loading" ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : file.status === "error" ? (
+          <span className="text-red-500 text-xs">Error</span>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+            <FileText className="h-3.5 w-3.5" />
+            <span className="font-bold text-sm">{file.pages}</span>
+            <span className="text-xs opacity-80">pg</span>
+          </div>
+        )}
+        
+        {showBatchActions && batches.length > 0 && file.batchId === null && (
+          <select
+            value=""
+            onChange={(e) => moveFileToBatch(file.id, parseInt(e.target.value))}
+            className="text-xs px-2 py-1 rounded border bg-background"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <option value="">Move to batch...</option>
+            {batches.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        )}
+        
+        <button 
+          onClick={() => removeFile(file.id)}
+          className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div 
-      className="h-full overflow-auto"
+      className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -286,255 +513,278 @@ export function PDFBatchTool() {
       {/* Processing overlay */}
       {isProcessing && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card rounded-2xl shadow-xl p-8 text-center max-w-sm">
-            <Loader2 className="h-10 w-10 mx-auto mb-4 text-blue-500 animate-spin" />
-            <div className="font-semibold mb-2">{processMsg}</div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${processProgress}%` }} />
+          <div className="bg-card rounded-2xl shadow-2xl border p-8 text-center max-w-sm">
+            <Loader2 className="h-12 w-12 mx-auto mb-4 text-blue-500 animate-spin" />
+            <div className="font-semibold text-lg mb-2">{processMsg}</div>
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-300" 
+                style={{ width: `${processProgress}%` }} 
+              />
             </div>
+            <div className="text-sm text-muted-foreground mt-2">{processProgress}%</div>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div className="p-6 border-b">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
-            <FileText className="h-5 w-5 text-white" />
+      <div className="shrink-0 p-6 bg-white dark:bg-slate-900 border-b">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <FileStack className="h-7 w-7 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold">PDF Batch Tool</h1>
-            <p className="text-sm text-muted-foreground">Count pages, rename with page prefix, download as ZIP</p>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">PDF Batch Organizer</h1>
+            <p className="text-muted-foreground">Organize PDFs into batches with cover sheets, sorted by page count</p>
           </div>
+          
           {files.length > 0 && (
-            <div className="ml-auto text-sm px-3 py-1.5 rounded-full bg-muted border">
-              <span className="font-bold text-blue-500">{files.length}</span>
-              <span className="text-muted-foreground"> file{files.length === 1 ? "" : "s"} · {formatBytes(totalBytes)}</span>
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">{totalFiles}</div>
+                <div className="text-xs text-muted-foreground font-medium">Files</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-indigo-600">{totalPages}</div>
+                <div className="text-xs text-muted-foreground font-medium">Total Pages</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">{batches.length}</div>
+                <div className="text-xs text-muted-foreground font-medium">Batches</div>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Hero drop zone - shown when no files */}
+      {/* Empty state */}
       {files.length === 0 && (
-        <div className="p-6">
+        <div className="flex-1 flex items-center justify-center p-8">
           <div 
             className={cn(
-              "rounded-2xl p-12 text-center cursor-pointer transition-all border-2 border-dashed",
-              isDragging ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20" : "border-muted-foreground/20 hover:border-blue-500/50 hover:bg-muted/50"
+              "max-w-lg w-full rounded-3xl p-12 text-center cursor-pointer transition-all border-2 border-dashed",
+              isDragging 
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20 scale-105" 
+                : "border-slate-300 dark:border-slate-700 hover:border-blue-400 hover:bg-white dark:hover:bg-slate-800"
             )}
             onClick={() => fileInputRef.current?.click()}
           >
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/50 dark:to-blue-800/50 rounded-2xl flex items-center justify-center">
-              <Upload className="h-8 w-8 text-blue-500" />
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 rounded-3xl flex items-center justify-center">
+              <Upload className="h-12 w-12 text-blue-500" />
             </div>
-            <h2 className="text-lg font-bold mb-2">Drop your PDFs here</h2>
-            <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
-              Drop PDFs to count pages. Files are renamed with page count prefix (e.g., <strong className="text-foreground">12 document.pdf</strong>) and downloaded as ZIP sorted smallest to largest.
+            <h2 className="text-2xl font-bold mb-3">Drop PDFs to get started</h2>
+            <p className="text-muted-foreground mb-6 leading-relaxed">
+              Organize your PDFs into batches. Each batch gets a cover sheet showing batch number, set count, and file list. Files are renamed with page count and sorted smallest to largest.
             </p>
-            <button className="inline-flex items-center gap-2 bg-blue-500 text-white px-5 py-2 rounded-full font-medium hover:bg-blue-600 transition-all">
-              <Upload className="h-4 w-4" />
-              Choose PDFs
+            <button className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
+              <Upload className="h-5 w-5" />
+              Select PDF Files
             </button>
           </div>
         </div>
       )}
 
-      {/* Content - shown when files exist */}
+      {/* Main content */}
       {files.length > 0 && (
-        <div className="p-6 space-y-4">
-          {/* Stats row */}
-          <div className="grid grid-cols-4 gap-3">
-            <div className="bg-muted/50 rounded-xl p-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Files</div>
-              <div className="text-xl font-bold font-mono text-blue-500">{files.length}</div>
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left panel - Unbatched files */}
+          <div className="w-1/2 flex flex-col border-r bg-white dark:bg-slate-900">
+            {/* Toolbar */}
+            <div className="shrink-0 p-4 border-b bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border hover:border-blue-500 hover:text-blue-500 transition-colors font-medium text-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Files
+                </button>
+                
+                {selectedCount > 0 && (
+                  <button 
+                    onClick={createBatch}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold text-sm hover:shadow-lg transition-all"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                    Create Batch ({selectedCount})
+                  </button>
+                )}
+                
+                <div className="ml-auto flex items-center gap-2">
+                  <button 
+                    onClick={() => setSelected(new Set(unbatchedFiles.map(f => f.id)))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 border hover:border-blue-500 hover:text-blue-500 transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button 
+                    onClick={clearAll}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="bg-muted/50 rounded-xl p-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Showing</div>
-              <div className="text-xl font-bold font-mono">{visibleFiles.length}</div>
-            </div>
-            <div className="bg-muted/50 rounded-xl p-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Selected</div>
-              <div className="text-xl font-bold font-mono text-orange-500">{selectedCount}</div>
-            </div>
-            <div className="bg-muted/50 rounded-xl p-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Total Size</div>
-              <div className="text-lg font-bold font-mono pt-0.5">{formatBytes(totalBytes)}</div>
-            </div>
-          </div>
-
-          {/* Filter + Actions bar */}
-          <div className="bg-muted/30 rounded-xl p-4 flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Filter</span>
-            <select 
-              value={dimFilter} 
-              onChange={(e) => setDimFilter(e.target.value as DimensionFilter)}
-              className="bg-background border rounded-lg px-3 py-1.5 text-sm"
-            >
-              <option value="all">Any page size</option>
-              <option value="letter">Letter 8.5×11"</option>
-              <option value="tabloid">Tabloid 11×17"</option>
-              <option value="legal">Legal 8.5×14"</option>
-              <option value="a4">A4</option>
-              <option value="square">Square</option>
-              <option value="landscape">Landscape</option>
-              <option value="portrait">Portrait</option>
-            </select>
             
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Pages</span>
-              <input 
-                type="number" 
-                value={minPages}
-                onChange={(e) => setMinPages(e.target.value)}
-                placeholder="min"
-                className="w-16 bg-background border rounded-lg px-2 py-1.5 text-sm"
-              />
-              <span className="text-muted-foreground">–</span>
-              <input 
-                type="number" 
-                value={maxPages}
-                onChange={(e) => setMaxPages(e.target.value)}
-                placeholder="max"
-                className="w-16 bg-background border rounded-lg px-2 py-1.5 text-sm"
-              />
-            </div>
-
-            <div className="w-px h-6 bg-border mx-2" />
-
-            <div className="ml-auto flex items-center gap-2">
-              <button onClick={selectAll} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-background border hover:border-blue-500 hover:text-blue-500 transition-colors">
-                Select all
-              </button>
-              <button onClick={selectFiltered} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-background border hover:border-blue-500 hover:text-blue-500 transition-colors">
-                Select filtered
-              </button>
-              <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-background border hover:border-blue-500 hover:text-blue-500 transition-colors flex items-center gap-1">
-                <Plus className="h-3 w-3" /> Add
-              </button>
-              <button onClick={clearAll} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-600 hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors">
-                Clear
-              </button>
-              <button 
-                onClick={downloadZip}
-                disabled={readySelected === 0}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed transition-all flex items-center gap-2"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download ZIP {readySelected > 0 && `(${readySelected})`}
-              </button>
+            {/* Unbatched section */}
+            <div className="flex-1 overflow-auto">
+              <div className="p-4">
+                <button
+                  onClick={() => setUnbatchedCollapsed(!unbatchedCollapsed)}
+                  className="flex items-center gap-2 w-full text-left font-semibold text-sm text-muted-foreground mb-2"
+                >
+                  {unbatchedCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  Unbatched Files ({unbatchedFiles.length})
+                </button>
+                
+                {!unbatchedCollapsed && (
+                  <div className="rounded-xl border bg-card overflow-hidden">
+                    {unbatchedFiles.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">All files have been organized into batches</p>
+                      </div>
+                    ) : (
+                      sortFiles(unbatchedFiles).map(file => (
+                        <FileRow key={file.id} file={file} showBatchActions />
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Table */}
-          <div className="bg-card rounded-xl border overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-muted/50 border-b">
-                  <th className="w-10 px-4 py-3">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedCount === files.length && files.length > 0}
-                      onChange={() => selectedCount === files.length ? setSelected(new Set()) : selectAll()}
-                      className="w-4 h-4 rounded"
-                    />
-                  </th>
-                  <th 
-                    onClick={() => handleSort("name")}
-                    className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground"
+          
+          {/* Right panel - Batches */}
+          <div className="w-1/2 flex flex-col bg-slate-50 dark:bg-slate-800/30">
+            {/* Batch header */}
+            <div className="shrink-0 p-4 border-b bg-white dark:bg-slate-900">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-lg">Batches</h2>
+                  <p className="text-sm text-muted-foreground">Each batch gets a cover sheet in the ZIP</p>
+                </div>
+                
+                {batches.length > 0 && (
+                  <button 
+                    onClick={downloadZip}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold hover:shadow-lg transition-all"
                   >
-                    Filename {sortCol === "name" && (sortAsc ? "↑" : "↓")}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("bytes")}
-                    className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground"
-                  >
-                    Size {sortCol === "bytes" && (sortAsc ? "↑" : "↓")}
-                  </th>
-                  <th 
-                    onClick={() => handleSort("pages")}
-                    className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground"
-                  >
-                    Pages {sortCol === "pages" && (sortAsc ? "↑" : "↓")}
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wide">
-                    Dimensions
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wide">
-                    Status
-                  </th>
-                  <th className="w-10 px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleFiles.map((e) => (
-                  <tr 
-                    key={e.id}
-                    onClick={() => toggleSelect(e.id)}
-                    className={cn(
-                      "border-b last:border-b-0 cursor-pointer transition-colors",
-                      selected.has(e.id) ? "bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-950/30" : "hover:bg-muted/50"
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <input 
-                        type="checkbox" 
-                        checked={selected.has(e.id)}
-                        onChange={() => toggleSelect(e.id)}
-                        onClick={(ev) => ev.stopPropagation()}
-                        className="w-4 h-4 rounded"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-sm truncate max-w-[250px]">{e.name}</div>
-                      {e.status === "ready" && (
-                        <div className="text-xs text-green-600 font-mono mt-0.5 truncate max-w-[250px]">
-                          → {newName(e)}
+                    <Download className="h-5 w-5" />
+                    Download ZIP
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Batches list */}
+            <div className="flex-1 overflow-auto p-4 space-y-4">
+              {batches.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center p-8">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                      <FolderPlus className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <h3 className="font-semibold text-lg mb-2">No batches yet</h3>
+                    <p className="text-muted-foreground text-sm max-w-xs">
+                      Select files on the left and click &quot;Create Batch&quot; to organize them
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                batches.map((batch, index) => {
+                  const batchFiles = getFilesForBatch(batch.id)
+                  const batchPages = batchFiles.reduce((sum, f) => sum + (f.pages || 0), 0)
+                  
+                  return (
+                    <div key={batch.id} className="rounded-2xl border-2 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
+                      {/* Batch header */}
+                      <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center font-bold text-xl">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={batch.name}
+                              onChange={(e) => updateBatch(batch.id, { name: e.target.value })}
+                              className="bg-transparent border-b border-white/30 focus:border-white outline-none text-lg font-semibold w-full"
+                            />
+                            <div className="flex items-center gap-4 text-sm text-white/80 mt-1">
+                              <span>{batchFiles.length} files</span>
+                              <span>{batchPages} pages per set</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <label className="text-xs text-white/70 block">Sets</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={batch.sets}
+                                onChange={(e) => updateBatch(batch.id, { sets: Math.max(1, parseInt(e.target.value) || 1) })}
+                                className="w-20 bg-white/20 rounded-lg px-3 py-1.5 text-center font-bold text-xl focus:bg-white/30 outline-none"
+                              />
+                            </div>
+                            <button
+                              onClick={() => updateBatch(batch.id, { collapsed: !batch.collapsed })}
+                              className="p-2 rounded-lg hover:bg-white/20 transition-colors"
+                            >
+                              {batch.collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                            </button>
+                            <button
+                              onClick={() => deleteBatch(batch.id)}
+                              className="p-2 rounded-lg hover:bg-red-500/50 transition-colors"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Batch stats */}
+                        <div className="mt-4 pt-3 border-t border-white/20 flex items-center gap-6 text-sm">
+                          <div>
+                            <span className="text-white/70">Total sheets:</span>
+                            <span className="font-bold ml-2">{batchPages * batch.sets}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Batch files */}
+                      {!batch.collapsed && (
+                        <div className="max-h-64 overflow-auto">
+                          {batchFiles.length === 0 ? (
+                            <div className="p-6 text-center text-muted-foreground">
+                              <p className="text-sm">Drag files here or select and add to this batch</p>
+                            </div>
+                          ) : (
+                            batchFiles.map(file => (
+                              <div
+                                key={file.id}
+                                className="flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 hover:bg-muted/50"
+                              >
+                                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="flex-1 text-sm truncate">{file.name}</span>
+                                <span className="text-sm font-semibold text-blue-600">{file.pages} pg</span>
+                                <button
+                                  onClick={() => moveFileToBatch(file.id, null)}
+                                  className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-sm">{formatBytes(e.bytes)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {e.status === "loading" ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : e.pages !== null ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-bold font-mono bg-muted">
-                          {e.pages}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {formatDim(e)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {e.status === "loading" && (
-                        <span className="text-xs text-muted-foreground">Loading...</span>
-                      )}
-                      {e.status === "ready" && (
-                        <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                          <Check className="h-3 w-3" /> Ready
-                        </span>
-                      )}
-                      {e.status === "error" && (
-                        <span className="text-xs text-red-500">Error</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button 
-                        onClick={(ev) => { ev.stopPropagation(); removeFile(e.id) }}
-                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  )
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
