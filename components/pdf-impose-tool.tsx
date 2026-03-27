@@ -118,13 +118,19 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
   
   // ========== N-UP / STEP & REPEAT ==========
   if (toolId === "Nup" || toolId === "StepRepeat") {
-    const rows = Number(params.rows) || 2
-    const cols = Number(params.cols) || 2
+    const rows = Math.max(1, Number(params.rows) || 2)
+    const cols = Math.max(1, Number(params.cols) || 2)
     const sheetW = Number(params.sheetW) || 11
     const sheetH = Number(params.sheetH) || 17
     const margin = Number(params.margin) || 0
     const showCrop = params.cropMarks === "yes"
     const isStepRepeat = toolId === "StepRepeat"
+    
+    // Calculate ACTUAL cell size in inches (for validation)
+    const actualCellW = (sheetW - margin * 2) / cols
+    const actualCellH = (sheetH - margin * 2) / rows
+    const isInvalid = actualCellW <= 0.25 || actualCellH <= 0.25 || margin * 2 >= sheetW || margin * 2 >= sheetH
+    const isTooSmall = actualCellW < 1 || actualCellH < 1
     
     // BEFORE: Single page
     const beforeScale = Math.min((halfW - padding * 3) / srcW, (previewH - 50) / srcH) * 0.65
@@ -132,22 +138,52 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
     const bpX = padding + (halfW - padding * 2 - bpW) / 2
     const bpY = 30 + (previewH - 50 - bpH) / 2
     
-    // AFTER: Sheet with grid
+    // AFTER: Sheet with grid (use clamped values for rendering)
     const afterScale = Math.min((halfW - padding * 2) / sheetW, (previewH - 50) / sheetH) * 0.9
     const sW = sheetW * afterScale, sH = sheetH * afterScale
-    const mS = margin * afterScale
-    const cellW = (sW - mS * 2) / cols
-    const cellH = (sH - mS * 2) / rows
+    const mS = Math.min(margin * afterScale, sW * 0.4, sH * 0.4) // Clamp margin for display
+    const cellW = Math.max(4, (sW - mS * 2) / cols)
+    const cellH = Math.max(4, (sH - mS * 2) / rows)
     const aX = halfW + padding + (halfW - padding * 2 - sW) / 2
     const aY = 30 + (previewH - 50 - sH) / 2
     
+    // If invalid, show error state
+    if (isInvalid) {
+      return (
+        <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border border-red-300">
+          <ArrowMarker />
+          <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
+          <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-red-500 text-[9px] font-semibold">INVALID</text>
+          
+          {/* BEFORE */}
+          <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+          <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">
+            {isStepRepeat ? "1" : `${cols * rows}pg`}
+          </text>
+          
+          <Arrow />
+          
+          {/* Error message */}
+          <rect x={aX} y={aY} width={sW} height={sH} fill="#fef2f2" stroke="#ef4444" strokeWidth={2} rx={4} strokeDasharray="4 2" />
+          <text x={aX + sW/2} y={aY + sH/2 - 12} textAnchor="middle" className="fill-red-500 text-[10px] font-bold">IMPOSSIBLE</text>
+          <text x={aX + sW/2} y={aY + sH/2 + 2} textAnchor="middle" className="fill-red-400 text-[8px]">Margin too large</text>
+          <text x={aX + sW/2} y={aY + sH/2 + 14} textAnchor="middle" className="fill-red-400 text-[8px]">or too many cells</text>
+          <text x={aX + sW/2} y={aY + sH + 12} textAnchor="middle" className="fill-red-500 text-[7px] font-semibold">
+            Cell: {actualCellW.toFixed(2)}&quot;x{actualCellH.toFixed(2)}&quot;
+          </text>
+        </svg>
+      )
+    }
+    
     return (
-      <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
+      <svg width={previewW} height={previewH} className={cn("bg-white dark:bg-slate-900 rounded-lg border", isTooSmall && "border-amber-400")}>
         <ArrowMarker />
         
         {/* Labels */}
         <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
-        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-emerald-500 text-[9px] font-semibold">AFTER</text>
+        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className={cn(isTooSmall ? "fill-amber-500" : "fill-emerald-500", "text-[9px] font-semibold")}>
+          {isTooSmall ? "WARNING" : "AFTER"}
+        </text>
         
         {/* BEFORE: Single page (or stack for N-up) */}
         {!isStepRepeat && (
@@ -165,20 +201,22 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
         <Arrow />
         
         {/* AFTER: Sheet with grid */}
-        <rect x={aX} y={aY} width={sW} height={sH} fill={sheetFill} stroke={sheetStroke} strokeWidth={1} rx={2} />
+        <rect x={aX} y={aY} width={sW} height={sH} fill={sheetFill} stroke={isTooSmall ? "#f59e0b" : sheetStroke} strokeWidth={isTooSmall ? 2 : 1} rx={2} />
         {Array.from({ length: rows }).map((_, r) =>
           Array.from({ length: cols }).map((_, c) => {
             const cx = aX + mS + c * cellW + 1
             const cy = aY + mS + r * cellH + 1
-            const cw = cellW - 2
-            const ch = cellH - 2
+            const cw = Math.max(2, cellW - 2)
+            const ch = Math.max(2, cellH - 2)
             return (
               <g key={`${r}-${c}`}>
                 <rect x={cx} y={cy} width={cw} height={ch} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
-                <text x={cx + cw/2} y={cy + ch/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[7px]">
-                  {isStepRepeat ? "1" : r * cols + c + 1}
-                </text>
-                {showCrop && (
+                {cw > 8 && ch > 8 && (
+                  <text x={cx + cw/2} y={cy + ch/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[7px]">
+                    {isStepRepeat ? "1" : r * cols + c + 1}
+                  </text>
+                )}
+                {showCrop && cw > 6 && (
                   <g stroke={cropColor} strokeWidth={0.3}>
                     <line x1={cx - 2} y1={cy} x2={cx + 2} y2={cy} />
                     <line x1={cx} y1={cy - 2} x2={cx} y2={cy + 2} />
@@ -188,7 +226,10 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
             )
           })
         )}
-        <text x={aX + sW/2} y={aY + sH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{sheetW}&quot;x{sheetH}&quot;</text>
+        {/* Show actual cell dimensions */}
+        <text x={aX + sW/2} y={aY + sH + 10} textAnchor="middle" className={cn(isTooSmall ? "fill-amber-500 font-semibold" : "fill-slate-400", "text-[7px]")}>
+          Cell: {actualCellW.toFixed(2)}&quot;x{actualCellH.toFixed(2)}&quot;
+        </text>
       </svg>
     )
   }
@@ -1417,28 +1458,62 @@ const handleFile = useCallback(async (file: File) => {
                   ))}
                 </div>
                 
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={runTool}
-                    disabled={processing || !pdfBytes}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold disabled:opacity-50"
-                  >
-                    {processing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {progress}
-                      </>
-                    ) : (
-                      <>
-                        <Play className="h-4 w-4" />
-                        Run {tool.name}
-                      </>
-                    )}
-                  </button>
-                  {!pdfBytes && (
-                    <span className="text-sm text-muted-foreground">Load a PDF first</span>
-                  )}
-                </div>
+                {(() => {
+                  // Validate configuration for N-Up and Step & Repeat
+                  let isInvalid = false
+                  let invalidReason = ""
+                  if (tool.id === "Nup" || tool.id === "StepRepeat") {
+                    const rows = Math.max(1, Number(params.rows) || 2)
+                    const cols = Math.max(1, Number(params.cols) || 2)
+                    const sheetW = Number(params.sheetW) || 11
+                    const sheetH = Number(params.sheetH) || 17
+                    const margin = Number(params.margin) || 0
+                    const cellW = (sheetW - margin * 2) / cols
+                    const cellH = (sheetH - margin * 2) / rows
+                    if (cellW <= 0.25 || cellH <= 0.25 || margin * 2 >= sheetW || margin * 2 >= sheetH) {
+                      isInvalid = true
+                      invalidReason = "Invalid layout: cells too small or margin too large"
+                    }
+                  }
+                  
+                  return (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={runTool}
+                        disabled={processing || !pdfBytes || isInvalid}
+                        className={cn(
+                          "flex items-center gap-2 px-6 py-3 rounded-full font-semibold disabled:opacity-50",
+                          isInvalid 
+                            ? "bg-red-500 text-white cursor-not-allowed" 
+                            : "bg-primary text-primary-foreground"
+                        )}
+                      >
+                        {processing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {progress}
+                          </>
+                        ) : isInvalid ? (
+                          <>
+                            <AlertTriangle className="h-4 w-4" />
+                            Invalid Settings
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4" />
+                            Run {tool.name}
+                          </>
+                        )}
+                      </button>
+                      {!pdfBytes && !isInvalid && (
+                        <span className="text-sm text-muted-foreground">Load a PDF first</span>
+                      )}
+                      {isInvalid && (
+                        <span className="text-sm text-red-500">{invalidReason}</span>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
               
               {/* Live Preview Panel - right side */}
