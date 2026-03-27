@@ -479,10 +479,18 @@ const SEQUENCES: Sequence[] = [
     ]
   },
   {
-    name: "Business Cards",
-    desc: "Step & repeat on 12x18",
+    name: "Business Cards (3.5x2)",
+    desc: "Fit to 3.5x2 then step & repeat on 12x18 with crop marks",
     steps: [
-      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+      { tool: "PageSizes", params: { mode: "fit", w: 3.5, h: 2, range: "all pages" } },
+      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
+    ]
+  },
+  {
+    name: "Business Cards (pre-sized)",
+    desc: "For PDFs already at 3.5x2 - step & repeat on 12x18",
+    steps: [
+      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
   {
@@ -875,40 +883,75 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
       }
     }
     
-    // CROP MARKS - drawn at trim edges
+    // CROP MARKS - drawn at trim edges (corners and spine)
     if (params.cropMarks) {
-      const marks: [number, number][] = [
-        [margin, margin], [margin, margin + ph],
-        [margin + shW / 2, margin], [margin + shW / 2, margin + ph]
-      ]
-      for (const [cx, cy] of marks) {
-        sh.drawLine({ start: { x: cx - 5, y: cy }, end: { x: cx + 5, y: cy }, thickness: 0.4, color: rgb(0, 0, 0) })
-        sh.drawLine({ start: { x: cx, y: cy - 5 }, end: { x: cx, y: cy + 5 }, thickness: 0.4, color: rgb(0, 0, 0) })
+      const cropLen = 15, cropDist = 5
+      // Left page corners
+      const leftX = margin, rightX = margin + pw * 2, midX = margin + pw
+      const topY = margin + ph, botY = margin
+      
+      // Draw crop marks at all trim positions
+      const drawMark = (x: number, y: number, horiz: boolean, vert: boolean) => {
+        if (horiz) {
+          sh.drawLine({ start: { x: x - cropLen, y }, end: { x: x - cropDist, y }, thickness: 0.3, color: rgb(0, 0, 0) })
+          sh.drawLine({ start: { x: x + cropDist, y }, end: { x: x + cropLen, y }, thickness: 0.3, color: rgb(0, 0, 0) })
+        }
+        if (vert) {
+          sh.drawLine({ start: { x, y: y - cropLen }, end: { x, y: y - cropDist }, thickness: 0.3, color: rgb(0, 0, 0) })
+          sh.drawLine({ start: { x, y: y + cropDist }, end: { x, y: y + cropLen }, thickness: 0.3, color: rgb(0, 0, 0) })
+        }
       }
+      // Outer corners
+      drawMark(leftX, topY, false, true); drawMark(leftX, botY, false, true)
+      drawMark(rightX, topY, false, true); drawMark(rightX, botY, false, true)
+      // Top and bottom edges
+      drawMark(leftX, topY, true, false); drawMark(rightX, topY, true, false)
+      drawMark(leftX, botY, true, false); drawMark(rightX, botY, true, false)
+      // Spine/center
+      drawMark(midX, topY, true, true); drawMark(midX, botY, true, true)
     }
   }
   return nd
 }
 
 // N-Up with CROP MARKS built in
+// NOTE: sheetW, sheetH, margin are expected in POINTS (already multiplied by IN)
 async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, sheetW: number, sheetH: number, margin: number, cropMarks: boolean, stepRepeat?: boolean }) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
+  if (pgs.length === 0) return doc
+  
   const nd = await PDFDocument.create()
-  const sheetW = params.sheetW * IN
-  const sheetH = params.sheetH * IN
-  const marginAll = params.margin * IN
-  const cW = (sheetW - marginAll * 2) / params.cols
-  const cH = (sheetH - marginAll * 2) / params.rows
+  const sheetW = params.sheetW
+  const sheetH = params.sheetH
+  const marginAll = params.margin
+  
+  // Get source page dimensions for auto-calculation
+  const srcPage = pgs[0]
+  const srcW = srcPage.getWidth()
+  const srcH = srcPage.getHeight()
+  
+  // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
+  let rows = params.rows
+  let cols = params.cols
+  if (rows <= 0 || cols <= 0) {
+    const availW = sheetW - marginAll * 2
+    const availH = sheetH - marginAll * 2
+    cols = Math.max(1, Math.floor(availW / srcW))
+    rows = Math.max(1, Math.floor(availH / srcH))
+  }
+  
+  const cW = (sheetW - marginAll * 2) / cols
+  const cH = (sheetH - marginAll * 2) / rows
   
   let idx = 0
-  const total = params.stepRepeat ? params.rows * params.cols : pgs.length
+  const total = params.stepRepeat ? rows * cols : pgs.length
   
   while (idx < total) {
     const sh = nd.addPage([sheetW, sheetH])
     
-    for (let r = 0; r < params.rows; r++) {
-      for (let c = 0; c < params.cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         const pi = params.stepRepeat ? 0 : idx
         if (!params.stepRepeat && idx >= pgs.length) break
         
@@ -920,12 +963,28 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
         
         sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
         
-        // CROP MARKS at each cell corner
+        // CROP MARKS at each cell corner - proper L-shaped trim marks
         if (params.cropMarks) {
-          const marks: [number, number][] = [[x, y], [x + cW, y], [x, y + cH], [x + cW, y + cH]]
-          for (const [cx, cy] of marks) {
-            sh.drawLine({ start: { x: cx - 3, y: cy }, end: { x: cx + 3, y: cy }, thickness: 0.3, color: rgb(0, 0, 0) })
-            sh.drawLine({ start: { x: cx, y: cy - 3 }, end: { x: cx, y: cy + 3 }, thickness: 0.3, color: rgb(0, 0, 0) })
+          const cropLen = 10, cropDist = 3
+          const corners: [number, number, number, number][] = [
+            [x, y, -1, -1],           // bottom-left: marks go left and down
+            [x + cW, y, 1, -1],       // bottom-right: marks go right and down
+            [x, y + cH, -1, 1],       // top-left: marks go left and up
+            [x + cW, y + cH, 1, 1]    // top-right: marks go right and up
+          ]
+          for (const [cx, cy, dx, dy] of corners) {
+            // Horizontal mark
+            sh.drawLine({ 
+              start: { x: cx + cropDist * dx, y: cy }, 
+              end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
+              thickness: 0.3, color: rgb(0, 0, 0) 
+            })
+            // Vertical mark
+            sh.drawLine({ 
+              start: { x: cx, y: cy + cropDist * dy }, 
+              end: { x: cx, y: cy + (cropDist + cropLen) * dy }, 
+              thickness: 0.3, color: rgb(0, 0, 0) 
+            })
           }
         }
         idx++
@@ -936,12 +995,13 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
   return nd
 }
 
+// NOTE: w, h are expected in POINTS (already multiplied by IN)
 async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, h: number, range: string }) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
-  const w = params.w * IN
-  const h = params.h * IN
+  const w = params.w
+  const h = params.h
   
   for (let i = 0; i < pgs.length; i++) {
     const skip = (params.range === "page 1 only" && i > 0) || (params.range === "all except first" && i === 0)
@@ -952,9 +1012,15 @@ async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, 
     
     if (skip) {
       pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
-    } else if (params.mode === "scale") {
+    } else if (params.mode === "scale" || params.mode === "stretch") {
       // Stretch to fill exactly - no aspect ratio preservation
       pg.drawPage(e, { x: 0, y: 0, width: w, height: h })
+    } else if (params.mode === "fit") {
+      // Fit within bounds while preserving aspect ratio, centered
+      const srcW = e.width, srcH = e.height
+      const scale = Math.min(w / srcW, h / srcH)
+      const dw = srcW * scale, dh = srcH * scale
+      pg.drawPage(e, { x: (w - dw) / 2, y: (h - dh) / 2, width: dw, height: dh })
     } else if (params.mode === "proportional") {
       // Fit inside, preserve aspect ratio, center with white border
       const s = Math.min(w / e.width, h / e.height)
@@ -1134,6 +1200,10 @@ export function PDFImposeTool() {
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  // Confirmation modal state
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{ type: 'sequence' | 'tool', name: string } | null>(null)
+  
 const handleFile = useCallback(async (file: File) => {
     const bytes = new Uint8Array(await file.arrayBuffer())
     setPdfBytes(bytes)
@@ -1272,9 +1342,9 @@ const selectTool = (toolId: string) => {
           doc = await opNUp(doc, {
             rows: params.rows as number,
             cols: params.cols as number,
-            sheetW: params.sheetW as number,
-            sheetH: params.sheetH as number,
-            margin: params.margin as number,
+            sheetW: (params.sheetW as number) * IN,
+            sheetH: (params.sheetH as number) * IN,
+            margin: (params.margin as number) * IN,
             cropMarks: params.cropMarks === "yes"
           })
           break
@@ -1282,21 +1352,21 @@ const selectTool = (toolId: string) => {
           doc = await opNUp(doc, {
             rows: params.rows as number,
             cols: params.cols as number,
-            sheetW: params.sheetW as number,
-            sheetH: params.sheetH as number,
-            margin: params.margin as number,
+            sheetW: (params.sheetW as number) * IN,
+            sheetH: (params.sheetH as number) * IN,
+            margin: (params.margin as number) * IN,
             cropMarks: params.cropMarks === "yes",
             stepRepeat: true
           })
           break
-        case "PageSizes":
-          doc = await opPageSizes(doc, {
-            mode: params.mode as string,
-            w: params.w as number,
-            h: params.h as number,
-            range: params.range as string
-          })
-          break
+case "PageSizes":
+  doc = await opPageSizes(doc, {
+  mode: params.mode as string,
+  w: (params.w as number) * IN,
+  h: (params.h as number) * IN,
+  range: params.range as string
+  })
+  break
         case "InsertBlanks":
           doc = await opInsert(doc, {
             where: params.where as string,
@@ -1372,8 +1442,15 @@ const selectTool = (toolId: string) => {
     URL.revokeObjectURL(url)
   }
   
-  // Run a multi-step sequence
-  const runSequence = async () => {
+  // Show confirmation before running sequence
+  const runSequence = () => {
+    if (!pdfBytes || !activeSequence) return
+    setPendingAction({ type: 'sequence', name: activeSequence })
+    setShowConfirm(true)
+  }
+  
+  // Execute a multi-step sequence (called after confirmation)
+  const executeSequence = async () => {
     if (!pdfBytes || !activeSequence) return
     const seq = SEQUENCES.find(s => s.name === activeSequence)
     if (!seq) return
@@ -1825,11 +1902,16 @@ const selectTool = (toolId: string) => {
                     }
                   }
                   
-                  return (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={runTool}
-                        disabled={processing || !pdfBytes || isInvalid}
+return (
+  <div className="flex items-center gap-3">
+  <button
+  onClick={() => {
+    if (tool) {
+      setPendingAction({ type: 'tool', name: tool.name })
+      setShowConfirm(true)
+    }
+  }}
+  disabled={processing || !pdfBytes || isInvalid}
                         className={cn(
                           "flex items-center gap-2 px-6 py-3 rounded-full font-semibold disabled:opacity-50",
                           isInvalid 
@@ -1974,6 +2056,232 @@ const selectTool = (toolId: string) => {
                   <span className="text-xs text-muted-foreground truncate max-w-32">{fileInfo.producer}</span>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Modal - Apple-style */}
+      {showConfirm && pendingAction && fileInfo && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="text-lg font-semibold">Confirm Transformation</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {pendingAction.type === 'sequence' ? `Sequence: ${pendingAction.name}` : `Tool: ${pendingAction.name}`}
+              </p>
+            </div>
+            
+            {/* Preview SVGs */}
+            <div className="p-6">
+              <div className="flex items-center gap-4">
+                {/* BEFORE */}
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 text-center">Current</div>
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-center aspect-[4/3]">
+                    <svg viewBox="0 0 120 90" className="w-full h-full max-w-28">
+                      {/* Page representation */}
+                      <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
+                      <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+                      {/* Size label */}
+                      <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[8px] font-bold">
+                        {(fileInfo.firstPageW / IN).toFixed(1)}&quot; x {(fileInfo.firstPageH / IN).toFixed(1)}&quot;
+                      </text>
+                      <text x="60" y="62" textAnchor="middle" className="fill-slate-500 text-[6px]">
+                        {fileInfo.pageCount} page{fileInfo.pageCount > 1 ? 's' : ''}
+                      </text>
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Arrow */}
+                <div className="shrink-0">
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-slate-400">
+                    <path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z" />
+                  </svg>
+                </div>
+                
+                {/* AFTER */}
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 text-center">Result</div>
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-center aspect-[4/3]">
+                    {(() => {
+                      // Generate preview based on sequence/tool
+                      const seq = pendingAction.type === 'sequence' 
+                        ? SEQUENCES.find(s => s.name === pendingAction.name)
+                        : null
+                      
+                      // Get final output size from sequence
+                      let outputW = fileInfo.firstPageW / IN
+                      let outputH = fileInfo.firstPageH / IN
+                      let gridCols = 1, gridRows = 1
+                      let isBooklet = false
+                      let isRotate = false
+                      let rotateAngle = 0
+                      
+                      // For individual tools, use current params
+                      if (pendingAction.type === 'tool') {
+                        const toolId = activeTool
+                        if (toolId === "PageSizes") {
+                          outputW = Number(params.w) || outputW
+                          outputH = Number(params.h) || outputH
+                        }
+                        if (toolId === "StepRepeat" || toolId === "Nup") {
+                          const sheetW = Number(params.sheetW) || 11
+                          const sheetH = Number(params.sheetH) || 17
+                          const margin = Number(params.margin) || 0
+                          gridCols = Math.max(1, Math.floor((sheetW - margin * 2) / outputW))
+                          gridRows = Math.max(1, Math.floor((sheetH - margin * 2) / outputH))
+                          outputW = sheetW
+                          outputH = sheetH
+                        }
+                        if (toolId === "SimpleBooklet") {
+                          isBooklet = true
+                          outputW = outputW * 2
+                        }
+                        if (toolId === "Rotate") {
+                          isRotate = true
+                          const angleStr = String(params.angle || "90°")
+                          rotateAngle = parseInt(angleStr) || 90
+                          if (rotateAngle === 90 || rotateAngle === 270) {
+                            const tmp = outputW
+                            outputW = outputH
+                            outputH = tmp
+                          }
+                        }
+                      }
+                      
+                      if (seq) {
+                        for (const step of seq.steps) {
+                          if (step.tool === "PageSizes") {
+                            outputW = (step.params.w as number) || outputW
+                            outputH = (step.params.h as number) || outputH
+                          }
+                          if (step.tool === "StepRepeat" || step.tool === "Nup") {
+                            const sheetW = (step.params.sheetW as number) || 11
+                            const sheetH = (step.params.sheetH as number) || 17
+                            const margin = (step.params.margin as number) || 0
+                            gridCols = Math.max(1, Math.floor((sheetW - margin * 2) / outputW))
+                            gridRows = Math.max(1, Math.floor((sheetH - margin * 2) / outputH))
+                            outputW = sheetW
+                            outputH = sheetH
+                          }
+                          if (step.tool === "SimpleBooklet") {
+                            isBooklet = true
+                            outputW = outputW * 2
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <svg viewBox="0 0 120 90" className="w-full h-full max-w-28">
+                          {/* Sheet */}
+                          <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
+                          
+                          {gridCols > 1 || gridRows > 1 ? (
+                            // Grid layout for step & repeat
+                            <>
+                              {Array.from({ length: Math.min(gridRows, 4) }).map((_, r) =>
+                                Array.from({ length: Math.min(gridCols, 4) }).map((_, c) => (
+                                  <rect
+                                    key={`${r}-${c}`}
+                                    x={15 + c * (85 / Math.min(gridCols, 4))}
+                                    y={10 + r * (70 / Math.min(gridRows, 4))}
+                                    width={80 / Math.min(gridCols, 4)}
+                                    height={65 / Math.min(gridRows, 4)}
+                                    fill="#dbeafe"
+                                    stroke="#60a5fa"
+                                    strokeWidth="0.5"
+                                    rx="1"
+                                  />
+                                ))
+                              )}
+                              <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[7px] font-bold">
+                                {gridCols}x{gridRows} grid
+                              </text>
+                            </>
+                          ) : isBooklet ? (
+                            // Booklet spread
+                            <>
+                              <rect x="15" y="15" width="42" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="0.5" rx="1" />
+                              <rect x="63" y="15" width="42" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="0.5" rx="1" />
+                              <line x1="60" y1="15" x2="60" y2="75" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2,2" />
+                              <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[7px] font-bold">
+                                Booklet
+                              </text>
+                            </>
+                          ) : isRotate ? (
+                            // Rotated page
+                            <>
+                              <rect 
+                                x="20" y="15" 
+                                width={rotateAngle === 90 || rotateAngle === 270 ? 60 : 80} 
+                                height={rotateAngle === 90 || rotateAngle === 270 ? 80 : 60} 
+                                fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" 
+                                transform={`rotate(${rotateAngle} 60 45)`}
+                              />
+                              <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[7px] font-bold">
+                                {rotateAngle}°
+                              </text>
+                            </>
+                          ) : (
+                            // Single page
+                            <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+                          )}
+                          
+                          {/* Size label */}
+                          <text x="60" y="82" textAnchor="middle" className="fill-slate-500 text-[6px]">
+                            {outputW.toFixed(1)}&quot; x {outputH.toFixed(1)}&quot;
+                          </text>
+                        </svg>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Sequence steps summary */}
+              {pendingAction.type === 'sequence' && (
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                  <div className="text-xs font-bold text-muted-foreground uppercase mb-2">Steps</div>
+                  <div className="space-y-1">
+                    {SEQUENCES.find(s => s.name === pendingAction.name)?.steps.map((step, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">{i + 1}</span>
+                        <span className="font-medium">{step.tool}</span>
+                        <span className="text-muted-foreground truncate">
+                          {Object.entries(step.params).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Actions */}
+            <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-800/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowConfirm(false); setPendingAction(null) }}
+                className="px-5 py-2.5 text-sm font-semibold rounded-full border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false)
+                  if (pendingAction.type === 'sequence') {
+                    executeSequence()
+                  } else {
+                    runTool()
+                  }
+                  setPendingAction(null)
+                }}
+                className="px-5 py-2.5 text-sm font-semibold rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Apply Changes
+              </button>
             </div>
           </div>
         </div>
