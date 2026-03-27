@@ -209,134 +209,198 @@ export function PDFBatchTool() {
     setSelected(new Set())
   }
 
-  // Generate cover page PDF
+  // Generate separator/cover page PDF - this stays at TOP of each batch
   const generateCoverPage = async (batch: Batch, batchFiles: PDFFile[], batchNumber: number, totalBatches: number) => {
     const doc = await PDFDocument.create()
     const page = doc.addPage([612, 792]) // Letter size
-    const font = await doc.embedFont(StandardFonts.HelveticaBold)
+    const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
     const fontRegular = await doc.embedFont(StandardFonts.Helvetica)
     
-    const { height } = page.getSize()
-    let y = height - 80
+    const { width, height } = page.getSize()
+    const centerX = width / 2
     
-    // Header
-    page.drawText("BATCH COVER SHEET", {
-      x: 50,
-      y,
-      size: 28,
-      font,
-      color: rgb(0.1, 0.1, 0.1)
-    })
-    
-    y -= 50
-    
-    // Batch info box
+    // ========== TOP HEADER BAR ==========
     page.drawRectangle({
-      x: 50,
-      y: y - 120,
-      width: 512,
-      height: 120,
-      borderColor: rgb(0.8, 0.8, 0.8),
-      borderWidth: 2,
-      color: rgb(0.97, 0.97, 0.97)
+      x: 0,
+      y: height - 100,
+      width: width,
+      height: 100,
+      color: rgb(0.15, 0.25, 0.45)
     })
     
-    y -= 30
-    page.drawText(`Batch ${batchNumber} of ${totalBatches}`, {
-      x: 70,
-      y,
-      size: 18,
-      font,
-      color: rgb(0.2, 0.4, 0.8)
+    // Batch number in header
+    page.drawText(`BATCH ${batchNumber} OF ${totalBatches}`, {
+      x: centerX - 100,
+      y: height - 55,
+      size: 28,
+      font: fontBold,
+      color: rgb(1, 1, 1)
     })
     
-    y -= 35
-    page.drawText(batch.name, {
-      x: 70,
-      y,
-      size: 24,
-      font,
-      color: rgb(0, 0, 0)
+    page.drawText("SEPARATOR SHEET - KEEP ON TOP", {
+      x: centerX - 130,
+      y: height - 80,
+      size: 14,
+      font: fontRegular,
+      color: rgb(0.8, 0.85, 0.95)
     })
     
-    y -= 35
-    page.drawText(`${batch.sets} SET${batch.sets > 1 ? "S" : ""}`, {
-      x: 70,
-      y,
-      size: 36,
-      font,
-      color: rgb(0.9, 0.3, 0.1)
-    })
-    
-    y -= 80
-    
-    // Stats
+    // ========== MAIN SET COUNT - HUGE AND CENTERED ==========
     const totalPages = batchFiles.reduce((sum, f) => sum + (f.pages || 0), 0)
     const totalSheets = totalPages * batch.sets
     
-    page.drawText("Batch Statistics", {
-      x: 50,
-      y,
-      size: 14,
-      font,
-      color: rgb(0.4, 0.4, 0.4)
+    // Big box for sets
+    page.drawRectangle({
+      x: 80,
+      y: height - 320,
+      width: width - 160,
+      height: 180,
+      borderColor: rgb(0.9, 0.35, 0.15),
+      borderWidth: 4,
+      color: rgb(1, 0.97, 0.95)
     })
     
-    y -= 30
-    const stats = [
-      ["Files in Batch:", `${batchFiles.length}`],
-      ["Total Pages per Set:", `${totalPages}`],
-      ["Number of Sets:", `${batch.sets}`],
-      ["Total Sheets to Print:", `${totalSheets}`]
-    ]
+    // SET COUNT - massive
+    const setsText = `${batch.sets}`
+    page.drawText(setsText, {
+      x: centerX - (setsText.length > 1 ? 60 : 35),
+      y: height - 240,
+      size: 120,
+      font: fontBold,
+      color: rgb(0.9, 0.25, 0.1)
+    })
     
-    for (const [label, value] of stats) {
-      page.drawText(label, { x: 70, y, size: 12, font: fontRegular, color: rgb(0.3, 0.3, 0.3) })
-      page.drawText(value, { x: 250, y, size: 12, font, color: rgb(0, 0, 0) })
-      y -= 22
-    }
+    page.drawText(batch.sets === 1 ? "SET" : "SETS", {
+      x: centerX - 30,
+      y: height - 290,
+      size: 32,
+      font: fontBold,
+      color: rgb(0.5, 0.5, 0.5)
+    })
     
-    y -= 30
+    // ========== BATCH NAME ==========
+    page.drawText(batch.name.toUpperCase(), {
+      x: centerX - (batch.name.length * 7),
+      y: height - 370,
+      size: 24,
+      font: fontBold,
+      color: rgb(0.2, 0.2, 0.2)
+    })
     
-    // File list
-    page.drawText("Files in this Batch:", {
+    // ========== STATS BOX ==========
+    page.drawRectangle({
+      x: 50,
+      y: height - 480,
+      width: width - 100,
+      height: 80,
+      color: rgb(0.96, 0.96, 0.98)
+    })
+    
+    // Stats in a row
+    const statsY = height - 430
+    const colWidth = (width - 100) / 4
+    
+    // Files count
+    page.drawText(`${batchFiles.length}`, { x: 50 + colWidth * 0.3, y: statsY, size: 28, font: fontBold, color: rgb(0.2, 0.4, 0.8) })
+    page.drawText("FILES", { x: 50 + colWidth * 0.2, y: statsY - 25, size: 10, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
+    
+    // Pages per set
+    page.drawText(`${totalPages}`, { x: 50 + colWidth * 1.3, y: statsY, size: 28, font: fontBold, color: rgb(0.2, 0.4, 0.8) })
+    page.drawText("PAGES/SET", { x: 50 + colWidth * 1.1, y: statsY - 25, size: 10, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
+    
+    // Sets
+    page.drawText(`${batch.sets}`, { x: 50 + colWidth * 2.4, y: statsY, size: 28, font: fontBold, color: rgb(0.9, 0.3, 0.1) })
+    page.drawText("SETS", { x: 50 + colWidth * 2.35, y: statsY - 25, size: 10, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
+    
+    // Total sheets
+    page.drawText(`${totalSheets}`, { x: 50 + colWidth * 3.2, y: statsY, size: 28, font: fontBold, color: rgb(0.2, 0.6, 0.3) })
+    page.drawText("TOTAL SHEETS", { x: 50 + colWidth * 3, y: statsY - 25, size: 10, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
+    
+    // ========== FILE LIST ==========
+    let y = height - 520
+    
+    page.drawText("FILES IN THIS BATCH (sorted by page count):", {
       x: 50,
       y,
-      size: 14,
-      font,
-      color: rgb(0.4, 0.4, 0.4)
+      size: 11,
+      font: fontBold,
+      color: rgb(0.3, 0.3, 0.3)
     })
     
     y -= 25
     
-    // Sort by pages ascending for the list
+    // Sort by pages ascending
     const sortedFiles = [...batchFiles].sort((a, b) => (a.pages || 0) - (b.pages || 0))
     
-    for (let i = 0; i < sortedFiles.length && y > 80; i++) {
+    // Draw file list with alternating background
+    for (let i = 0; i < sortedFiles.length && y > 60; i++) {
       const f = sortedFiles[i]
-      const displayName = f.name.length > 50 ? f.name.substring(0, 47) + "..." : f.name
-      page.drawText(`${i + 1}. ${displayName}`, { 
-        x: 70, y, size: 10, font: fontRegular, color: rgb(0.2, 0.2, 0.2) 
+      
+      // Alternating row bg
+      if (i % 2 === 0) {
+        page.drawRectangle({
+          x: 50,
+          y: y - 4,
+          width: width - 100,
+          height: 18,
+          color: rgb(0.97, 0.97, 0.97)
+        })
+      }
+      
+      // Page count badge
+      page.drawText(`${f.pages}`, { 
+        x: 60, 
+        y, 
+        size: 10, 
+        font: fontBold, 
+        color: rgb(0.4, 0.4, 0.4) 
       })
-      page.drawText(`${f.pages} pg`, { 
-        x: 480, y, size: 10, font, color: rgb(0.5, 0.5, 0.5) 
+      
+      // Filename - truncate if needed
+      const maxLen = 60
+      const baseName = f.name.replace(/\.pdf$/i, "")
+      const displayName = baseName.length > maxLen ? baseName.substring(0, maxLen - 3) + "..." : baseName
+      page.drawText(displayName, { 
+        x: 100, 
+        y, 
+        size: 9, 
+        font: fontRegular, 
+        color: rgb(0.2, 0.2, 0.2) 
       })
-      y -= 18
+      
+      y -= 16
     }
     
-    if (sortedFiles.length > 25) {
-      page.drawText(`... and ${sortedFiles.length - 25} more files`, {
-        x: 70, y, size: 10, font: fontRegular, color: rgb(0.5, 0.5, 0.5)
+    // Show count if truncated
+    if (sortedFiles.length > 20 && y <= 60) {
+      page.drawText(`... and ${sortedFiles.length - 20} more files`, {
+        x: 100, y: 65, size: 9, font: fontRegular, color: rgb(0.5, 0.5, 0.5)
       })
     }
     
-    // Footer
+    // ========== FOOTER ==========
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: width,
+      height: 40,
+      color: rgb(0.95, 0.95, 0.95)
+    })
+    
     page.drawText(`Generated: ${new Date().toLocaleString()}`, {
       x: 50,
-      y: 40,
+      y: 15,
       size: 9,
       font: fontRegular,
-      color: rgb(0.6, 0.6, 0.6)
+      color: rgb(0.5, 0.5, 0.5)
+    })
+    
+    page.drawText("PostFlow PDF Batch Organizer", {
+      x: width - 180,
+      y: 15,
+      size: 9,
+      font: fontRegular,
+      color: rgb(0.5, 0.5, 0.5)
     })
     
     return await doc.save()
@@ -368,22 +432,23 @@ export function PDFBatchTool() {
         setProcessMsg(`Creating cover for ${batch.name}...`)
         setProcessProgress(Math.round(((batchIndex * 2) / (batches.length * 2)) * 100))
         
-        // Add cover page
+        // Add cover/separator page - named with "!" to stay alphabetically FIRST
         const coverPdf = await generateCoverPage(batch, batchFiles, batchIndex + 1, batches.length)
-        batchFolder.file("00_COVER_SHEET.pdf", coverPdf)
+        batchFolder.file("!_BATCH_SEPARATOR.pdf", coverPdf)
         
         // Sort files by pages ascending
         const sortedFiles = [...batchFiles].sort((a, b) => (a.pages || 0) - (b.pages || 0))
         
-        // Add files with page count prefix
+        // Add files with page count prefix - format: "14 filename.pdf"
         for (let i = 0; i < sortedFiles.length; i++) {
           const f = sortedFiles[i]
           setProcessMsg(`Adding ${f.name}...`)
           setProcessProgress(Math.round((((batchIndex * 2) + 1 + (i / sortedFiles.length)) / (batches.length * 2)) * 100))
           
           const ab = await f.file.arrayBuffer()
-          const paddedNum = String(i + 1).padStart(2, "0")
-          const newName = `${paddedNum}_${f.pages}pg_${f.name}`
+          // Remove .pdf extension from original name, add page count prefix
+          const baseName = f.name.replace(/\.pdf$/i, "")
+          const newName = `${f.pages} ${baseName}.pdf`
           batchFolder.file(newName, ab)
         }
       }
