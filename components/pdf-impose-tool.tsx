@@ -13,74 +13,110 @@ import { cn } from "@/lib/utils"
 const IN = 72 // 1 inch = 72 points
 
 // ============================================
-// Live Imposition Preview Component
+// Live Imposition Preview Component - BEFORE → AFTER
 // ============================================
 function ImpositionPreview({ toolId, params, fileInfo }: { 
   toolId: string
   params: Record<string, string | number>
   fileInfo: { firstPageW: number, firstPageH: number, pageCount: number } | null 
 }) {
-  const previewW = 260
-  const previewH = 200
-  const padding = 16
+  const previewW = 280
+  const previewH = 180
+  const halfW = previewW / 2
+  const padding = 12
+  const arrowY = previewH / 2
   
-  // Get source page size (from loaded PDF or default)
+  // Get source page size (from loaded PDF or default Letter)
   const srcW = fileInfo ? fileInfo.firstPageW / IN : 8.5
   const srcH = fileInfo ? fileInfo.firstPageH / IN : 11
   const pageCount = fileInfo?.pageCount || 8
   
-  // Common SVG styles
-  const sheetStyle = "fill-slate-100 dark:fill-slate-800 stroke-slate-300 dark:stroke-slate-600"
-  const pageStyle = "fill-blue-100 dark:fill-blue-900/50 stroke-blue-400 dark:stroke-blue-500"
-  const cropMarkStyle = "stroke-rose-500 dark:stroke-rose-400"
-  const foldLineStyle = "stroke-amber-500 dark:stroke-amber-400 stroke-dasharray-4"
-  const labelStyle = "fill-slate-500 dark:fill-slate-400 text-[8px] font-mono"
+  // Common SVG styles  
+  const sheetFill = "#f1f5f9" // slate-100
+  const sheetStroke = "#cbd5e1" // slate-300
+  const pageFill = "#dbeafe" // blue-100
+  const pageStroke = "#60a5fa" // blue-400
+  const cropColor = "#f43f5e" // rose-500
+  const foldColor = "#f59e0b" // amber-500
   
-  // Render based on tool
+  // Arrow marker (shared)
+  const ArrowMarker = () => (
+    <defs>
+      <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
+      </marker>
+    </defs>
+  )
+  
+  // Arrow between BEFORE and AFTER
+  const Arrow = () => (
+    <path 
+      d={`M ${halfW - 16} ${arrowY} L ${halfW + 10} ${arrowY}`} 
+      stroke="#94a3b8" 
+      strokeWidth={2} 
+      markerEnd="url(#arrowhead)" 
+    />
+  )
+  
+  // ========== SIMPLE BOOKLET ==========
   if (toolId === "SimpleBooklet") {
-    // Booklet: show a spread with fold line
     const margin = Number(params.margin) || 0.25
+    const showCrop = params.cropMarks === "yes"
+    
+    // BEFORE: Stack of single pages
+    const beforeScale = Math.min((halfW - padding * 3) / srcW, (previewH - 50) / srcH) * 0.7
+    const bpW = srcW * beforeScale, bpH = srcH * beforeScale
+    const bpX = padding + (halfW - padding * 2 - bpW) / 2
+    const bpY = 30 + (previewH - 50 - bpH) / 2
+    
+    // AFTER: Spread (two pages side by side)
     const sheetW = srcW * 2 + margin * 2
     const sheetH = srcH + margin * 2
-    const scale = Math.min((previewW - padding * 2) / sheetW, (previewH - padding * 2) / sheetH)
-    const sW = sheetW * scale, sH = sheetH * scale
-    const pW = srcW * scale, pH = srcH * scale
-    const mS = margin * scale
-    const ox = (previewW - sW) / 2, oy = (previewH - sH) / 2
-    const showCrop = params.cropMarks === "yes"
+    const afterScale = Math.min((halfW - padding * 2) / sheetW, (previewH - 50) / sheetH) * 0.85
+    const sW = sheetW * afterScale, sH = sheetH * afterScale
+    const apW = srcW * afterScale, apH = srcH * afterScale
+    const mS = margin * afterScale
+    const aX = halfW + padding + (halfW - padding * 2 - sW) / 2
+    const aY = 30 + (previewH - 50 - sH) / 2
     
     return (
       <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
-        {/* Sheet */}
-        <rect x={ox} y={oy} width={sW} height={sH} className={sheetStyle} strokeWidth={1} />
-        {/* Left page */}
-        <rect x={ox + mS} y={oy + mS} width={pW} height={pH} className={pageStyle} strokeWidth={1} />
-        <text x={ox + mS + pW/2} y={oy + mS + pH/2} textAnchor="middle" dominantBaseline="middle" className={labelStyle}>
-          {Math.ceil(pageCount / 4) * 4}
-        </text>
-        {/* Right page */}
-        <rect x={ox + mS + pW} y={oy + mS} width={pW} height={pH} className={pageStyle} strokeWidth={1} />
-        <text x={ox + mS + pW + pW/2} y={oy + mS + pH/2} textAnchor="middle" dominantBaseline="middle" className={labelStyle}>
-          1
-        </text>
+        <ArrowMarker />
+        
+        {/* Labels */}
+        <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
+        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-emerald-500 text-[9px] font-semibold">AFTER</text>
+        
+        {/* BEFORE: Stack of pages */}
+        <rect x={bpX + 6} y={bpY + 6} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
+        <rect x={bpX + 3} y={bpY + 3} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
+        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+        <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">{pageCount}pg</text>
+        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;</text>
+        
+        <Arrow />
+        
+        {/* AFTER: Spread */}
+        <rect x={aX} y={aY} width={sW} height={sH} fill={sheetFill} stroke={sheetStroke} strokeWidth={1} rx={2} />
+        <rect x={aX + mS} y={aY + mS} width={apW} height={apH} fill={pageFill} stroke={pageStroke} strokeWidth={1} />
+        <text x={aX + mS + apW/2} y={aY + mS + apH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[8px]">{Math.ceil(pageCount / 4) * 4}</text>
+        <rect x={aX + mS + apW} y={aY + mS} width={apW} height={apH} fill={pageFill} stroke={pageStroke} strokeWidth={1} />
+        <text x={aX + mS + apW + apW/2} y={aY + mS + apH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[8px]">1</text>
         {/* Fold line */}
-        <line x1={ox + sW/2} y1={oy} x2={ox + sW/2} y2={oy + sH} className={foldLineStyle} strokeWidth={1} strokeDasharray="4 2" />
-        <text x={ox + sW/2} y={oy - 4} textAnchor="middle" className="fill-amber-600 dark:fill-amber-400 text-[7px]">FOLD</text>
+        <line x1={aX + sW/2} y1={aY - 2} x2={aX + sW/2} y2={aY + sH + 2} stroke={foldColor} strokeWidth={1.5} strokeDasharray="3 2" />
+        <text x={aX + sW/2} y={aY + sH + 12} textAnchor="middle" className="fill-amber-500 text-[6px] font-semibold">FOLD</text>
         {/* Crop marks */}
         {showCrop && (
-          <g className={cropMarkStyle} strokeWidth={0.5}>
-            {[[ox + mS, oy + mS], [ox + mS, oy + mS + pH], [ox + sW/2, oy + mS], [ox + sW/2, oy + mS + pH]].map(([cx, cy], i) => (
-              <g key={i}>
-                <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} />
-                <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} />
-              </g>
-            ))}
+          <g stroke={cropColor} strokeWidth={0.5}>
+            <line x1={aX + mS - 4} y1={aY + mS} x2={aX + mS + 4} y2={aY + mS} />
+            <line x1={aX + mS} y1={aY + mS - 4} x2={aX + mS} y2={aY + mS + 4} />
           </g>
         )}
       </svg>
     )
   }
   
+  // ========== N-UP / STEP & REPEAT ==========
   if (toolId === "Nup" || toolId === "StepRepeat") {
     const rows = Number(params.rows) || 2
     const cols = Number(params.cols) || 2
@@ -90,228 +126,238 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
     const showCrop = params.cropMarks === "yes"
     const isStepRepeat = toolId === "StepRepeat"
     
-    const scale = Math.min((previewW - padding * 2) / sheetW, (previewH - padding * 2) / sheetH)
-    const sW = sheetW * scale, sH = sheetH * scale
-    const mS = margin * scale
+    // BEFORE: Single page
+    const beforeScale = Math.min((halfW - padding * 3) / srcW, (previewH - 50) / srcH) * 0.65
+    const bpW = srcW * beforeScale, bpH = srcH * beforeScale
+    const bpX = padding + (halfW - padding * 2 - bpW) / 2
+    const bpY = 30 + (previewH - 50 - bpH) / 2
+    
+    // AFTER: Sheet with grid
+    const afterScale = Math.min((halfW - padding * 2) / sheetW, (previewH - 50) / sheetH) * 0.9
+    const sW = sheetW * afterScale, sH = sheetH * afterScale
+    const mS = margin * afterScale
     const cellW = (sW - mS * 2) / cols
     const cellH = (sH - mS * 2) / rows
-    const ox = (previewW - sW) / 2, oy = (previewH - sH) / 2
+    const aX = halfW + padding + (halfW - padding * 2 - sW) / 2
+    const aY = 30 + (previewH - 50 - sH) / 2
     
     return (
       <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
-        {/* Sheet */}
-        <rect x={ox} y={oy} width={sW} height={sH} className={sheetStyle} strokeWidth={1} />
-        {/* Grid cells */}
+        <ArrowMarker />
+        
+        {/* Labels */}
+        <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
+        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-emerald-500 text-[9px] font-semibold">AFTER</text>
+        
+        {/* BEFORE: Single page (or stack for N-up) */}
+        {!isStepRepeat && (
+          <>
+            <rect x={bpX + 4} y={bpY + 4} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
+            <rect x={bpX + 2} y={bpY + 2} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
+          </>
+        )}
+        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+        <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">
+          {isStepRepeat ? "1" : `${cols * rows}pg`}
+        </text>
+        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;</text>
+        
+        <Arrow />
+        
+        {/* AFTER: Sheet with grid */}
+        <rect x={aX} y={aY} width={sW} height={sH} fill={sheetFill} stroke={sheetStroke} strokeWidth={1} rx={2} />
         {Array.from({ length: rows }).map((_, r) =>
           Array.from({ length: cols }).map((_, c) => {
-            const cellX = ox + mS + c * cellW
-            const cellY = oy + mS + r * cellH
-            const pageNum = isStepRepeat ? 1 : r * cols + c + 1
+            const cx = aX + mS + c * cellW + 1
+            const cy = aY + mS + r * cellH + 1
+            const cw = cellW - 2
+            const ch = cellH - 2
             return (
               <g key={`${r}-${c}`}>
-                <rect 
-                  x={cellX + 2} y={cellY + 2} 
-                  width={cellW - 4} height={cellH - 4} 
-                  className={pageStyle} strokeWidth={1} 
-                />
-                <text 
-                  x={cellX + cellW/2} y={cellY + cellH/2} 
-                  textAnchor="middle" dominantBaseline="middle" 
-                  className={labelStyle}
-                >
-                  {pageNum}
+                <rect x={cx} y={cy} width={cw} height={ch} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                <text x={cx + cw/2} y={cy + ch/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[7px]">
+                  {isStepRepeat ? "1" : r * cols + c + 1}
                 </text>
-                {/* Crop marks at corners */}
                 {showCrop && (
-                  <g className={cropMarkStyle} strokeWidth={0.4}>
-                    {[[cellX, cellY], [cellX + cellW, cellY], [cellX, cellY + cellH], [cellX + cellW, cellY + cellH]].map(([cx, cy], i) => (
-                      <g key={i}>
-                        <line x1={cx - 3} y1={cy} x2={cx + 3} y2={cy} />
-                        <line x1={cx} y1={cy - 3} x2={cx} y2={cy + 3} />
-                      </g>
-                    ))}
+                  <g stroke={cropColor} strokeWidth={0.3}>
+                    <line x1={cx - 2} y1={cy} x2={cx + 2} y2={cy} />
+                    <line x1={cx} y1={cy - 2} x2={cx} y2={cy + 2} />
                   </g>
                 )}
               </g>
             )
           })
         )}
-        {/* Label */}
-        <text x={previewW/2} y={previewH - 6} textAnchor="middle" className="fill-slate-400 text-[7px]">
-          {cols}x{rows} = {cols * rows} {isStepRepeat ? "copies" : "pages"} per sheet
-        </text>
+        <text x={aX + sW/2} y={aY + sH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{sheetW}&quot;x{sheetH}&quot;</text>
       </svg>
     )
   }
   
+  // ========== TILE PAGES ==========
   if (toolId === "TilePages") {
     const rows = Number(params.rows) || 2
     const cols = Number(params.cols) || 2
-    const overlap = Number(params.overlap) || 0
     
-    const scale = Math.min((previewW - padding * 2) / srcW, (previewH - padding * 2) / srcH)
-    const pW = srcW * scale, pH = srcH * scale
-    const ox = (previewW - pW) / 2, oy = (previewH - pH) / 2
-    const tileW = pW / cols
-    const tileH = pH / rows
-    const overlapPx = overlap * scale * 5 // Exaggerate for visibility
+    // BEFORE: Large single page
+    const beforeScale = Math.min((halfW - padding * 3) / srcW, (previewH - 50) / srcH) * 0.75
+    const bpW = srcW * beforeScale, bpH = srcH * beforeScale
+    const bpX = padding + (halfW - padding * 2 - bpW) / 2
+    const bpY = 30 + (previewH - 50 - bpH) / 2
+    
+    // AFTER: Grid of small tiles
+    const tileW = srcW / cols
+    const tileH = srcH / rows
+    const afterScale = Math.min((halfW - padding * 2) / (tileW * cols + 8), (previewH - 50) / (tileH * rows + 8)) * 0.85
+    const atW = tileW * afterScale, atH = tileH * afterScale
+    const totalW = atW * cols + (cols - 1) * 4
+    const totalH = atH * rows + (rows - 1) * 4
+    const aX = halfW + padding + (halfW - padding * 2 - totalW) / 2
+    const aY = 30 + (previewH - 50 - totalH) / 2
     
     return (
       <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
-        {/* Original page outline */}
-        <rect x={ox} y={oy} width={pW} height={pH} className="fill-blue-50 dark:fill-blue-950/30 stroke-blue-300 dark:stroke-blue-700" strokeWidth={1} />
-        {/* Tile grid */}
+        <ArrowMarker />
+        
+        {/* Labels */}
+        <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
+        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-emerald-500 text-[9px] font-semibold">AFTER</text>
+        
+        {/* BEFORE: Single large page with tile grid overlay */}
+        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+        {/* Tile lines */}
+        {Array.from({ length: cols - 1 }).map((_, c) => (
+          <line key={`v${c}`} x1={bpX + (c + 1) * bpW / cols} y1={bpY} x2={bpX + (c + 1) * bpW / cols} y2={bpY + bpH} stroke={cropColor} strokeWidth={0.5} strokeDasharray="2 1" />
+        ))}
+        {Array.from({ length: rows - 1 }).map((_, r) => (
+          <line key={`h${r}`} x1={bpX} y1={bpY + (r + 1) * bpH / rows} x2={bpX + bpW} y2={bpY + (r + 1) * bpH / rows} stroke={cropColor} strokeWidth={0.5} strokeDasharray="2 1" />
+        ))}
+        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;</text>
+        
+        <Arrow />
+        
+        {/* AFTER: Separated tiles */}
         {Array.from({ length: rows }).map((_, r) =>
-          Array.from({ length: cols }).map((_, c) => (
-            <rect
-              key={`${r}-${c}`}
-              x={ox + c * tileW - (c > 0 ? overlapPx/2 : 0)}
-              y={oy + r * tileH - (r > 0 ? overlapPx/2 : 0)}
-              width={tileW + (c > 0 && c < cols - 1 ? overlapPx : c > 0 || c < cols - 1 ? overlapPx/2 : 0)}
-              height={tileH + (r > 0 && r < rows - 1 ? overlapPx : r > 0 || r < rows - 1 ? overlapPx/2 : 0)}
-              className="fill-none stroke-rose-400 dark:stroke-rose-500"
-              strokeWidth={1}
-              strokeDasharray="3 2"
-            />
-          ))
+          Array.from({ length: cols }).map((_, c) => {
+            const tx = aX + c * (atW + 4)
+            const ty = aY + r * (atH + 4)
+            return (
+              <g key={`${r}-${c}`}>
+                <rect x={tx} y={ty} width={atW} height={atH} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} rx={1} />
+                <text x={tx + atW/2} y={ty + atH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[7px] font-bold">
+                  {r * cols + c + 1}
+                </text>
+              </g>
+            )
+          })
         )}
-        {/* Tile numbers */}
-        {Array.from({ length: rows }).map((_, r) =>
-          Array.from({ length: cols }).map((_, c) => (
-            <text
-              key={`t-${r}-${c}`}
-              x={ox + c * tileW + tileW/2}
-              y={oy + r * tileH + tileH/2}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="fill-rose-500 dark:fill-rose-400 text-[9px] font-bold"
-            >
-              {r * cols + c + 1}
-            </text>
-          ))
-        )}
-        {/* Label */}
-        <text x={previewW/2} y={previewH - 6} textAnchor="middle" className="fill-slate-400 text-[7px]">
-          Split into {cols * rows} tiles
-        </text>
+        <text x={halfW + halfW/2} y={previewH - 8} textAnchor="middle" className="fill-slate-400 text-[7px]">{cols * rows} tiles</text>
       </svg>
     )
   }
   
+  // ========== PAGE SIZES ==========
   if (toolId === "PageSizes") {
     const mode = params.mode as string || "proportional"
     const targetW = Number(params.w) || 8.5
     const targetH = Number(params.h) || 11
     
-    // Show before/after comparison
     const maxDim = Math.max(srcW, srcH, targetW, targetH)
-    const scale = Math.min((previewW/2 - padding * 2) / maxDim, (previewH - padding * 2) / maxDim)
+    const beforeScale = Math.min((halfW - padding * 3) / maxDim, (previewH - 50) / maxDim) * 0.8
+    const afterScale = beforeScale
     
-    const srcPW = srcW * scale, srcPH = srcH * scale
-    const tgtPW = targetW * scale, tgtPH = targetH * scale
+    const bpW = srcW * beforeScale, bpH = srcH * beforeScale
+    const apW = targetW * afterScale, apH = targetH * afterScale
     
-    // Source (left)
-    const srcOx = padding + (previewW/2 - padding * 2 - srcPW) / 2
-    const srcOy = padding + (previewH - padding * 2 - srcPH) / 2
-    // Target (right)
-    const tgtOx = previewW/2 + padding + (previewW/2 - padding * 2 - tgtPW) / 2
-    const tgtOy = padding + (previewH - padding * 2 - tgtPH) / 2
+    const bpX = padding + (halfW - padding * 2 - bpW) / 2
+    const bpY = 30 + (previewH - 50 - bpH) / 2
+    const aX = halfW + padding + (halfW - padding * 2 - apW) / 2
+    const aY = 30 + (previewH - 50 - apH) / 2
     
-    // Calculate how content fits in target based on mode
-    let contentW = srcPW, contentH = srcPH
-    if (mode === "scale") {
-      contentW = tgtPW; contentH = tgtPH
-    } else if (mode === "proportional") {
-      const s = Math.min(tgtPW / srcPW, tgtPH / srcPH)
-      contentW = srcPW * s; contentH = srcPH * s
+    // Content inside target
+    let cW = bpW, cH = bpH
+    if (mode === "scale") { cW = apW; cH = apH }
+    else if (mode === "proportional") {
+      const s = Math.min(apW / bpW, apH / bpH)
+      cW = bpW * s; cH = bpH * s
     } else if (mode === "crop") {
-      const s = Math.max(tgtPW / srcPW, tgtPH / srcPH)
-      contentW = srcPW * s; contentH = srcPH * s
+      const s = Math.max(apW / bpW, apH / bpH)
+      cW = bpW * s; cH = bpH * s
     }
-    const contentX = tgtOx + (tgtPW - contentW) / 2
-    const contentY = tgtOy + (tgtPH - contentH) / 2
+    const cX = aX + (apW - cW) / 2
+    const cY = aY + (apH - cH) / 2
     
     return (
       <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
-        {/* Arrow */}
-        <path d={`M ${previewW/2 - 12} ${previewH/2} L ${previewW/2 + 12} ${previewH/2}`} className="stroke-slate-400" strokeWidth={1.5} markerEnd="url(#arrow)" />
-        <defs>
-          <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6 Z" className="fill-slate-400" />
-          </marker>
-        </defs>
+        <ArrowMarker />
         
-        {/* Source page */}
-        <rect x={srcOx} y={srcOy} width={srcPW} height={srcPH} className={pageStyle} strokeWidth={1} />
-        <text x={srcOx + srcPW/2} y={srcOy - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">BEFORE</text>
-        <text x={srcOx + srcPW/2} y={srcOy + srcPH + 10} textAnchor="middle" className={labelStyle}>
-          {srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;
-        </text>
+        {/* Labels */}
+        <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
+        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-emerald-500 text-[9px] font-semibold">AFTER ({mode})</text>
         
-        {/* Target page */}
-        <rect x={tgtOx} y={tgtOy} width={tgtPW} height={tgtPH} className={sheetStyle} strokeWidth={1} />
-        {/* Content in target (clipped for crop mode) */}
-        <clipPath id="targetClip">
-          <rect x={tgtOx} y={tgtOy} width={tgtPW} height={tgtPH} />
+        {/* BEFORE */}
+        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;</text>
+        
+        <Arrow />
+        
+        {/* AFTER - target page */}
+        <rect x={aX} y={aY} width={apW} height={apH} fill={sheetFill} stroke={sheetStroke} strokeWidth={1} rx={1} />
+        {/* Clipped content */}
+        <clipPath id="pageClip">
+          <rect x={aX} y={aY} width={apW} height={apH} />
         </clipPath>
-        <rect x={contentX} y={contentY} width={contentW} height={contentH} className={pageStyle} strokeWidth={1} clipPath="url(#targetClip)" />
-        <text x={tgtOx + tgtPW/2} y={tgtOy - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">AFTER ({mode})</text>
-        <text x={tgtOx + tgtPW/2} y={tgtOy + tgtPH + 10} textAnchor="middle" className={labelStyle}>
-          {targetW.toFixed(1)}&quot;x{targetH.toFixed(1)}&quot;
-        </text>
+        <rect x={cX} y={cY} width={cW} height={cH} fill={pageFill} stroke={pageStroke} strokeWidth={1} clipPath="url(#pageClip)" />
+        <text x={aX + apW/2} y={aY + apH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{targetW.toFixed(1)}&quot;x{targetH.toFixed(1)}&quot;</text>
       </svg>
     )
   }
   
+  // ========== ROTATE ==========
   if (toolId === "Rotate") {
-    const angle = params.angle?.toString() || "180"
-    const rotation = angle.includes("90") ? (angle.includes("counter") ? -90 : 90) : 180
+    const angleStr = params.angle?.toString() || "180"
+    const rotation = angleStr.includes("90") ? (angleStr.includes("counter") || angleStr.includes("270") ? -90 : 90) : 180
     
-    const scale = Math.min((previewW/2 - padding * 2) / Math.max(srcW, srcH), (previewH - padding * 2) / Math.max(srcW, srcH))
-    const pW = srcW * scale, pH = srcH * scale
+    const maxDim = Math.max(srcW, srcH)
+    const scale = Math.min((halfW - padding * 3) / maxDim, (previewH - 50) / maxDim) * 0.7
+    const bpW = srcW * scale, bpH = srcH * scale
     
-    // Before (left)
-    const ox1 = padding + (previewW/2 - padding * 2 - pW) / 2
-    const oy1 = padding + (previewH - padding * 2 - pH) / 2
+    const bpX = padding + (halfW - padding * 2 - bpW) / 2
+    const bpY = 30 + (previewH - 50 - bpH) / 2
     
-    // After (right) - rotated dimensions
-    const rotW = Math.abs(rotation) === 90 ? pH : pW
-    const rotH = Math.abs(rotation) === 90 ? pW : pH
-    const ox2 = previewW/2 + padding + (previewW/2 - padding * 2 - rotW) / 2
-    const oy2 = padding + (previewH - padding * 2 - rotH) / 2
+    const rotW = Math.abs(rotation) === 90 ? bpH : bpW
+    const rotH = Math.abs(rotation) === 90 ? bpW : bpH
+    const aX = halfW + padding + (halfW - padding * 2 - rotW) / 2
+    const aY = 30 + (previewH - 50 - rotH) / 2
     
     return (
       <svg width={previewW} height={previewH} className="bg-white dark:bg-slate-900 rounded-lg border">
-        {/* Arrow */}
-        <path d={`M ${previewW/2 - 12} ${previewH/2} L ${previewW/2 + 12} ${previewH/2}`} className="stroke-slate-400" strokeWidth={1.5} markerEnd="url(#arrow2)" />
-        <defs>
-          <marker id="arrow2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6 Z" className="fill-slate-400" />
-          </marker>
-        </defs>
+        <ArrowMarker />
         
-        {/* Before */}
-        <rect x={ox1} y={oy1} width={pW} height={pH} className={pageStyle} strokeWidth={1} />
-        <text x={ox1 + 6} y={oy1 + 12} className="fill-blue-500 text-[8px] font-bold">A</text>
-        <text x={ox1 + pW/2} y={oy1 - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">BEFORE</text>
+        {/* Labels */}
+        <text x={halfW / 2} y={16} textAnchor="middle" className="fill-slate-400 text-[9px] font-semibold">NOW</text>
+        <text x={halfW + halfW / 2} y={16} textAnchor="middle" className="fill-emerald-500 text-[9px] font-semibold">AFTER ({rotation}°)</text>
         
-        {/* After */}
-        <rect x={ox2} y={oy2} width={rotW} height={rotH} className={pageStyle} strokeWidth={1} />
-        {/* Rotated "A" indicator */}
+        {/* BEFORE */}
+        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+        <text x={bpX + 5} y={bpY + 10} className="fill-blue-500 text-[8px] font-bold">A</text>
+        
+        <Arrow />
+        
+        {/* AFTER - rotated */}
+        <rect x={aX} y={aY} width={rotW} height={rotH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
         <text 
-          x={ox2 + rotW/2} y={oy2 + rotH/2} 
+          x={aX + rotW/2} y={aY + rotH/2} 
           textAnchor="middle" dominantBaseline="middle"
           className="fill-blue-500 text-[8px] font-bold"
-          transform={`rotate(${rotation} ${ox2 + rotW/2} ${oy2 + rotH/2})`}
+          transform={`rotate(${rotation} ${aX + rotW/2} ${aY + rotH/2})`}
         >
           A
         </text>
-        <text x={ox2 + rotW/2} y={oy2 - 6} textAnchor="middle" className="fill-slate-500 text-[7px]">{rotation}°</text>
       </svg>
     )
   }
   
-  // Default: no preview for this tool
+  // Default: no preview
   return null
 }
 
