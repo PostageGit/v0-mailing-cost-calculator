@@ -127,15 +127,24 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
     const showCrop = params.cropMarks === "yes"
     const isStepRepeat = toolId === "StepRepeat"
     
+    // For Step & Repeat, use FULL page size (with bleed) for layout
+    // Trim size is only for crop mark placement
+    const fullW = fileInfo ? fileInfo.firstPageW / IN : srcW
+    const fullH = fileInfo ? fileInfo.firstPageH / IN : srcH
+    const layoutW = isStepRepeat ? fullW : srcW // Step & Repeat uses full size
+    const layoutH = isStepRepeat ? fullH : srcH
+    
     // Calculate ACTUAL cell size in inches (for validation)
     const actualCellW = (sheetW - margin * 2) / cols
     const actualCellH = (sheetH - margin * 2) / rows
     const isInvalid = actualCellW <= 0.25 || actualCellH <= 0.25 || margin * 2 >= sheetW || margin * 2 >= sheetH
     const isTooSmall = actualCellW < 1 || actualCellH < 1
     
-    // BEFORE: Single page
-    const beforeScale = Math.min((halfW - padding * 3) / srcW, (previewH - 50) / srcH) * 0.65
-    const bpW = srcW * beforeScale, bpH = srcH * beforeScale
+    // BEFORE: Single page (show bleed if present)
+    const beforeScale = Math.min((halfW - padding * 3) / fullW, (previewH - 50) / fullH) * 0.65
+    const bpW = fullW * beforeScale, bpH = fullH * beforeScale
+    const trimBpW = srcW * beforeScale, trimBpH = srcH * beforeScale
+    const bleedOffset = (bpW - trimBpW) / 2
     const bpX = padding + (halfW - padding * 2 - bpW) / 2
     const bpY = 30 + (previewH - 50 - bpH) / 2
     
@@ -186,22 +195,40 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
           {isTooSmall ? "WARNING" : "AFTER"}
         </text>
         
-        {/* BEFORE: Single page (or stack for N-up) */}
+        {/* BEFORE: Single page (or stack for N-up) - show bleed if present */}
         {!isStepRepeat && (
           <>
             <rect x={bpX + 4} y={bpY + 4} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
             <rect x={bpX + 2} y={bpY + 2} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
           </>
         )}
-        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
-        <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">
-          {isStepRepeat ? "1" : `${cols * rows}pg`}
+        {/* Show bleed area (amber) around trim area (blue) */}
+        {hasBleed && bleedOffset > 1 ? (
+          <>
+            <rect x={bpX} y={bpY} width={bpW} height={bpH} fill="#fef3c7" stroke="#f59e0b" strokeWidth={1} rx={1} />
+            <rect x={bpX + bleedOffset} y={bpY + bleedOffset} width={trimBpW} height={trimBpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+            <text x={bpX + bpW/2} y={bpY + bpH/2 - 6} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[8px] font-bold">
+              {isStepRepeat ? "1" : `${cols * rows}pg`}
+            </text>
+            <text x={bpX + bpW/2} y={bpY + bpH/2 + 6} textAnchor="middle" dominantBaseline="middle" className="fill-amber-500 text-[6px]">
+              +bleed
+            </text>
+          </>
+        ) : (
+          <>
+            <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+            <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">
+              {isStepRepeat ? "1" : `${cols * rows}pg`}
+            </text>
+          </>
+        )}
+        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">
+          {hasBleed ? `${srcW.toFixed(1)}"x${srcH.toFixed(1)}" trim` : `${srcW.toFixed(1)}"x${srcH.toFixed(1)}"`}
         </text>
-        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;</text>
         
         <Arrow />
         
-        {/* AFTER: Sheet with grid */}
+        {/* AFTER: Sheet with grid - show bleed preserved in cells */}
         <rect x={aX} y={aY} width={sW} height={sH} fill={sheetFill} stroke={isTooSmall ? "#f59e0b" : sheetStroke} strokeWidth={isTooSmall ? 2 : 1} rx={2} />
         {Array.from({ length: rows }).map((_, r) =>
           Array.from({ length: cols }).map((_, c) => {
@@ -209,27 +236,41 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
             const cy = aY + mS + r * cellH + 1
             const cw = Math.max(2, cellW - 2)
             const ch = Math.max(2, cellH - 2)
+            // For cells with bleed, show bleed area (amber) around trim (blue)
+            const cellBleedX = hasBleed && isStepRepeat ? cw * 0.08 : 0
+            const cellBleedY = hasBleed && isStepRepeat ? ch * 0.08 : 0
             return (
               <g key={`${r}-${c}`}>
-                <rect x={cx} y={cy} width={cw} height={ch} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                {hasBleed && isStepRepeat && cw > 10 ? (
+                  <>
+                    <rect x={cx} y={cy} width={cw} height={ch} fill="#fef3c7" stroke="#f59e0b" strokeWidth={0.3} />
+                    <rect x={cx + cellBleedX} y={cy + cellBleedY} width={cw - cellBleedX*2} height={ch - cellBleedY*2} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                  </>
+                ) : (
+                  <rect x={cx} y={cy} width={cw} height={ch} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                )}
                 {cw > 8 && ch > 8 && (
                   <text x={cx + cw/2} y={cy + ch/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[7px]">
                     {isStepRepeat ? "1" : r * cols + c + 1}
                   </text>
                 )}
+                {/* Crop marks at TRIM edges (inside bleed) */}
                 {showCrop && cw > 6 && (
                   <g stroke={cropColor} strokeWidth={0.3}>
-                    <line x1={cx - 2} y1={cy} x2={cx + 2} y2={cy} />
-                    <line x1={cx} y1={cy - 2} x2={cx} y2={cy + 2} />
+                    <line x1={cx + cellBleedX - 2} y1={cy + cellBleedY} x2={cx + cellBleedX + 2} y2={cy + cellBleedY} />
+                    <line x1={cx + cellBleedX} y1={cy + cellBleedY - 2} x2={cx + cellBleedX} y2={cy + cellBleedY + 2} />
                   </g>
                 )}
               </g>
             )
           })
         )}
-        {/* Show actual cell dimensions */}
+        {/* Show actual cell dimensions and bleed status */}
         <text x={aX + sW/2} y={aY + sH + 10} textAnchor="middle" className={cn(isTooSmall ? "fill-amber-500 font-semibold" : "fill-slate-400", "text-[7px]")}>
-          Cell: {actualCellW.toFixed(2)}&quot;x{actualCellH.toFixed(2)}&quot;
+          {hasBleed && isStepRepeat 
+            ? `Cell: ${fullW.toFixed(2)}"x${fullH.toFixed(2)}" (bleed preserved)`
+            : `Cell: ${actualCellW.toFixed(2)}"x${actualCellH.toFixed(2)}"`
+          }
         </text>
       </svg>
     )
@@ -1416,16 +1457,18 @@ const selectTool = (toolId: string) => {
             noScale: (params.noScale as string).includes("100")
           })
           break
-        case "Nup":
-          doc = await opNUp(doc, {
-            rows: params.rows as number,
-            cols: params.cols as number,
-            sheetW: (params.sheetW as number) * IN,
-            sheetH: (params.sheetH as number) * IN,
-            margin: (params.margin as number) * IN,
-            cropMarks: params.cropMarks === "yes"
-          })
-          break
+case "Nup":
+  doc = await opNUp(doc, {
+  rows: params.rows as number,
+  cols: params.cols as number,
+  sheetW: (params.sheetW as number) * IN,
+  sheetH: (params.sheetH as number) * IN,
+  margin: (params.margin as number) * IN,
+  cropMarks: params.cropMarks === "yes",
+  trimW: fileInfo?.trimW,
+  trimH: fileInfo?.trimH
+  })
+  break
         case "StepRepeat":
           doc = await opNUp(doc, {
             rows: params.rows as number,
@@ -1570,16 +1613,18 @@ case "PageSizes":
               noScale: p.noScale === "keep 100%" 
             })
             break
-          case "Nup":
-            doc = await opNUp(doc, { 
-              rows: (p.rows as number) || 2, 
-              cols: (p.cols as number) || 2, 
-              sheetW: ((p.sheetW as number) || 11) * IN, 
-              sheetH: ((p.sheetH as number) || 17) * IN, 
-              margin: ((p.margin as number) || 0) * IN, 
-              cropMarks: p.cropMarks === "yes" 
-            })
-            break
+case "Nup":
+  doc = await opNUp(doc, {
+  rows: (p.rows as number) || 2,
+  cols: (p.cols as number) || 2,
+  sheetW: ((p.sheetW as number) || 11) * IN,
+  sheetH: ((p.sheetH as number) || 17) * IN,
+  margin: ((p.margin as number) || 0) * IN,
+  cropMarks: p.cropMarks === "yes",
+  trimW: fileInfo?.trimW,
+  trimH: fileInfo?.trimH
+  })
+  break
           case "StepRepeat":
             doc = await opNUp(doc, { 
               rows: (p.rows as number) || 0, 
