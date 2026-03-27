@@ -480,17 +480,17 @@ const SEQUENCES: Sequence[] = [
     ]
   },
   {
-    name: "Business Cards (3.5x2)",
-    desc: "Fit to 3.5x2 then step & repeat on 12x18 with crop marks",
+    name: "Business Cards (with bleed)",
+    desc: "Step & repeat preserving bleed - crop marks at trim edges - 12x18 sheet",
     steps: [
-      { tool: "PageSizes", params: { mode: "fit", w: 3.5, h: 2, range: "all pages" } },
       { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
   {
-    name: "Business Cards (pre-sized)",
-    desc: "For PDFs already at 3.5x2 - step & repeat on 12x18",
+    name: "Business Cards (no bleed)",
+    desc: "Resize to 3.5x2 then step & repeat on 12x18",
     steps: [
+      { tool: "PageSizes", params: { mode: "fit", w: 3.5, h: 2, range: "all pages" } },
       { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
@@ -917,7 +917,13 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
 
 // N-Up with CROP MARKS built in
 // NOTE: sheetW, sheetH, margin are expected in POINTS (already multiplied by IN)
-async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, sheetW: number, sheetH: number, margin: number, cropMarks: boolean, stepRepeat?: boolean }) {
+// For Step & Repeat: places pages at 1:1 scale (no scaling) to preserve bleed
+// Crop marks are placed at TRIM edges (inside bleed area) if trimW/trimH provided
+async function opNUp(doc: PDFDocument, params: { 
+  rows: number, cols: number, sheetW: number, sheetH: number, margin: number, 
+  cropMarks: boolean, stepRepeat?: boolean,
+  trimW?: number, trimH?: number // Optional trim size for crop mark placement
+}) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
   if (pgs.length === 0) return doc
@@ -927,12 +933,19 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
   const sheetH = params.sheetH
   const marginAll = params.margin
   
-  // Get source page dimensions for auto-calculation
+  // Get source page dimensions (MediaBox - full size including bleed)
   const srcPage = pgs[0]
   const srcW = srcPage.getWidth()
   const srcH = srcPage.getHeight()
   
+  // Trim dimensions (if provided) - for crop mark placement
+  const trimW = params.trimW || srcW
+  const trimH = params.trimH || srcH
+  const bleedX = (srcW - trimW) / 2 // bleed amount on each side
+  const bleedY = (srcH - trimH) / 2
+  
   // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
+  // Use FULL source size (with bleed) for layout - this preserves bleed in output
   let rows = params.rows
   let cols = params.cols
   if (rows <= 0 || cols <= 0) {
@@ -942,8 +955,10 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
     rows = Math.max(1, Math.floor(availH / srcH))
   }
   
-  const cW = (sheetW - marginAll * 2) / cols
-  const cH = (sheetH - marginAll * 2) / rows
+  // Cell size = source page size (1:1, no scaling for step & repeat)
+  // For N-up with specified rows/cols, we may need to scale
+  const cW = params.stepRepeat ? srcW : (sheetW - marginAll * 2) / cols
+  const cH = params.stepRepeat ? srcH : (sheetH - marginAll * 2) / rows
   
   let idx = 0
   const total = params.stepRepeat ? rows * cols : pgs.length
@@ -959,22 +974,35 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
         const [e] = await nd.embedPdf(doc, [pi])
         const x = marginAll + c * cW
         const y = sheetH - marginAll - (r + 1) * cH
-        const s = Math.min(cW / e.width, cH / e.height)
-        const dw = e.width * s, dh = e.height * s
         
-        sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
+        if (params.stepRepeat) {
+          // Step & Repeat: place at 1:1 scale, no scaling - preserves bleed
+          sh.drawPage(e, { x, y, width: srcW, height: srcH })
+        } else {
+          // N-Up: scale to fit cell
+          const s = Math.min(cW / e.width, cH / e.height)
+          const dw = e.width * s, dh = e.height * s
+          sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
+        }
         
-        // CROP MARKS at each cell corner - proper L-shaped trim marks
+        // CROP MARKS - placed at TRIM edges (inside the bleed area)
         if (params.cropMarks) {
-          const cropLen = 10, cropDist = 3
+          const cropLen = 12, cropDist = 4
+          // Trim box position within the cell (offset by bleed amount)
+          const trimX = x + bleedX
+          const trimY = y + bleedY
+          const trimRight = trimX + trimW
+          const trimTop = trimY + trimH
+          
+          // Draw L-shaped crop marks at each trim corner
           const corners: [number, number, number, number][] = [
-            [x, y, -1, -1],           // bottom-left: marks go left and down
-            [x + cW, y, 1, -1],       // bottom-right: marks go right and down
-            [x, y + cH, -1, 1],       // top-left: marks go left and up
-            [x + cW, y + cH, 1, 1]    // top-right: marks go right and up
+            [trimX, trimY, -1, -1],           // bottom-left
+            [trimRight, trimY, 1, -1],        // bottom-right
+            [trimX, trimTop, -1, 1],          // top-left
+            [trimRight, trimTop, 1, 1]        // top-right
           ]
           for (const [cx, cy, dx, dy] of corners) {
-            // Horizontal mark
+            // Horizontal mark (extends outward into bleed/margin)
             sh.drawLine({ 
               start: { x: cx + cropDist * dx, y: cy }, 
               end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
@@ -1406,7 +1434,9 @@ const selectTool = (toolId: string) => {
             sheetH: (params.sheetH as number) * IN,
             margin: (params.margin as number) * IN,
             cropMarks: params.cropMarks === "yes",
-            stepRepeat: true
+            stepRepeat: true,
+            trimW: fileInfo?.trimW,
+            trimH: fileInfo?.trimH
           })
           break
 case "PageSizes":
@@ -1558,7 +1588,9 @@ case "PageSizes":
               sheetH: ((p.sheetH as number) || 17) * IN, 
               margin: ((p.margin as number) || 0) * IN, 
               cropMarks: p.cropMarks === "yes",
-              stepRepeat: true 
+              stepRepeat: true,
+              trimW: fileInfo?.trimW,
+              trimH: fileInfo?.trimH
             })
             break
           case "Duplicate":
