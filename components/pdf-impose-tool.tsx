@@ -479,10 +479,18 @@ const SEQUENCES: Sequence[] = [
     ]
   },
   {
-    name: "Business Cards",
-    desc: "Step & repeat on 12x18",
+    name: "Business Cards (3.5x2)",
+    desc: "Resize to 3.5x2 then step & repeat on 12x18",
     steps: [
-      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+      { tool: "PageSizes", params: { mode: "scale", w: 3.5, h: 2, range: "all pages" } },
+      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
+    ]
+  },
+  {
+    name: "Business Cards (pre-sized)",
+    desc: "For PDFs already trimmed to card size - step & repeat on 12x18",
+    steps: [
+      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
   {
@@ -918,14 +926,10 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
   const sheetH = params.sheetH
   const marginAll = params.margin
   
-  console.log("[v0] opNUp called with:", { sheetW, sheetH, marginAll, rows: params.rows, cols: params.cols, stepRepeat: params.stepRepeat })
-  
   // Get source page dimensions for auto-calculation
   const srcPage = pgs[0]
   const srcW = srcPage.getWidth()
   const srcH = srcPage.getHeight()
-  
-  console.log("[v0] Source page dimensions:", { srcW, srcH, srcWInches: srcW/72, srcHInches: srcH/72 })
   
   // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
   let rows = params.rows
@@ -935,13 +939,10 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
     const availH = sheetH - marginAll * 2
     cols = Math.max(1, Math.floor(availW / srcW))
     rows = Math.max(1, Math.floor(availH / srcH))
-    console.log("[v0] Auto-calculated:", { availW, availH, cols, rows })
   }
   
   const cW = (sheetW - marginAll * 2) / cols
   const cH = (sheetH - marginAll * 2) / rows
-  
-  console.log("[v0] Cell dimensions:", { cW, cH, totalCells: rows * cols })
   
   let idx = 0
   const total = params.stepRepeat ? rows * cols : pgs.length
