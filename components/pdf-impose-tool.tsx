@@ -15,20 +15,21 @@ const IN = 72 // 1 inch = 72 points
 // ============================================
 // Live Imposition Preview Component - BEFORE → AFTER
 // ============================================
-function ImpositionPreview({ toolId, params, fileInfo }: { 
+function ImpositionPreview({ toolId, params, fileInfo }: {
   toolId: string
   params: Record<string, string | number>
-  fileInfo: { firstPageW: number, firstPageH: number, pageCount: number } | null 
-}) {
+  fileInfo: { firstPageW: number, firstPageH: number, pageCount: number, trimW?: number, trimH?: number, hasBleed?: boolean } | null
+  }) {
   const previewW = 280
   const previewH = 180
   const halfW = previewW / 2
   const padding = 12
   const arrowY = previewH / 2
   
-  // Get source page size (from loaded PDF or default Letter)
-  const srcW = fileInfo ? fileInfo.firstPageW / IN : 8.5
-  const srcH = fileInfo ? fileInfo.firstPageH / IN : 11
+  // Get source page size (from loaded PDF or default Letter) - use TRIM size if available
+  const srcW = fileInfo ? (fileInfo.trimW || fileInfo.firstPageW) / IN : 8.5
+  const srcH = fileInfo ? (fileInfo.trimH || fileInfo.firstPageH) / IN : 11
+  const hasBleed = fileInfo?.hasBleed || false
   const pageCount = fileInfo?.pageCount || 8
   
   // Common SVG styles  
@@ -1180,8 +1181,14 @@ type FileInfo = {
   fileSize: number
   pages: { page: number, w: number, h: number, orientation: string }[]
   hasMixedSizes: boolean
-  firstPageW: number
-  firstPageH: number
+  firstPageW: number // MediaBox width (full page)
+  firstPageH: number // MediaBox height (full page)
+  trimW?: number // TrimBox width (actual content size)
+  trimH?: number // TrimBox height (actual content size)
+  bleedW?: number // BleedBox width
+  bleedH?: number // BleedBox height
+  hasBleed: boolean // true if TrimBox differs from MediaBox
+  bleedAmount?: number // bleed in points on each side
   colorHint: string // CMYK/RGB detection hint
   creationDate?: string
   producer?: string
@@ -1231,16 +1238,53 @@ const handleFile = useCallback(async (file: File) => {
       const firstH = pages[0]?.h || 0
       const hasMixedSizes = pages.some(p => Math.abs(p.w - firstW) > 1 || Math.abs(p.h - firstH) > 1)
       
+      // Try to detect TrimBox/BleedBox from PDF
+      // These are stored in the page dictionary
+      const pdfString = new TextDecoder().decode(bytes)
+      let trimW: number | undefined, trimH: number | undefined
+      let bleedW: number | undefined, bleedH: number | undefined
+      let hasBleed = false
+      let bleedAmount: number | undefined
+      
+      // Parse TrimBox - format: /TrimBox [x1 y1 x2 y2] or /TrimBox[x1 y1 x2 y2]
+      const trimBoxMatch = pdfString.match(/\/TrimBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/)
+      if (trimBoxMatch) {
+        const x1 = parseFloat(trimBoxMatch[1])
+        const y1 = parseFloat(trimBoxMatch[2])
+        const x2 = parseFloat(trimBoxMatch[3])
+        const y2 = parseFloat(trimBoxMatch[4])
+        trimW = Math.abs(x2 - x1)
+        trimH = Math.abs(y2 - y1)
+        
+        // If TrimBox is smaller than MediaBox, there's bleed
+        if (Math.abs(trimW - firstW) > 1 || Math.abs(trimH - firstH) > 1) {
+          hasBleed = true
+          // Calculate bleed amount (assuming symmetric bleed)
+          bleedAmount = Math.max((firstW - trimW) / 2, (firstH - trimH) / 2)
+        }
+      }
+      
+      // Parse BleedBox
+      const bleedBoxMatch = pdfString.match(/\/BleedBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/)
+      if (bleedBoxMatch) {
+        const x1 = parseFloat(bleedBoxMatch[1])
+        const y1 = parseFloat(bleedBoxMatch[2])
+        const x2 = parseFloat(bleedBoxMatch[3])
+        const y2 = parseFloat(bleedBoxMatch[4])
+        bleedW = Math.abs(x2 - x1)
+        bleedH = Math.abs(y2 - y1)
+      }
+      
       // Try to detect color space from PDF content (heuristic)
-      const pdfString = new TextDecoder().decode(bytes.slice(0, 50000))
       let colorHint = "Unknown"
-      if (pdfString.includes("/DeviceCMYK") || (pdfString.includes("/ICCBased") && pdfString.includes("CMYK"))) {
+      const colorSample = pdfString.slice(0, 50000)
+      if (colorSample.includes("/DeviceCMYK") || (colorSample.includes("/ICCBased") && colorSample.includes("CMYK"))) {
         colorHint = "CMYK"
-      } else if (pdfString.includes("/DeviceRGB")) {
+      } else if (colorSample.includes("/DeviceRGB")) {
         colorHint = "RGB"
-      } else if (pdfString.includes("/DeviceGray")) {
+      } else if (colorSample.includes("/DeviceGray")) {
         colorHint = "Grayscale"
-      } else if (pdfString.includes("/Separation")) {
+      } else if (colorSample.includes("/Separation")) {
         colorHint = "Spot Colors"
       }
       
@@ -1255,6 +1299,12 @@ const handleFile = useCallback(async (file: File) => {
         hasMixedSizes,
         firstPageW: firstW,
         firstPageH: firstH,
+        trimW,
+        trimH,
+        bleedW,
+        bleedH,
+        hasBleed,
+        bleedAmount,
         colorHint,
         creationDate,
         producer
@@ -2003,19 +2053,43 @@ return (
                 <span className="text-sm font-mono">{formatSize(fileInfo.fileSize)}</span>
               </div>
               
-              {/* Page Dimensions */}
-              <div className="flex flex-col shrink-0">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Dimensions</span>
-                <span className="text-sm font-mono">
-                  {(fileInfo.firstPageW / IN).toFixed(2)}&quot; x {(fileInfo.firstPageH / IN).toFixed(2)}&quot;
-                </span>
-              </div>
-              
-              {/* Page Size Name */}
-              <div className="flex flex-col shrink-0">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Page Size</span>
-                <span className="text-sm">{getPageSizeName(fileInfo.firstPageW, fileInfo.firstPageH)}</span>
-              </div>
+{/* Page Dimensions - Show trim size if available */}
+  <div className="flex flex-col shrink-0">
+    <span className="text-[10px] font-bold text-muted-foreground uppercase">
+      {fileInfo.hasBleed ? "Trim Size" : "Dimensions"}
+    </span>
+    <span className="text-sm font-mono font-semibold text-foreground">
+      {fileInfo.trimW && fileInfo.trimH 
+        ? `${(fileInfo.trimW / IN).toFixed(2)}" x ${(fileInfo.trimH / IN).toFixed(2)}"`
+        : `${(fileInfo.firstPageW / IN).toFixed(2)}" x ${(fileInfo.firstPageH / IN).toFixed(2)}"`
+      }
+    </span>
+  </div>
+  
+  {/* Show bleed info if present */}
+  {fileInfo.hasBleed && (
+    <>
+      <div className="h-6 w-px bg-border shrink-0" />
+      <div className="flex flex-col shrink-0">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase">With Bleed</span>
+        <span className="text-sm font-mono text-muted-foreground">
+          {(fileInfo.firstPageW / IN).toFixed(2)}&quot; x {(fileInfo.firstPageH / IN).toFixed(2)}&quot;
+        </span>
+      </div>
+      <div className="flex flex-col shrink-0">
+        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Bleed</span>
+        <span className="text-sm font-mono text-amber-600 dark:text-amber-400">
+          {fileInfo.bleedAmount ? `${(fileInfo.bleedAmount / IN).toFixed(3)}"` : "Detected"}
+        </span>
+      </div>
+    </>
+  )}
+  
+  {/* Page Size Name */}
+  <div className="flex flex-col shrink-0">
+  <span className="text-[10px] font-bold text-muted-foreground uppercase">Page Size</span>
+  <span className="text-sm">{getPageSizeName(fileInfo.trimW || fileInfo.firstPageW, fileInfo.trimH || fileInfo.firstPageH)}</span>
+  </div>
               
               {/* Orientation */}
               <div className="flex flex-col shrink-0">
@@ -2081,17 +2155,34 @@ return (
                   <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 text-center">Current</div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-center aspect-[4/3]">
                     <svg viewBox="0 0 120 90" className="w-full h-full max-w-28">
-                      {/* Page representation */}
-                      <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
-                      <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
-                      {/* Size label */}
-                      <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[8px] font-bold">
-                        {(fileInfo.firstPageW / IN).toFixed(1)}&quot; x {(fileInfo.firstPageH / IN).toFixed(1)}&quot;
-                      </text>
-                      <text x="60" y="62" textAnchor="middle" className="fill-slate-500 text-[6px]">
-                        {fileInfo.pageCount} page{fileInfo.pageCount > 1 ? 's' : ''}
-                      </text>
-                    </svg>
+{/* Page representation with bleed visualization */}
+  <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
+  {fileInfo.hasBleed ? (
+    <>
+      {/* Bleed area (outer) */}
+      <rect x="15" y="10" width="90" height="70" fill="#fef3c7" stroke="#f59e0b" strokeWidth="0.5" rx="1" strokeDasharray="2,1" />
+      {/* Trim area (inner) */}
+      <rect x="22" y="17" width="76" height="56" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+    </>
+  ) : (
+    <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+  )}
+  {/* Size label - show trim size if available */}
+  <text x="60" y={fileInfo.hasBleed ? 42 : 50} textAnchor="middle" className="fill-blue-600 text-[8px] font-bold">
+    {fileInfo.trimW && fileInfo.trimH 
+      ? `${(fileInfo.trimW / IN).toFixed(1)}" x ${(fileInfo.trimH / IN).toFixed(1)}"`
+      : `${(fileInfo.firstPageW / IN).toFixed(1)}" x ${(fileInfo.firstPageH / IN).toFixed(1)}"`
+    }
+  </text>
+  {fileInfo.hasBleed && (
+    <text x="60" y="54" textAnchor="middle" className="fill-amber-600 text-[6px]">
+      +{fileInfo.bleedAmount ? (fileInfo.bleedAmount / IN * 2).toFixed(2) : "?"}&quot; bleed
+    </text>
+  )}
+  <text x="60" y={fileInfo.hasBleed ? 66 : 62} textAnchor="middle" className="fill-slate-500 text-[6px]">
+  {fileInfo.pageCount} page{fileInfo.pageCount > 1 ? 's' : ''}
+  </text>
+  </svg>
                   </div>
                 </div>
                 
@@ -2112,9 +2203,9 @@ return (
                         ? SEQUENCES.find(s => s.name === pendingAction.name)
                         : null
                       
-                      // Get final output size from sequence
-                      let outputW = fileInfo.firstPageW / IN
-                      let outputH = fileInfo.firstPageH / IN
+// Get final output size from sequence - use TRIM size if available (excludes bleed)
+  let outputW = (fileInfo.trimW || fileInfo.firstPageW) / IN
+  let outputH = (fileInfo.trimH || fileInfo.firstPageH) / IN
                       let gridCols = 1, gridRows = 1
                       let isBooklet = false
                       let isRotate = false
