@@ -6,7 +6,7 @@ import {
   Upload, Download, FileText, Play, Plus, X, RotateCw, Copy, 
   Trash2, ArrowUpDown, BookOpen, Grid3X3, Stamp, LayoutGrid, 
   Scissors, FileSearch, Layers, MoveVertical, ArrowDown, ArrowUp,
-  Info, ChevronRight, Loader2, AlertTriangle
+  Info, ChevronRight, Loader2, AlertTriangle, Zap
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -412,6 +412,138 @@ const SHEETS = [
   { name: '13×19"', w: 13, h: 19 },
   { name: 'A4 (8.27×11.69")', w: 8.27, h: 11.69 },
   { name: 'A3 (11.69×16.54")', w: 11.69, h: 16.54 },
+]
+
+// Automation Sequences - multi-step workflows from Quite Imposing
+type SequenceStep = { tool: string; params: Record<string, unknown> }
+type Sequence = { name: string; desc: string; steps: SequenceStep[] }
+
+const SEQUENCES: Sequence[] = [
+  {
+    name: "Skulen Weekly",
+    desc: "5x8 scaled to Half Letter with creep, 180° rotate, booklet, rotate back, impose on 11x17",
+    steps: [
+      { tool: "PageSizes", params: { mode: "scale", w: 5, h: 8, range: "page 1 only" } },
+      { tool: "PageSizes", params: { mode: "pad", w: 5.5, h: 8.5, range: "page 1 only" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "StepRepeat", params: { sheetW: 11, sheetH: 17, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "Kosher Express Weekly",
+    desc: "8x5 scaled to Half Letter with creep, booklet on 11x17",
+    steps: [
+      { tool: "PageSizes", params: { mode: "scale", w: 8, h: 5, range: "all pages" } },
+      { tool: "PageSizes", params: { mode: "pad", w: 5.5, h: 8.5, range: "all pages" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "StepRepeat", params: { sheetW: 11, sheetH: 17, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "Leshoin Kodshoi",
+    desc: "Creep, 180° rotate, booklet, rotate back, impose on 11x17",
+    steps: [
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "StepRepeat", params: { sheetW: 11, sheetH: 17, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "13x19 - 1up",
+    desc: "Simple step & repeat on 13x19 landscape with crop marks",
+    steps: [
+      { tool: "StepRepeat", params: { sheetW: 19, sheetH: 13, rows: 0, cols: 0, margin: 0, cropMarks: "yes" } },
+    ]
+  },
+  {
+    name: "Flatbush Pocketed",
+    desc: "Rotate 270°, creep, rotate back, booklet, rotate, impose on 11x17",
+    steps: [
+      { tool: "Rotate", params: { angle: "90° counter-clockwise", range: "all" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "StepRepeat", params: { sheetW: 11, sheetH: 17, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "8.5x11 +Bleed .05",
+    desc: "Step & repeat with bleed on 12x18",
+    steps: [
+      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0, cropMarks: "yes" } },
+    ]
+  },
+  {
+    name: "Business Cards",
+    desc: "Step & repeat on 12x18",
+    steps: [
+      { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "12.5x19 - 4up",
+    desc: "4-up imposition on 12.5x19",
+    steps: [
+      { tool: "Nup", params: { sheetW: 12.5, sheetH: 19, rows: 2, cols: 2, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "Read with Ease",
+    desc: "Scale pages, impose on 13x19",
+    steps: [
+      { tool: "PageSizes", params: { mode: "scale", w: 8, h: 5, range: "all pages" } },
+      { tool: "PageSizes", params: { mode: "pad", w: 5.5, h: 8.5, range: "all pages" } },
+      { tool: "StepRepeat", params: { sheetW: 13, sheetH: 19, rows: 0, cols: 0, margin: 0, cropMarks: "yes" } },
+    ]
+  },
+  {
+    name: "32 Pager",
+    desc: "Large booklet workflow for 32 page signatures",
+    steps: [
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "StepRepeat", params: { sheetW: 13, sheetH: 19, rows: 0, cols: 0, margin: 0, cropMarks: "no" } },
+    ]
+  },
+  {
+    name: "Yiddish Booklet",
+    desc: "RTL booklet workflow with 180° rotation",
+    steps: [
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+    ]
+  },
+  {
+    name: "Yiddish Booklet Bleed",
+    desc: "RTL booklet with bleed on letter size",
+    steps: [
+      { tool: "PageSizes", params: { mode: "pad", w: 8.5, h: 11, range: "all pages" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+      { tool: "Rotate", params: { angle: "180°", range: "all" } },
+    ]
+  },
+  {
+    name: "Booklet",
+    desc: "Standard English booklet - simple saddle stitch",
+    steps: [
+      { tool: "SimpleBooklet", params: { margin: 0, cropMarks: "no", noScale: "keep 100%" } },
+    ]
+  },
+  {
+    name: "UTA 3x8",
+    desc: "Custom 3x8 format imposition",
+    steps: [
+      { tool: "Nup", params: { sheetW: 11, sheetH: 17, rows: 3, cols: 8, margin: 0, cropMarks: "no" } },
+    ]
+  },
 ]
 
 // Tool definitions - crop marks are now INSIDE the imposition tools
@@ -993,6 +1125,7 @@ export function PDFImposeTool() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
   const [pdfName, setPdfName] = useState("")
   const [activeTool, setActiveTool] = useState<string | null>(null)
+  const [activeSequence, setActiveSequence] = useState<string | null>(null)
   const [params, setParams] = useState<Record<string, string | number>>({})
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress] = useState("")
@@ -1067,13 +1200,14 @@ const handleFile = useCallback(async (file: File) => {
     if (file?.name.endsWith(".pdf")) handleFile(file)
   }, [handleFile])
   
-  const selectTool = (toolId: string) => {
-    const tool = TOOLS.find(t => 'id' in t && t.id === toolId) as Extract<ToolDef, { id: string }>
-    if (!tool) return
-    
-    setActiveTool(toolId)
-    setResult(null)
-    setInfo(null)
+const selectTool = (toolId: string) => {
+  const tool = TOOLS.find(t => 'id' in t && t.id === toolId) as Extract<ToolDef, { id: string }>
+  if (!tool) return
+  
+  setActiveTool(toolId)
+  setActiveSequence(null) // Clear any active sequence
+  setResult(null)
+  setInfo(null)
     
     // Set default params
     const defaults: Record<string, unknown> = {}
@@ -1238,7 +1372,94 @@ const handleFile = useCallback(async (file: File) => {
     URL.revokeObjectURL(url)
   }
   
+  // Run a multi-step sequence
+  const runSequence = async () => {
+    if (!pdfBytes || !activeSequence) return
+    const seq = SEQUENCES.find(s => s.name === activeSequence)
+    if (!seq) return
+    
+    setProcessing(true)
+    setResult(null)
+    
+    try {
+      let currentBytes = pdfBytes
+      
+      for (let i = 0; i < seq.steps.length; i++) {
+        const step = seq.steps[i]
+        setProgress(`Step ${i + 1}/${seq.steps.length}: ${step.tool}...`)
+        
+        let doc = await PDFDocument.load(currentBytes, { ignoreEncryption: true })
+        
+        // Run the appropriate operation based on tool
+        const p = step.params as Record<string, unknown>
+        switch (step.tool) {
+          case "PageSizes":
+            doc = await opPageSizes(doc, { 
+              mode: (p.mode as string) || "proportional", 
+              w: (p.w as number) * IN, 
+              h: (p.h as number) * IN, 
+              range: (p.range as string) || "all pages" 
+            })
+            break
+          case "Rotate":
+            const angleStr = p.angle as string || "180°"
+            const angle = angleStr.includes("counter") || angleStr.includes("270") ? 270 : angleStr.includes("90") ? 90 : 180
+            doc = await opRotate(doc, { angle, range: (p.range as string) || "all" })
+            break
+          case "SimpleBooklet":
+            doc = await opBooklet(doc, { 
+              margin: (p.margin as number) || 0, 
+              cropMarks: p.cropMarks === "yes", 
+              noScale: p.noScale === "keep 100%" 
+            })
+            break
+          case "Nup":
+            doc = await opNUp(doc, { 
+              rows: (p.rows as number) || 2, 
+              cols: (p.cols as number) || 2, 
+              sheetW: ((p.sheetW as number) || 11) * IN, 
+              sheetH: ((p.sheetH as number) || 17) * IN, 
+              margin: ((p.margin as number) || 0) * IN, 
+              cropMarks: p.cropMarks === "yes" 
+            })
+            break
+          case "StepRepeat":
+            doc = await opNUp(doc, { 
+              rows: (p.rows as number) || 0, 
+              cols: (p.cols as number) || 0, 
+              sheetW: ((p.sheetW as number) || 11) * IN, 
+              sheetH: ((p.sheetH as number) || 17) * IN, 
+              margin: ((p.margin as number) || 0) * IN, 
+              cropMarks: p.cropMarks === "yes",
+              stepRepeat: true 
+            })
+            break
+          case "Duplicate":
+            doc = await opDuplicate(doc, { 
+              copies: (p.copies as number) || 2, 
+              collate: !String(p.collate).includes("uncollated") 
+            })
+            break
+          default:
+            console.warn(`Unknown tool in sequence: ${step.tool}`)
+        }
+        
+        currentBytes = new Uint8Array(await doc.save())
+      }
+      
+      setProgress("Done!")
+      setResult(currentBytes)
+      
+    } catch (err) {
+      console.error(err)
+      alert("Error running sequence: " + (err as Error).message)
+    }
+    
+    setProcessing(false)
+  }
+  
   const tool = activeTool ? TOOLS.find(t => 'id' in t && t.id === activeTool) as Extract<ToolDef, { id: string }> : null
+  const sequence = activeSequence ? SEQUENCES.find(s => s.name === activeSequence) : null
   
   // Format file size
   const formatSize = (bytes: number) => {
@@ -1272,7 +1493,7 @@ const handleFile = useCallback(async (file: File) => {
   return (
     <div className="h-full flex flex-col bg-muted/30">
       <div className="flex-1 flex min-h-0">
-      {/* Sidebar - Tools */}
+      {/* Sidebar - Tools & Sequences */}
       <div className="w-72 border-r bg-card overflow-y-auto">
         <div className="p-4 border-b">
           <h2 className="font-bold text-sm">All Tools</h2>
@@ -1307,6 +1528,37 @@ const handleFile = useCallback(async (file: File) => {
             )
           })}
         </div>
+        
+        {/* Automation Sequences */}
+        <div className="border-t">
+          <div className="p-4 border-b bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+            <h2 className="font-bold text-sm flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-500" />
+              Automation Sequences
+            </h2>
+            <p className="text-[10px] text-muted-foreground mt-1">Multi-step workflows</p>
+          </div>
+          <div className="py-2 max-h-64 overflow-y-auto">
+{SEQUENCES.map((seq) => (
+  <button
+  key={seq.name}
+  onClick={() => { setActiveSequence(seq.name); setActiveTool(null); setResult(null) }}
+  className={cn(
+  "w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors",
+  activeSequence === seq.name ? "bg-amber-100 dark:bg-amber-900/30 border-l-2 border-amber-500" : "hover:bg-muted/50"
+                )}
+              >
+                <div className="p-1.5 rounded bg-amber-100 dark:bg-amber-900/50">
+                  <Play className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">{seq.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{seq.steps.length} steps</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       
       {/* Main Panel */}
@@ -1337,13 +1589,110 @@ const handleFile = useCallback(async (file: File) => {
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
           </div>
+        ) : sequence ? (
+          // Sequence panel
+          <div className="max-w-2xl">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-xl shadow-sm p-6 mb-4 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-amber-500">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold">{sequence.name}</h2>
+                  <p className="text-muted-foreground mt-1">{sequence.desc}</p>
+                </div>
+                <button 
+                  onClick={() => setActiveSequence(null)}
+                  className="p-1 rounded hover:bg-amber-200/50"
+                >
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Sequence Steps */}
+            <div className="bg-card rounded-xl shadow-sm p-6 mb-4">
+              <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide mb-4">
+                {sequence.steps.length} Steps in Sequence
+              </h3>
+              <div className="space-y-3">
+                {sequence.steps.map((step, i) => {
+                  const stepTool = TOOLS.find(t => 'id' in t && t.id === step.tool) as Extract<ToolDef, { id: string }> | undefined
+                  return (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                        {i + 1}
+                      </div>
+                      {stepTool && (
+                        <div className={cn("p-1.5 rounded", stepTool.color)}>
+                          <stepTool.icon className="h-3.5 w-3.5 text-white" />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold">{step.tool}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {Object.entries(step.params).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(", ")}
+                        </div>
+                      </div>
+                      {i < sequence.steps.length - 1 && (
+                        <ArrowDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Run Button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={runSequence}
+                disabled={processing || !pdfBytes}
+                className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-semibold disabled:opacity-50"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {progress}
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Run All {sequence.steps.length} Steps
+                  </>
+                )}
+              </button>
+              {!pdfBytes && (
+                <span className="text-sm text-muted-foreground">Load a PDF first</span>
+              )}
+            </div>
+            
+            {/* Result */}
+            {result && (
+              <div className="mt-6 p-4 bg-green-50 dark:bg-green-950/20 rounded-xl border border-green-200 dark:border-green-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                    <FileText className="h-5 w-5" />
+                    <span className="font-semibold">Sequence Complete!</span>
+                  </div>
+                  <button
+                    onClick={downloadResult}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold hover:bg-green-700"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Result
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ) : !activeTool ? (
           // No tool selected
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-md">
               <div className="text-5xl mb-4">&#8592;</div>
-              <h3 className="font-bold text-lg mb-2">Pick a tool</h3>
-              <p className="text-muted-foreground">Select a tool from the sidebar to get started.</p>
+              <h3 className="font-bold text-lg mb-2">Pick a tool or sequence</h3>
+              <p className="text-muted-foreground">Select a tool from the sidebar or run an automation sequence.</p>
               <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
                 <div className="flex items-center gap-2 text-green-700 dark:text-green-300 text-sm">
                   <FileText className="h-4 w-4" />
