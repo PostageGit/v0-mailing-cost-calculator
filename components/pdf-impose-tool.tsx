@@ -1414,7 +1414,7 @@ const handleFile = useCallback(async (file: File) => {
             <div className={cn(
               "grid gap-4",
               ["SimpleBooklet", "Nup", "StepRepeat", "TilePages", "PageSizes", "Rotate"].includes(tool.id) 
-                ? "grid-cols-[1fr,280px]" 
+                ? "grid-cols-1 lg:grid-cols-[1fr,300px]" 
                 : "grid-cols-1"
             )}>
               {/* Parameters */}
@@ -1518,9 +1518,11 @@ const handleFile = useCallback(async (file: File) => {
               
               {/* Live Preview Panel - right side */}
               {["SimpleBooklet", "Nup", "StepRepeat", "TilePages", "PageSizes", "Rotate"].includes(tool.id) && (
-                <div className="bg-card rounded-xl shadow-sm p-4 flex flex-col">
-                  <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wide mb-3 text-center">Preview</h3>
-                  <div className="flex-1 flex items-center justify-center">
+                <div className="bg-card rounded-xl shadow-sm p-4 flex flex-col min-h-[240px]">
+                  <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wide mb-3 text-center">
+                    NOW vs AFTER
+                  </h3>
+                  <div className="flex-1 flex items-center justify-center bg-muted/30 rounded-lg p-2">
                     <ImpositionPreview toolId={tool.id} params={params} fileInfo={fileInfo} />
                   </div>
                   <p className="text-[10px] text-muted-foreground text-center mt-2">
