@@ -529,6 +529,121 @@ async function opJoin2Pages(doc: PDFDocument, params: { gap: number }) {
   return newDoc
 }
 
+// Add crop marks to each page
+async function opCropMarks(doc: PDFDocument, params: { length: number, offset: number, weight: number }) {
+  const markLen = params.length * IN   // Mark length in points
+  const offset = params.offset * IN    // Offset from trim edge
+  const weight = params.weight         // Line weight in points
+  
+  const pages = doc.getPages()
+  const newDoc = await PDFDocument.create()
+  
+  for (let i = 0; i < pages.length; i++) {
+    const srcPage = pages[i]
+    const w = srcPage.getWidth()
+    const h = srcPage.getHeight()
+    
+    // Create new page with extra space for marks
+    const extraSpace = offset + markLen + 10
+    const newW = w + extraSpace * 2
+    const newH = h + extraSpace * 2
+    const page = newDoc.addPage([newW, newH])
+    
+    // Embed and draw original page centered
+    const [embedded] = await newDoc.embedPdf(doc, [i])
+    page.drawPage(embedded, { x: extraSpace, y: extraSpace, width: w, height: h })
+    
+    // Draw crop marks at all four corners
+    // Marks are offset from the trim edge and extend outward
+    const corners = [
+      { x: extraSpace, y: extraSpace },                  // Bottom-left
+      { x: extraSpace + w, y: extraSpace },              // Bottom-right
+      { x: extraSpace, y: extraSpace + h },              // Top-left
+      { x: extraSpace + w, y: extraSpace + h },          // Top-right
+    ]
+    
+    for (const corner of corners) {
+      // Horizontal marks
+      const hDir = corner.x === extraSpace ? -1 : 1  // Left corners go left, right corners go right
+      page.drawLine({
+        start: { x: corner.x + offset * hDir, y: corner.y },
+        end: { x: corner.x + (offset + markLen) * hDir, y: corner.y },
+        thickness: weight,
+        color: rgb(0, 0, 0),
+      })
+      
+      // Vertical marks  
+      const vDir = corner.y === extraSpace ? -1 : 1  // Bottom corners go down, top corners go up
+      page.drawLine({
+        start: { x: corner.x, y: corner.y + offset * vDir },
+        end: { x: corner.x, y: corner.y + (offset + markLen) * vDir },
+        thickness: weight,
+        color: rgb(0, 0, 0),
+      })
+    }
+  }
+  
+  return newDoc
+}
+
+// Generate bleed by scaling content
+async function opGenerateBleed(doc: PDFDocument, params: { bleed: number, method: string }) {
+  const bleedPt = params.bleed * IN
+  const pages = doc.getPages()
+  const newDoc = await PDFDocument.create()
+  
+  for (let i = 0; i < pages.length; i++) {
+    const srcPage = pages[i]
+    const w = srcPage.getWidth()
+    const h = srcPage.getHeight()
+    const newW = w + bleedPt * 2
+    const newH = h + bleedPt * 2
+    
+    const page = newDoc.addPage([newW, newH])
+    const [embedded] = await newDoc.embedPdf(doc, [i])
+    
+    if (params.method.toLowerCase().includes("mirror")) {
+      // Scale to fill the entire new page size
+      page.drawPage(embedded, { x: 0, y: 0, width: newW, height: newH })
+    } else {
+      // Just center the content with white bleed
+      page.drawPage(embedded, { x: bleedPt, y: bleedPt, width: w, height: h })
+    }
+  }
+  
+  return newDoc
+}
+
+// Creep compensation for booklets
+async function opCreep(doc: PDFDocument, params: { pages: number, paperThick: number, direction: string }) {
+  const pages = doc.getPages()
+  const n = pages.length
+  const newDoc = await PDFDocument.create()
+  const sheets = Math.ceil(n / 4)
+  const totalShift = sheets * params.paperThick * IN
+  
+  for (let i = 0; i < n; i++) {
+    const srcPage = pages[i]
+    const w = srcPage.getWidth()
+    const h = srcPage.getHeight()
+    
+    // Calculate shift based on position
+    const sigPos = Math.floor(i % (params.pages / 2))
+    const maxPos = Math.max(1, params.pages / 2 - 1)
+    const insideFrac = sigPos / maxPos
+    const shiftFrac = params.direction.toLowerCase().includes("inside") ? insideFrac : (1 - insideFrac)
+    const shift = shiftFrac * totalShift
+    const isLeft = i % 2 === 0
+    const dx = isLeft ? -shift : shift
+    
+    const page = newDoc.addPage([w, h])
+    const [embedded] = await newDoc.embedPdf(doc, [i])
+    page.drawPage(embedded, { x: dx, y: 0, width: w, height: h })
+  }
+  
+  return newDoc
+}
+
 // Execute operation
 async function executeOp(doc: PDFDocument, cmd: string, params: Record<string, unknown>) {
   // Resolve sheet size
@@ -551,6 +666,9 @@ async function executeOp(doc: PDFDocument, cmd: string, params: Record<string, u
     case "PageNumbers": return opPageNumbers(doc, params as { position: string, startNum: number, fontSize: number, prefix: string, suffix: string })
     case "SplitMerge": return opSplit(doc, params as { output: string })
     case "Join2Pages": return opJoin2Pages(doc, params as { gap: number })
+    case "CropMarks": return opCropMarks(doc, params as { length: number, offset: number, weight: number })
+    case "GenerateBleed": return opGenerateBleed(doc, params as { bleed: number, method: string })
+    case "Creep": return opCreep(doc, params as { pages: number, paperThick: number, direction: string })
     default: return doc
   }
 }
