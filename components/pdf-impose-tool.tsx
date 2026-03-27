@@ -956,17 +956,9 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
   return nd
 }
 
-// N-Up / Step & Repeat - EXACT Quite Imposing Plus behavior
-// From QI XML: HSpace=0, VSpace=0, DoScaling=ToFit, FitAcross=0, FitDown=0
-// CropDist=10, CropLength=20, CropWidth=0.3, CropStyle=Corners, SheetAlign=C
-//
-// QI BEHAVIOR (from your sequences XML):
-// 1. Pages placed at FULL MediaBox size (including bleed) - NO scaling
-// 2. HSpace=0, VSpace=0 means pages are EDGE-TO-EDGE (MediaBox edges touch)
-// 3. Bleeds naturally OVERLAP because adjacent pages share the bleed space
-// 4. Grid auto-calculated from MediaBox when FitAcross=0, FitDown=0
-// 5. Crop marks at page corners with CropDist offset
-// 6. SheetAlign=C centers entire grid on sheet
+// N-Up / Step & Repeat - Matches QI_Impose_Pro exactly
+// Key: ALWAYS scale pages to fit cells, center in cell
+// This preserves bleed because entire page (including bleed) scales proportionally
 async function opNUp(doc: PDFDocument, params: { 
   rows: number, cols: number, sheetW: number, sheetH: number, margin: number, 
   cropMarks: boolean, stepRepeat?: boolean,
@@ -977,38 +969,25 @@ async function opNUp(doc: PDFDocument, params: {
   if (pgs.length === 0) return doc
   
   const nd = await PDFDocument.create()
-  const sheetW = params.sheetW
-  const sheetH = params.sheetH
-  const margin = params.margin
+  const { sheetW, sheetH, margin: marginAll, cropMarks } = params
   
-  // Source page = MediaBox (FULL size including bleed) - QI uses this for layout
-  const srcPage = pgs[0]
-  const srcW = srcPage.getWidth()
-  const srcH = srcPage.getHeight()
+  // Source page for auto-calculating grid
+  const srcW = pgs[0].getWidth()
+  const srcH = pgs[0].getHeight()
   
-  // QI crop mark params (from XML: CropDist=10, CropLength=20, CropWidth=0.3)
-  const cropDist = 10
-  const cropLength = 20
-  const cropWidth = 0.3
-  
-  // Available area
-  const availW = sheetW - margin * 2
-  const availH = sheetH - margin * 2
-  
-  // Auto-calculate grid (QI: FitAcross=0, FitDown=0 means auto)
-  // QI uses FULL MediaBox size for calculation (HSpace=0, VSpace=0)
+  // Auto-calculate rows/cols if 0 (step & repeat)
   let rows = params.rows
   let cols = params.cols
-  if (cols <= 0) cols = Math.max(1, Math.floor(availW / srcW))
-  if (rows <= 0) rows = Math.max(1, Math.floor(availH / srcH))
+  if (rows <= 0 || cols <= 0) {
+    const availW = sheetW - marginAll * 2
+    const availH = sheetH - marginAll * 2
+    cols = cols <= 0 ? Math.max(1, Math.floor(availW / srcW)) : cols
+    rows = rows <= 0 ? Math.max(1, Math.floor(availH / srcH)) : rows
+  }
   
-  // Grid dimensions
-  const gridW = cols * srcW
-  const gridH = rows * srcH
-  
-  // QI SheetAlign=C: center grid on sheet
-  const startX = margin + (availW - gridW) / 2
-  const startY = margin + (availH - gridH) / 2
+  // Cell size - divide available space evenly
+  const cW = (sheetW - marginAll * 2) / cols
+  const cH = (sheetH - marginAll * 2) / rows
   
   let idx = 0
   const total = params.stepRepeat ? rows * cols : pgs.length
@@ -1023,50 +1002,20 @@ async function opNUp(doc: PDFDocument, params: {
         
         const [e] = await nd.embedPdf(doc, [pi])
         
-        // Position: QI places pages EDGE-TO-EDGE at full MediaBox size
-        // Row 0 is TOP (y increases downward in PDF coords, so we flip)
-        const x = startX + c * srcW
-        const y = startY + (rows - 1 - r) * srcH
+        // ALWAYS scale to fit cell, center in cell (matches QI_Impose_Pro)
+        const s = Math.min(cW / e.width, cH / e.height)
+        const dw = e.width * s, dh = e.height * s
+        const x = marginAll + c * cW
+        const y = sheetH - marginAll - (r + 1) * cH
+        sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
         
-        if (params.stepRepeat) {
-          // Step & Repeat: 1:1 scale, no resizing
-          sh.drawPage(e, { x, y, width: srcW, height: srcH })
-        } else {
-          // N-Up: scale to fit cell, centered
-          const cellW = availW / cols
-          const cellH = availH / rows
-          const scale = Math.min(cellW / e.width, cellH / e.height)
-          const dw = e.width * scale, dh = e.height * scale
-          const cx = margin + c * cellW + (cellW - dw) / 2
-          const cy = margin + (rows - 1 - r) * cellH + (cellH - dh) / 2
-          sh.drawPage(e, { x: cx, y: cy, width: dw, height: dh })
-        }
-        
-        // CROP MARKS - QI style: CropStyle=Corners, at page edges with CropDist offset
-        if (params.cropMarks) {
-          const left = x
-          const right = x + srcW
-          const bottom = y
-          const top = y + srcH
-          
-          // L-shaped corner marks (QI CropStyle: Corners)
-          const mark = (cx: number, cy: number, dx: number, dy: number) => {
-            sh.drawLine({ 
-              start: { x: cx + cropDist * dx, y: cy }, 
-              end: { x: cx + (cropDist + cropLength) * dx, y: cy }, 
-              thickness: cropWidth, color: rgb(0, 0, 0) 
-            })
-            sh.drawLine({ 
-              start: { x: cx, y: cy + cropDist * dy }, 
-              end: { x: cx, y: cy + (cropDist + cropLength) * dy }, 
-              thickness: cropWidth, color: rgb(0, 0, 0) 
-            })
-          }
-          
-          mark(left, bottom, -1, -1)   // bottom-left
-          mark(right, bottom, 1, -1)   // bottom-right
-          mark(left, top, -1, 1)       // top-left
-          mark(right, top, 1, 1)       // top-right
+        // Crop marks at cell corners (matches QI_Impose_Pro)
+        if (cropMarks) {
+          const corners: [number, number][] = [[x, y], [x + cW, y], [x, y + cH], [x + cW, y + cH]]
+          corners.forEach(([cx, cy]) => {
+            sh.drawLine({ start: { x: cx - 3, y: cy }, end: { x: cx + 3, y: cy }, thickness: 0.3, color: rgb(0, 0, 0) })
+            sh.drawLine({ start: { x: cx, y: cy - 3 }, end: { x: cx, y: cy + 3 }, thickness: 0.3, color: rgb(0, 0, 0) })
+          })
         }
         idx++
       }
