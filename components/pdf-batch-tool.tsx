@@ -5,7 +5,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
 import JSZip from "jszip"
 import { 
   Upload, FileText, Download, Trash2, Loader2, 
-  Layers, FileStack, Check, AlertCircle
+  Layers, FileStack, Check, AlertCircle, Scale
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -1061,21 +1061,121 @@ export function PDFBatchTool() {
 
         {/* Right panel - Groups preview & download */}
         <div className="w-96 flex flex-col bg-muted/20">
-          <div className="p-4 border-b">
-            <h2 className="font-bold text-lg">Page Count Groups</h2>
-            <p className="text-sm text-muted-foreground">Files organized by page count</p>
+          {/* Mode Switcher Tabs */}
+          <div className="p-3 border-b bg-card">
+            <div className="flex rounded-xl bg-muted p-1 gap-1">
+              <button
+                onClick={() => setUseWeightDividers(false)}
+                className={cn(
+                  "flex-1 py-2.5 px-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2",
+                  !useWeightDividers
+                    ? "bg-white dark:bg-slate-800 shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Layers className="h-4 w-4" />
+                By Page Count
+              </button>
+              <button
+                onClick={() => setUseWeightDividers(true)}
+                className={cn(
+                  "flex-1 py-2.5 px-3 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2",
+                  useWeightDividers
+                    ? "bg-amber-500 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Scale className="h-4 w-4" />
+                USPS Per-Oz
+              </button>
+            </div>
           </div>
 
-          {/* Groups preview */}
+          {/* Groups preview - switches based on mode */}
           <div className="flex-1 overflow-auto p-4">
             {pageGroups.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Layers className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p>Select files to see groups</p>
               </div>
+            ) : useWeightDividers ? (
+              /* ========== USPS WEIGHT VIEW ========== */
+              (() => {
+                const oz1 = pageGroups.filter(g => g.pageCount < 20)
+                const oz2 = pageGroups.filter(g => g.pageCount >= 20 && g.pageCount < 32)
+                const oz3 = pageGroups.filter(g => g.pageCount >= 32 && g.pageCount < 38)
+                const oz4 = pageGroups.filter(g => g.pageCount >= 38)
+                const oz1Files = oz1.reduce((sum, g) => sum + g.files.length, 0)
+                const oz2Files = oz2.reduce((sum, g) => sum + g.files.length, 0)
+                const oz3Files = oz3.reduce((sum, g) => sum + g.files.length, 0)
+                const oz4Files = oz4.reduce((sum, g) => sum + g.files.length, 0)
+                
+                const weightClasses = [
+                  { oz: 1, label: "1 OZ", range: "1-19 pages", files: oz1Files, groups: oz1, bgClass: "bg-slate-100 dark:bg-slate-800", borderClass: "border-slate-300 dark:border-slate-600", textClass: "text-slate-600 dark:text-slate-300", dotClass: "bg-slate-400", hasDivider: false },
+                  { oz: 2, label: "2 OZ", range: "20-31 pages", files: oz2Files, groups: oz2, bgClass: "bg-blue-50 dark:bg-blue-950/40", borderClass: "border-blue-400", textClass: "text-blue-700 dark:text-blue-300", dotClass: "bg-blue-500", hasDivider: true },
+                  { oz: 3, label: "3 OZ", range: "32-37 pages", files: oz3Files, groups: oz3, bgClass: "bg-orange-50 dark:bg-orange-950/40", borderClass: "border-orange-400", textClass: "text-orange-700 dark:text-orange-300", dotClass: "bg-orange-500", hasDivider: true },
+                  { oz: 4, label: "4 OZ", range: "38+ pages", files: oz4Files, groups: oz4, bgClass: "bg-red-50 dark:bg-red-950/40", borderClass: "border-red-400", textClass: "text-red-700 dark:text-red-300", dotClass: "bg-red-600", hasDivider: true },
+                ]
+                
+                return (
+                  <div className="space-y-3">
+                    {weightClasses.map((wc) => (
+                      <div 
+                        key={wc.oz}
+                        className={cn(
+                          "rounded-xl border-2 overflow-hidden",
+                          wc.borderClass,
+                          wc.files === 0 && "opacity-40"
+                        )}
+                      >
+                        <div className={cn("px-4 py-3", wc.bgClass)}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={cn("w-4 h-4 rounded-full", wc.dotClass)} />
+                              <div>
+                                <div className={cn("text-xl font-bold", wc.textClass)}>{wc.label}</div>
+                                <div className="text-xs text-muted-foreground">{wc.range}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={cn("text-2xl font-bold", wc.textClass)}>{wc.files}</div>
+                              <div className="text-xs text-muted-foreground">sets</div>
+                            </div>
+                          </div>
+                          {wc.hasDivider && wc.files > 0 && (
+                            <div className={cn("mt-2 text-xs font-medium", wc.textClass)}>
+                              + Divider page included
+                            </div>
+                          )}
+                        </div>
+                        {wc.groups.length > 0 && (
+                          <div className="p-2 bg-white dark:bg-slate-900 text-xs text-muted-foreground max-h-24 overflow-auto">
+                            {wc.groups.map((g) => (
+                              <div key={g.pageCount} className="py-0.5">
+                                {g.pageCount}pg: {g.files.length} set{g.files.length > 1 ? 's' : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {/* Summary */}
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-center">
+                      <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                        {oz2.length + oz3.length + oz4.length} weight dividers will be added
+                      </div>
+                      <div className="text-xs text-amber-600/70 dark:text-amber-400/70 mt-1">
+                        Dividers only for 2oz, 3oz, 4oz lots
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()
             ) : (
+              /* ========== PAGE COUNT VIEW ========== */
               <div className="space-y-3">
-                {pageGroups.map((group, i) => (
+                {pageGroups.map((group) => (
                   <div 
                     key={group.pageCount}
                     className="rounded-xl border bg-card overflow-hidden"
@@ -1116,124 +1216,28 @@ export function PDFBatchTool() {
                 </div>
               </div>
 ) : (
-  <div className="space-y-3">
-    {/* USPS Weight Dividers Toggle */}
-    <button
-      onClick={() => setUseWeightDividers(!useWeightDividers)}
-      className={cn(
-        "w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-between border-2",
-        useWeightDividers
-          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 text-amber-700 dark:text-amber-300"
-          : "bg-muted/50 border-muted-foreground/20 text-muted-foreground"
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <div className={cn(
-          "w-5 h-5 rounded flex items-center justify-center text-xs font-bold",
-          useWeightDividers ? "bg-amber-500 text-white" : "bg-muted-foreground/30"
-        )}>
-          {useWeightDividers ? "✓" : ""}
-        </div>
-        <span>USPS Per-Ounce Dividers</span>
-      </div>
-      <span className="text-xs opacity-70">
-        {useWeightDividers ? "2oz / 3oz / 4oz" : "OFF"}
-      </span>
-    </button>
-    
-    {/* Weight Breakdown Summary - shows when toggle is ON and files exist */}
-    {useWeightDividers && pageGroups.length > 0 && (() => {
-      const oz1 = pageGroups.filter(g => g.pageCount < 20)
-      const oz2 = pageGroups.filter(g => g.pageCount >= 20 && g.pageCount < 32)
-      const oz3 = pageGroups.filter(g => g.pageCount >= 32 && g.pageCount < 38)
-      const oz4 = pageGroups.filter(g => g.pageCount >= 38)
-      const oz1Files = oz1.reduce((sum, g) => sum + g.files.length, 0)
-      const oz2Files = oz2.reduce((sum, g) => sum + g.files.length, 0)
-      const oz3Files = oz3.reduce((sum, g) => sum + g.files.length, 0)
-      const oz4Files = oz4.reduce((sum, g) => sum + g.files.length, 0)
-      
-      return (
-        <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border text-xs space-y-2">
-          <div className="font-bold text-sm mb-2 text-center">Weight Breakdown</div>
-          
-          {/* 1 OZ - No divider */}
-          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-slate-100 dark:bg-slate-800">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-slate-400"></div>
-              <span className="font-semibold">1 OZ</span>
-              <span className="text-muted-foreground">(1-19 pg)</span>
-            </div>
-            <div className="text-right">
-              <span className="font-bold">{oz1.length}</span> lots, <span className="font-bold">{oz1Files}</span> sets
-            </div>
-          </div>
-          
-          {/* 2 OZ - Blue divider */}
-          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-500"></div>
-              <span className="font-semibold text-blue-700 dark:text-blue-300">2 OZ</span>
-              <span className="text-blue-600/70 dark:text-blue-400/70">(20-31 pg)</span>
-            </div>
-            <div className="text-right text-blue-700 dark:text-blue-300">
-              <span className="font-bold">{oz2.length}</span> lots, <span className="font-bold">{oz2Files}</span> sets
-            </div>
-          </div>
-          
-          {/* 3 OZ - Orange divider */}
-          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-orange-500"></div>
-              <span className="font-semibold text-orange-700 dark:text-orange-300">3 OZ</span>
-              <span className="text-orange-600/70 dark:text-orange-400/70">(32-37 pg)</span>
-            </div>
-            <div className="text-right text-orange-700 dark:text-orange-300">
-              <span className="font-bold">{oz3.length}</span> lots, <span className="font-bold">{oz3Files}</span> sets
-            </div>
-          </div>
-          
-          {/* 4 OZ - Red divider */}
-          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-red-600"></div>
-              <span className="font-semibold text-red-700 dark:text-red-300">4 OZ</span>
-              <span className="text-red-600/70 dark:text-red-400/70">(38+ pg)</span>
-            </div>
-            <div className="text-right text-red-700 dark:text-red-300">
-              <span className="font-bold">{oz4.length}</span> lots, <span className="font-bold">{oz4Files}</span> sets
-            </div>
-          </div>
-          
-          {/* Dividers count */}
-          <div className="pt-2 mt-2 border-t text-center text-muted-foreground">
-            <span className="font-semibold">{oz2.length + oz3.length + oz4.length}</span> weight dividers will be added
-          </div>
-        </div>
-      )
-    })()}
-    
-    {/* Download Button */}
-    <button
-      onClick={downloadZip}
-      disabled={pageGroups.length === 0}
-      className={cn(
-        "w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2",
-        pageGroups.length > 0
-          ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg"
-          : "bg-muted text-muted-foreground cursor-not-allowed"
-      )}
-    >
-      <Download className="h-5 w-5" />
-      Download ZIP
-    </button>
-  </div>
-  )}
-  
-  <p className="text-xs text-muted-foreground text-center mt-3">
-  {useWeightDividers 
-    ? "Weight dividers added for 20+ page lots (2oz/3oz/4oz)"
-    : "Files grouped by page count, no dividers"
-  }
+              <button
+                onClick={downloadZip}
+                disabled={pageGroups.length === 0}
+                className={cn(
+                  "w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2",
+                  pageGroups.length > 0
+                    ? useWeightDividers
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-lg"
+                      : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                <Download className="h-5 w-5" />
+                {useWeightDividers ? "Download with Weight Dividers" : "Download by Page Count"}
+              </button>
+            )}
+            
+            <p className="text-xs text-muted-foreground text-center mt-3">
+              {useWeightDividers 
+                ? "ZIP includes weight dividers for 2oz/3oz/4oz lots"
+                : "ZIP organized by page count, no dividers"
+              }
             </p>
           </div>
         </div>
