@@ -875,16 +875,32 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
       }
     }
     
-    // CROP MARKS - drawn at trim edges
+    // CROP MARKS - drawn at trim edges (corners and spine)
     if (params.cropMarks) {
-      const marks: [number, number][] = [
-        [margin, margin], [margin, margin + ph],
-        [margin + shW / 2, margin], [margin + shW / 2, margin + ph]
-      ]
-      for (const [cx, cy] of marks) {
-        sh.drawLine({ start: { x: cx - 5, y: cy }, end: { x: cx + 5, y: cy }, thickness: 0.4, color: rgb(0, 0, 0) })
-        sh.drawLine({ start: { x: cx, y: cy - 5 }, end: { x: cx, y: cy + 5 }, thickness: 0.4, color: rgb(0, 0, 0) })
+      const cropLen = 15, cropDist = 5
+      // Left page corners
+      const leftX = margin, rightX = margin + pw * 2, midX = margin + pw
+      const topY = margin + ph, botY = margin
+      
+      // Draw crop marks at all trim positions
+      const drawMark = (x: number, y: number, horiz: boolean, vert: boolean) => {
+        if (horiz) {
+          sh.drawLine({ start: { x: x - cropLen, y }, end: { x: x - cropDist, y }, thickness: 0.3, color: rgb(0, 0, 0) })
+          sh.drawLine({ start: { x: x + cropDist, y }, end: { x: x + cropLen, y }, thickness: 0.3, color: rgb(0, 0, 0) })
+        }
+        if (vert) {
+          sh.drawLine({ start: { x, y: y - cropLen }, end: { x, y: y - cropDist }, thickness: 0.3, color: rgb(0, 0, 0) })
+          sh.drawLine({ start: { x, y: y + cropDist }, end: { x, y: y + cropLen }, thickness: 0.3, color: rgb(0, 0, 0) })
+        }
       }
+      // Outer corners
+      drawMark(leftX, topY, false, true); drawMark(leftX, botY, false, true)
+      drawMark(rightX, topY, false, true); drawMark(rightX, botY, false, true)
+      // Top and bottom edges
+      drawMark(leftX, topY, true, false); drawMark(rightX, topY, true, false)
+      drawMark(leftX, botY, true, false); drawMark(rightX, botY, true, false)
+      // Spine/center
+      drawMark(midX, topY, true, true); drawMark(midX, botY, true, true)
     }
   }
   return nd
@@ -939,12 +955,28 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
         
         sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
         
-        // CROP MARKS at each cell corner
+        // CROP MARKS at each cell corner - proper L-shaped trim marks
         if (params.cropMarks) {
-          const marks: [number, number][] = [[x, y], [x + cW, y], [x, y + cH], [x + cW, y + cH]]
-          for (const [cx, cy] of marks) {
-            sh.drawLine({ start: { x: cx - 3, y: cy }, end: { x: cx + 3, y: cy }, thickness: 0.3, color: rgb(0, 0, 0) })
-            sh.drawLine({ start: { x: cx, y: cy - 3 }, end: { x: cx, y: cy + 3 }, thickness: 0.3, color: rgb(0, 0, 0) })
+          const cropLen = 10, cropDist = 3
+          const corners: [number, number, number, number][] = [
+            [x, y, -1, -1],           // bottom-left: marks go left and down
+            [x + cW, y, 1, -1],       // bottom-right: marks go right and down
+            [x, y + cH, -1, 1],       // top-left: marks go left and up
+            [x + cW, y + cH, 1, 1]    // top-right: marks go right and up
+          ]
+          for (const [cx, cy, dx, dy] of corners) {
+            // Horizontal mark
+            sh.drawLine({ 
+              start: { x: cx + cropDist * dx, y: cy }, 
+              end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
+              thickness: 0.3, color: rgb(0, 0, 0) 
+            })
+            // Vertical mark
+            sh.drawLine({ 
+              start: { x: cx, y: cy + cropDist * dy }, 
+              end: { x: cx, y: cy + (cropDist + cropLen) * dy }, 
+              thickness: 0.3, color: rgb(0, 0, 0) 
+            })
           }
         }
         idx++
@@ -955,12 +987,13 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
   return nd
 }
 
+// NOTE: w, h are expected in POINTS (already multiplied by IN)
 async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, h: number, range: string }) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
-  const w = params.w * IN
-  const h = params.h * IN
+  const w = params.w
+  const h = params.h
   
   for (let i = 0; i < pgs.length; i++) {
     const skip = (params.range === "page 1 only" && i > 0) || (params.range === "all except first" && i === 0)
@@ -1308,14 +1341,14 @@ const selectTool = (toolId: string) => {
             stepRepeat: true
           })
           break
-        case "PageSizes":
-          doc = await opPageSizes(doc, {
-            mode: params.mode as string,
-            w: params.w as number,
-            h: params.h as number,
-            range: params.range as string
-          })
-          break
+case "PageSizes":
+  doc = await opPageSizes(doc, {
+  mode: params.mode as string,
+  w: (params.w as number) * IN,
+  h: (params.h as number) * IN,
+  range: params.range as string
+  })
+  break
         case "InsertBlanks":
           doc = await opInsert(doc, {
             where: params.where as string,
