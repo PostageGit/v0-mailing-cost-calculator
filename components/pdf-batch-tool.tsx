@@ -318,7 +318,7 @@ export function PDFBatchTool() {
   }
 
   // ========== FULL REPORT - Multi-page, lists ALL files ==========
-  const generateFullReport = async (groups: { pageCount: number; files: PDFFile[] }[]) => {
+  const generateFullReport = async (groups: { pageCount: number; files: PDFFile[] }[], includeWeightBreakdown: boolean) => {
     const doc = await PDFDocument.create()
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
     const fontRegular = await doc.embedFont(StandardFonts.Helvetica)
@@ -417,6 +417,102 @@ export function PDFBatchTool() {
     currentPage.drawText("GROUPS", { x: margin + (boxWidth + 10) * 2 + 20, y: y - 55, size: 12, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
 
     y -= boxHeight + 40
+
+    // ========== USPS WEIGHT BREAKDOWN (if enabled) ==========
+    if (includeWeightBreakdown) {
+      const oz1Groups = groups.filter(g => g.pageCount < 20)
+      const oz2Groups = groups.filter(g => g.pageCount >= 20 && g.pageCount < 32)
+      const oz3Groups = groups.filter(g => g.pageCount >= 32 && g.pageCount < 38)
+      const oz4Groups = groups.filter(g => g.pageCount >= 38)
+      
+      const oz1Files = oz1Groups.reduce((sum, g) => sum + g.files.length, 0)
+      const oz2Files = oz2Groups.reduce((sum, g) => sum + g.files.length, 0)
+      const oz3Files = oz3Groups.reduce((sum, g) => sum + g.files.length, 0)
+      const oz4Files = oz4Groups.reduce((sum, g) => sum + g.files.length, 0)
+
+      currentPage.drawText("USPS WEIGHT BREAKDOWN:", {
+        x: margin,
+        y,
+        size: 14,
+        font: fontBold,
+        color: rgb(0.3, 0.3, 0.3)
+      })
+      y -= 25
+
+      // Weight breakdown boxes - 4 columns
+      const ozBoxWidth = (pageWidth - margin * 2 - 30) / 4
+      const ozBoxHeight = 60
+
+      // 1 OZ box (gray - no divider)
+      currentPage.drawRectangle({
+        x: margin,
+        y: y - ozBoxHeight,
+        width: ozBoxWidth,
+        height: ozBoxHeight,
+        color: rgb(0.92, 0.92, 0.94),
+        borderColor: rgb(0.6, 0.6, 0.6),
+        borderWidth: 2
+      })
+      currentPage.drawText("1 OZ", { x: margin + 10, y: y - 20, size: 14, font: fontBold, color: rgb(0.4, 0.4, 0.4) })
+      currentPage.drawText("(1-19 pg)", { x: margin + 10, y: y - 35, size: 8, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
+      currentPage.drawText(`${oz1Files} sets`, { x: margin + 10, y: y - 50, size: 10, font: fontBold, color: rgb(0.3, 0.3, 0.3) })
+
+      // 2 OZ box (blue)
+      currentPage.drawRectangle({
+        x: margin + ozBoxWidth + 10,
+        y: y - ozBoxHeight,
+        width: ozBoxWidth,
+        height: ozBoxHeight,
+        color: rgb(0.9, 0.95, 1),
+        borderColor: rgb(0.1, 0.4, 0.7),
+        borderWidth: 2
+      })
+      currentPage.drawText("2 OZ", { x: margin + ozBoxWidth + 20, y: y - 20, size: 14, font: fontBold, color: rgb(0.1, 0.4, 0.7) })
+      currentPage.drawText("(20-31 pg)", { x: margin + ozBoxWidth + 20, y: y - 35, size: 8, font: fontRegular, color: rgb(0.3, 0.5, 0.7) })
+      currentPage.drawText(`${oz2Files} sets`, { x: margin + ozBoxWidth + 20, y: y - 50, size: 10, font: fontBold, color: rgb(0.1, 0.4, 0.7) })
+
+      // 3 OZ box (orange)
+      currentPage.drawRectangle({
+        x: margin + (ozBoxWidth + 10) * 2,
+        y: y - ozBoxHeight,
+        width: ozBoxWidth,
+        height: ozBoxHeight,
+        color: rgb(1, 0.95, 0.9),
+        borderColor: rgb(0.7, 0.3, 0),
+        borderWidth: 2
+      })
+      currentPage.drawText("3 OZ", { x: margin + (ozBoxWidth + 10) * 2 + 10, y: y - 20, size: 14, font: fontBold, color: rgb(0.7, 0.3, 0) })
+      currentPage.drawText("(32-37 pg)", { x: margin + (ozBoxWidth + 10) * 2 + 10, y: y - 35, size: 8, font: fontRegular, color: rgb(0.7, 0.4, 0.2) })
+      currentPage.drawText(`${oz3Files} sets`, { x: margin + (ozBoxWidth + 10) * 2 + 10, y: y - 50, size: 10, font: fontBold, color: rgb(0.7, 0.3, 0) })
+
+      // 4 OZ box (red)
+      currentPage.drawRectangle({
+        x: margin + (ozBoxWidth + 10) * 3,
+        y: y - ozBoxHeight,
+        width: ozBoxWidth,
+        height: ozBoxHeight,
+        color: rgb(1, 0.92, 0.92),
+        borderColor: rgb(0.6, 0.1, 0.1),
+        borderWidth: 2
+      })
+      currentPage.drawText("4 OZ", { x: margin + (ozBoxWidth + 10) * 3 + 10, y: y - 20, size: 14, font: fontBold, color: rgb(0.6, 0.1, 0.1) })
+      currentPage.drawText("(38+ pg)", { x: margin + (ozBoxWidth + 10) * 3 + 10, y: y - 35, size: 8, font: fontRegular, color: rgb(0.7, 0.3, 0.3) })
+      currentPage.drawText(`${oz4Files} sets`, { x: margin + (ozBoxWidth + 10) * 3 + 10, y: y - 50, size: 10, font: fontBold, color: rgb(0.6, 0.1, 0.1) })
+
+      y -= ozBoxHeight + 15
+
+      // Dividers summary
+      const totalDividers = oz2Groups.length + oz3Groups.length + oz4Groups.length
+      currentPage.drawText(`Weight dividers in ZIP: ${totalDividers} (for 2oz/3oz/4oz lots only)`, {
+        x: margin,
+        y,
+        size: 10,
+        font: fontRegular,
+        color: rgb(0.4, 0.4, 0.4)
+      })
+
+      y -= 30
+    }
 
     // Groups overview
     currentPage.drawText("PAGE COUNT GROUPS:", {
@@ -613,7 +709,7 @@ export function PDFBatchTool() {
 
       // First add the full report at root
       setProcessMsg("Creating full report...")
-      const fullReport = await generateFullReport(groups)
+      const fullReport = await generateFullReport(groups, useWeightDividers)
       zip.file("00_FULL_REPORT.pdf", fullReport)
       currentStep++
       setProcessProgress(Math.round((currentStep / totalSteps) * 100))
