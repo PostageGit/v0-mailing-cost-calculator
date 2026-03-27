@@ -968,6 +968,77 @@ export function PDFBatchTool() {
       </span>
     </button>
     
+    {/* Weight Breakdown Summary - shows when toggle is ON and files exist */}
+    {useWeightDividers && pageGroups.length > 0 && (() => {
+      const oz1 = pageGroups.filter(g => g.pageCount < 20)
+      const oz2 = pageGroups.filter(g => g.pageCount >= 20 && g.pageCount < 32)
+      const oz3 = pageGroups.filter(g => g.pageCount >= 32 && g.pageCount < 38)
+      const oz4 = pageGroups.filter(g => g.pageCount >= 38)
+      const oz1Files = oz1.reduce((sum, g) => sum + g.files.length, 0)
+      const oz2Files = oz2.reduce((sum, g) => sum + g.files.length, 0)
+      const oz3Files = oz3.reduce((sum, g) => sum + g.files.length, 0)
+      const oz4Files = oz4.reduce((sum, g) => sum + g.files.length, 0)
+      
+      return (
+        <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border text-xs space-y-2">
+          <div className="font-bold text-sm mb-2 text-center">Weight Breakdown</div>
+          
+          {/* 1 OZ - No divider */}
+          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-slate-100 dark:bg-slate-800">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-slate-400"></div>
+              <span className="font-semibold">1 OZ</span>
+              <span className="text-muted-foreground">(1-19 pg)</span>
+            </div>
+            <div className="text-right">
+              <span className="font-bold">{oz1.length}</span> lots, <span className="font-bold">{oz1Files}</span> sets
+            </div>
+          </div>
+          
+          {/* 2 OZ - Blue divider */}
+          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-blue-500"></div>
+              <span className="font-semibold text-blue-700 dark:text-blue-300">2 OZ</span>
+              <span className="text-blue-600/70 dark:text-blue-400/70">(20-31 pg)</span>
+            </div>
+            <div className="text-right text-blue-700 dark:text-blue-300">
+              <span className="font-bold">{oz2.length}</span> lots, <span className="font-bold">{oz2Files}</span> sets
+            </div>
+          </div>
+          
+          {/* 3 OZ - Orange divider */}
+          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-orange-500"></div>
+              <span className="font-semibold text-orange-700 dark:text-orange-300">3 OZ</span>
+              <span className="text-orange-600/70 dark:text-orange-400/70">(32-37 pg)</span>
+            </div>
+            <div className="text-right text-orange-700 dark:text-orange-300">
+              <span className="font-bold">{oz3.length}</span> lots, <span className="font-bold">{oz3Files}</span> sets
+            </div>
+          </div>
+          
+          {/* 4 OZ - Red divider */}
+          <div className="flex items-center justify-between py-1.5 px-2 rounded bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-red-600"></div>
+              <span className="font-semibold text-red-700 dark:text-red-300">4 OZ</span>
+              <span className="text-red-600/70 dark:text-red-400/70">(38+ pg)</span>
+            </div>
+            <div className="text-right text-red-700 dark:text-red-300">
+              <span className="font-bold">{oz4.length}</span> lots, <span className="font-bold">{oz4Files}</span> sets
+            </div>
+          </div>
+          
+          {/* Dividers count */}
+          <div className="pt-2 mt-2 border-t text-center text-muted-foreground">
+            <span className="font-semibold">{oz2.length + oz3.length + oz4.length}</span> weight dividers will be added
+          </div>
+        </div>
+      )
+    })()}
+    
     {/* Download Button */}
     <button
       onClick={downloadZip}
