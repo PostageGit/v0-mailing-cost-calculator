@@ -1323,76 +1323,90 @@ const handleFile = useCallback(async (file: File) => {
               </div>
             )}
             
-            {/* Live Preview */}
-            {["SimpleBooklet", "Nup", "StepRepeat", "TilePages", "PageSizes", "Rotate"].includes(tool.id) && (
-              <div className="bg-card rounded-xl shadow-sm p-4 mb-4">
-                <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wide mb-3">Live Preview</h3>
-                <div className="flex justify-center">
-                  <ImpositionPreview toolId={tool.id} params={params} fileInfo={fileInfo} />
+            {/* Settings + Preview side by side for supported tools */}
+            <div className={cn(
+              "grid gap-4",
+              ["SimpleBooklet", "Nup", "StepRepeat", "TilePages", "PageSizes", "Rotate"].includes(tool.id) 
+                ? "grid-cols-[1fr,280px]" 
+                : "grid-cols-1"
+            )}>
+              {/* Parameters */}
+              <div className="bg-card rounded-xl shadow-sm p-6">
+                <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide mb-4">Settings</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {tool.params?.filter(p => !p.hidden).map(p => (
+                    <div key={p.id} className={cn("space-y-1.5", p.type === "text" && "col-span-2")}>
+                      <label className="text-xs font-bold text-muted-foreground uppercase">{p.label}</label>
+                      {p.type === "select" || p.type === "sheet" ? (
+                        <select
+                          value={params[p.id] as string}
+                          onChange={(e) => updateParam(p.id, e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
+                        >
+                          {p.type === "sheet" 
+                            ? SHEETS.map(s => <option key={s.name} value={s.name}>{s.name}</option>)
+                            : p.opts?.map(o => <option key={o} value={o}>{o}</option>)
+                          }
+                        </select>
+                      ) : p.type === "text" ? (
+                        <input
+                          type="text"
+                          value={params[p.id] as string || ""}
+                          onChange={(e) => updateParam(p.id, e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          value={params[p.id] as number}
+                          onChange={(e) => updateParam(p.id, parseFloat(e.target.value) || 0)}
+                          min={p.min}
+                          max={p.max}
+                          step={p.step || 1}
+                          className="w-full px-3 py-2 rounded-lg border bg-background text-sm font-mono"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={runTool}
+                    disabled={processing || !pdfBytes}
+                    className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold disabled:opacity-50"
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {progress}
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4" />
+                        Run {tool.name}
+                      </>
+                    )}
+                  </button>
+                  {!pdfBytes && (
+                    <span className="text-sm text-muted-foreground">Load a PDF first</span>
+                  )}
                 </div>
               </div>
-            )}
-            
-            {/* Parameters */}
-            <div className="bg-card rounded-xl shadow-sm p-6">
-              <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide mb-4">Settings</h3>
               
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                {tool.params?.filter(p => !p.hidden).map(p => (
-                  <div key={p.id} className={cn("space-y-1.5", p.type === "text" && "col-span-2")}>
-                    <label className="text-xs font-bold text-muted-foreground uppercase">{p.label}</label>
-                    {p.type === "select" || p.type === "sheet" ? (
-                      <select
-                        value={params[p.id] as string}
-                        onChange={(e) => updateParam(p.id, e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
-                      >
-                        {p.type === "sheet" 
-                          ? SHEETS.map(s => <option key={s.name} value={s.name}>{s.name}</option>)
-                          : p.opts?.map(o => <option key={o} value={o}>{o}</option>)
-                        }
-                      </select>
-                    ) : p.type === "text" ? (
-                      <input
-                        type="text"
-                        value={params[p.id] as string || ""}
-                        onChange={(e) => updateParam(p.id, e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
-                      />
-                    ) : (
-                      <input
-                        type="number"
-                        value={params[p.id] as number}
-                        onChange={(e) => updateParam(p.id, parseFloat(e.target.value) || 0)}
-                        min={p.min}
-                        max={p.max}
-                        step={p.step || 1}
-                        className="w-full px-3 py-2 rounded-lg border bg-background text-sm font-mono"
-                      />
-                    )}
+              {/* Live Preview Panel - right side */}
+              {["SimpleBooklet", "Nup", "StepRepeat", "TilePages", "PageSizes", "Rotate"].includes(tool.id) && (
+                <div className="bg-card rounded-xl shadow-sm p-4 flex flex-col">
+                  <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wide mb-3 text-center">Preview</h3>
+                  <div className="flex-1 flex items-center justify-center">
+                    <ImpositionPreview toolId={tool.id} params={params} fileInfo={fileInfo} />
                   </div>
-                ))}
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={runTool}
-                  disabled={processing}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold disabled:opacity-50"
-                >
-                  {processing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {progress}
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4" />
-                      Run {tool.name}
-                    </>
-                  )}
-                </button>
-              </div>
+                  <p className="text-[10px] text-muted-foreground text-center mt-2">
+                    Updates live as you change settings
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : null}
