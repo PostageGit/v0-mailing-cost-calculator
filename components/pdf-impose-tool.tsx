@@ -1200,6 +1200,10 @@ export function PDFImposeTool() {
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  // Confirmation modal state
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [pendingAction, setPendingAction] = useState<{ type: 'sequence' | 'tool', name: string } | null>(null)
+  
 const handleFile = useCallback(async (file: File) => {
     const bytes = new Uint8Array(await file.arrayBuffer())
     setPdfBytes(bytes)
@@ -1438,8 +1442,15 @@ case "PageSizes":
     URL.revokeObjectURL(url)
   }
   
-  // Run a multi-step sequence
-  const runSequence = async () => {
+  // Show confirmation before running sequence
+  const runSequence = () => {
+    if (!pdfBytes || !activeSequence) return
+    setPendingAction({ type: 'sequence', name: activeSequence })
+    setShowConfirm(true)
+  }
+  
+  // Execute a multi-step sequence (called after confirmation)
+  const executeSequence = async () => {
     if (!pdfBytes || !activeSequence) return
     const seq = SEQUENCES.find(s => s.name === activeSequence)
     if (!seq) return
@@ -1891,11 +1902,16 @@ case "PageSizes":
                     }
                   }
                   
-                  return (
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={runTool}
-                        disabled={processing || !pdfBytes || isInvalid}
+return (
+  <div className="flex items-center gap-3">
+  <button
+  onClick={() => {
+    if (tool) {
+      setPendingAction({ type: 'tool', name: tool.name })
+      setShowConfirm(true)
+    }
+  }}
+  disabled={processing || !pdfBytes || isInvalid}
                         className={cn(
                           "flex items-center gap-2 px-6 py-3 rounded-full font-semibold disabled:opacity-50",
                           isInvalid 
@@ -2040,6 +2056,232 @@ case "PageSizes":
                   <span className="text-xs text-muted-foreground truncate max-w-32">{fileInfo.producer}</span>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Modal - Apple-style */}
+      {showConfirm && pendingAction && fileInfo && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="text-lg font-semibold">Confirm Transformation</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {pendingAction.type === 'sequence' ? `Sequence: ${pendingAction.name}` : `Tool: ${pendingAction.name}`}
+              </p>
+            </div>
+            
+            {/* Preview SVGs */}
+            <div className="p-6">
+              <div className="flex items-center gap-4">
+                {/* BEFORE */}
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 text-center">Current</div>
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-center aspect-[4/3]">
+                    <svg viewBox="0 0 120 90" className="w-full h-full max-w-28">
+                      {/* Page representation */}
+                      <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
+                      <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+                      {/* Size label */}
+                      <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[8px] font-bold">
+                        {(fileInfo.firstPageW / IN).toFixed(1)}&quot; x {(fileInfo.firstPageH / IN).toFixed(1)}&quot;
+                      </text>
+                      <text x="60" y="62" textAnchor="middle" className="fill-slate-500 text-[6px]">
+                        {fileInfo.pageCount} page{fileInfo.pageCount > 1 ? 's' : ''}
+                      </text>
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Arrow */}
+                <div className="shrink-0">
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-slate-400">
+                    <path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z" />
+                  </svg>
+                </div>
+                
+                {/* AFTER */}
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 text-center">Result</div>
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-center aspect-[4/3]">
+                    {(() => {
+                      // Generate preview based on sequence/tool
+                      const seq = pendingAction.type === 'sequence' 
+                        ? SEQUENCES.find(s => s.name === pendingAction.name)
+                        : null
+                      
+                      // Get final output size from sequence
+                      let outputW = fileInfo.firstPageW / IN
+                      let outputH = fileInfo.firstPageH / IN
+                      let gridCols = 1, gridRows = 1
+                      let isBooklet = false
+                      let isRotate = false
+                      let rotateAngle = 0
+                      
+                      // For individual tools, use current params
+                      if (pendingAction.type === 'tool') {
+                        const toolId = activeTool
+                        if (toolId === "PageSizes") {
+                          outputW = Number(params.w) || outputW
+                          outputH = Number(params.h) || outputH
+                        }
+                        if (toolId === "StepRepeat" || toolId === "Nup") {
+                          const sheetW = Number(params.sheetW) || 11
+                          const sheetH = Number(params.sheetH) || 17
+                          const margin = Number(params.margin) || 0
+                          gridCols = Math.max(1, Math.floor((sheetW - margin * 2) / outputW))
+                          gridRows = Math.max(1, Math.floor((sheetH - margin * 2) / outputH))
+                          outputW = sheetW
+                          outputH = sheetH
+                        }
+                        if (toolId === "SimpleBooklet") {
+                          isBooklet = true
+                          outputW = outputW * 2
+                        }
+                        if (toolId === "Rotate") {
+                          isRotate = true
+                          const angleStr = String(params.angle || "90°")
+                          rotateAngle = parseInt(angleStr) || 90
+                          if (rotateAngle === 90 || rotateAngle === 270) {
+                            const tmp = outputW
+                            outputW = outputH
+                            outputH = tmp
+                          }
+                        }
+                      }
+                      
+                      if (seq) {
+                        for (const step of seq.steps) {
+                          if (step.tool === "PageSizes") {
+                            outputW = (step.params.w as number) || outputW
+                            outputH = (step.params.h as number) || outputH
+                          }
+                          if (step.tool === "StepRepeat" || step.tool === "Nup") {
+                            const sheetW = (step.params.sheetW as number) || 11
+                            const sheetH = (step.params.sheetH as number) || 17
+                            const margin = (step.params.margin as number) || 0
+                            gridCols = Math.max(1, Math.floor((sheetW - margin * 2) / outputW))
+                            gridRows = Math.max(1, Math.floor((sheetH - margin * 2) / outputH))
+                            outputW = sheetW
+                            outputH = sheetH
+                          }
+                          if (step.tool === "SimpleBooklet") {
+                            isBooklet = true
+                            outputW = outputW * 2
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <svg viewBox="0 0 120 90" className="w-full h-full max-w-28">
+                          {/* Sheet */}
+                          <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
+                          
+                          {gridCols > 1 || gridRows > 1 ? (
+                            // Grid layout for step & repeat
+                            <>
+                              {Array.from({ length: Math.min(gridRows, 4) }).map((_, r) =>
+                                Array.from({ length: Math.min(gridCols, 4) }).map((_, c) => (
+                                  <rect
+                                    key={`${r}-${c}`}
+                                    x={15 + c * (85 / Math.min(gridCols, 4))}
+                                    y={10 + r * (70 / Math.min(gridRows, 4))}
+                                    width={80 / Math.min(gridCols, 4)}
+                                    height={65 / Math.min(gridRows, 4)}
+                                    fill="#dbeafe"
+                                    stroke="#60a5fa"
+                                    strokeWidth="0.5"
+                                    rx="1"
+                                  />
+                                ))
+                              )}
+                              <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[7px] font-bold">
+                                {gridCols}x{gridRows} grid
+                              </text>
+                            </>
+                          ) : isBooklet ? (
+                            // Booklet spread
+                            <>
+                              <rect x="15" y="15" width="42" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="0.5" rx="1" />
+                              <rect x="63" y="15" width="42" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="0.5" rx="1" />
+                              <line x1="60" y1="15" x2="60" y2="75" stroke="#f59e0b" strokeWidth="1" strokeDasharray="2,2" />
+                              <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[7px] font-bold">
+                                Booklet
+                              </text>
+                            </>
+                          ) : isRotate ? (
+                            // Rotated page
+                            <>
+                              <rect 
+                                x="20" y="15" 
+                                width={rotateAngle === 90 || rotateAngle === 270 ? 60 : 80} 
+                                height={rotateAngle === 90 || rotateAngle === 270 ? 80 : 60} 
+                                fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" 
+                                transform={`rotate(${rotateAngle} 60 45)`}
+                              />
+                              <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[7px] font-bold">
+                                {rotateAngle}°
+                              </text>
+                            </>
+                          ) : (
+                            // Single page
+                            <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+                          )}
+                          
+                          {/* Size label */}
+                          <text x="60" y="82" textAnchor="middle" className="fill-slate-500 text-[6px]">
+                            {outputW.toFixed(1)}&quot; x {outputH.toFixed(1)}&quot;
+                          </text>
+                        </svg>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Sequence steps summary */}
+              {pendingAction.type === 'sequence' && (
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                  <div className="text-xs font-bold text-muted-foreground uppercase mb-2">Steps</div>
+                  <div className="space-y-1">
+                    {SEQUENCES.find(s => s.name === pendingAction.name)?.steps.map((step, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">{i + 1}</span>
+                        <span className="font-medium">{step.tool}</span>
+                        <span className="text-muted-foreground truncate">
+                          {Object.entries(step.params).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Actions */}
+            <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-800/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setShowConfirm(false); setPendingAction(null) }}
+                className="px-5 py-2.5 text-sm font-semibold rounded-full border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false)
+                  if (pendingAction.type === 'sequence') {
+                    executeSequence()
+                  } else {
+                    runTool()
+                  }
+                  setPendingAction(null)
+                }}
+                className="px-5 py-2.5 text-sm font-semibold rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Apply Changes
+              </button>
             </div>
           </div>
         </div>
