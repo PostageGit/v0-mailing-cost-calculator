@@ -104,7 +104,7 @@ const TOOLS: ToolDef[] = [
     plain: "Makes extra copies of every page - like photocopying each page multiple times.",
     params: [
       { id: "copies", label: "Copies", type: "number", def: 2, min: 2, max: 20 },
-      { id: "collate", label: "Order", type: "select", opts: ["collated (1,1,2,2)", "uncollated (1,2,1,2)"], def: "collated (1,1,2,2)" },
+      { id: "collate", label: "Order", type: "select", opts: ["collated (1,2,1,2)", "uncollated (1,1,2,2)"], def: "collated (1,2,1,2)" },
     ]
   },
   { id: "Delete", name: "Delete Pages", icon: Trash2, color: "bg-red-500",
@@ -213,27 +213,28 @@ async function opRotate(doc: PDFDocument, params: { angle: number, range: string
   doc = await rehy(doc) // Re-hydrate first
   const nd = await PDFDocument.create()
   const pgs = doc.getPages()
-  const angle = params.angle
+  const a = params.angle
   
   for (let i = 0; i < pgs.length; i++) {
     const pw = pgs[i].getWidth(), ph = pgs[i].getHeight()
     let shouldRotate = false
     
-    if (params.range === "all") shouldRotate = true
-    else if (params.range === "even only") shouldRotate = (i + 1) % 2 === 0
-    else if (params.range === "odd only") shouldRotate = (i + 1) % 2 === 1
+    if (params.range === "all" || !params.range) shouldRotate = true
+    else if (params.range.includes("even")) shouldRotate = (i + 1) % 2 === 0
+    else if (params.range.includes("odd")) shouldRotate = (i + 1) % 2 === 1
     
     const [e] = await nd.embedPdf(doc, [i])
-    const pg = nd.addPage([pw, ph])
     
     if (shouldRotate) {
-      pg.drawPage(e, {
-        x: angle === 180 ? pw : angle === 90 ? 0 : ph,
-        y: angle === 180 ? ph : angle === 90 ? pw : 0,
-        width: pw, height: ph,
-        rotate: degrees(angle)
-      })
+      const is90 = a === 90 || a === 270
+      const pg = nd.addPage(is90 ? [ph, pw] : [pw, ph])
+      let dx = 0, dy = 0
+      if (a === 90) { dx = ph; dy = 0 }
+      else if (a === 180) { dx = pw; dy = ph }
+      else if (a === 270) { dx = 0; dy = pw }
+      pg.drawPage(e, { x: dx, y: dy, width: pw, height: ph, rotate: degrees(a) })
     } else {
+      const pg = nd.addPage([pw, ph])
       pg.drawPage(e, { x: 0, y: 0, width: pw, height: ph })
     }
   }
@@ -247,10 +248,12 @@ async function opDuplicate(doc: PDFDocument, params: { copies: number, collate: 
   const n = pgs.length
   const order: number[] = []
   
+  // collate=true  → complete sets: 1,2,3,1,2,3  (industry: collated)
+  // collate=false → grouped copies: 1,1,2,2     (industry: uncollated)
   if (params.collate) {
-    for (let i = 0; i < n; i++) for (let c = 0; c < params.copies; c++) order.push(i)
-  } else {
     for (let c = 0; c < params.copies; c++) for (let i = 0; i < n; i++) order.push(i)
+  } else {
+    for (let i = 0; i < n; i++) for (let c = 0; c < params.copies; c++) order.push(i)
   }
   
   for (const idx of order) {
@@ -428,13 +431,21 @@ async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, 
     if (skip) {
       pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
     } else if (params.mode === "scale") {
+      // Stretch to fill exactly - no aspect ratio preservation
       pg.drawPage(e, { x: 0, y: 0, width: w, height: h })
     } else if (params.mode === "proportional") {
+      // Fit inside, preserve aspect ratio, center with white border
       const s = Math.min(w / e.width, h / e.height)
       const dw = e.width * s, dh = e.height * s
       pg.drawPage(e, { x: (w - dw) / 2, y: (h - dh) / 2, width: dw, height: dh })
-    } else if (params.mode === "pad" || params.mode === "crop") {
+    } else if (params.mode === "pad") {
+      // Place at native size, centered - adds white space around it
       pg.drawPage(e, { x: (w - e.width) / 2, y: (h - e.height) / 2, width: e.width, height: e.height })
+    } else if (params.mode === "crop") {
+      // Scale to fill (cover) - overflows edges are clipped by page boundary
+      const s = Math.max(w / e.width, h / e.height)
+      const dw = e.width * s, dh = e.height * s
+      pg.drawPage(e, { x: (w - dw) / 2, y: (h - dh) / 2, width: dw, height: dh })
     }
   }
   return nd
