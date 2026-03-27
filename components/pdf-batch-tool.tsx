@@ -418,17 +418,27 @@ export function PDFBatchTool() {
 
     y -= boxHeight + 40
 
-    // ========== USPS WEIGHT BREAKDOWN (if enabled) ==========
+    // ========== WEIGHT-BASED REPORT (USPS Per-Oz mode) ==========
     if (includeWeightBreakdown) {
-      const oz1Groups = groups.filter(g => g.pageCount < 20)
-      const oz2Groups = groups.filter(g => g.pageCount >= 20 && g.pageCount < 32)
-      const oz3Groups = groups.filter(g => g.pageCount >= 32 && g.pageCount < 38)
-      const oz4Groups = groups.filter(g => g.pageCount >= 38)
+      // Group files by weight class instead of page count
+      const oz1Files: PDFFile[] = []
+      const oz2Files: PDFFile[] = []
+      const oz3Files: PDFFile[] = []
+      const oz4Files: PDFFile[] = []
       
-      const oz1Files = oz1Groups.reduce((sum, g) => sum + g.files.length, 0)
-      const oz2Files = oz2Groups.reduce((sum, g) => sum + g.files.length, 0)
-      const oz3Files = oz3Groups.reduce((sum, g) => sum + g.files.length, 0)
-      const oz4Files = oz4Groups.reduce((sum, g) => sum + g.files.length, 0)
+      for (const group of groups) {
+        if (group.pageCount < 20) oz1Files.push(...group.files)
+        else if (group.pageCount < 32) oz2Files.push(...group.files)
+        else if (group.pageCount < 38) oz3Files.push(...group.files)
+        else oz4Files.push(...group.files)
+      }
+
+      const weightClasses = [
+        { oz: 1, label: "1 OZ", range: "1-19 pages", files: oz1Files, color: { r: 0.4, g: 0.4, b: 0.4 }, bg: { r: 0.92, g: 0.92, b: 0.94 } },
+        { oz: 2, label: "2 OZ", range: "20-31 pages", files: oz2Files, color: { r: 0.1, g: 0.4, b: 0.7 }, bg: { r: 0.9, g: 0.95, b: 1 } },
+        { oz: 3, label: "3 OZ", range: "32-37 pages", files: oz3Files, color: { r: 0.7, g: 0.3, b: 0 }, bg: { r: 1, g: 0.95, b: 0.9 } },
+        { oz: 4, label: "4 OZ", range: "38+ pages", files: oz4Files, color: { r: 0.6, g: 0.1, b: 0.1 }, bg: { r: 1, g: 0.92, b: 0.92 } },
+      ]
 
       currentPage.drawText("USPS WEIGHT BREAKDOWN:", {
         x: margin,
@@ -441,69 +451,31 @@ export function PDFBatchTool() {
 
       // Weight breakdown boxes - 4 columns
       const ozBoxWidth = (pageWidth - margin * 2 - 30) / 4
-      const ozBoxHeight = 60
+      const ozBoxHeight = 70
 
-      // 1 OZ box (gray - no divider)
-      currentPage.drawRectangle({
-        x: margin,
-        y: y - ozBoxHeight,
-        width: ozBoxWidth,
-        height: ozBoxHeight,
-        color: rgb(0.92, 0.92, 0.94),
-        borderColor: rgb(0.6, 0.6, 0.6),
-        borderWidth: 2
-      })
-      currentPage.drawText("1 OZ", { x: margin + 10, y: y - 20, size: 14, font: fontBold, color: rgb(0.4, 0.4, 0.4) })
-      currentPage.drawText("(1-19 pg)", { x: margin + 10, y: y - 35, size: 8, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
-      currentPage.drawText(`${oz1Files} sets`, { x: margin + 10, y: y - 50, size: 10, font: fontBold, color: rgb(0.3, 0.3, 0.3) })
+      for (let i = 0; i < weightClasses.length; i++) {
+        const wc = weightClasses[i]
+        const xPos = margin + (ozBoxWidth + 10) * i
 
-      // 2 OZ box (blue)
-      currentPage.drawRectangle({
-        x: margin + ozBoxWidth + 10,
-        y: y - ozBoxHeight,
-        width: ozBoxWidth,
-        height: ozBoxHeight,
-        color: rgb(0.9, 0.95, 1),
-        borderColor: rgb(0.1, 0.4, 0.7),
-        borderWidth: 2
-      })
-      currentPage.drawText("2 OZ", { x: margin + ozBoxWidth + 20, y: y - 20, size: 14, font: fontBold, color: rgb(0.1, 0.4, 0.7) })
-      currentPage.drawText("(20-31 pg)", { x: margin + ozBoxWidth + 20, y: y - 35, size: 8, font: fontRegular, color: rgb(0.3, 0.5, 0.7) })
-      currentPage.drawText(`${oz2Files} sets`, { x: margin + ozBoxWidth + 20, y: y - 50, size: 10, font: fontBold, color: rgb(0.1, 0.4, 0.7) })
-
-      // 3 OZ box (orange)
-      currentPage.drawRectangle({
-        x: margin + (ozBoxWidth + 10) * 2,
-        y: y - ozBoxHeight,
-        width: ozBoxWidth,
-        height: ozBoxHeight,
-        color: rgb(1, 0.95, 0.9),
-        borderColor: rgb(0.7, 0.3, 0),
-        borderWidth: 2
-      })
-      currentPage.drawText("3 OZ", { x: margin + (ozBoxWidth + 10) * 2 + 10, y: y - 20, size: 14, font: fontBold, color: rgb(0.7, 0.3, 0) })
-      currentPage.drawText("(32-37 pg)", { x: margin + (ozBoxWidth + 10) * 2 + 10, y: y - 35, size: 8, font: fontRegular, color: rgb(0.7, 0.4, 0.2) })
-      currentPage.drawText(`${oz3Files} sets`, { x: margin + (ozBoxWidth + 10) * 2 + 10, y: y - 50, size: 10, font: fontBold, color: rgb(0.7, 0.3, 0) })
-
-      // 4 OZ box (red)
-      currentPage.drawRectangle({
-        x: margin + (ozBoxWidth + 10) * 3,
-        y: y - ozBoxHeight,
-        width: ozBoxWidth,
-        height: ozBoxHeight,
-        color: rgb(1, 0.92, 0.92),
-        borderColor: rgb(0.6, 0.1, 0.1),
-        borderWidth: 2
-      })
-      currentPage.drawText("4 OZ", { x: margin + (ozBoxWidth + 10) * 3 + 10, y: y - 20, size: 14, font: fontBold, color: rgb(0.6, 0.1, 0.1) })
-      currentPage.drawText("(38+ pg)", { x: margin + (ozBoxWidth + 10) * 3 + 10, y: y - 35, size: 8, font: fontRegular, color: rgb(0.7, 0.3, 0.3) })
-      currentPage.drawText(`${oz4Files} sets`, { x: margin + (ozBoxWidth + 10) * 3 + 10, y: y - 50, size: 10, font: fontBold, color: rgb(0.6, 0.1, 0.1) })
+        currentPage.drawRectangle({
+          x: xPos,
+          y: y - ozBoxHeight,
+          width: ozBoxWidth,
+          height: ozBoxHeight,
+          color: rgb(wc.bg.r, wc.bg.g, wc.bg.b),
+          borderColor: rgb(wc.color.r, wc.color.g, wc.color.b),
+          borderWidth: 2
+        })
+        currentPage.drawText(wc.label, { x: xPos + 10, y: y - 20, size: 16, font: fontBold, color: rgb(wc.color.r, wc.color.g, wc.color.b) })
+        currentPage.drawText(`(${wc.range})`, { x: xPos + 10, y: y - 38, size: 8, font: fontRegular, color: rgb(0.5, 0.5, 0.5) })
+        currentPage.drawText(`${wc.files.length} sets`, { x: xPos + 10, y: y - 55, size: 12, font: fontBold, color: rgb(wc.color.r, wc.color.g, wc.color.b) })
+      }
 
       y -= ozBoxHeight + 15
 
       // Dividers summary
-      const totalDividers = oz2Groups.length + oz3Groups.length + oz4Groups.length
-      currentPage.drawText(`Weight dividers in ZIP: ${totalDividers} (for 2oz/3oz/4oz lots only)`, {
+      const totalDividers = (oz2Files.length > 0 ? 1 : 0) + (oz3Files.length > 0 ? 1 : 0) + (oz4Files.length > 0 ? 1 : 0)
+      currentPage.drawText(`Weight dividers in ZIP: Dividers for 2oz/3oz/4oz weight classes`, {
         x: margin,
         y,
         size: 10,
@@ -511,9 +483,114 @@ export function PDFBatchTool() {
         color: rgb(0.4, 0.4, 0.4)
       })
 
-      y -= 30
+      y -= 40
+
+      // ========== DETAILED FILE LIST BY WEIGHT CLASS ==========
+      for (const wc of weightClasses) {
+        if (wc.files.length === 0) continue
+
+        if (y < 150) {
+          currentPage = doc.addPage([pageWidth, pageHeight])
+          y = pageHeight - 80
+        }
+
+        // Weight class header
+        currentPage.drawRectangle({
+          x: margin,
+          y: y - 5,
+          width: pageWidth - margin * 2,
+          height: 35,
+          color: rgb(wc.color.r, wc.color.g, wc.color.b)
+        })
+
+        currentPage.drawText(`${wc.label} - ${wc.range}`, {
+          x: margin + 15,
+          y: y + 5,
+          size: 16,
+          font: fontBold,
+          color: rgb(1, 1, 1)
+        })
+
+        currentPage.drawText(`${wc.files.length} sets`, {
+          x: pageWidth - margin - 80,
+          y: y + 5,
+          size: 14,
+          font: fontBold,
+          color: rgb(1, 1, 1)
+        })
+
+        y -= 45
+
+        // File list for this weight class
+        for (let fi = 0; fi < wc.files.length; fi++) {
+          const file = wc.files[fi]
+
+          if (y < 60) {
+            currentPage = doc.addPage([pageWidth, pageHeight])
+            y = pageHeight - 80
+
+            // Continuation header
+            currentPage.drawRectangle({
+              x: margin,
+              y: y - 5,
+              width: pageWidth - margin * 2,
+              height: 30,
+              color: rgb(wc.color.r * 0.8, wc.color.g * 0.8, wc.color.b * 0.8)
+            })
+            currentPage.drawText(`${wc.label} (continued)`, {
+              x: margin + 15,
+              y: y + 2,
+              size: 12,
+              font: fontBold,
+              color: rgb(1, 1, 1)
+            })
+            y -= 40
+          }
+
+          const rowBg = fi % 2 === 0 ? rgb(0.98, 0.98, 0.99) : rgb(1, 1, 1)
+          currentPage.drawRectangle({
+            x: margin,
+            y: y - 3,
+            width: pageWidth - margin * 2,
+            height: lineHeight + 2,
+            color: rowBg
+          })
+
+          currentPage.drawText(`${fi + 1}.`, {
+            x: margin + 5,
+            y,
+            size: 9,
+            font: fontRegular,
+            color: rgb(0.5, 0.5, 0.5)
+          })
+
+          const truncatedName = file.name.length > 50 ? file.name.slice(0, 47) + "..." : file.name
+          currentPage.drawText(truncatedName, {
+            x: margin + 30,
+            y,
+            size: 10,
+            font: fontRegular,
+            color: rgb(0.2, 0.2, 0.2)
+          })
+
+          currentPage.drawText(`${file.pages} pg`, {
+            x: pageWidth - margin - 50,
+            y,
+            size: 10,
+            font: fontBold,
+            color: rgb(wc.color.r, wc.color.g, wc.color.b)
+          })
+
+          y -= lineHeight + 2
+        }
+
+        y -= 20
+      }
+
+      return await doc.save()
     }
 
+    // ========== PAGE COUNT REPORT (default mode - no weight dividers) ==========
     // Groups overview
     currentPage.drawText("PAGE COUNT GROUPS:", {
       x: margin,
