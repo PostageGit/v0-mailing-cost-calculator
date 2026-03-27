@@ -30,6 +30,7 @@ export function PDFBatchTool() {
   const [sortAsc, setSortAsc] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [useWeightDividers, setUseWeightDividers] = useState(true) // USPS per-oz dividers
   const [processMsg, setProcessMsg] = useState("")
   const [processProgress, setProcessProgress] = useState(0)
   const [globalSets, setGlobalSets] = useState(1)
@@ -605,8 +606,8 @@ export function PDFBatchTool() {
 
     try {
       const zip = new JSZip()
-      // Count dividers needed (only for 20+ page groups)
-      const dividersNeeded = groups.filter(g => getWeightInfo(g.pageCount) !== null).length
+      // Count dividers needed (only for 20+ page groups when toggle is on)
+      const dividersNeeded = useWeightDividers ? groups.filter(g => getWeightInfo(g.pageCount) !== null).length : 0
       const totalSteps = dividersNeeded + groups.reduce((sum, g) => sum + g.files.length, 0) + 1
       let currentStep = 0
 
@@ -623,11 +624,11 @@ export function PDFBatchTool() {
         const pageCount = group.pageCount
         const paddedCount = String(pageCount).padStart(3, '0')
         
-        // Check if this group needs a weight divider (20+ pages)
+        // Check if this group needs a weight divider (20+ pages) AND toggle is on
         const weightInfo = getWeightInfo(pageCount)
         
-        if (weightInfo) {
-          // Create WEIGHT DIVIDER - only for 20+ page lots
+        if (useWeightDividers && weightInfo) {
+          // Create WEIGHT DIVIDER - only for 20+ page lots when enabled
           setProcessMsg(`Creating ${weightInfo.label} divider for ${pageCount}-page lot...`)
           const dividerPdf = await generateWeightDivider(pageCount, group.files.length, weightInfo)
           // "!" sorts first, include weight in filename for clarity
@@ -635,7 +636,7 @@ export function PDFBatchTool() {
           currentStep++
           setProcessProgress(Math.round((currentStep / totalSteps) * 100))
         }
-        // No divider for lots under 20 pages (standard 1oz)
+        // No divider for lots under 20 pages (standard 1oz) or when toggle is off
 
         // Add all files for this page count
         for (let fi = 0; fi < group.files.length; fi++) {
@@ -941,24 +942,54 @@ export function PDFBatchTool() {
                   />
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={downloadZip}
-                disabled={pageGroups.length === 0}
-                className={cn(
-                  "w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2",
-                  pageGroups.length > 0
-                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                )}
-              >
-                <Download className="h-5 w-5" />
-                Download ZIP
-              </button>
-            )}
-
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              Each page-count group gets a separator page on top
+) : (
+  <div className="space-y-3">
+    {/* USPS Weight Dividers Toggle */}
+    <button
+      onClick={() => setUseWeightDividers(!useWeightDividers)}
+      className={cn(
+        "w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-between border-2",
+        useWeightDividers
+          ? "bg-amber-50 dark:bg-amber-950/30 border-amber-400 text-amber-700 dark:text-amber-300"
+          : "bg-muted/50 border-muted-foreground/20 text-muted-foreground"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div className={cn(
+          "w-5 h-5 rounded flex items-center justify-center text-xs font-bold",
+          useWeightDividers ? "bg-amber-500 text-white" : "bg-muted-foreground/30"
+        )}>
+          {useWeightDividers ? "✓" : ""}
+        </div>
+        <span>USPS Per-Ounce Dividers</span>
+      </div>
+      <span className="text-xs opacity-70">
+        {useWeightDividers ? "2oz / 3oz / 4oz" : "OFF"}
+      </span>
+    </button>
+    
+    {/* Download Button */}
+    <button
+      onClick={downloadZip}
+      disabled={pageGroups.length === 0}
+      className={cn(
+        "w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2",
+        pageGroups.length > 0
+          ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg"
+          : "bg-muted text-muted-foreground cursor-not-allowed"
+      )}
+    >
+      <Download className="h-5 w-5" />
+      Download ZIP
+    </button>
+  </div>
+  )}
+  
+  <p className="text-xs text-muted-foreground text-center mt-3">
+  {useWeightDividers 
+    ? "Weight dividers added for 20+ page lots (2oz/3oz/4oz)"
+    : "Files grouped by page count, no dividers"
+  }
             </p>
           </div>
         </div>
