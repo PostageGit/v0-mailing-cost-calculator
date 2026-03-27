@@ -1,5 +1,9 @@
-import { PDFImposeTool } from "@/components/pdf-impose-tool"
-
 export default function PDFImposePage() {
-  return <PDFImposeTool />
+  return (
+    <iframe 
+      src="/qi-impose-pro.html" 
+      className="w-full h-screen border-0"
+      title="QI Impose Pro"
+    />
+  )
 }

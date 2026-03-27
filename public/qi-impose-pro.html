@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QI Impose — Pro Prepress Suite</title>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f5f7;--surface:#fff;--s2:#fafafa;
+  --b:rgba(0,0,0,.07);--b2:rgba(0,0,0,.12);
+  --text:#1d1d1f;--muted:#86868b;
+  --blue:#0071e3;--al:#edf4fd;
+  --green:#30d158;--orange:#ff9500;--red:#ff3b30;--purple:#bf5af2;--teal:#00b4d8;
+  --sans:'DM Sans',-apple-system,sans-serif;--mono:'DM Mono',monospace;
+  --r:16px;--rs:10px;
+  --sh:0 2px 12px rgba(0,0,0,.05),0 1px 3px rgba(0,0,0,.03);
+  --shl:0 8px 32px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden;}
+
+header{height:56px;background:rgba(255,255,255,.9);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--b);display:flex;align-items:center;padding:0 20px;gap:12px;z-index:200;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg, var(--blue), #409cff);border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,113,227,.3);}
+.logo-name{font-size:16px;font-weight:700;letter-spacing:-.4px;}
+.logo-sub{font-size:10.5px;color:var(--muted);font-weight:500;}
+.hc{flex:1;display:flex;align-items:center;justify-content:center;}
+.file-pill{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--b2);border-radius:24px;padding:6px 16px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .18s;max-width:340px;box-shadow:inset 0 1px 2px rgba(0,0,0,.02);}
+.file-pill:hover{border-color:var(--blue);color:var(--blue);background:var(--surface);}
+.file-pill.loaded{border-color:var(--green);color:var(--text);background:var(--surface);box-shadow:var(--sh);}
+.file-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .2s;}
+.file-pill.loaded .dot{background:var(--green);box-shadow:0 0 6px rgba(48,209,88,.5);}
+.file-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hbtn{padding:6px 16px;border-radius:20px;font-size:12.5px;font-weight:600;font-family:var(--sans);border:1px solid var(--b2);background:var(--surface);color:var(--text);cursor:pointer;transition:all .15s;}
+.hbtn:hover{border-color:var(--blue);color:var(--blue);background:var(--al);}
+#upload-input{display:none;}
+
+.layout{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 56px);}
+
+/* SIDEBAR */
+.sidebar{background:var(--surface);border-right:1px solid var(--b);display:flex;flex-direction:column;overflow:hidden;z-index:10;}
+.sb-tabs{display:flex;border-bottom:1px solid var(--b);flex-shrink:0;background:var(--s2);}
+.sb-tab{flex:1;padding:12px 4px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;text-align:center;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;user-select:none;}
+.sb-tab:hover{color:var(--text);}
+.sb-tab.active{color:var(--blue);border-bottom-color:var(--blue);background:var(--surface);}
+.sb-pane{display:none;flex:1;overflow-y:auto;flex-direction:column;}
+.sb-pane.active{display:flex;}
+.sb-pane::-webkit-scrollbar{width:4px;}
+.sb-pane::-webkit-scrollbar-thumb{background:rgba(0,0,0,.1);border-radius:2px;}
+
+/* Sequence list */
+.sf{padding:12px 14px;border-bottom:1px solid var(--b);flex-shrink:0;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);position:sticky;top:0;z-index:5;}
+.sr{position:relative;margin-bottom:10px;}
+.sr svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+#search{width:100%;background:var(--bg);border:1px solid var(--b2);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 10px 7px 30px;border-radius:10px;outline:none;transition:all .18s;}
+#search:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,113,227,.1);background:var(--surface);}
+#search::placeholder{color:var(--muted);}
+.ftabs{display:flex;gap:5px;flex-wrap:wrap;}
+.ftab{padding:4px 12px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:20px;border:1px solid transparent;transition:all .14s;user-select:none;}
+.ftab:hover{background:var(--bg);}
+.ftab.active{background:var(--blue);color:#fff;}
+.seq-item{padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--b);transition:background .12s;position:relative;}
+.seq-item:hover{background:var(--s2);}
+.seq-item.active{background:var(--al);}
+.seq-item.active::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;background:var(--blue);border-radius:0 3px 3px 0;}
+.seq-item.active .sn{color:var(--blue);}
+.sn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;}
+.sm{display:flex;gap:6px;}
+.chip{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;}
+.chip-s{background:rgba(10,132,255,.1);color:#0a84ff;}
+.chip-r{background:rgba(255,149,0,.1);color:#b87000;}
+
+/* Tools pane */
+.tg{padding:14px 16px 6px;font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;}
+.tool-btn{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--b);transition:background .12s;}
+.tool-btn:hover{background:var(--s2);}
+.tool-btn.active{background:var(--al);}
+.tool-btn.active .tb-n{color:var(--blue);}
+.tb-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:var(--bg);box-shadow:inset 0 1px 3px rgba(0,0,0,.03);}
+.tb-n{font-size:13px;font-weight:600;margin-bottom:2px;}
+.tb-d{font-size:11px;color:var(--muted);line-height:1.4;}
+
+/* Builder pane */
+.builder-top{padding:14px;border-bottom:1px solid var(--b);flex-shrink:0;}
+.builder-title{font-size:13.5px;font-weight:700;margin-bottom:10px;}
+.bactions{display:flex;gap:8px;}
+.bb{flex:1;padding:8px;border-radius:10px;font-size:12px;font-weight:600;font-family:var(--sans);border:none;cursor:pointer;transition:all .15s;}
+.bb.run{background:var(--blue);color:#fff;}
+.bb.run:hover{background:#0077ed;}
+.bb.clr{background:var(--bg);color:var(--text);border:1px solid var(--b2);}
+.bsteps{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;}
+.bstep{background:var(--surface);border:1px solid var(--b2);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh);}
+.bstep-n{font-size:12px;font-weight:700;color:var(--muted);font-family:var(--mono);min-width:18px;}
+.bstep-info{flex:1;min-width:0;}
+.bstep-cmd{font-size:13px;font-weight:700;margin-bottom:2px;}
+.bstep-p{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bstep-del{width:24px;height:24px;border-radius:50%;background:var(--bg);border:none;color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .14s;}
+.bstep-del:hover{background:rgba(255,59,48,.12);color:var(--red);}
+.bempty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6;}
+
+/* MAIN */
+.main{overflow-y:auto;background:var(--bg);padding:24px 32px;position:relative;}
+.main::-webkit-scrollbar{width:6px;}
+.main::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:3px;}
+
+/* Drop zone */
+.drop-zone{display:flex;align-items:center;justify-content:center;height:100%;}
+.drop-box{width:420px;border:2px dashed var(--b2);border-radius:24px;padding:48px 32px;display:flex;flex-direction:column;align-items:center;gap:16px;cursor:pointer;transition:all .2s;background:var(--surface);box-shadow:var(--sh);}
+.drop-box:hover,.drop-box.over{border-color:var(--blue);background:var(--al);transform:translateY(-2px);box-shadow:var(--shl);}
+.drop-icon{width:64px;height:64px;background:var(--bg);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;}
+.drop-title{font-size:18px;font-weight:700;letter-spacing:-.4px;}
+.drop-sub{font-size:13.5px;color:var(--muted);text-align:center;line-height:1.5;}
+.drop-cta{background:var(--blue);color:#fff;border:none;padding:10px 24px;border-radius:24px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;box-shadow:0 4px 12px rgba(0,113,227,.2);}
+.drop-cta:hover{background:#0077ed;transform:scale(1.02);}
+
+/* PREFLIGHT DASHBOARD */
+.pf-container{max-width:960px;margin:0 auto;animation:fadeup .3s ease both;}
+@keyframes fadeup{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.pf-header{margin-bottom:24px;}
+.pf-title{font-size:26px;font-weight:700;letter-spacing:-.6px;margin-bottom:4px;}
+.pf-sub{font-size:14px;color:var(--muted);font-weight:500;}
+
+.pf-top-stats{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+.pf-stat-card{flex:1;min-width:140px;background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:18px 20px;}
+.pf-stat-lbl{font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
+.pf-stat-val{font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px;}
+
+.pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+@media (max-width: 900px){.pf-grid{grid-template-columns:1fr;}}
+.pf-card{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:24px;display:flex;flex-direction:column;gap:16px;}
+.pf-card-title{font-size:12.5px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--b);padding-bottom:12px;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+
+.pf-row{display:flex;align-items:flex-start;gap:14px;}
+.pf-icon{font-size:20px;line-height:1;margin-top:2px;}
+.pf-info{flex:1;}
+.pf-label{font-size:14px;font-weight:700;margin-bottom:4px;}
+.pf-desc{font-size:12.5px;color:var(--text2);line-height:1.5;}
+
+.pf-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11.5px;font-weight:700;margin-top:8px;}
+.pf-ok{background:rgba(48,209,88,.12);color:#1a8a3d;border:1px solid rgba(48,209,88,.2);}
+.pf-warn{background:rgba(255,149,0,.12);color:#b87000;border:1px solid rgba(255,149,0,.2);}
+.pf-err{background:rgba(255,59,48,.12);color:#c0002f;border:1px solid rgba(255,59,48,.2);}
+
+.pf-pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.pf-pill{background:var(--bg);border:1px solid var(--b2);padding:4px 10px;border-radius:12px;font-size:11.5px;font-weight:600;color:var(--text2);}
+
+.pf-hint{margin-top:8px;font-size:12px;font-weight:600;color:var(--blue);cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.pf-hint:hover{text-decoration:underline;}
+
+
+/* Tool & Seq panels */
+.detail{max-width:860px;margin:0 auto;}
+.explainer{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:24px 28px;margin-bottom:16px;display:grid;grid-template-columns:1fr 240px;gap:24px;align-items:center;}
+.exp-emoji{font-size:40px;margin-bottom:10px;line-height:1;}
+.exp-title{font-size:22px;font-weight:700;letter-spacing:-.4px;margin-bottom:8px;}
+.exp-plain{font-size:14.5px;color:var(--text2);line-height:1.6;margin-bottom:14px;}
+.exp-tip{display:flex;align-items:flex-start;gap:8px;background:var(--bg);border-radius:12px;padding:12px 16px;font-size:12.5px;color:var(--muted);line-height:1.5;}
+.exp-visual{background:var(--bg);border-radius:16px;padding:16px;display:flex;align-items:center;justify-content:center;}
+
+.params-card{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:24px 28px;margin-bottom:16px;}
+.pc-title{font-size:13.5px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.6px;margin-bottom:18px;}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.pgroup{display:flex;flex-direction:column;gap:6px;}
+.plabel{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.pinput{background:var(--bg);border:1.5px solid var(--b2);color:var(--text);font-family:var(--sans);font-size:14px;padding:10px 14px;border-radius:12px;outline:none;width:100%;transition:all .18s;}
+.pinput:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,113,227,.15);background:var(--surface);}
+.punit{font-size:11.5px;color:var(--muted);margin-top:2px;}
+
+.pactions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.run-btn{display:flex;align-items:center;gap:8px;background:var(--blue);color:#fff;border:none;padding:12px 26px;border-radius:24px;font-size:14.5px;font-weight:700;font-family:var(--sans);cursor:pointer;transition:all .18s;box-shadow:0 4px 12px rgba(0,113,227,.25);}
+.run-btn:hover:not(:disabled){background:#0077ed;transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,113,227,.35);}
+.run-btn:disabled{background:var(--muted);cursor:not-allowed;box-shadow:none;}
+.add-btn{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--b2);color:var(--text2);padding:10px 20px;border-radius:24px;font-size:13px;font-weight:600;font-family:var(--sans);cursor:pointer;transition:all .15s;}
+.add-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--al);}
+
+.result-banner{background:rgba(48,209,88,.08);border:1.5px solid rgba(48,209,88,.3);border-radius:16px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+.dl-btn{display:flex;align-items:center;gap:8px;background:var(--green);color:#fff;border:none;padding:12px 24px;border-radius:24px;font-size:14px;font-weight:700;font-family:var(--sans);cursor:pointer;transition:all .18s;box-shadow:0 4px 12px rgba(48,209,88,.25);}
+.dl-btn:hover{background:#28be50;transform:translateY(-2px);}
+.prompt-notice{background:rgba(255,149,0,.08);border:1px solid rgba(255,149,0,.3);border-radius:12px;padding:10px 16px;font-size:13px;font-weight:600;color:#7a4a00;margin-bottom:16px;}
+
+/* Sequence steps */
+.sc{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:16px;}
+.sc-lbl{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px;}
+.pip-scroll{overflow-x:auto;padding-bottom:6px;}
+.pip-scroll::-webkit-scrollbar{height:4px;}
+.pip-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:2px;}
+.steps-grid{display:flex;flex-direction:column;gap:10px;}
+.step-card{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:16px 20px;display:grid;grid-template-columns:32px 1fr 190px;gap:16px;align-items:center;animation:up .25s cubic-bezier(.32,.72,0,1) both;}
+.step-card:hover{box-shadow:var(--shl);transform:translateY(-1px);}
+@keyframes up{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.snum{width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--mono);}
+.scmd-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.scmd{font-size:14px;font-weight:700;}
+.ctag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.sdesc{list-style:none;}
+.sdesc li{font-size:12px;color:var(--muted);padding:2px 0 2px 12px;position:relative;line-height:1.4;}
+.sdesc li::before{content:'·';position:absolute;left:1px;color:#ccc;font-size:16px;line-height:1.1;}
+.ssvg{border-left:1px solid var(--b);padding-left:16px;display:flex;align-items:center;justify-content:center;}
+
+/* Progress */
+.prog{position:fixed;inset:0;background:rgba(255,255,255,.85);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:9999;flex-direction:column;}
+.prog.show{display:flex;}
+.prog-box{background:var(--surface);border-radius:24px;box-shadow:var(--shl);padding:40px 48px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;}
+.spinner{width:44px;height:44px;border:4px solid var(--bg);border-top-color:var(--blue);border-radius:50%;animation:spin .8s ease-in-out infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.prog-title{font-size:18px;font-weight:700;}
+.prog-msg{font-size:13.5px;color:var(--muted);font-weight:500;}
+.prog-bw{width:240px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:8px;}
+.prog-b{height:100%;background:var(--blue);border-radius:3px;transition:width .2s;}
+
+/* cmd colors */
+.c-SB{color:#ff375f;}.c-NUP{color:#bf5af2;}.c-SNR{color:#30d158;}.c-SZ{color:#00b4d8;}.c-PT{color:#0a84ff;}.c-IB{color:#ff9500;}.c-AN{color:#ff6b2b;}.c-BL{color:#ff2d55;}.c-TS{color:#34c759;}.c-GB{color:#ff6b2b;}.c-TP{color:#5ac8fa;}.c-SH{color:#bf5af2;}.c-SM{color:#30d158;}.c-BS{color:#ff9500;}.c-SF{color:#0a84ff;}.c-RV{color:#ff375f;}
+.t-SB{background:rgba(255,55,95,.1);color:#ff375f;}.t-NUP{background:rgba(191,90,242,.1);color:#9b3fc8;}.t-SNR{background:rgba(48,209,88,.1);color:#1a8a3d;}.t-SZ{background:rgba(0,180,216,.1);color:#007b96;}.t-PT{background:rgba(10,132,255,.1);color:#0a84ff;}.t-IB{background:rgba(255,149,0,.1);color:#7a4a00;}.t-AN{background:rgba(255,107,43,.1);color:#9b3400;}.t-BL{background:rgba(255,45,85,.1);color:#c0002f;}.t-TS{background:rgba(52,199,89,.1);color:#1a8a3d;}.t-GB{background:rgba(255,107,43,.1);color:#9b3400;}.t-TP{background:rgba(90,200,250,.1);color:#0070a0;}.t-SH{background:rgba(191,90,242,.1);color:#9b3fc8;}.t-SM{background:rgba(48,209,88,.1);color:#1a8a3d;}.t-BS{background:rgba(255,149,0,.1);color:#7a4a00;}.t-SF{background:rgba(10,132,255,.1);color:#0a84ff;}.t-RV{background:rgba(255,55,95,.1);color:#c0002f;}
+
+/* BATCH */
+.batch-sb-top{padding:16px 14px;border-bottom:1px solid var(--b);flex-shrink:0;}
+.batch-upload-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--blue);color:#fff;border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:700;cursor:pointer;transition:all .15s;width:100%;box-shadow:0 2px 8px rgba(0,113,227,.2);}
+.batch-upload-btn:hover{background:#0077ed;transform:translateY(-1px);}
+.bfile-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--b);cursor:pointer;transition:background .12s;}
+.bfile-row:hover{background:var(--s2);}
+.bfile-row.selected{background:#edf4fd;}
+.bfile-check{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--b2);background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15px;}
+.bfile-row.selected .bfile-check{background:var(--blue);border-color:var(--blue);}
+.bfile-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+.bfile-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.bfile-del{font-size:15px;color:var(--muted);border:none;background:none;cursor:pointer;padding:2px 6px;border-radius:6px;flex-shrink:0;line-height:1;}
+.bfile-del:hover{color:var(--red);background:rgba(255,59,48,.1);}
+.batch-main{max-width:100%;}
+.batch-toolbar{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.batch-stat{display:flex;flex-direction:column;gap:4px;min-width:90px;}
+.batch-stat-l{font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;}
+.batch-stat-v{font-size:18px;font-weight:700;font-family:var(--mono);letter-spacing:-.5px;}
+.batch-actions{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;}
+.batch-btn{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:24px;font-size:13.5px;font-weight:600;font-family:var(--sans);border:none;cursor:pointer;transition:all .15s;}
+.batch-btn.primary{background:var(--blue);color:#fff;box-shadow:0 3px 10px rgba(0,113,227,.2);}
+.batch-btn.primary:hover{background:#0077ed;transform:translateY(-1px);}
+.batch-btn.secondary{background:var(--surface);border:1px solid var(--b2);color:var(--text);}
+.batch-btn.secondary:hover{border-color:var(--blue);color:var(--blue);background:var(--al);}
+.batch-btn.danger{background:rgba(255,59,48,.08);color:var(--red);border:1px solid rgba(255,59,48,.2);}
+.batch-btn.danger:hover{background:rgba(255,59,48,.15);}
+.batch-table-wrap{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;}
+.batch-table{width:100%;border-collapse:collapse;}
+.batch-table th{padding:12px 16px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;text-align:left;border-bottom:1px solid var(--b);background:var(--s2);cursor:pointer;user-select:none;white-space:nowrap;}
+.batch-table th:hover{color:var(--blue);}
+.batch-table td{padding:12px 16px;font-size:13.5px;border-bottom:1px solid var(--b);vertical-align:middle;}
+.batch-table tr:last-child td{border-bottom:none;}
+.batch-table tr.row-selected td{background:#edf4fd;}
+.batch-table tr:hover td{background:var(--s2);}
+.batch-table tr.row-selected:hover td{background:#daeafb;}
+.check-cell{width:44px;}
+.bchk{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--b2);cursor:pointer;accent-color:var(--blue);}
+.fname-cell{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+.size-bar-wrap{display:flex;align-items:center;gap:10px;}
+.size-bar{height:6px;border-radius:3px;background:var(--blue);opacity:.7;min-width:4px;}
+.pg-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--b2);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;font-family:var(--mono);}
+.dim-cell{font-family:var(--mono);font-size:12.5px;color:var(--muted);}
+.status-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;}
+.status-ready{background:rgba(48,209,88,.12);color:#1a8a3d;}
+.status-loading{background:rgba(255,149,0,.12);color:#7a4a00;}
+.status-error{background:rgba(255,59,48,.12);color:#c0002f;}
+
+body.batch-drag .sidebar::after{content:'Drop PDFs here';position:fixed;inset:0;background:rgba(0,113,227,.08);border:3px dashed var(--blue);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--blue);pointer-events:none;z-index:300;}
+body.batch-drag{outline:3px dashed var(--blue);outline-offset:-3px;}
+
+/* ── LIVE PREVIEW ─────────────────────────── */
+.preview-section{border-top:1px solid var(--b);margin:20px 0 4px;padding-top:16px;}
+.preview-hd{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.preview-hd>span{flex:1;height:1px;background:var(--b);}
+.preview-hd .pv-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(0,113,227,.1);color:var(--blue);text-transform:none;letter-spacing:0;}
+#preview-svg-wrap{background:var(--bg);border-radius:12px;overflow:hidden;padding:10px 6px 6px;transition:opacity .2s;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 17 17" fill="none">
+        <rect x="2" y="2" width="6" height="8" rx="1.2" fill="white" opacity=".9"/>
+        <rect x="9" y="2" width="6" height="8" rx="1.2" fill="white" opacity=".65"/>
+        <rect x="2" y="12" width="6" height="3" rx="1" fill="white" opacity=".5"/>
+        <rect x="9" y="12" width="6" height="3" rx="1" fill="white" opacity=".5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">QI Impose Pro</div>
+      <div class="logo-sub">Full PDF Imposition Suite</div>
+    </div>
+  </div>
+  <div class="hc">
+    <div class="file-pill" id="file-pill" onclick="document.getElementById('upload-input').click()">
+      <div class="dot"></div><span id="file-label">Drop a PDF or click to upload</span>
+    </div>
+    <input type="file" id="upload-input" accept=".pdf"/>
+  </div>
+  <div>
+    <button class="hbtn" onclick="clearFile()">Clear File</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sb-tabs">
+      <div class="sb-tab active" data-tab="seqs">Sequences</div>
+      <div class="sb-tab" data-tab="tools">All Tools</div>
+      <div class="sb-tab" data-tab="builder">Custom</div>
+      <div class="sb-tab" data-tab="batch">Batch</div>
+    </div>
+
+    <div class="sb-pane active" id="pane-seqs">
+      <div class="sf">
+        <div class="sr">
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l2.5 2.5"/></svg>
+          <input id="search" type="text" placeholder="Search sequences…"/>
+        </div>
+        <div class="ftabs" id="ftabs">
+          <div class="ftab active" data-f="all">All</div>
+          <div class="ftab" data-f="booklet">Booklet</div>
+          <div class="ftab" data-f="nup">N-Up</div>
+          <div class="ftab" data-f="size">Resize</div>
+          <div class="ftab" data-f="other">Other</div>
+        </div>
+      </div>
+      <div id="seq-list"></div>
+    </div>
+
+    <div class="sb-pane" id="pane-tools">
+      <div id="tools-list"></div>
+    </div>
+
+    <div class="sb-pane" id="pane-builder">
+      <div class="builder-top">
+        <div class="builder-title">Custom Sequence</div>
+        <div class="bactions">
+          <button class="bb run" onclick="runCustom()">▶ Run</button>
+          <button class="bb clr" onclick="clearCustom()">Clear</button>
+        </div>
+      </div>
+      <div class="bsteps" id="builder-steps">
+        <div class="bempty">Tap any tool in<br><b>All Tools</b> then click<br><b>Add to Custom Sequence</b></div>
+      </div>
+    </div>
+
+    <div class="sb-pane" id="pane-batch">
+      <div class="batch-sb-top">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Batch PDF Manager</div>
+        <label class="batch-upload-btn" for="batch-input">
+          + Add PDFs
+          <input type="file" id="batch-input" accept=".pdf" multiple style="display:none"/>
+        </label>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.5">
+          Drop multiple PDFs anywhere<br>to add them to the batch
+        </div>
+      </div>
+      <div style="padding:10px 14px;border-bottom:1px solid var(--b);flex-shrink:0">
+        <div style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">Filter by page size</div>
+        <select id="batch-filter" class="pinput" style="font-size:13px;padding:6px 10px;">
+          <option value="all">Show all files</option>
+          <option value="letter">Letter (8.5×11")</option>
+          <option value="tabloid">Tabloid (11×17")</option>
+          <option value="a4">A4 (8.27×11.69")</option>
+          <option value="legal">Legal (8.5×14")</option>
+          <option value="square">Square pages</option>
+          <option value="landscape">Landscape pages</option>
+          <option value="portrait">Portrait pages</option>
+        </select>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+          <span style="font-size:11.5px;color:var(--muted)">Pages:</span>
+          <input id="batch-pg-min" type="number" min="1" placeholder="min" class="pinput" style="width:60px;font-size:13px;padding:6px 8px;">
+          <span style="font-size:11.5px;color:var(--muted)">–</span>
+          <input id="batch-pg-max" type="number" min="1" placeholder="max" class="pinput" style="width:60px;font-size:13px;padding:6px 8px;">
+        </div>
+      </div>
+      <div id="batch-list-sb" style="flex:1;overflow-y:auto;padding:0;"></div>
+    </div>
+  </aside>
+
+  <main class="main" id="main-panel"></main>
+</div>
+
+<div class="prog" id="prog">
+  <div class="prog-box">
+    <div class="spinner"></div>
+    <div class="prog-title">Processing PDF…</div>
+    <div class="prog-msg" id="prog-msg">Preparing…</div>
+    <div class="prog-bw"><div class="prog-b" id="prog-b" style="width:0%"></div></div>
+  </div>
+</div>
+
+<script>
+const {PDFDocument,degrees,rgb,StandardFonts}=PDFLib;
+const IN=72; // 1 inch = 72 pts
+
+/* ══════════════════════════════════════════
+   TOOL REGISTRY
+══════════════════════════════════════════ */
+const SHEETS=[
+  {n:'US Letter (8.5×11")',    w:8.5,  h:11},
+  {n:'US Legal (8.5×14")',     w:8.5,  h:14},
+  {n:'Tabloid (11×17")',       w:11,   h:17},
+  {n:'12×18"',                 w:12,   h:18},
+  {n:'12×19"',                 w:12,   h:19},
+  {n:'12.5×19"',               w:12.5, h:19},
+  {n:'13×19"',                 w:13,   h:19},
+  {n:'A4 (8.27×11.69")',       w:8.27, h:11.69},
+  {n:'A3 (11.69×16.54")',      w:11.69,h:16.54},
+  {n:'Custom…',                w:0,    h:0},
+];
+const SHEET_OPTS=SHEETS.map(s=>s.n).join('||');
+
+const TOOLS=[
+  {group:'Imposition — arranging pages on sheets'},
+  {id:'SimpleBooklet', name:'Simple Booklet', icon:'📖', cls:'SB',
+   emoji:'📖', plain:'Takes all your pages and rearranges them so when you fold and staple the printed sheet in the middle, the pages come out in the right order.',
+   tip:'Great for programs, booklets, menus, anything you fold in half.',
+   params:[
+    {id:'margin',    label:'Edge margin',          type:'inches', def:0.25, min:0, max:2},
+    {id:'noScale',   label:'Scaling',              type:'select', opts:'keep pages 100% size||scale to fit', def:'keep pages 100% size'},
+    {id:'cropMarks', label:'Crop marks',           type:'select', opts:'no||yes', def:'no'},
+   ]},
+  {id:'Nup', name:'N-Up Imposition', icon:'⊞', cls:'NUP',
+   emoji:'🔢', plain:'Puts multiple pages side-by-side on one big sheet. Like printing 4 small pages on one large sheet to save paper.',
+   tip:'2-up means 2 pages per sheet. 4-up means 4. Great for handouts and booklets.',
+   params:[
+    {id:'sheet',    label:'Output sheet size',    type:'sheet', def:'Tabloid (11×17")', defW:11, defH:17},
+    {id:'sheetW',   label:'Custom width (in)',    type:'inches', def:11,   min:.5, max:200, hidden:true},
+    {id:'sheetH',   label:'Custom height (in)',   type:'inches', def:17,   min:.5, max:200, hidden:true},
+    {id:'rows',     label:'Rows (down)',           type:'number', def:2,    min:1, max:20},
+    {id:'cols',     label:'Columns (across)',      type:'number', def:2,    min:1, max:20},
+    {id:'margin',   label:'Margin around grid',   type:'inches', def:0,    min:0, max:2},
+    {id:'cropMarks',label:'Crop marks',            type:'select', opts:'no||yes', def:'no'},
+   ]},
+  {id:'StepAndRepeat', name:'Step & Repeat', icon:'⊡', cls:'SNR',
+   emoji:'🪄', plain:'Fills an entire sheet with copies of ONE page — like a rubber stamp. Perfect for business cards, stickers, or labels.',
+   tip:'Tell it how many rows and columns, and it stamps your page across the whole sheet.',
+   params:[
+    {id:'sheet',    label:'Output sheet size',    type:'sheet', def:'Tabloid (11×17")', defW:11, defH:17},
+    {id:'sheetW',   label:'Custom width (in)',    type:'inches', def:11,  min:.5, max:200, hidden:true},
+    {id:'sheetH',   label:'Custom height (in)',   type:'inches', def:17,  min:.5, max:200, hidden:true},
+    {id:'rows',     label:'Max rows',      type:'number', def:3,   min:1, max:30},
+    {id:'cols',     label:'Max columns',   type:'number', def:3,   min:1, max:30},
+    {id:'margin',   label:'Sheet margin',  type:'inches', def:0,   min:0, max:2},
+    {id:'cropMarks',label:'Crop marks',    type:'select', opts:'no||yes', def:'no'},
+   ]},
+  {id:'Shuffle', name:'Shuffle Pages', icon:'🔀', cls:'SH',
+   emoji:'🃏', plain:'Reorders pages in a special pattern. Like shuffling a deck of cards into the right order for printing.',
+   tip:'Use "booklet order" when printing a booklet on a press. "Reverse" just flips the whole order.',
+   params:[
+    {id:'mode', label:'Shuffle mode', type:'select', opts:'booklet order||reverse all||cut stack||separate even/odd', def:'booklet order'},
+    {id:'sheets',label:'Pages per sheet (cut stack)', type:'number', def:4, min:2},
+   ]},
+  {id:'TilePages', name:'Tile Pages', icon:'⊟', cls:'TP',
+   emoji:'🧩', plain:'Cuts one big page into smaller tiles. Like cutting a poster into pieces so each piece fits on a regular printer.',
+   tip:'Great for printing large banners or posters on a regular desktop printer.',
+   params:[
+    {id:'rows',    label:'Tile rows',    type:'number', def:2, min:1, max:10},
+    {id:'cols',    label:'Tile columns', type:'number', def:2, min:1, max:10},
+    {id:'overlap', label:'Overlap',      type:'inches', def:0, min:0, max:1},
+    {id:'range',   label:'Apply to',     type:'select', opts:'all pages||page 1 only', def:'all pages'},
+   ]},
+  {id:'TrimShift', name:'Trim & Shift (Creep)', icon:'↔', cls:'TS',
+   emoji:'📐', plain:'When you fold a thick booklet, the inner pages stick out. This shifts each page slightly to fix that.',
+   tip:'Only needed for booklets with lots of pages (16+) printed on thick paper.',
+   params:[
+    {id:'totalShift',  label:'Total shift amount', type:'inches', def:0.083, min:0, max:0.5},
+    {id:'direction',   label:'Shift direction',    type:'select', opts:'inward||outward', def:'inward'},
+    {id:'pagesPerSig', label:'Pages per signature', type:'number', def:16, min:4, max:64},
+   ]},
+  {group:'Page Size Tools — making pages bigger, smaller, or different'},
+  {id:'PageSizes', name:'Adjust Page Sizes', icon:'⬜', cls:'SZ',
+   emoji:'📏', plain:'Changes how big each page is. You can stretch it to fit (scale), add white space around it (pad), or cut off the edges (crop).',
+   tip:'Use "pad" to add a bleed border. Use "scale" to fit a different size. Use "crop" to trim to fill.',
+   params:[
+    {id:'mode',   label:'Method',       type:'select', opts:'scale (stretch to fit)||proportional (fit + keep shape)||pad (add white border)||crop (fill + trim edges)', def:'proportional (fit + keep shape)'},
+    {id:'w',      label:'Target width',  type:'inches', def:8.5, min:.1, max:200},
+    {id:'h',      label:'Target height', type:'inches', def:11,  min:.1, max:200},
+    {id:'range',  label:'Apply to',      type:'select', opts:'all pages||page 1 only||all except first', def:'all pages'},
+   ]},
+  {id:'GenerateBleed', name:'Generate Bleed', icon:'⊛', cls:'GB',
+   emoji:'🖼', plain:'Extends the edges of your page so ink can print right to the edge without white borders.',
+   tip:'Uses the fast "scale" method to quickly stretch edge art into the bleed area.',
+   params:[
+    {id:'method',  label:'Method',       type:'select', opts:'scale page||do nothing (bleed area only)', def:'scale page'},
+    {id:'bleedPt', label:'Bleed amount', type:'inches', def:0.125, min:0.04, max:0.5},
+   ]},
+  {id:'DefineBleed', name:'Define Bleed Box', icon:'⊠', cls:'BL',
+   emoji:'📦', plain:'Tells the PDF "this is where the bleed area ends." It doesn\'t change the actual image — it just sets invisible boundary markers.',
+   tip:'Use this after Generate Bleed, or when the customer already supplied bleed but didn\'t set the bleed box.',
+   params:[
+    {id:'bleedAll', label:'Bleed all sides (equal)', type:'inches', def:0.125, min:0, max:0.5},
+   ]},
+  {id:'Reverse', name:'Reverse Pages', icon:'⇅', cls:'RV',
+   emoji:'🔄', plain:'Flips the whole page order backwards. Page 1 becomes the last page, and the last page becomes page 1.',
+   tip:'Useful when a printer needs pages in reverse order to come out stacked correctly.',
+   params:[]},
+  {id:'SplitMerge', name:'Split Even / Odd Pages', icon:'⇌', cls:'SM',
+   emoji:'✂️', plain:'Separates your document into two groups — even-numbered pages and odd-numbered pages.',
+   tip:'Useful for manual duplex printing.',
+   params:[
+    {id:'output', label:'Output', type:'select', opts:'odd pages only||even pages only', def:'odd pages only'},
+   ]},
+  {group:'Page Tools — moving, copying, deleting pages'},
+  {id:'PageTools_rotate', name:'Rotate Pages', icon:'⟳', cls:'PT',
+   emoji:'🔁', plain:'Spins pages around. Turn them upside down (180°), sideways (90°), or all the way around.',
+   tip:'Yiddish and Hebrew books are often rotated 180° so the spine is on the right side.',
+   params:[
+    {id:'angle', label:'Rotate by',  type:'select', opts:'180°||90° clockwise||90° counter-clockwise', def:'180°'},
+    {id:'range', label:'Which pages',type:'select', opts:'all pages||even pages only||odd pages only', def:'all pages'},
+   ]},
+  {id:'PageTools_dup', name:'Duplicate Pages', icon:'⧉', cls:'PT',
+   emoji:'📑', plain:'Makes extra copies of every page in your document.',
+   // FIX #8: labels were industry-backwards. collated = complete sets (1,2,3,1,2,3). uncollated = all copies of same page (1,1,2,2).
+   tip:'"Collated" gives complete sets: 1,2,3,1,2,3. "Uncollated" groups copies: 1,1,2,2.',
+   params:[
+    {id:'copies',  label:'How many copies', type:'number', def:2, min:2, max:20},
+    {id:'collate', label:'Order',           type:'select', opts:'collated (1,2,3,1,2,3…)||uncollated (1,1,2,2…)', def:'collated (1,2,3,1,2,3…)'},
+   ]},
+  {id:'PageTools_delete', name:'Delete Pages', icon:'🗑', cls:'PT',
+   emoji:'🗑️', plain:'Removes pages from your document permanently.',
+   tip:'Page numbers start at 1.',
+   params:[
+    {id:'from', label:'Delete from page', type:'number', def:2, min:1},
+    {id:'to',   label:'To page',          type:'number', def:2, min:1},
+   ]},
+  {id:'PageTools_move', name:'Move Pages', icon:'↕', cls:'PT',
+   emoji:'✈️', plain:'Picks up a page and moves it to a different spot.',
+   tip:'Moving page 4 to the start makes it page 1.',
+   params:[
+    {id:'pageNum', label:'Move which page', type:'number', def:4,  min:1},
+    {id:'where',   label:'Move to',         type:'select', opts:'start of document||end of document', def:'start of document'},
+   ]},
+  {id:'InsertBlanks', name:'Insert Blank Pages', icon:'+', cls:'IB',
+   emoji:'➕', plain:'Adds empty white pages into your document.',
+   tip:'Booklets need a page count divisible by 4. If you have 14 pages, insert 2 blanks.',
+   params:[
+    {id:'count',   label:'How many blank pages', type:'number', def:2,  min:1, max:20},
+    {id:'where',   label:'Where to insert',      type:'select', opts:'before first page||after last page', def:'before first page'},
+   ]},
+  {group:'Stamping & Labels — adding text to pages'},
+  {id:'AddNumbers', name:'Add Page Numbers', icon:'#', cls:'AN',
+   emoji:'🔢', plain:'Prints a page number on every page automatically.',
+   tip:'You can add a prefix like "Page " so it reads "Page 1".',
+   params:[
+    {id:'startNum', label:'Start at number', type:'number', def:1, min:0},
+    {id:'prefix',   label:'Text before number', type:'text', def:''},
+    {id:'suffix',   label:'Text after number',  type:'text', def:''},
+    {id:'pos',      label:'Position on page', type:'select', opts:'Bottom Centre||Bottom Left||Bottom Right||Top Centre||Top Left||Top Right', def:'Bottom Centre'},
+    {id:'fontSize', label:'Text size',        type:'number', def:10, min:4, max:72},
+   ]},
+  {id:'BatesStamp', name:'Bates Stamp', icon:'🔢', cls:'BS',
+   emoji:'⚖️', plain:'Legal sequential numbering with leading zeros.',
+   tip:'Prints like 000001, 000002 based on digit count.',
+   params:[
+    {id:'startNum', label:'Start at number',    type:'number', def:1,    min:0},
+    {id:'digits',   label:'Minimum digits',     type:'number', def:6,    min:1, max:12},
+    {id:'prefix',   label:'Prefix (e.g. ABC-)', type:'text',   def:''},
+    {id:'pos',      label:'Position',           type:'select', opts:'Bottom Right||Bottom Left||Bottom Centre', def:'Bottom Right'},
+    {id:'fontSize', label:'Text size',          type:'number', def:10,   min:4, max:72},
+   ]},
+  {id:'StickOnFields', name:'Stick On Auto Fields', icon:'🏷', cls:'SF',
+   emoji:'🏷️', plain:'Automatically stamps filename, date, or page count on every page.',
+   tip:'Useful for print shops to track proofs.',
+   params:[
+    {id:'fields',   label:'What to stamp',     type:'select', opts:'filename||date||page count||filename + date', def:'filename'},
+    {id:'pos',      label:'Position',          type:'select', opts:'Top Centre||Top Left||Top Right', def:'Top Centre'},
+    {id:'fontSize', label:'Text size',         type:'number', def:8, min:4, max:36},
+   ]},
+];
+
+const TOOL_MAP={}; TOOLS.forEach(t=>{if(t.id) TOOL_MAP[t.id]=t;});
+
+const CMD_LABEL={
+  SimpleBooklet:'Simple Booklet',Nup:'N-Up',StepAndRepeat:'Step & Repeat',Shuffle:'Shuffle',TilePages:'Tile Pages',
+  TrimShift:'Trim & Shift',PageSizes:'Page Sizes',Reverse:'Reverse',GenerateBleed:'Gen. Bleed',DefineBleed:'Define Bleed',
+  SplitMerge:'Split Even/Odd',PageTools_rotate:'Rotate',PageTools_dup:'Duplicate',PageTools_delete:'Delete',
+  PageTools_move:'Move Pages',InsertBlanks:'Insert Blanks',AddNumbers:'Page Numbers',BatesStamp:'Bates Stamp',
+  StickOnFields:'Auto Fields',
+};
+
+/* ══════════════════════════════════════════
+   SEQUENCES
+══════════════════════════════════════════ */
+const SEQUENCES=[
+  {id:0,name:"Yiddish Booklet Bleed",runs:9,cat:"booklet",steps:[
+    {cmd:"PageTools_rotate",p:{angle:"180",range:"all"},desc:["Rotate all pages 180°"]},
+    {cmd:"SimpleBooklet",p:{margin:0.5,cropMarks:"yes",noScale:"keep pages 100% size"},desc:["Saddle stitch · 0.5in margin · crop marks"]},
+    {cmd:"PageTools_rotate",p:{angle:"180",range:"all"},desc:["Rotate all pages 180°"]},
+  ]},
+  {id:1,name:"2 up — 8.5×11 on 11×17",runs:152,cat:"nup",promptText:"No bleed!",steps:[
+    {cmd:"StepAndRepeat",p:{rows:1,cols:2,sheet:'Tabloid (11×17")',marginAll:0,cropMarks:"no"},desc:["Sheet: 11×17 in","1 row × 2 columns"]},
+  ]},
+  {id:2,name:"Yiddish Booklet",runs:980,cat:"booklet",steps:[
+    {cmd:"PageTools_rotate",p:{angle:"180",range:"all"},desc:["Rotate 180°"]},
+    {cmd:"SimpleBooklet",p:{margin:0,cropMarks:"no",noScale:"keep pages 100% size"},desc:["Saddle stitch · no margin"]},
+    {cmd:"PageTools_rotate",p:{angle:"180",range:"all"},desc:["Rotate 180°"]},
+  ]},
+  {id:3,name:"8.5×11 Remove Bleed",runs:526,cat:"size",steps:[
+    // FIX #2: sequence stores w/h in inches; doRun now normalises correctly
+    {cmd:"PageSizes",p:{mode:"scale",w:8,h:10.5},desc:["Scale to 8×10.5 in (trim)"]},
+    {cmd:"PageSizes",p:{mode:"pad",w:8.5,h:11},desc:["Pad to 8.5×11 in"]},
+  ]},
+];
+
+
+/* ══════════════════════════════════════════
+   FAST PREFLIGHT SCANNER (No rendering)
+══════════════════════════════════════════ */
+let fileInfo = null;
+
+function buildSafeTxt(bytes){
+  const cap=Math.min(bytes.length, 500000); 
+  const slice=bytes.subarray?bytes.subarray(0,cap):bytes.slice(0,cap);
+  const raw=new TextDecoder('latin-1').decode(slice);
+  return raw.replace(/stream[ \t]*\r?\n[\s\S]*?endstream/g,' ');
+}
+
+function parsePdfMeta(bytes){
+  const txt=buildSafeTxt(bytes);
+  const rawFull=new TextDecoder('latin-1').decode(
+    bytes.subarray?bytes.subarray(0,Math.min(bytes.length,500000)):bytes.slice(0,500000)
+  );
+
+  const verM=txt.match(/^%PDF-(\d+\.\d+)/);
+  const pdfVer=verM?verM[1]:'?';
+
+  const hasCMYK = /\/DeviceCMYK/.test(txt);
+  const hasRGB  = /\/DeviceRGB/.test(txt);
+  const hasGray = /\/DeviceGray/.test(txt);
+  const hasICC  = /\/ICCBased/.test(txt) || /\/ICCBased/.test(rawFull);
+
+  let iccCMYK=false, iccRGB=false;
+  const iccN4 = /\/N\s+4/.test(txt) || /\/N\s+4/.test(rawFull);
+  const iccN3 = /\/N\s+3/.test(txt) || /\/N\s+3/.test(rawFull);
+  if(hasICC && iccN4) iccCMYK=true;
+  if(hasICC && iccN3) iccRGB=true;
+
+  const altRe=/\/Alternate\s+\/([\w]+)/g;
+  let am;
+  while((am=altRe.exec(txt))!==null){
+    if(am[1]==='DeviceCMYK') iccCMYK=true;
+    if(am[1]==='DeviceRGB')  iccRGB=true;
+  }
+
+  const effectiveCMYK = hasCMYK || iccCMYK;
+  const effectiveRGB  = hasRGB  || iccRGB;
+
+  let colorMode='Unknown';
+  if(effectiveCMYK && effectiveRGB) colorMode='Mixed (RGB + CMYK)';
+  else if(effectiveCMYK)            colorMode='CMYK';
+  else if(effectiveRGB)             colorMode='RGB';
+  else if(hasGray)                  colorMode='Grayscale';
+
+  // Spot Colors
+  const spots=new Set();
+  let m;
+  const spotRe=/\/Separation\s+\/([^\s\/\[\]<>()]+)/g;
+  while((m=spotRe.exec(txt))!==null){
+    const name=m[1].trim();
+    if(name && name!=='None' && name!=='All') spots.add(name);
+  }
+  const dnRe=/\/DeviceN\s*\[([^\]]{0,300})\]/g;
+  while((m=dnRe.exec(txt))!==null){
+    const names=m[1].match(/\/([^\s\/\[\]<>()]+)/g)||[];
+    names.forEach(n=>{
+      const c=n.slice(1);
+      if(!['Cyan','Magenta','Yellow','Black','Red','Green','Blue','White','None','All'].includes(c)&&c.length>1) spots.add(c);
+    });
+  }
+
+  // Fonts
+  const fontNames=new Set();
+  const fnRe=/\/BaseFont\s+\/([^\s\/\[\]<>()]{1,80})/g;
+  while((m=fnRe.exec(txt))!==null){ fontNames.add(m[1].replace(/^[A-Z]{6}\+/,'')); }
+  
+  const ffTotal =(txt.match(/\/FontFile[23]?\s+\d+\s+0\s+R/g)||[]).length;
+  const fdTotal =(txt.match(/\/FontDescriptor\s+\d+\s+0\s+R/g)||[]).length;
+  const fdMissCount=Math.max(0,fdTotal-ffTotal);
+  const totalFonts=fontNames.size;
+  const fontsAllEmbedded = totalFonts===0 || fdMissCount===0;
+  
+  const hasTrans=/\/Transparency|\/BlendMode|\/SMask\s+(?!\/None)/.test(txt);
+  const hasOverprint=/\/OP\s+true|\/op\s+true/.test(txt);
+
+  return{colorMode, spots:[...spots], fontList:[...fontNames].slice(0,8), totalFonts, fdMissCount, fontsAllEmbedded, hasTrans, hasOverprint, pdfVer};
+}
+
+function detectBleedFromBoxes(page){
+  const {PDFName}=PDFLib;
+  try{
+    const node=page.node;
+    const hasBleedBox=!!node.get(PDFName.of('BleedBox'));
+    const hasTrimBox =!!node.get(PDFName.of('TrimBox'));
+    const media=page.getMediaBox();
+
+    if(hasTrimBox){
+      const trim=page.getTrimBox();
+      const bleedW=hasBleedBox?page.getBleedBox().width:media.width;
+      const bleedH=hasBleedBox?page.getBleedBox().height:media.height;
+      const dw=bleedW-trim.width, dh=bleedH-trim.height;
+      if(dw>0.5||dh>0.5){
+        const amtPt=Math.min(dw,dh)/2;
+        return{has:true, amount:(amtPt/72).toFixed(3), source:hasBleedBox?'BleedBox':'MediaBox vs TrimBox'};
+      }
+      return{has:false,source:'TrimBox equals MediaBox (No Bleed)'};
+    }
+    if(hasBleedBox){
+      const bleed=page.getBleedBox();
+      const dw=bleed.width-media.width, dh=bleed.height-media.height;
+      if(dw>0.5||dh>0.5) return{has:true, amount:((Math.min(dw,dh)/2)/72).toFixed(3), source:'BleedBox'};
+    }
+  }catch(e){}
+  return null; 
+}
+
+// FIX #10: guard against zero-page PDFs
+function buildFileInfo(f,doc,pgs,meta){
+  if(!pgs.length) throw new Error('This PDF has no pages.');
+  const PT=72, MM=25.4/PT;
+  const p0=pgs[0];
+  const pw0=p0.getWidth(), ph0=p0.getHeight();
+  const sizes=pgs.map((p,i)=>({page:i+1,w:p.getWidth(),h:p.getHeight()}));
+  const uniqueSizes=[...new Set(sizes.map(s=>Math.round(s.w)+'x'+Math.round(s.h)))];
+  
+  let bleed=detectBleedFromBoxes(p0);
+  if(!bleed){
+    let found=false;
+    for(const s of SHEETS){
+      if(s.w===0) continue;
+      const dw=pw0-(s.w*72), dh=ph0-(s.h*72);
+      if(dw>2&&dw<30&&dh>2&&dh<30&&Math.abs(dw-dh)<6){ bleed={has:true, amount:((dw/2)/PT).toFixed(3), source:'Estimated vs '+s.n}; found=true; break; }
+      const dl=pw0-(s.h*72), dr=ph0-(s.w*72);
+      if(dl>2&&dl<30&&dr>2&&dr<30&&Math.abs(dl-dr)<6){ bleed={has:true, amount:((dl/2)/PT).toFixed(3), source:'Estimated vs '+s.n+' (rotated)'}; found=true; break; }
+    }
+    if(!found) bleed={has:false, source:'No print boxes found'};
+  }
+
+  return{filename:f.name, sizeStr: f.size>1048576?(f.size/1048576).toFixed(2)+' MB':(f.size/1024).toFixed(0)+' KB',
+         pages:pgs.length, mod4:pgs.length%4, hasMixed:uniqueSizes.length>1, needBlanks: pgs.length%4 === 0 ? 0 : 4-(pgs.length%4),
+         p0:{wIn:(pw0/PT).toFixed(3), hIn:(ph0/PT).toFixed(3), orient:pw0>ph0?'Landscape':'Portrait'},
+         bleed, ...meta};
+}
+
+
+/* ══════════════════════════════════════════
+   PDF ENGINE (Lightweight Execution)
+══════════════════════════════════════════ */
+async function opRotate(doc,{angle=180,range="all"}){
+  const nd=await PDFDocument.create(),pgs=doc.getPages();
+  const a=typeof angle==='number'?angle:parseInt(String(angle))||180;
+  for(let i=0;i<pgs.length;i++){
+    const pw=pgs[i].getWidth(),ph=pgs[i].getHeight();
+    let rot=false;
+    if(range==="all" || !range)     rot=true;
+    else if(range.includes("even")) rot=(i+1)%2===0;
+    else if(range.includes("odd"))  rot=(i+1)%2===1;
+    
+    const[e]=await nd.embedPdf(doc,[i]);
+    
+    if(rot) {
+        const is90 = a===90 || a===270;
+        const pg = nd.addPage(is90 ? [ph, pw] : [pw, ph]);
+        let dx=0, dy=0;
+        if(a===90) { dx=ph; dy=0; }
+        else if(a===180) { dx=pw; dy=ph; }
+        else if(a===270) { dx=0; dy=pw; }
+        pg.drawPage(e,{x:dx,y:dy,width:pw,height:ph,rotate:degrees(a)});
+    } else {
+        const pg=nd.addPage([pw,ph]);
+        pg.drawPage(e,{x:0,y:0,width:pw,height:ph});
+    }
+  }
+  return nd;
+}
+
+async function opDuplicate(doc,{copies=2,collate=false}){
+  const nd=await PDFDocument.create(),pgs=doc.getPages(),n=pgs.length,order=[];
+  // collate=true  → complete sets: 1,2,3,1,2,3  (industry: collated)
+  // collate=false → grouped copies: 1,1,2,2     (industry: uncollated)
+  if(collate){for(let c=0;c<copies;c++)for(let i=0;i<n;i++)order.push(i);}
+  else{for(let i=0;i<n;i++)for(let c=0;c<copies;c++)order.push(i);}
+  for(const idx of order){const[e]=await nd.embedPdf(doc,[idx]);const pg=nd.addPage([pgs[idx].getWidth(),pgs[idx].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[idx].getWidth(),height:pgs[idx].getHeight()});}
+  return nd;
+}
+
+// FIX #4: from/to are 1-based page numbers; convert to 0-based for array indexing
+async function opDelete(doc,{from=1,to=1}){
+  const nd=await PDFDocument.create(),pgs=doc.getPages();
+  const f0=from-1, t0=to-1; // convert to 0-based
+  for(let i=0;i<pgs.length;i++){
+    if(i>=f0&&i<=t0)continue; // skip pages in range
+    const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([pgs[i].getWidth(),pgs[i].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[i].getWidth(),height:pgs[i].getHeight()});
+  }
+  return nd;
+}
+async function opMove(doc,{from=3,where="start"}){
+  const nd=await PDFDocument.create(),pgs=doc.getPages(),n=pgs.length,order=[];
+  if(where==="start"){order.push(from);for(let i=0;i<n;i++)if(i!==from)order.push(i);}
+  else{for(let i=0;i<n;i++)if(i!==from)order.push(i);order.push(from);}
+  for(const idx of order){const pi=Math.max(0,Math.min(idx,n-1));const[e]=await nd.embedPdf(doc,[pi]);const pg=nd.addPage([pgs[pi].getWidth(),pgs[pi].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[pi].getWidth(),height:pgs[pi].getHeight()});}
+  return nd;
+}
+async function opReverse(doc){
+  const nd=await PDFDocument.create(),pgs=doc.getPages();
+  for(let i=pgs.length-1;i>=0;i--){const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([pgs[i].getWidth(),pgs[i].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[i].getWidth(),height:pgs[i].getHeight()});}
+  return nd;
+}
+async function opBooklet(doc,{margin=0,cropMarks=false,noScale=true}){
+  const pgs=doc.getPages(),n=pgs.length,total=Math.ceil(n/4)*4;
+  const pw=pgs[0].getWidth(),ph=pgs[0].getHeight(),shW=pw*2+margin*2,shH=ph+margin*2;
+  const nd=await PDFDocument.create();
+  let lo=1,hi=total,spreads=[];
+  while(lo<=hi){spreads.push([hi,lo]);hi--;lo++;if(lo<=hi){spreads.push([lo,hi]);lo++;hi--;}}
+  for(const[ln,rn]of spreads){
+    const sh=nd.addPage([shW,shH]);
+    for(const[num,xOff]of[[ln,margin],[rn,margin+pw]]){
+      const idx=num-1;
+      if(idx>=0&&idx<n){const[e]=await nd.embedPdf(doc,[idx]);const s=noScale?1:Math.min(pw/e.width,ph/e.height);const dw=e.width*s,dh=e.height*s;sh.drawPage(e,{x:xOff+(pw-dw)/2,y:margin+(ph-dh)/2,width:dw,height:dh});}
+    }
+    if(cropMarks){
+      [[margin,margin],[margin,margin+ph],[margin+shW/2,margin],[margin+shW/2,margin+ph]].forEach(([cx,cy])=>{
+        sh.drawLine({start:{x:cx-5,y:cy},end:{x:cx+5,y:cy},thickness:.4,color:rgb(0,0,0)});
+        sh.drawLine({start:{x:cx,y:cy-5},end:{x:cx,y:cy+5},thickness:.4,color:rgb(0,0,0)});
+      });
+    }
+  }
+  return nd;
+}
+
+async function opNUp(doc,{rows=2,cols=2,sheetW=792,sheetH=1224,marginAll=0,cropMarks=false,stepRepeat=false}){
+  const pgs=doc.getPages(),nd=await PDFDocument.create();
+  const cW=(sheetW-marginAll*2)/cols,cH=(sheetH-marginAll*2)/rows;
+  let idx=0;
+  while(idx<(stepRepeat?rows*cols:pgs.length)){
+    const sh=nd.addPage([sheetW,sheetH]);
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const pi=stepRepeat?0:idx;
+        if(!stepRepeat&&idx>=pgs.length)break;
+        const[e]=await nd.embedPdf(doc,[pi]);
+        const s=Math.min(cW/e.width,cH/e.height);
+        const dw=e.width*s, dh=e.height*s;
+        const x = marginAll + c * cW;
+        const y = sheetH - marginAll - (r + 1) * cH;
+        sh.drawPage(e,{x:x+(cW-dw)/2,y:y+(cH-dh)/2,width:dw,height:dh});
+        if(cropMarks){
+          [[x,y],[x+cW,y],[x,y+cH],[x+cW,y+cH]].forEach(([cx,cy])=>{
+            sh.drawLine({start:{x:cx-3,y:cy},end:{x:cx+3,y:cy},thickness:.3,color:rgb(0,0,0)});
+            sh.drawLine({start:{x:cx,y:cy-3},end:{x:cx,y:cy+3},thickness:.3,color:rgb(0,0,0)});
+          });
+        }
+        idx++;
+      }
+    }
+    if(stepRepeat)break;
+  }
+  return nd;
+}
+
+// FIX #6: crop mode now scales to fill (cover) and lets edges clip, distinct from pad
+async function opPageSizes(doc,{mode="proportional",w=612,h=792,range="all"}){
+  const pgs=doc.getPages(),nd=await PDFDocument.create();
+  for(let i=0;i<pgs.length;i++){
+    const skip=(range==="page 1 only"&&i>0)||(range==="all except first"&&i===0);
+    const[e]=await nd.embedPdf(doc,[i]);
+    const tw=skip?pgs[i].getWidth():w,th=skip?pgs[i].getHeight():h;
+    const pg=nd.addPage([tw,th]);
+    if(skip){
+      pg.drawPage(e,{x:0,y:0,width:pgs[i].getWidth(),height:pgs[i].getHeight()});
+    } else if(mode.startsWith('scale')){
+      // Stretch to fill exactly — no aspect ratio preservation
+      pg.drawPage(e,{x:0,y:0,width:w,height:h});
+    } else if(mode.startsWith('prop')){
+      // Fit inside, preserve aspect ratio, centre with white border
+      const s=Math.min(w/e.width,h/e.height);
+      const dw=e.width*s,dh=e.height*s;
+      pg.drawPage(e,{x:(w-dw)/2,y:(h-dh)/2,width:dw,height:dh});
+    } else if(mode.startsWith('pad')){
+      // Place at native size, centred — adds white space around it
+      pg.drawPage(e,{x:(w-e.width)/2,y:(h-e.height)/2,width:e.width,height:e.height});
+    } else if(mode.startsWith('crop')){
+      // Scale to fill (cover) — overflows edges are clipped by page boundary
+      const s=Math.max(w/e.width,h/e.height);
+      const dw=e.width*s,dh=e.height*s;
+      pg.drawPage(e,{x:(w-dw)/2,y:(h-dh)/2,width:dw,height:dh});
+    }
+  }
+  return nd;
+}
+
+async function opInsert(doc,{where="before first",count=1,pageNum=1}){
+  const pgs=doc.getPages(),nd=await PDFDocument.create();
+  const rw=pgs[0].getWidth(),rh=pgs[0].getHeight();
+  const blank=()=>nd.addPage([rw,rh]);
+  if(where.includes('before first')||where.includes('before'))for(let b=0;b<count;b++)blank();
+  for(let i=0;i<pgs.length;i++){
+    const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([pgs[i].getWidth(),pgs[i].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[i].getWidth(),height:pgs[i].getHeight()});
+    if(where.includes('specific')&&i===pageNum-1)for(let b=0;b<count;b++)blank();
+  }
+  if(where.includes('after last'))for(let b=0;b<count;b++)blank();
+  return nd;
+}
+
+async function opAddNumbers(doc,{startNum=1,prefix='',suffix='',pos='BC',fontSize=10,range='all'},filename='document'){
+  const font=await doc.embedFont(StandardFonts.HelveticaBold);
+  doc.getPages().forEach((pg,i)=>{
+    if(range.includes('even')&&(i+1)%2!==0)return;
+    if(range.includes('odd')&&(i+1)%2!==1)return;
+    const{width,height}=pg.getSize();
+    const label=prefix+(startNum+i)+suffix;
+    const tw=font.widthOfTextAtSize(label,fontSize);
+    const P=(pos||'BC').replace(/\s+/g,'').toUpperCase().replace('CENTRE','C').replace('LEFT','L').replace('RIGHT','R').replace('BOTTOM','B').replace('TOP','T');
+    const x=P.includes('L')?6:P.includes('R')?width-tw-6:(width-tw)/2;
+    const y=P.includes('T')?height-fontSize-6:6;
+    pg.drawText(label,{x,y,size:fontSize,font,color:rgb(0,0,0)});
+  });
+  return doc;
+}
+async function opBates(doc,{startNum=1,digits=6,prefix='',suffix='',pos='BR',fontSize=10}){
+  const font=await doc.embedFont(StandardFonts.HelveticaBold);
+  doc.getPages().forEach((pg,i)=>{
+    const{width,height}=pg.getSize();
+    const label=prefix+String(startNum+i).padStart(digits,'0')+suffix;
+    const tw=font.widthOfTextAtSize(label,fontSize);
+    const P=(pos||'BR').replace(/\s+/g,'').toUpperCase().replace('CENTRE','C').replace('LEFT','L').replace('RIGHT','R').replace('BOTTOM','B').replace('TOP','T');
+    const x=P.includes('L')?6:P.includes('R')?width-tw-6:(width-tw)/2;
+    const y=P.includes('T')?height-fontSize-6:6;
+    pg.drawText(label,{x,y,size:fontSize,font,color:rgb(0,0,0)});
+  });
+  return doc;
+}
+async function opStickFields(doc,{fields='filename',pos='TC',fontSize=8},filename='document'){
+  const font=await doc.embedFont(StandardFonts.HelveticaBold);
+  const dateStr=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const base=filename.replace(/\.pdf$/i,''),n=doc.getPageCount();
+  doc.getPages().forEach((pg,i)=>{
+    const{width,height}=pg.getSize();
+    let parts=[];
+    if(fields.includes('filename'))parts.push(base);
+    if(fields.includes('date'))parts.push(dateStr);
+    if(fields.includes('page count'))parts.push(`${i+1}/${n}`);
+    const label=parts.join('  ·  ');
+    const tw=font.widthOfTextAtSize(label,fontSize);
+    const P=(pos||'TC').replace(/\s+/g,'').toUpperCase().replace('CENTRE','C').replace('LEFT','L').replace('RIGHT','R').replace('BOTTOM','B').replace('TOP','T');
+    const x=P.includes('L')?5:P.includes('R')?width-tw-5:(width-tw)/2;
+    const y=P.includes('T')?height-fontSize-5:5;
+    pg.drawText(label,{x,y,size:fontSize,font,color:rgb(0,0,0)});
+  });
+  return doc;
+}
+async function opShuffle(doc,{mode='booklet order',sheets=4}){
+  const pgs=doc.getPages(),n=pgs.length,nd=await PDFDocument.create();
+  let order=[];
+  if(mode.includes('reverse')){order=[...Array(n).keys()].reverse();}
+  else if(mode.includes('booklet')){let lo=0,hi=n-1;while(lo<=hi){order.push(hi);order.push(lo);hi--;lo++;if(lo<=hi){order.push(lo);order.push(hi);lo++;hi--;}}}
+  else if(mode.includes('cut')){for(let i=0;i<n;i+=2)order.push(n-1-i);for(let i=1;i<n;i+=2)order.push(n-1-i);}
+  else if(mode.includes('even')||mode.includes('odd')){for(let i=0;i<n;i+=2)order.push(i);for(let i=1;i<n;i+=2)order.push(i);}
+  if(!order.length)order=[...Array(n).keys()];
+  for(const idx of order){const pi=Math.max(0,Math.min(idx,n-1));const[e]=await nd.embedPdf(doc,[pi]);const pg=nd.addPage([pgs[pi].getWidth(),pgs[pi].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[pi].getWidth(),height:pgs[pi].getHeight()});}
+  return nd;
+}
+async function opTile(doc,{rows=2,cols=2,overlap=0,range='all'}){
+  const pgs=doc.getPages(),nd=await PDFDocument.create();
+  for(let i=0;i<pgs.length;i++){
+    if(range==='page 1 only'&&i>0){const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([pgs[i].getWidth(),pgs[i].getHeight()]);pg.drawPage(e,{x:0,y:0,width:pgs[i].getWidth(),height:pgs[i].getHeight()});continue;}
+    const pw=pgs[i].getWidth(),ph=pgs[i].getHeight();
+    const tW=pw/cols+overlap,tH=ph/rows+overlap;
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      const[e]=await nd.embedPdf(doc,[i]);
+      const pg=nd.addPage([tW-overlap,tH-overlap]);
+      pg.drawPage(e,{x:-(c*(pw/cols)),y:-(((rows-1-r))*(ph/rows)),width:pw,height:ph});
+    }
+  }
+  return nd;
+}
+async function opTrimShift(doc,{totalShift=6,direction='inward',pagesPerSig=16}){
+  const pgs=doc.getPages(),n=pgs.length,nd=await PDFDocument.create();
+  for(let i=0;i<n;i++){
+    const pw=pgs[i].getWidth(),ph=pgs[i].getHeight();
+    const pos=Math.floor(i%(pagesPerSig/2));const shift=(pos/(Math.max(1,pagesPerSig/2-1)))*totalShift;
+    const isLeft=i%2===0;const dx=direction==='inward'?(isLeft?-shift:shift):(isLeft?shift:-shift);
+    const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([pw,ph]);
+    pg.drawPage(e,{x:dx,y:0,width:pw,height:ph});
+  }
+  return nd;
+}
+async function opGenBleed(doc,{method='scale page',bleedPt=9}){
+  const pgs=doc.getPages(), nd=await PDFDocument.create();
+  for(let i=0;i<pgs.length;i++){
+    const pw=pgs[i].getWidth(),ph=pgs[i].getHeight(),nw=pw+bleedPt*2,nh=ph+bleedPt*2;
+    const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([nw,nh]);
+    if(method.includes('nothing')) pg.drawPage(e,{x:bleedPt,y:bleedPt,width:pw,height:ph}); 
+    else pg.drawPage(e,{x:0,y:0,width:nw,height:nh}); 
+  }return nd;
+}
+async function opSplit(doc,{output='odd pages only'}){
+  const pgs=doc.getPages(),nd=await PDFDocument.create();
+  for(let i=0;i<pgs.length;i++){
+    const isE=(i+1)%2===0;
+    if(output.includes('odd')&&isE)continue;
+    if(output.includes('even')&&!isE)continue;
+    const[e]=await nd.embedPdf(doc,[i]);const pg=nd.addPage([pgs[i].getWidth(),pgs[i].getHeight()]);
+    pg.drawPage(e,{x:0,y:0,width:pgs[i].getWidth(),height:pgs[i].getHeight()});
+  }return nd;
+}
+
+// Helper: resolve inches value from a param that may arrive as inches (sequences)
+// or as already-converted points (tool panel, where getParams sets both p.xIn and p.x).
+// If p.xIn exists we know p.x is already in points; otherwise treat p.x as inches.
+function resolveIn(inchesVal, ptVal) {
+  // inchesVal is p.marginIn etc. (defined only from tool panel)
+  // ptVal is p.margin / p.w / etc.
+  return inchesVal !== undefined ? inchesVal * IN : (ptVal || 0) * IN;
+}
+
+// FIX #11: doRun now accepts optional inputBytes and inputFilename to avoid
+// mutating shared globals in batchRunOnFile, eliminating the race condition.
+async function doRun(steps, onProg, inputBytes, inputFilename){
+  let doc=await PDFDocument.load(inputBytes || pdfBytes, {ignoreEncryption:true});
+  // Use caller-supplied filename if provided (batch mode), else fall back to global
+  const fname = inputFilename || pdfFilename;
+
+  for(let i=0;i<steps.length;i++){
+    const s=steps[i],p=s.p||{};
+    onProg(`Step ${i+1}/${steps.length}: ${CMD_LABEL[s.cmd]||s.cmd}…`,Math.round((i+1)/steps.length*90));
+    await new Promise(r=>setTimeout(r,30));
+    doc=await PDFDocument.load(await doc.save(),{ignoreEncryption:true});
+    
+    switch(s.cmd){
+      case 'PageTools_rotate': {
+        let ang = 180;
+        if(p.angle) {
+            if(p.angle.includes('counter')) ang = 90; // degrees(90) = CCW in pdf-lib
+            else if(p.angle.includes('90')) ang = 270; // degrees(270) = 90° CW
+        }
+        doc=await opRotate(doc,{angle:ang,range:p.range});
+        break;
+      }
+      // FIX #8: check for 'collated' (complete sets), matching corrected label
+      case 'PageTools_dup':
+        doc=await opDuplicate(doc,{copies:+p.copies||2,collate:(p.collate||'').includes('collated')});
+        break;
+      case 'PageTools_delete':
+        // opDelete now handles 1-based→0-based conversion internally
+        doc=await opDelete(doc,{from:+p.from||1,to:+p.to||1});
+        break;
+      case 'PageTools_move':
+        doc=await opMove(doc,{from:(+p.pageNum||1)-1,where:(p.where||'').includes('end')?'end':'start'});
+        break;
+
+      // FIX #1: SimpleBooklet margin was double-converted (pts × IN again).
+      // resolveIn() checks for p.marginIn (tool panel) before treating p.margin as inches (sequence).
+      case 'SimpleBooklet':
+        doc=await opBooklet(doc,{
+          margin: resolveIn(p.marginIn, p.margin),
+          cropMarks:(p.cropMarks||'').includes('yes'),
+          noScale:(p.noScale||'').includes('100')
+        });
+        break;
+
+      // FIX #3: sheet name not resolved for sequences; also FIX #7 marginAll key mismatch
+      case 'Nup':
+      case 'StepAndRepeat': {
+        // Resolve sheet dimensions: tool panel already sets p.sheetW in pts;
+        // sequences carry p.sheet (name) or p.sheetW in inches — detect and convert.
+        let shW = p.sheetW, shH = p.sheetH;
+        if (!shW || !shH) {
+          if (p.sheet && p.sheet !== 'Custom…') {
+            const sh = SHEETS.find(s => s.n === p.sheet);
+            if (sh && sh.w > 0) { shW = sh.w * IN; shH = sh.h * IN; }
+          }
+          // Fallback: explicit inch values from either naming convention
+          if (!shW) shW = (p.sheetWin || p.sheetWIn || 11) * IN;
+          if (!shH) shH = (p.sheetHin || p.sheetHIn || 17) * IN;
+        }
+        // Margin: resolveIn handles both tool-panel (p.marginIn defined) and
+        // sequence (p.marginAll or p.margin as raw inches) cases.
+        const mg = p.marginIn !== undefined
+          ? p.marginIn * IN
+          : (p.marginAll !== undefined ? p.marginAll : (p.margin || 0)) * IN;
+        doc=await opNUp(doc,{
+          rows:+p.rows||2, cols:+p.cols||2,
+          sheetW, sheetH,
+          marginAll: mg,
+          cropMarks:(p.cropMarks||'').includes('yes'),
+          stepRepeat: s.cmd==='StepAndRepeat'
+        });
+        break;
+      }
+
+      // FIX #2: sequences store w/h in inches; tool panel stores them in pts (p.wIn defined).
+      // Normalise both to pts via resolveIn-style check on p.wIn / p.hIn.
+      case 'PageSizes':
+        doc=await opPageSizes(doc,{
+          mode: p.mode||'proportional',
+          w: (p.wIn !== undefined ? p.wIn : (p.w || 8.5)) * IN,
+          h: (p.hIn !== undefined ? p.hIn : (p.h || 11)) * IN,
+          range: p.range||'all'
+        });
+        break;
+
+      case 'InsertBlanks':
+        doc=await opInsert(doc,{where:p.where||'before first',count:+p.count||1,pageNum:+p.pageNum||1});
+        break;
+      case 'AddNumbers':
+        doc=await opAddNumbers(doc,{startNum:+p.startNum||1,prefix:p.prefix||'',suffix:p.suffix||'',pos:p.pos||'BC',fontSize:+p.fontSize||10,range:p.range||'all'}, fname);
+        break;
+      case 'BatesStamp':
+        doc=await opBates(doc,{startNum:+p.startNum||1,digits:+p.digits||6,prefix:p.prefix||'',suffix:p.suffix||'',pos:p.pos||'BR',fontSize:+p.fontSize||10});
+        break;
+      case 'StickOnFields':
+        doc=await opStickFields(doc,{fields:p.fields||'filename',pos:p.pos||'TC',fontSize:+p.fontSize||8}, fname);
+        break;
+      case 'Reverse':
+        doc=await opReverse(doc);
+        break;
+      case 'Shuffle':
+        doc=await opShuffle(doc,{mode:p.mode||'booklet order',sheets:+p.sheets||4});
+        break;
+      case 'TilePages':
+        doc=await opTile(doc,{rows:+p.rows||2,cols:+p.cols||2,overlap:+p.overlapIn*IN||0,range:p.range||'all'});
+        break;
+      case 'TrimShift':
+        doc=await opTrimShift(doc,{totalShift:+p.totalShiftIn*IN||6,direction:p.direction||'inward',pagesPerSig:+p.pagesPerSig||16});
+        break;
+      case 'GenerateBleed':
+        doc=await opGenBleed(doc,{method:p.method||'scale',bleedPt: resolveIn(p.bleedPtIn, p.bleedPt || 0.125)});
+        break;
+      case 'SplitMerge':
+        doc=await opSplit(doc,{output:p.output||'odd'});
+        break;
+
+      // FIX #5: DefineBleed was completely missing — sets BleedBox and TrimBox metadata
+      case 'DefineBleed': {
+        const bp = (p.bleedAllIn !== undefined ? p.bleedAllIn : (p.bleedAll || 0.125)) * IN;
+        doc.getPages().forEach(pg => {
+          const mb = pg.getMediaBox();
+          // BleedBox = entire media box (the bleed area is baked into the page size)
+          pg.setBleedBox(mb.x, mb.y, mb.width, mb.height);
+          // TrimBox = media box inset by bleed amount on all four sides
+          pg.setTrimBox(mb.x + bp, mb.y + bp, mb.width - bp * 2, mb.height - bp * 2);
+        });
+        // Modifies in-place; doc variable is intentionally not reassigned here.
+        break;
+      }
+    }
+  }
+  return{doc};
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let currentTab='seqs',currentFilter='all',currentSeqId=null,currentToolId=null;
+let pdfBytes=null,pdfFilename='document.pdf',resultBytes=null;
+let customSteps=[];
+let infoData=null; // FIX #9: was referenced but never declared, creating an implicit global
+
+/* ══════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════ */
+function renderSeqList(){
+  const q=(document.getElementById('search')||{}).value?.toLowerCase()||'';
+  const el=document.getElementById('seq-list');
+  const list=SEQUENCES.filter(s=>(!q||s.name.toLowerCase().includes(q))&&(currentFilter==='all'||catOf(s)===currentFilter));
+  if(!list.length){el.innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">No sequences found</div>';return;}
+  el.innerHTML=list.map(s=>`
+    <div class="seq-item ${s.id===currentSeqId?'active':''}" data-id="${s.id}">
+      <div class="sn">${s.name}</div>
+      <div class="sm"><span class="chip chip-s">${s.steps.length} steps</span></div>
+    </div>`).join('');
+  el.querySelectorAll('.seq-item').forEach(el=>el.addEventListener('click',()=>{
+    currentSeqId=+el.dataset.id;currentToolId=null;resultBytes=null;
+    renderSeqList();renderMain();
+  }));
+}
+
+function renderToolsList(){
+  const el=document.getElementById('tools-list');
+  el.innerHTML=TOOLS.filter(t=>t.id!=='ImpositionInfo').map(t=>{
+    if(t.group)return`<div class="tg">${t.group}</div>`;
+    return`<div class="tool-btn ${t.id===currentToolId?'active':''}" data-tid="${t.id}">
+      <div class="tb-ico">${t.icon}</div>
+      <div><div class="tb-n">${t.name}</div><div class="tb-d" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${t.plain}</div></div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.tool-btn').forEach(el=>el.addEventListener('click',()=>{
+    currentToolId=el.dataset.tid;currentSeqId=null;resultBytes=null;
+    renderToolsList();renderMain();
+  }));
+}
+
+function renderBuilderList(){
+  const el=document.getElementById('builder-steps');
+  if(!customSteps.length){el.innerHTML='<div class="bempty">Tap any tool in<br><b>All Tools</b> then click<br><b>Add to Custom Sequence</b></div>';return;}
+  el.innerHTML=customSteps.map((s,i)=>`
+    <div class="bstep">
+      <div class="bstep-n">${String(i+1).padStart(2,'0')}</div>
+      <div class="bstep-info">
+        <div class="bstep-cmd c-${TOOL_MAP[s.cmd]?.cls||'PT'}">${CMD_LABEL[s.cmd]||s.cmd}</div>
+        <div class="bstep-p">${Object.entries(s.p).slice(0,3).map(([k,v])=>`${k}:${v}`).join(' · ')}</div>
+      </div>
+      <button class="bstep-del" onclick="removeStep(${i})">×</button>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════════
+   MAIN PANEL & PREFLIGHT
+══════════════════════════════════════════ */
+function renderMain(){
+  const panel=document.getElementById('main-panel');
+  if(!pdfBytes){renderDrop(panel);return;}
+  
+  if(currentToolId){renderToolPanel(panel,currentToolId);return;}
+  if(currentSeqId!==null){renderSeqPanel(panel,currentSeqId);return;}
+  
+  renderPreflightDashboard(panel);
+}
+
+function renderPreflightDashboard(panel) {
+  if(!fileInfo) return;
+  const f = fileInfo;
+  
+  const colorCls = f.colorMode==='CMYK'?'pf-ok':f.colorMode.includes('RGB')?'pf-warn':'pf-err';
+  const colorTxt = f.colorMode==='CMYK'?'Press Ready (CMYK) detected':f.colorMode.includes('RGB')?'Contains RGB — Convert to CMYK for offset':'Unknown Profile';
+  
+  const bleedCls = f.bleed.has?'pf-ok':'pf-warn';
+  const bleedTxt = f.bleed.has?`${f.bleed.amount}" per side (${f.bleed.source})`:'No safe bleed detected. Trim is at edge.';
+  const bleedHint= !f.bleed.has? `<div class="pf-hint" onclick="openTool('GenerateBleed')">Generate Bleed →</div>`:'';
+
+  const fontCls = f.fontsAllEmbedded ? 'pf-ok' : (f.totalFonts===0?'pf-ok':'pf-err');
+  const fontTxt = f.fontsAllEmbedded ? (f.totalFonts===0?'No text fonts found':'All fonts embedded') : `${f.fdMissCount} fonts not embedded!`;
+  
+  const pagesCls = (f.mod4===0) ? 'pf-ok' : 'pf-warn';
+  const pagesTxt = (f.mod4===0) ? 'Ready for booklet (Divisible by 4)' : `Not divisible by 4. Needs ${f.needBlanks} blank pages.`;
+  const pagesHint= (f.mod4!==0) ? `<div class="pf-hint" onclick="openTool('InsertBlanks')">Insert Blanks →</div>`:'';
+
+  panel.innerHTML=`
+  <div class="detail pf-container" style="padding-top:20px">
+    <div class="pf-header">
+      <div class="pf-title">Preflight Report</div>
+      <div class="pf-sub">${f.filename}</div>
+    </div>
+    
+    <div class="pf-top-stats">
+      <div class="pf-stat-card">
+        <div class="pf-stat-lbl">Total Pages</div>
+        <div class="pf-stat-val" style="color:var(--blue)">${f.pages}</div>
+      </div>
+      <div class="pf-stat-card">
+        <div class="pf-stat-lbl">Dimensions</div>
+        <div class="pf-stat-val">${f.p0.wIn}" × ${f.p0.hIn}"</div>
+      </div>
+      <div class="pf-stat-card">
+        <div class="pf-stat-lbl">Orientation</div>
+        <div class="pf-stat-val" style="color:var(--orange)">${f.p0.orient}</div>
+      </div>
+      <div class="pf-stat-card">
+        <div class="pf-stat-lbl">File Size</div>
+        <div class="pf-stat-val" style="color:var(--muted)">${f.sizeStr}</div>
+      </div>
+    </div>
+
+    <div class="pf-grid">
+      <div class="pf-card">
+        <div class="pf-card-title">🎨 Color Profile</div>
+        <div class="pf-row">
+          <div class="pf-icon">🎯</div>
+          <div class="pf-info">
+            <div class="pf-label">Color Space</div>
+            <div class="pf-desc">Scanned document metadata structure.</div>
+            <div class="pf-badge ${colorCls}">${colorTxt}</div>
+          </div>
+        </div>
+        ${f.spots.length > 0 ? `
+        <div class="pf-row" style="margin-top:8px">
+          <div class="pf-icon">✨</div>
+          <div class="pf-info">
+            <div class="pf-label">${f.spots.length} Spot Colors Found</div>
+            <div class="pf-pills">
+              ${f.spots.slice(0,5).map(s=>`<div class="pf-pill">${s}</div>`).join('')}
+              ${f.spots.length>5?`<div class="pf-pill" style="border:none">+${f.spots.length-5}</div>`:''}
+            </div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <div class="pf-card">
+        <div class="pf-card-title">📏 Layout & Trim</div>
+        <div class="pf-row">
+          <div class="pf-icon">📐</div>
+          <div class="pf-info">
+            <div class="pf-label">Bleed Settings</div>
+            <div class="pf-desc">Calculated from PDF bounding boxes.</div>
+            <div class="pf-badge ${bleedCls}">${bleedTxt}</div>
+            <br>${bleedHint}
+          </div>
+        </div>
+        <div class="pf-row" style="margin-top:8px">
+          <div class="pf-icon">📖</div>
+          <div class="pf-info">
+            <div class="pf-label">Booklet Formatting</div>
+            <div class="pf-desc">Verifying page count structure.</div>
+            <div class="pf-badge ${pagesCls}">${pagesTxt}</div>
+            <br>${pagesHint}
+          </div>
+        </div>
+      </div>
+
+      <div class="pf-card">
+        <div class="pf-card-title">🔤 Typography & Elements</div>
+        <div class="pf-row">
+          <div class="pf-icon">Aa</div>
+          <div class="pf-info">
+            <div class="pf-label">Font Embedding</div>
+            <div class="pf-desc">Missing fonts can reflow or disappear on press.</div>
+            <div class="pf-badge ${fontCls}">${fontTxt}</div>
+            ${f.totalFonts>0 && f.fontsAllEmbedded ? `
+            <div class="pf-pills">
+              ${f.fontList.slice(0,4).map(s=>`<div class="pf-pill">${s}</div>`).join('')}
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+
+      ${f.hasTrans || f.hasOverprint || f.hasMixed ? `
+      <div class="pf-card" style="border:2px solid rgba(255,149,0,.3)">
+        <div class="pf-card-title" style="color:#b87000;border-color:rgba(255,149,0,.2)">⚠️ Press Warnings</div>
+        ${f.hasMixed ? `<div class="pf-row"><div class="pf-icon">📏</div><div class="pf-info"><div class="pf-label">Mixed Page Sizes</div><div class="pf-desc">Document contains pages of different dimensions. Normalize before imposing.</div></div></div>` : ''}
+        ${f.hasTrans ? `<div class="pf-row"><div class="pf-icon">👻</div><div class="pf-info"><div class="pf-label">Live Transparency</div><div class="pf-desc">Flatten transparency in Acrobat if sending to an older RIP.</div></div></div>` : ''}
+        ${f.hasOverprint ? `<div class="pf-row"><div class="pf-icon">🖨️</div><div class="pf-info"><div class="pf-label">Overprint Flags</div><div class="pf-desc">Check Acrobat Output Preview to ensure inks blend correctly.</div></div></div>` : ''}
+      </div>` : ''}
+
+    </div>
+  </div>`;
+}
+
+function openTool(tid) {
+  currentToolId = tid;
+  currentSeqId = null;
+  document.querySelectorAll('.sb-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='tools'));
+  document.querySelectorAll('.sb-pane').forEach(p=>p.classList.toggle('active',p.id==='pane-tools'));
+  renderToolsList();
+  renderMain();
+}
+
+function renderDrop(panel){
+  panel.innerHTML=`<div class="drop-zone"><div class="drop-box" id="drop-box">
+    <div class="drop-icon">📄</div>
+    <div class="drop-title">Upload your PDF</div>
+    <div class="drop-sub">100% Secure & Local.<br>Instant Preflight Report on upload.</div>
+    <button class="drop-cta" onclick="document.getElementById('upload-input').click()">Choose PDF</button>
+  </div></div>`;
+  const b=document.getElementById('drop-box');
+  b.addEventListener('dragover',e=>{e.preventDefault();b.classList.add('over');});
+  b.addEventListener('dragleave',()=>b.classList.remove('over'));
+  b.addEventListener('drop',e=>{e.preventDefault();b.classList.remove('over');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.pdf'))loadFile(f);});
+}
+
+function renderToolPanel(panel,tid){
+  const tool=TOOL_MAP[tid];if(!tool)return;
+
+  const resultHtml=resultBytes?`<div class="result-banner">
+      <span style="font-size:22px">✅</span>
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#1a8a3d;">Done! ${(resultBytes.length/1024).toFixed(0)} KB ready</div></div>
+      <button class="dl-btn" onclick="downloadResult()">⬇ Download</button>
+    </div>`:'';
+
+  let paramRows='';
+  tool.params.forEach(p=>{
+    if(p.hidden)return;
+    const inp=buildInput(p);
+    paramRows+=`<div class="pgroup"><div class="plabel">${p.label}</div>${inp}</div>`;
+  });
+  tool.params.filter(p=>p.hidden).forEach(p=>{
+    paramRows+=`<div class="pgroup" id="grp_${p.id}" style="display:none"><div class="plabel">${p.label}</div>${buildInput(p)}</div>`;
+  });
+
+  panel.innerHTML=`<div class="detail">
+    <div class="explainer">
+      <div class="exp-left">
+        <div class="exp-emoji">${tool.emoji}</div>
+        <div class="exp-title">${tool.name}</div>
+        <div class="exp-plain">${tool.plain}</div>
+        <div class="exp-tip"><span class="exp-tip-icon">💡</span>${tool.tip}</div>
+      </div>
+      <div class="exp-visual">${bigSvg(tid)}</div>
+    </div>
+    <div class="params-card">
+      <div class="pc-title">⚙️ Settings</div>
+      ${resultHtml}
+      <div class="pgrid">${paramRows}</div>
+      ${PREVIEW_TOOLS.has(tid)?`
+      <div class="preview-section">
+        <div class="preview-hd">Live Preview <span></span><span class="pv-badge" id="pv-badge">updates as you type</span></div>
+        <div id="preview-svg-wrap"></div>
+      </div>`:''}
+      <div class="pactions">
+        <button class="run-btn" onclick="runTool('${tid}')">▶ Run ${tool.name}</button>
+        <button class="add-btn" onclick="addToCustom('${tid}')">+ Add to Custom Sequence</button>
+      </div>
+    </div>
+  </div>`;
+
+  const sheetSel=document.getElementById('tp_sheet');
+  if(sheetSel){
+    const updateSheet=()=>{
+      const sh=SHEETS.find(s=>s.n===sheetSel.value);
+      const isCustom=!sh||sh.w===0;
+      document.getElementById('grp_sheetW').style.display=isCustom?'':'none';
+      document.getElementById('grp_sheetH').style.display=isCustom?'':'none';
+      if(sh&&sh.w>0){
+        const wEl=document.getElementById('tp_sheetW');
+        const hEl=document.getElementById('tp_sheetH');
+        if(wEl)wEl.value=sh.w;
+        if(hEl)hEl.value=sh.h;
+      }
+    };
+    sheetSel.addEventListener('change',updateSheet);
+    updateSheet();
+  }
+  if(PREVIEW_TOOLS.has(tid)) setTimeout(()=>setupPreviewListeners(tid),30);
+}
+
+/* ══════════════════════════════════════════
+   LIVE IMPOSITION PREVIEW
+══════════════════════════════════════════ */
+const PREVIEW_TOOLS=new Set(['Nup','StepAndRepeat','SimpleBooklet','TilePages','PageSizes','PageTools_rotate','AddNumbers','BatesStamp','StickOnFields','InsertBlanks']);
+
+function getPvParams(tid){
+  const tool=TOOL_MAP[tid];if(!tool)return{};
+  const p={};
+  tool.params.forEach(pr=>{
+    const el=document.getElementById('tp_'+pr.id);
+    if(!el)return;
+    if(pr.type==='number'||pr.type==='inches') p[pr.id]=Math.max(0,+el.value||0);
+    else p[pr.id]=el.value;
+  });
+  // Resolve named sheet → inches
+  if(p.sheet&&p.sheet!=='Custom…'){
+    const sh=SHEETS.find(s=>s.n===p.sheet);
+    if(sh&&sh.w>0){p.sheetW=sh.w;p.sheetH=sh.h;}
+  }
+  if(!p.sheetW){const e=document.getElementById('tp_sheetW');if(e)p.sheetW=+e.value||11;}
+  if(!p.sheetH){const e=document.getElementById('tp_sheetH');if(e)p.sheetH=+e.value||17;}
+  if(!p.sheetW)p.sheetW=11;
+  if(!p.sheetH)p.sheetH=17;
+  return p;
+}
+
+function updateImpositionPreview(tid){
+  const el=document.getElementById('preview-svg-wrap');if(!el)return;
+  const p=getPvParams(tid);
+  const svg=makePvSVG(tid,p);
+  el.innerHTML=svg||'';
+}
+
+function makePvSVG(tid,p){
+  switch(tid){
+    case 'Nup':          return pvNup(p,false);
+    case 'StepAndRepeat':return pvNup(p,true);
+    case 'SimpleBooklet':return pvBooklet(p);
+    case 'TilePages':    return pvTile(p);
+    case 'PageSizes':    return pvPageSizes(p);
+    case 'PageTools_rotate':return pvRotate(p);
+    case 'AddNumbers':   return pvStamp(p,'number');
+    case 'BatesStamp':   return pvStamp(p,'bates');
+    case 'StickOnFields':return pvStamp(p,'fields');
+    case 'InsertBlanks': return pvInsert(p);
+    default:return null;
+  }
+}
+
+// Shared inline <style> for all preview SVGs — references CSS vars from parent doc
+function pvSty(){
+  return`<style>text{font-family:'DM Sans',-apple-system,sans-serif;}.pvm{font-family:'DM Mono',monospace;}.pvl{font-size:8.5px;fill:var(--muted);}.pvb{font-size:9px;font-weight:700;fill:var(--blue);font-family:'DM Mono',monospace;}.pvr{fill:var(--red);}.pvg{fill:var(--green);}</style>`;
+}
+
+// ── N-Up / Step-and-Repeat ─────────────────
+function pvNup(p,sr){
+  const rows=Math.max(1,Math.min(Math.round(p.rows)||2,10));
+  const cols=Math.max(1,Math.min(Math.round(p.cols)||2,10));
+  const shW=Math.max(0.5,p.sheetW||11);
+  const shH=Math.max(0.5,p.sheetH||17);
+  const mg=p.margin||p.marginAll||0;
+  const crop=(p.cropMarks||'').includes('yes');
+
+  const mxW=270,mxH=180;
+  const sc=Math.min(mxW/shW,mxH/shH);
+  const dW=shW*sc,dH=shH*sc;
+  const PW=340,PH=Math.ceil(dH+56);
+  const ox=(PW-dW)/2,oy=26;
+  const mPx=mg*sc;
+  const cW=(dW-mPx*2)/cols,cH=(dH-mPx*2)/rows;
+
+  let cells='',pn=1;
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cx=ox+mPx+c*cW,cy=oy+mPx+r*cH,pad=2.5;
+      const lbl=sr?'\u00d7':String(pn++);
+      const fs=Math.max(7,Math.min(14,Math.min(cW,cH)*0.36));
+      cells+=`<rect x="${f(cx+pad)}" y="${f(cy+pad)}" width="${f(cW-pad*2)}" height="${f(cH-pad*2)}" rx="2.5" fill="var(--al)" stroke="var(--blue)" stroke-width="0.5" opacity="0.85"/>`;
+      cells+=`<text x="${f(cx+cW/2)}" y="${f(cy+cH/2)}" text-anchor="middle" dominant-baseline="central" class="pvb pvm" style="font-size:${fs}px">${lbl}</text>`;
+      if(crop&&cW>18&&cH>18){
+        const cl=3.5;
+        [[cx+pad,cy+pad],[cx+cW-pad,cy+pad],[cx+pad,cy+cH-pad],[cx+cW-pad,cy+cH-pad]].forEach(([px,py])=>{
+          cells+=`<line x1="${f(px-cl)}" y1="${f(py)}" x2="${f(px+cl)}" y2="${f(py)}" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>`;
+          cells+=`<line x1="${f(px)}" y1="${f(py-cl)}" x2="${f(px)}" y2="${f(py+cl)}" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>`;
+        });
+      }
+    }
+  }
+  const mgDash=mPx>4?`<rect x="${f(ox+mPx)}" y="${f(oy+mPx)}" width="${f(dW-mPx*2)}" height="${f(dH-mPx*2)}" rx="1" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="0.5" stroke-dasharray="3,2"/>`:'';
+  const lbl=sr?`${rows}\u00d7${cols} copies of same page`:`${rows*cols} pages \u00b7 ${rows} row\u00d7${cols} col`;
+
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+    ${pvSty()}
+    <text x="${PW/2}" y="14" text-anchor="middle" class="pvl">${shW}" \u00d7 ${shH}" sheet</text>
+    <rect x="${f(ox+3)}" y="${f(oy+3)}" width="${f(dW)}" height="${f(dH)}" rx="4" fill="rgba(0,0,0,0.04)"/>
+    <rect x="${f(ox)}" y="${f(oy)}" width="${f(dW)}" height="${f(dH)}" rx="4" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.8"/>
+    ${mgDash}${cells}
+    <text x="${PW/2}" y="${f(oy+dH+17)}" text-anchor="middle" class="pvl">${lbl}</text>
+  </svg>`;
+}
+
+// ── Booklet spreads ────────────────────────
+function pvBooklet(p){
+  const hasCrop=(p.cropMarks||'').includes('yes');
+  const n=fileInfo?Math.max(4,Math.ceil(fileInfo.pages/4)*4):8;
+  const actual=fileInfo?fileInfo.pages:8;
+
+  // Build spread order
+  const spreads=[];let lo=1,hi=n;
+  while(lo<=hi){spreads.push([hi,lo]);hi--;lo++;if(lo<=hi){spreads.push([lo,hi]);lo++;hi--;}}
+
+  const show=spreads.slice(0,4);
+  const PW=340,GAP=10;
+  const sW=Math.floor((PW-28-GAP*(show.length-1))/show.length);
+  const pW=Math.floor(sW/2),pH=Math.floor(pW*1.42);
+  const PH=pH+58,sx0=(PW-(sW*show.length+GAP*(show.length-1)))/2;
+
+  let c=`<text x="${PW/2}" y="14" text-anchor="middle" class="pvl">${actual} pages \u2192 ${Math.ceil(actual/4)} sheets \u00b7 saddle stitch</text>`;
+
+  show.forEach((sp,i)=>{
+    const sx=sx0+i*(sW+GAP),sy=24;
+    const isCover=i===0,isCenter=i===show.length-1&&show.length>1;
+    const fill=isCover?'var(--al)':isCenter?'#f5f0ff':'var(--al)';
+    const numCol=isCover?'var(--blue)':'#7c3aed';
+
+    // Sheet bg
+    c+=`<rect x="${f(sx)}" y="${sy}" width="${sW}" height="${pH}" rx="3" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.7"/>`;
+    // Fold line
+    c+=`<line x1="${f(sx+sW/2)}" y1="${sy+3}" x2="${f(sx+sW/2)}" y2="${sy+pH-3}" stroke="var(--blue)" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.5"/>`;
+
+    const pad=3;
+    // Left page
+    const lNum=sp[0]>actual?'—':String(sp[0]);
+    c+=`<rect x="${f(sx+pad)}" y="${sy+pad}" width="${f(pW-pad*1.5)}" height="${f(pH-pad*2)}" rx="2" fill="${fill}" stroke="${isCover?'var(--blue)':'#8b5cf6'}" stroke-width="0.5" opacity="0.45"/>`;
+    const fs=Math.max(8,pW*0.28);
+    c+=`<text x="${f(sx+pW/2)}" y="${f(sy+pH/2)}" text-anchor="middle" dominant-baseline="central" class="pvb pvm" style="font-size:${fs}px;fill:${numCol}">${lNum}</text>`;
+    // Right page
+    const rNum=sp[1]>actual?'—':String(sp[1]);
+    c+=`<rect x="${f(sx+sW/2+pad*0.5)}" y="${sy+pad}" width="${f(pW-pad*1.5)}" height="${f(pH-pad*2)}" rx="2" fill="${fill}" stroke="${isCover?'var(--blue)':'#8b5cf6'}" stroke-width="0.5" opacity="0.45"/>`;
+    c+=`<text x="${f(sx+sW/2+pW/2)}" y="${f(sy+pH/2)}" text-anchor="middle" dominant-baseline="central" class="pvb pvm" style="font-size:${fs}px;fill:${numCol}">${rNum}</text>`;
+
+    // Staple marks on cover spread
+    if(isCover&&hasCrop){
+      [0.28,0.72].forEach(fy=>{
+        const sy2=sy+pH*fy;
+        c+=`<line x1="${f(sx+sW/2-5)}" y1="${f(sy2)}" x2="${f(sx+sW/2+5)}" y2="${f(sy2)}" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"/>`;
+      });
+    }
+    const lbl=isCover?'Cover':isCenter?'Center':`Spread ${i+1}`;
+    c+=`<text x="${f(sx+sW/2)}" y="${sy+pH+14}" text-anchor="middle" class="pvl" style="font-size:7.5px">${lbl}</text>`;
+  });
+  if(spreads.length>4){
+    const ex=sx0+show.length*(sW+GAP)-GAP+10;
+    c+=`<text x="${ex}" y="${f(24+pH/2)}" dominant-baseline="central" class="pvl" style="font-size:12px">\u2026</text>`;
+  }
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${pvSty()}${c}</svg>`;
+}
+
+// ── Tile cut preview ───────────────────────
+function pvTile(p){
+  const rows=Math.max(1,Math.min(Math.round(p.rows)||2,8));
+  const cols=Math.max(1,Math.min(Math.round(p.cols)||2,8));
+  const ar=fileInfo?(+fileInfo.p0.hIn/+fileInfo.p0.wIn):(11/8.5);
+  const mxW=220,mxH=170;
+  let dW=mxW,dH=mxW*ar;
+  if(dH>mxH){dH=mxH;dW=mxH/ar;}
+  const PW=340,PH=Math.ceil(dH+52);
+  const ox=(PW-dW)/2,oy=24;
+  const cW=dW/cols,cH=dH/rows;
+
+  let c=`<text x="${PW/2}" y="14" text-anchor="middle" class="pvl">${rows*cols} tiles from 1 page</text>`;
+  c+=`<rect x="${f(ox)}" y="${oy}" width="${f(dW)}" height="${f(dH)}" rx="3" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.8"/>`;
+
+  // Tile numbers
+  for(let r=0;r<rows;r++)for(let c2=0;c2<cols;c2++){
+    const tx=ox+c2*cW+cW/2,ty=oy+r*cH+cH/2;
+    const fs=Math.max(7,Math.min(11,Math.min(cW,cH)*0.26));
+    c+=`<text x="${f(tx)}" y="${f(ty)}" text-anchor="middle" dominant-baseline="central" class="pvr" style="font-size:${fs}px;font-weight:700">${r*cols+c2+1}</text>`;
+  }
+  // Vertical cut lines
+  for(let ci=1;ci<cols;ci++){
+    const lx=ox+ci*cW;
+    c+=`<line x1="${f(lx)}" y1="${oy}" x2="${f(lx)}" y2="${f(oy+dH)}" stroke="var(--red)" stroke-width="0.9" stroke-dasharray="4,3"/>`;
+  }
+  // Horizontal cut lines
+  for(let ri=1;ri<rows;ri++){
+    const ly=oy+ri*cH;
+    c+=`<line x1="${f(ox)}" y1="${f(ly)}" x2="${f(ox+dW)}" y2="${f(ly)}" stroke="var(--red)" stroke-width="0.9" stroke-dasharray="4,3"/>`;
+  }
+  const tW=fileInfo?(+fileInfo.p0.wIn/cols).toFixed(2):(8.5/cols).toFixed(2);
+  const tH=fileInfo?(+fileInfo.p0.hIn/rows).toFixed(2):(11/rows).toFixed(2);
+  c+=`<text x="${PW/2}" y="${f(oy+dH+17)}" text-anchor="middle" class="pvl">Each tile: ${tW}" \u00d7 ${tH}"</text>`;
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${pvSty()}${c}</svg>`;
+}
+
+// ── Page Sizes before/after ────────────────
+function pvPageSizes(p){
+  const mode=(p.mode||'proportional').split(' ')[0].split('(')[0].trim().toLowerCase();
+  const tW=Math.max(0.5,p.w||8.5),tH=Math.max(0.5,p.h||11);
+  const sW=fileInfo?+fileInfo.p0.wIn:8.5,sH=fileInfo?+fileInfo.p0.hIn:11;
+  const PW=340,PH=200;
+  const colW=100,colH=155;
+  const sc1=Math.min(colW/sW,colH/sH),d1W=sW*sc1,d1H=sH*sc1;
+  const sc2=Math.min(colW/tW,colH/tH),d2W=tW*sc2,d2H=tH*sc2;
+  const c1x=62,c2x=PW-62,cy=PH/2;
+  const o1x=c1x-d1W/2,o1y=cy-d1H/2;
+  const o2x=c2x-d2W/2,o2y=cy-d2H/2;
+
+  const clipId='pvc'+Math.round(Math.random()*9999);
+  let defs=mode==='crop'?`<defs><clipPath id="${clipId}"><rect x="${f(o2x)}" y="${f(o2y)}" width="${f(d2W)}" height="${f(d2H)}"/></clipPath></defs>`:'';
+
+  let c='';
+  // Source
+  c+=`<text x="${c1x}" y="13" text-anchor="middle" class="pvl">Original</text>`;
+  c+=`<rect x="${f(o1x)}" y="${f(o1y)}" width="${f(d1W)}" height="${f(d1H)}" rx="3" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.8"/>`;
+  c+=`<text x="${c1x}" y="${f(cy)}" text-anchor="middle" dominant-baseline="central" class="pvl pvm" style="font-size:7.5px">${sW}"\u00d7${sH}"</text>`;
+
+  // Arrow
+  c+=`<text x="${PW/2}" y="${f(cy)}" text-anchor="middle" dominant-baseline="central" style="font-size:18px;fill:var(--blue)">\u2192</text>`;
+
+  // Target outline
+  c+=`<text x="${c2x}" y="13" text-anchor="middle" class="pvb" style="font-size:8px">${mode}</text>`;
+  c+=`<rect x="${f(o2x)}" y="${f(o2y)}" width="${f(d2W)}" height="${f(d2H)}" rx="3" fill="none" stroke="var(--blue)" stroke-width="0.9" stroke-dasharray="5,3"/>`;
+
+  if(mode.startsWith('scale')){
+    c+=`<rect x="${f(o2x+2)}" y="${f(o2y+2)}" width="${f(d2W-4)}" height="${f(d2H-4)}" rx="2" fill="var(--al)" stroke="var(--blue)" stroke-width="0.5"/>`;
+  } else if(mode.startsWith('prop')){
+    const ps=Math.min((d2W-6)/d1W,(d2H-6)/d1H);
+    const pw=d1W*ps,ph=d1H*ps;
+    c+=`<rect x="${f(o2x+2)}" y="${f(o2y+2)}" width="${f(d2W-4)}" height="${f(d2H-4)}" rx="2" fill="white" stroke="none"/>`;
+    c+=`<rect x="${f(o2x+(d2W-pw)/2)}" y="${f(o2y+(d2H-ph)/2)}" width="${f(pw)}" height="${f(ph)}" rx="2" fill="var(--al)" stroke="var(--blue)" stroke-width="0.5" opacity="0.7"/>`;
+  } else if(mode.startsWith('pad')){
+    const ps=Math.min(1,d2W/d1W,d2H/d1H);
+    const pw=d1W*ps,ph=d1H*ps;
+    c+=`<rect x="${f(o2x+2)}" y="${f(o2y+2)}" width="${f(d2W-4)}" height="${f(d2H-4)}" rx="2" fill="white" stroke="none"/>`;
+    c+=`<rect x="${f(o2x+(d2W-pw)/2)}" y="${f(o2y+(d2H-ph)/2)}" width="${f(pw)}" height="${f(ph)}" rx="2" fill="var(--al)" stroke="var(--blue)" stroke-width="0.5" opacity="0.7"/>`;
+  } else if(mode.startsWith('crop')){
+    const ps=Math.max(d2W/d1W,d2H/d1H);
+    const pw=d1W*ps,ph=d1H*ps;
+    c+=defs;
+    c+=`<g clip-path="url(#${clipId})"><rect x="${f(o2x+(d2W-pw)/2)}" y="${f(o2y+(d2H-ph)/2)}" width="${f(pw)}" height="${f(ph)}" fill="var(--al)" stroke="var(--blue)" stroke-width="0.5"/></g>`;
+    c+=`<rect x="${f(o2x)}" y="${f(o2y)}" width="${f(d2W)}" height="${f(d2H)}" rx="3" fill="none" stroke="var(--blue)" stroke-width="1"/>`;
+    defs=''; // already inserted
+  }
+
+  c+=`<text x="${c2x}" y="${f(o2y+d2H+14)}" text-anchor="middle" class="pvl pvm" style="font-size:7.5px">${tW}"\u00d7${tH}"</text>`;
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${pvSty()}${defs}${c}</svg>`;
+}
+
+// ── Rotate preview ─────────────────────────
+function pvRotate(p){
+  const aStr=p.angle||'180°';
+  const deg=aStr.includes('counter')?-90:aStr.includes('90')?90:180;
+  const abs=Math.abs(deg);
+  const PW=340,PH=170,cx=PW/2,cy=PH/2;
+  const pW=42,pH=58;
+  const aW=abs===90?pH:pW,aH=abs===90?pW:pH;
+  const gap=52;
+  const bx=cx-gap/2-pW,by=cy-pH/2;
+  const ax=cx+gap/2,ay=cy-aH/2;
+
+  const pageLines=(x,y,w,h,col)=>
+    [.22,.36,.5,.64].map(fy=>`<line x1="${f(x+6)}" y1="${f(y+h*fy)}" x2="${f(x+w-6)}" y2="${f(y+h*fy)}" stroke="${col}" stroke-width="0.6"/>`).join('');
+
+  let c='';
+  // Before
+  c+=`<rect x="${f(bx)}" y="${f(by)}" width="${pW}" height="${pH}" rx="3" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.8"/>`;
+  c+=pageLines(bx,by,pW,pH,'rgba(0,0,0,0.1)');
+  c+=`<text x="${f(bx+pW/2)}" y="${f(by-10)}" text-anchor="middle" class="pvl">Before</text>`;
+
+  // Rotation arc
+  const r=20,arcLg=abs>=180?1:0,arcSw=deg<0?0:1;
+  const a1x=cx-r,a1y=cy-14,a2x=cx+r,a2y=cy-14;
+  c+=`<path d="M ${f(a1x)} ${f(a1y)} A ${r} ${r} 0 ${arcLg} ${arcSw} ${f(a2x)} ${f(a2y)}" fill="none" stroke="var(--blue)" stroke-width="1.4"/>`;
+  // Arrowhead tip
+  const tipAngle=deg>0?40:-40;
+  c+=`<polygon points="${a2x-4},${a2y-5} ${a2x+5},${a2y} ${a2x-4},${a2y+4}" fill="var(--blue)" transform="rotate(${tipAngle},${a2x},${a2y})"/>`;
+  c+=`<text x="${cx}" y="${f(cy-14-r-6)}" text-anchor="middle" class="pvb" style="font-size:10px">${abs}\u00b0${deg<0?' CCW':' CW'}</text>`;
+
+  // After
+  c+=`<rect x="${f(ax)}" y="${f(ay)}" width="${aW}" height="${aH}" rx="3" fill="var(--al)" stroke="var(--blue)" stroke-width="0.8" opacity="0.8"/>`;
+  c+=pageLines(ax,ay,aW,aH,'rgba(0,113,227,0.25)');
+  c+=`<text x="${f(ax+aW/2)}" y="${f(ay+aH+10)}" text-anchor="middle" class="pvl" style="fill:var(--blue)">After</text>`;
+
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${pvSty()}${c}</svg>`;
+}
+
+// ── Stamp position preview ─────────────────
+function pvStamp(p,type){
+  let lbl='';
+  if(type==='number') lbl=(p.prefix||'')+(p.startNum||1)+(p.suffix||'');
+  else if(type==='bates') lbl=(p.prefix||'')+String(p.startNum||1).padStart(p.digits||6,'0');
+  else lbl=(p.fields||'filename').split(' ')[0];
+  lbl=(lbl+'').slice(0,16)||'stamp';
+
+  const pos=p.pos||'Bottom Centre';
+  const ar=fileInfo?(+fileInfo.p0.hIn/+fileInfo.p0.wIn):(11/8.5);
+  const mxW=170,mxH=140;
+  let dW=mxW,dH=mxW*ar;
+  if(dH>mxH){dH=mxH;dW=mxH/ar;}
+  const PW=340,PH=Math.ceil(dH+52);
+  const ox=(PW-dW)/2,oy=22;
+
+  const pu=pos.toUpperCase().replace(/\s+/g,'');
+  const isT=pu.includes('TOP'),isL=pu.includes('LEFT'),isR=pu.includes('RIGHT');
+  const bW=Math.min(dW*0.55,74),bH=12;
+  const bx=isL?ox+5:isR?ox+dW-bW-5:ox+(dW-bW)/2;
+  const by=isT?oy+5:oy+dH-bH-5;
+
+  let c=`<text x="${PW/2}" y="14" text-anchor="middle" class="pvl">Position: ${pos}</text>`;
+  c+=`<rect x="${f(ox)}" y="${oy}" width="${f(dW)}" height="${f(dH)}" rx="3" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.8"/>`;
+  // Page lines
+  [.2,.32,.44,.55,.66].forEach(fy=>c+=`<line x1="${f(ox+8)}" y1="${f(oy+dH*fy)}" x2="${f(ox+dW-8)}" y2="${f(oy+dH*fy)}" stroke="rgba(0,0,0,0.07)" stroke-width="0.7"/>`);
+  // Stamp badge
+  c+=`<rect x="${f(bx)}" y="${f(by)}" width="${f(bW)}" height="${bH}" rx="2" fill="rgba(255,149,0,0.15)" stroke="rgba(255,149,0,0.55)" stroke-width="0.7"/>`;
+  const bfs=Math.min(8,bH*0.72);
+  c+=`<text x="${f(bx+bW/2)}" y="${f(by+bH/2)}" text-anchor="middle" dominant-baseline="central" class="pvm" style="font-size:${bfs}px;font-weight:700;fill:#7a4a00">${lbl}</text>`;
+  c+=`<text x="${PW/2}" y="${f(oy+dH+17)}" text-anchor="middle" class="pvl">${pos}</text>`;
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${pvSty()}${c}</svg>`;
+}
+
+// ── Insert blanks preview ──────────────────
+function pvInsert(p){
+  const count=Math.max(1,p.count||1);
+  const where=p.where||'before first page';
+  const n=fileInfo?fileInfo.pages:6;
+  const newN=n+count;
+  const PW=340,PH=160,cy=PH/2;
+
+  const sW=32,sH=44,maxShow=5;
+  let c='';
+
+  // Before stack
+  const b1x=52,bsy=cy-sH/2;
+  for(let i=Math.min(n-1,maxShow-1);i>=0;i--)
+    c+=`<rect x="${f(b1x-i*2)}" y="${f(bsy+i*1.5)}" width="${sW}" height="${sH}" rx="2" fill="var(--surface)" stroke="var(--b2)" stroke-width="0.6"/>`;
+  c+=`<text x="${f(b1x+sW/2)}" y="${f(bsy+sH+14)}" text-anchor="middle" class="pvb">${n}</text>`;
+  c+=`<text x="${f(b1x+sW/2)}" y="${f(bsy+sH+25)}" text-anchor="middle" class="pvl">pages</text>`;
+
+  // Arrow
+  c+=`<text x="${PW/2}" y="${f(cy)}" text-anchor="middle" dominant-baseline="central" style="font-size:18px;fill:var(--green)">\u2192</text>`;
+
+  // After stack — blanks shown dashed
+  const b2x=PW-90,asy=cy-sH/2;
+  const total=Math.min(newN-1,maxShow+1);
+  for(let i=total;i>=0;i--){
+    const blankAtStart=where.includes('before')&&i>=(newN-count-1);
+    // actually let's think: for "before first page", blank pages are at the beginning (smallest indices when stacked bottom=first)
+    // In the stacked visual, index 0 = bottom of stack = first page. i counts down from top.
+    // For "before first": blanks are pages 1..count, i.e. the bottom of the stack (high i values in our reversed render)
+    const isBlank=where.includes('before')?i>=(total-count+1-1):i<count;
+    c+=`<rect x="${f(b2x-i*1.5)}" y="${f(asy+i*1.2)}" width="${sW}" height="${sH}" rx="2" fill="${isBlank?'var(--bg)':'var(--surface)'}" stroke="${isBlank?'rgba(48,209,88,0.5)':'var(--b2)'}" stroke-width="0.6" ${isBlank?'stroke-dasharray="3,2"':''}/>`;
+  }
+  c+=`<text x="${f(b2x+sW/2)}" y="${f(asy+sH+14)}" text-anchor="middle" class="pvb" style="fill:var(--green)">${newN}</text>`;
+  c+=`<text x="${f(b2x+sW/2)}" y="${f(asy+sH+25)}" text-anchor="middle" class="pvl">pages</text>`;
+
+  c+=`<text x="${PW/2}" y="${f(cy+36)}" text-anchor="middle" class="pvl">+${count} blank ${count===1?'page':'pages'} ${where.includes('before')?'at start':'at end'}</text>`;
+
+  return`<svg viewBox="0 0 ${PW} ${PH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${pvSty()}${c}</svg>`;
+}
+
+// ── helper: 1-decimal float string ────────
+function f(n){return n.toFixed(1);}
+
+// ── Wire up all input listeners ────────────
+function setupPreviewListeners(tid){
+  if(!PREVIEW_TOOLS.has(tid))return;
+  const tool=TOOL_MAP[tid];if(!tool)return;
+  tool.params.forEach(pr=>{
+    const el=document.getElementById('tp_'+pr.id);
+    if(!el)return;
+    el.addEventListener('input',()=>updateImpositionPreview(tid));
+    el.addEventListener('change',()=>updateImpositionPreview(tid));
+  });
+  updateImpositionPreview(tid); // initial render
+}
+
+function buildInput(p){
+  if(p.type==='select'){
+    const opts=p.opts.split('||').map(o=>`<option value="${o}"${o===p.def?' selected':''}>${o}</option>`).join('');
+    return`<select id="tp_${p.id}" class="pinput">${opts}</select>`;
+  }
+  if(p.type==='sheet'){
+    const opts=SHEETS.map(s=>`<option value="${s.n}"${s.n===p.def?' selected':''}>${s.n}</option>`).join('');
+    return`<select id="tp_${p.id}" class="pinput">${opts}</select>`;
+  }
+  const step=p.type==='inches'?'0.001':'1';
+  return`<input id="tp_${p.id}" type="number" class="pinput" value="${p.def??0}" min="${p.min??0}" ${p.max!==undefined?`max="${p.max}"`:''}  step="${step}">`;
+}
+
+function renderSeqPanel(panel,id){
+  const seq=SEQUENCES.find(s=>s.id===id);if(!seq)return;
+  const resultHtml=resultBytes?`<div class="result-banner">
+    <span style="font-size:22px">✅</span>
+    <div style="flex:1"><div style="font-size:14px;font-weight:700;color:#1a8a3d;">Complete — ${(resultBytes.length/1024).toFixed(0)} KB</div></div>
+    <button class="dl-btn" onclick="downloadResult()">⬇ Download</button>
+  </div>`:'';
+  const steps=seq.steps.map((s,i)=>`
+    <div class="step-card" style="animation-delay:${i*45}ms">
+      <div class="snum">${String(i+1).padStart(2,'0')}</div>
+      <div>
+        <div class="scmd-row"><span class="scmd c-${TOOL_MAP[s.cmd]?.cls||'PT'}">${CMD_LABEL[s.cmd]||s.cmd}</span><span class="ctag t-${TOOL_MAP[s.cmd]?.cls||'PT'}">${s.cmd}</span></div>
+        <ul class="sdesc">${(s.desc||[]).map(d=>`<li>${d}</li>`).join('')}</ul>
+      </div>
+      <div class="ssvg">${stepSvg(s.cmd,s.p)}</div>
+    </div>`).join('');
+  panel.innerHTML=`<div class="detail">
+    <div class="sc">
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">${seq.name}</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="ic" style="background:var(--bg)"><div class="ic-l">Steps</div><div class="ic-v" style="color:var(--blue)">${seq.steps.length}</div></div>
+        <div class="ic" style="background:var(--bg)"><div class="ic-l">File</div><div class="ic-v" style="font-size:11px;color:var(--green)">${pdfFilename}</div></div>
+      </div>
+      ${seq.promptText?`<div class="prompt-notice">⚠ ${seq.promptText}</div>`:''}
+      ${resultHtml}
+      <button class="run-btn" onclick="runSeq()" style="margin-top:4px">▶ ${resultBytes?'Run Again':'Run Sequence'}</button>
+    </div>
+    <div class="sc"><div class="sc-lbl">Pipeline</div><div class="pip-scroll">${buildPip(seq.steps)}</div></div>
+    <div class="steps-grid">${steps}</div>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   RUN ACTIONS
+══════════════════════════════════════════ */
+async function runSeq(){
+  const seq=SEQUENCES.find(s=>s.id===currentSeqId);
+  if(!seq||!pdfBytes)return;
+  await execRun(seq.steps);
+}
+async function runTool(tid){
+  const tool=TOOL_MAP[tid];if(!tool||!pdfBytes){if(!pdfBytes)alert('Upload a PDF first.');return;}
+  const p=getParams(tid);
+  await execRun([{cmd:tid,p,desc:Object.entries(p).slice(0,3).map(([k,v])=>`${k}:${v}`)}]);
+}
+async function runCustom(){
+  if(!customSteps.length||!pdfBytes){alert(!pdfBytes?'Upload a PDF first.':'Add at least one step.');return;}
+  await execRun(customSteps);
+}
+async function execRun(steps){
+  const btn=document.querySelector('.run-btn');if(btn)btn.disabled=true;
+  showProg(true);
+  try{
+    const{doc}=await doRun(steps,(msg,pct)=>setProg(msg,pct));
+    setProg('Saving…',96);await sleep(40);
+    resultBytes=await doc.save();
+    setProg('Done!',100);await sleep(200);
+    showProg(false);if(btn)btn.disabled=false;
+    downloadResult();renderMain();
+  }catch(e){
+    showProg(false);if(btn)btn.disabled=false;
+    alert('Error: '+e.message+'\n\nMake sure the PDF is not password protected.');
+    console.error(e);
+  }
+}
+function getParams(tid){
+  const tool=TOOL_MAP[tid];if(!tool)return{};
+  const p={};
+  tool.params.forEach(param=>{
+    const el=document.getElementById('tp_'+param.id);
+    if(!el)return;
+    if(param.type==='number')p[param.id]=+el.value;
+    else if(param.type==='inches'){p[param.id+'In']=+el.value;p[param.id]=+el.value*IN;}
+    else p[param.id]=el.value;
+  });
+  if(p.sheet&&p.sheet!=='Custom…'){
+    const sh=SHEETS.find(s=>s.n===p.sheet);
+    if(sh&&sh.w>0){p.sheetWin=sh.w;p.sheetW=sh.w*IN;p.sheetHin=sh.h;p.sheetH=sh.h*IN;}
+    else{p.sheetWin=+p.sheetWin||11;p.sheetW=p.sheetWin*IN;p.sheetHin=+p.sheetHin||17;p.sheetH=p.sheetHin*IN;}
+  }
+  return p;
+}
+function addToCustom(tid){
+  const p=getParams(tid);
+  customSteps.push({cmd:tid,p,desc:[Object.entries(p).slice(0,2).map(([k,v])=>`${k}:${v}`).join(' ')]});
+  renderBuilderList();switchTab('builder');
+}
+function removeStep(i){customSteps.splice(i,1);renderBuilderList();}
+function clearCustom(){customSteps=[];renderBuilderList();}
+
+/* ══════════════════════════════════════════
+   BIG EXPLAINER SVGs
+══════════════════════════════════════════ */
+function bigSvg(tid){
+  const W=210,H=150;
+  const defs='<defs><marker id="a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0,0 6,3 0,6" fill="#86868b"/></marker><marker id="ab" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0,0 6,3 0,6" fill="#0071e3"/></marker><marker id="ag" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0,0 6,3 0,6" fill="#30d158"/></marker><marker id="ao" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0,0 6,3 0,6" fill="#ff9500"/></marker></defs>';
+  function pg(x,y,w,h,s='#d1d1d6',f='#f9f9fb',lns=3){let g=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}" stroke="${s}" stroke-width=".8" rx="2"/>`;for(let i=0;i<lns;i++){const ly=y+5+i*(h-8)/lns;g+=`<line x1="${x+3}" y1="${ly}" x2="${x+w-4}" y2="${ly}" stroke="#e5e5ea" stroke-width=".8"/>`;}return g;}
+  function txt(x,y,t,c='#86868b',sz=7,b=false){return`<text x="${x}" y="${y}" font-size="${sz}" fill="${c}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif"${b?' font-weight="700"':''}>${t}</text>`;}
+  function arr(x1,y1,x2,y2,c='#86868b'){return`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="1.3" marker-end="url(#${c==='#0071e3'?'ab':c==='#30d158'?'ag':c==='#ff9500'?'ao':'a'})"/>`;}
+
+  switch(tid){
+    case 'SimpleBooklet':{
+      let b='';
+      [0,1,2,3,4,5,6,7].forEach((i)=>b+=pg(8+i*3,H/2-22+i*2,22,36,'#d1d1d6','#f9f9fb',2));
+      b+=txt(20,H-10,'8 pages','#86868b');
+      b+=arr(56,H/2,88,H/2,'#0071e3')+txt(72,H/2-12,'impose','#0071e3',7,true);
+      const bx=92,bw=56,bh=44;
+      b+=`<rect x="${bx}" y="${H/2-bh/2}" width="${bw}" height="${bh}" fill="#f9f9fb" stroke="#d1d1d6" stroke-width=".8" rx="2"/>`;
+      b+=`<line x1="${bx+bw/2}" y1="${H/2-bh/2+3}" x2="${bx+bw/2}" y2="${H/2+bh/2-3}" stroke="#0071e3" stroke-width=".6" stroke-dasharray="2,2"/>`;
+      b+=pg(bx+2,H/2-bh/2+3,bw/2-4,bh-6,'#e5e5ea','#fff',2)+pg(bx+bw/2+2,H/2-bh/2+3,bw/2-4,bh-6,'#e5e5ea','#fff',2);
+      b+=txt(bx+bw/2,H/2-bh/2-8,'Fold + staple','#0071e3',7,true);
+      b+=`<path d="M ${bx+bw/2} ${H/2+bh/2+2} Q ${bx+bw/2} ${H/2+bh/2+16} ${bx+bw+6} ${H/2+bh/2+16}" stroke="#0071e3" fill="none" stroke-width="1" stroke-dasharray="2,2"/>`;
+      b+=txt(bx+bw+18,H/2+bh/2+16,'✂','#0071e3',12);
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${b}</svg>`;}
+    case 'Nup':{
+      let b=pg(8,H/2-22,20,36,'#d1d1d6','#f9f9fb');
+      b+=txt(18,H-10,'1 page','#86868b');
+      b+=arr(32,H/2,54,H/2,'#0071e3');
+      const sx=58,sw=64,sh=80;
+      b+=`<rect x="${sx}" y="${H/2-sh/2}" width="${sw}" height="${sh}" fill="#f0fff4" stroke="#30d158" stroke-width=".8" rx="3"/>`;
+      const cw=sw/2,rh=sh/2;
+      for(let r=0;r<2;r++)for(let c=0;c<2;c++)b+=pg(sx+1+c*cw+1,H/2-sh/2+1+r*rh+1,cw-4,rh-4,'#d1d1d6','#fff',2);
+      b+=txt(sx+sw/2,H/2-sh/2-8,'4 pages on 1 sheet','#30d158',7,true);
+      b+=txt(sx+sw/2,H-10,'2×2 layout','#30d158');
+      b+=`<line x1="${sx-2}" y1="${H/2-sh/2}" x2="${sx-2}" y2="${H/2+sh/2}" stroke="#30d158" stroke-width=".6"/>`;
+      b+=txt(sx-12,H/2,'height','#30d158',6);
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${b}</svg>`;}
+    case 'StepAndRepeat':{
+      const sx=40,sw=14,sh=20;
+      let b=pg(8,H/2-sh/2-2,sw+2,sh+4,'#0071e3','#edf4fd');
+      b+=txt(9+sw/2,H/2+sh/2+8,'Original','#0071e3',6,true);
+      b+=arr(26,H/2,36,H/2,'#0071e3');
+      const gs=72,gc=3,gr=3,gw=gs*gc,gh=gs*gr/2;
+      for(let r=0;r<gr;r++)for(let c=0;c<gc;c++)b+=pg(sx+c*(sw+4),H/2-gh/2+r*(sh+2),sw,sh,'#d1d1d6','#fff',1);
+      b+=txt(sx+gw/2,H/2+gh/2+10,'Same page, 9 times','#30d158',7,true);
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${b}</svg>`;}
+    case 'PageSizes':{
+      let b=pg(10,H/2-18,24,36,'#d1d1d6','#f9f9fb');
+      b+=txt(22,H-10,'Your page','#86868b');
+      b+=arr(38,H/2,60,H/2,'#0071e3');
+      b+=txt(49,H/2-10,'resize','#0071e3',7,true);
+      b+=`<rect x="62" y="${H/2-26}" width="44" height="52" fill="#f0fff4" stroke="#30d158" stroke-width=".8" rx="2" stroke-dasharray="4,2"/>`;
+      b+=pg(70,H/2-18,28,36,'#d1d1d6','#fff');
+      b+=txt(62+22,H-10,'Resized','#30d158');
+      b+=`<line x1="62" y1="${H/2}" x2="68" y2="${H/2}" stroke="#30d158" stroke-width=".8"/>`;
+      b+=`<line x1="98" y1="${H/2}" x2="104" y2="${H/2}" stroke="#30d158" stroke-width=".8"/>`;
+      b+=txt(84,H/2-30,'+ padding','#30d158',6);
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${b}</svg>`;}
+    case 'PageTools_rotate':{
+      let b=pg(14,H/2-20,28,38);
+      b+=txt(28,H-10,'Before','#86868b');
+      b+=`<path d="M 46 ${H/2-16} Q 105 ${H/2-36} 164 ${H/2-16}" stroke="#0071e3" fill="none" stroke-width="1.5" marker-end="url(#ab)"/>`;
+      b+=txt(105,H/2-40,'180°','#0071e3',14,true);
+      b+=`<g transform="rotate(180 ${172+14} ${H/2})">${pg(172,H/2-20,28,38,'#0071e3','#edf4fd')}</g>`;
+      b+=txt(186,H-10,'After','#0071e3');
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${b}</svg>`;}
+    case 'GenerateBleed':{
+      let b=pg(8,H/2-28,50,56,'#ff3b30','#fff5f5',3);
+      b+=txt(33,H/2-28-10,'No bleed!','#ff3b30',7,true);
+      b+=arr(62,H/2,82,H/2,'#ff6b2b');
+      b+=`<rect x="84" y="${H/2-34}" width="62" height="68" fill="rgba(255,107,43,.1)" stroke="#ff6b2b" stroke-width=".8" rx="2" stroke-dasharray="3,2"/>`;
+      b+=pg(92,H/2-28,46,56,'#d1d1d6','#f9f9fb',3);
+      b+=txt(115,H/2-34-10,'Bleed added','#ff6b2b',7,true);
+      b+=`<line x1="84" y1="${H/2}" x2="92" y2="${H/2}" stroke="#ff6b2b" stroke-width="1"/>`;
+      b+=`<line x1="138" y1="${H/2}" x2="146" y2="${H/2}" stroke="#ff6b2b" stroke-width="1"/>`;
+      b+=txt(115,H/2+38,'← bleed zone →','#ff6b2b',6);
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${b}</svg>`;}
+    default:
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${pg((W-50)/2,(H-70)/2,50,70)}</svg>`;
+  }
+}
+function stepSvg(cmd,p={}){const W=180,H=90;return bigSvgAt(cmd,W,H);}
+function bigSvgAt(cmd,W,H){const map={PageTools:'PageTools_rotate',SimpleBooklet:'SimpleBooklet',Nup:'Nup',StepAndRepeat:'StepAndRepeat',PageSizes:'PageSizes'};return bigSvg(map[cmd]||cmd).replace(/width="\d+"/, `width="${W}"`).replace(/height="\d+"/, `height="${H}"`).replace(/viewBox="0 0 \d+ \d+"/, `viewBox="0 0 210 150"`);}
+
+function buildPip(steps){
+  const BW=82,BH=32,GAP=20,PAD=8,H=BH+22,W=steps.length*(BW+GAP)+PAD*2;
+  let b='';
+  steps.forEach((s,i)=>{
+    const x=PAD+i*(BW+GAP),y=3,col=PCOL[s.cmd]||'#86868b';
+    b+=`<rect x="${x}" y="${y}" width="${BW}" height="${BH}" fill="white" stroke="${col}" stroke-width=".8" rx="10"/>`;
+    b+=`<text x="${x+13}" y="${y+BH/2}" font-size="11" fill="${col}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">${PICO[s.cmd]||'?'}</text>`;
+    b+=`<text x="${x+BW/2+4}" y="${y+BH/2}" font-size="6.5" fill="${col}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="600">${PSHORT[s.cmd]||s.cmd}</text>`;
+    b+=`<text x="${x+BW/2}" y="${y+BH+12}" font-size="6" fill="#86868b" text-anchor="middle" font-family="sans-serif">${String(i+1).padStart(2,'0')}</text>`;
+    if(i<steps.length-1)b+=`<line x1="${x+BW+1}" y1="${y+BH/2}" x2="${x+BW+GAP-2}" y2="${y+BH/2}" stroke="#d1d1d6" stroke-width="1" marker-end="url(#a)"/>`;
+  });
+  return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><defs><marker id="a" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><polygon points="0,0 5,2.5 0,5" fill="#d1d1d6"/></marker></defs>${b}</svg>`;
+}
+const PCOL={SimpleBooklet:'#ff375f',Nup:'#bf5af2',StepAndRepeat:'#30d158',PageSizes:'#00b4d8',PageTools:'#0a84ff',InsertBlanks:'#ff9500',AddNumbers:'#ff6b2b',DefineBleed:'#ff2d55',Reverse:'#ff375f',Shuffle:'#bf5af2',TilePages:'#5ac8fa',TrimShift:'#34c759',GenerateBleed:'#ff6b2b',SplitMerge:'#30d158',BatesStamp:'#ff9500',StickOnFields:'#0a84ff',ImpositionInfo:'#0a84ff',PageTools_rotate:'#0a84ff',PageTools_dup:'#0a84ff',PageTools_delete:'#ff3b30',PageTools_move:'#30d158'};
+const PICO={SimpleBooklet:'📖',Nup:'⊞',StepAndRepeat:'⊡',PageSizes:'⬜',PageTools:'⟳',InsertBlanks:'+',AddNumbers:'#',DefineBleed:'⊛',Reverse:'⇅',Shuffle:'🔀',TilePages:'⊟',TrimShift:'↔',GenerateBleed:'⊛',SplitMerge:'⇌',BatesStamp:'🔢',StickOnFields:'🏷',ImpositionInfo:'ℹ',PageTools_rotate:'⟳',PageTools_dup:'⧉',PageTools_delete:'🗑',PageTools_move:'↕'};
+const PSHORT={SimpleBooklet:'Booklet',Nup:'N-Up',StepAndRepeat:'Step&Rpt',PageSizes:'PageSizes',PageTools:'PageTools',InsertBlanks:'Insert',AddNumbers:'Numbers',DefineBleed:'Bleed',Reverse:'Reverse',Shuffle:'Shuffle',TilePages:'Tile',TrimShift:'Creep',GenerateBleed:'Bleed+',SplitMerge:'Split',BatesStamp:'Bates',StickOnFields:'Fields',ImpositionInfo:'Info',PageTools_rotate:'Rotate',PageTools_dup:'Dup',PageTools_delete:'Delete',PageTools_move:'Move'};
+
+/* ══════════════════════════════════════════
+   FILE UPLOAD LOGIC
+══════════════════════════════════════════ */
+function catOf(s){
+  const has=c=>s.steps.some(x=>x.cmd===c);
+  if(has('SimpleBooklet'))return'booklet';
+  if(has('StepAndRepeat')||has('Nup'))return'nup';
+  if(s.steps.every(x=>x.cmd==='PageSizes'))return'size';
+  return'other';
+}
+
+function loadFile(file){
+  if(!file)return;
+  pdfFilename=file.name;
+  const r=new FileReader();
+  r.onload=async e=>{
+    if(!e.target.result || e.target.result.byteLength === 0) {
+      alert('File is empty.'); clearFile(); return;
+    }
+    pdfBytes=new Uint8Array(e.target.result);
+    resultBytes=null; infoData=null;
+
+    document.getElementById('file-pill').classList.add('loaded');
+    document.getElementById('file-label').textContent=file.name+' ('+Math.round(file.size/1024)+' KB)';
+
+    const panel=document.getElementById('main-panel');
+    panel.innerHTML='<div class="drop-zone"><div style="text-align:center"><div class="spinner" style="margin:0 auto 16px"></div><div style="font-weight:600">Analyzing Prepress Data...</div></div></div>';
+
+    await new Promise(res=>setTimeout(res,30));
+
+    try {
+        const doc = await PDFDocument.load(pdfBytes, {ignoreEncryption:true});
+        const pgs = doc.getPages();
+        let meta = {colorMode:'Unknown',hasCMYK:false,hasRGB:false,spots:[],fontList:[],totalFonts:0,fdMissCount:0,fontsAllEmbedded:true,hasTrans:false,hasOverprint:false,pdfVer:'?'};
+        try { meta = parsePdfMeta(pdfBytes); } catch(me) { console.warn(me); }
+
+        fileInfo = buildFileInfo(file, doc, pgs, meta);
+        currentToolId = null; 
+        currentSeqId = null;
+        document.querySelectorAll('.tool-btn, .seq-item').forEach(el=>el.classList.remove('active'));
+        renderMain();
+    } catch(err) {
+        console.error(err);
+        panel.innerHTML=`<div class="drop-zone"><div style="text-align:center;color:var(--red)"><b>Error loading PDF:</b><br>${err.message}</div></div>`;
+    }
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function clearFile(){
+  pdfBytes=null;resultBytes=null;infoData=null;pdfFilename='document.pdf';fileInfo=null;
+  document.getElementById('file-pill').classList.remove('loaded');
+  document.getElementById('file-label').textContent='Drop a PDF or click to upload';
+  document.getElementById('upload-input').value='';renderMain();
+}
+
+function downloadResult(){
+  if(!resultBytes)return;
+  const blob=new Blob([resultBytes],{type:'application/pdf'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  const base=pdfFilename.replace(/\.pdf$/i,'');
+  const suf=currentSeqId!==null?SEQUENCES.find(s=>s.id===currentSeqId)?.name.replace(/[^a-z0-9]/gi,'_'):currentToolId||'output';
+  a.href=url;a.download=base+'_'+suf+'.pdf';a.click();URL.revokeObjectURL(url);
+}
+
+function showProg(v){document.getElementById('prog').classList.toggle('show',v);}
+function setProg(msg,pct){document.getElementById('prog-msg').textContent=msg;document.getElementById('prog-b').style.width=pct+'%';}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.sb-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.querySelectorAll('.sb-pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+tab));
+  if(tab==='batch')batchRenderMain();
+}
+
+/* ══════════════════════════════════════════
+   INIT & LISTENERS
+══════════════════════════════════════════ */
+document.querySelectorAll('.sb-tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+document.getElementById('ftabs').querySelectorAll('.ftab').forEach(t=>t.addEventListener('click',()=>{
+  currentFilter=t.dataset.f;
+  document.querySelectorAll('.ftab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');renderSeqList();
+}));
+document.getElementById('search').addEventListener('input',renderSeqList);
+document.getElementById('upload-input').addEventListener('change',e=>loadFile(e.target.files[0]));
+document.getElementById('file-pill').addEventListener('click',()=>document.getElementById('upload-input').click());
+document.body.addEventListener('dragover',e=>{e.preventDefault();if(currentTab==='batch'){document.body.classList.add('batch-drag');}});
+document.body.addEventListener('dragleave',e=>{if(!e.relatedTarget)document.body.classList.remove('batch-drag');});
+document.body.addEventListener("drop",e=>{e.preventDefault();document.body.classList.remove("batch-drag");if(currentTab==="batch"){batchAddFiles(e.dataTransfer.files);}else{const f=e.dataTransfer.files[0];if(f&&f.name.toLowerCase().endsWith(".pdf"))loadFile(f);}});
+
+/* ══════════════════════════════════════════
+   BATCH MANAGER
+══════════════════════════════════════════ */
+let batchFiles = [];      
+let batchSelected = new Set();
+let batchSortCol = 'name';
+let batchSortAsc = true;
+let batchIdSeq = 0;
+let batchRenderTimer = null;
+
+async function batchAddFiles(files) {
+  const arr = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (!arr.length) return;
+  const newEntries = arr.map(file => {
+    const id = ++batchIdSeq;
+    const entry = {id, file, name:file.name, sizeBytes:file.size, pageCount:'…', pageW:null, pageH:null, status:'loading', error:null};
+    batchFiles.push(entry);
+    batchSelected.add(id);
+    return entry;
+  });
+  batchRenderAll(); 
+  let completed = 0;
+  const loadOne = async (entry) => {
+    try {
+      const bytes = await entry.file.arrayBuffer();
+      const doc = await PDFDocument.load(new Uint8Array(bytes), {ignoreEncryption:true});
+      const pgs = doc.getPages();
+      entry.pageCount = pgs.length;
+      if (pgs.length > 0) { entry.pageW = pgs[0].getWidth(); entry.pageH = pgs[0].getHeight(); }
+      entry.status = 'ready';
+    } catch(e) {
+      entry.status = 'error'; entry.error = e.message; entry.pageCount = '—';
+    }
+    completed++;
+    if (completed === newEntries.length) {
+      batchRenderAll();
+      await batchAutoDownload(newEntries);
+    } else {
+      clearTimeout(batchRenderTimer);
+      batchRenderTimer = setTimeout(batchRenderAll, 220);
+    }
+  };
+  await Promise.all(newEntries.map(loadOne));
+}
+
+async function batchAutoDownload(entries) {
+  const ready = entries.filter(e => e.status === 'ready');
+  if (!ready.length) return;
+  showProg(true);
+  setProg('Building ZIP with ' + ready.length + ' file' + (ready.length===1?'':'s') + '…', 0);
+  try {
+    const zip = new JSZip();
+    for (let i = 0; i < ready.length; i++) {
+      const e = ready[i];
+      const pct = Math.round((i / ready.length) * 88);
+      setProg('Adding ' + e.name + ' (' + (i+1) + '/' + ready.length + ')…', pct);
+      await new Promise(r => setTimeout(r, 8));
+      const bytes = await e.file.arrayBuffer();
+      const pageStr = (typeof e.pageCount === 'number') ? e.pageCount : '0';
+      zip.file(pageStr + ' ' + e.name, bytes);
+    }
+    setProg('Creating ZIP…', 90);
+    await new Promise(r => setTimeout(r, 20));
+    const blob = await zip.generateAsync({type:'blob', compression:'STORE'}, meta => setProg('Compressing… ' + Math.round(meta.percent) + '%', 90 + Math.round(meta.percent / 10)));
+    setProg('Done! Downloading…', 100);
+    await new Promise(r => setTimeout(r, 200));
+    showProg(false);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'batch_' + ready.length + '_files.zip'; a.click(); URL.revokeObjectURL(url);
+  } catch(err) { showProg(false); alert('ZIP error: ' + err.message); }
+}
+
+function batchFilter() {
+  const f = (document.getElementById('batch-filter')||{}).value || 'all';
+  const pgMin = +(document.getElementById('batch-pg-min')||{}).value || 0;
+  const pgMax = +(document.getElementById('batch-pg-max')||{}).value || Infinity;
+  return batchFiles.filter(e => {
+    if (typeof e.pageCount === 'number') { if (e.pageCount < pgMin || (pgMax > 0 && e.pageCount > pgMax)) return false; }
+    if (f === 'all') return true;
+    if (!e.pageW) return true;
+    const w = e.pageW/72, h = e.pageH/72, tol = 0.1;
+    if (f==='letter')    return Math.abs(w-8.5)<tol && Math.abs(h-11)<tol;
+    if (f==='tabloid')   return Math.abs(w-11)<tol && Math.abs(h-17)<tol;
+    if (f==='a4')        return Math.abs(w-8.27)<tol && Math.abs(h-11.69)<tol;
+    if (f==='legal')     return Math.abs(w-8.5)<tol && Math.abs(h-14)<tol;
+    if (f==='square')    return Math.abs(w-h)<tol;
+    if (f==='landscape') return w > h;
+    if (f==='portrait')  return h > w;
+    return true;
+  });
+}
+function batchSort(list) {
+  return [...list].sort((a,b) => {
+    let va=a[batchSortCol], vb=b[batchSortCol];
+    if (batchSortCol==='sizeBytes'||batchSortCol==='pageCount') { va=+va||0; vb=+vb||0; }
+    else { va=String(va).toLowerCase(); vb=String(vb).toLowerCase(); }
+    return batchSortAsc ? (va>vb?1:va<vb?-1:0) : (va<vb?1:va>vb?-1:0);
+  });
+}
+function fmtSize(bytes) { return bytes > 1048576 ? (bytes/1048576).toFixed(2)+' MB' : (bytes/1024).toFixed(1)+' KB'; }
+function fmtDim(e) { return !e.pageW ? '—' : `${(e.pageW/72).toFixed(2)}" × ${(e.pageH/72).toFixed(2)}"`; }
+function fmtDimShort(e) { return !e.pageW ? '' : `${(e.pageW/72).toFixed(1)}×${(e.pageH/72).toFixed(1)}"`; }
+
+function batchRenderAll() { batchRenderSidebar(); if (currentTab === 'batch') batchRenderMain(); }
+
+function batchRenderSidebar() {
+  const el = document.getElementById('batch-list-sb'); if (!el) return;
+  if (!batchFiles.length) { el.innerHTML='<div style="padding:20px 14px;font-size:11px;color:var(--muted);text-align:center">No PDFs added yet</div>'; return; }
+  el.innerHTML = batchFiles.map(e => `
+    <div class="bfile-row ${batchSelected.has(e.id)?'selected':''}" onclick="batchToggle(${e.id})">
+      <div class="bfile-check">${batchSelected.has(e.id)?'<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>':''}</div>
+      <div style="flex:1;min-width:0">
+        <div class="bfile-name">${e.name}</div>
+        <div class="bfile-meta">${fmtSize(e.sizeBytes)} · ${e.status==='loading'?'loading…':e.pageCount+' pages'} ${fmtDimShort(e)}</div>
+      </div>
+      <button class="bfile-del" onclick="event.stopPropagation();batchRemove(${e.id})">×</button>
+    </div>`).join('');
+}
+
+function batchRenderMain() {
+  const panel = document.getElementById('main-panel'); if (!panel) return;
+  const filtered = batchSort(batchFilter());
+  const totalSel = batchFiles.filter(e=>batchSelected.has(e.id)).length;
+  const totalSize = batchFiles.reduce((a,e)=>a+e.sizeBytes,0);
+  const selSize = batchFiles.filter(e=>batchSelected.has(e.id)).reduce((a,e)=>a+e.sizeBytes,0);
+  const maxSize = Math.max(...batchFiles.map(e=>e.sizeBytes),1);
+
+  if (!batchFiles.length) {
+    panel.innerHTML=`<div class="batch-main" style="height:100%;display:flex;align-items:center;justify-content:center;">
+      <div class="batch-empty">
+        <div class="batch-empty-icon">📂</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px">No PDFs loaded</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Drag & drop PDF files anywhere, or use the<br>sidebar to add files</div>
+        <label class="batch-upload-btn" for="batch-input" style="display:inline-flex;width:auto;padding:10px 24px;">+ Add PDFs</label>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const thStyle = (col) => `style="cursor:pointer" onclick="batchSetSort('${col}')"`;
+  const arrow = (col) => batchSortCol===col ? (batchSortAsc?'↑':'↓') : '<span style="opacity:.25">↕</span>';
+
+  const rows = filtered.map(e => {
+    const sel = batchSelected.has(e.id);
+    const barW = Math.max(2, Math.round((e.sizeBytes/maxSize)*80));
+    const statusHtml = e.status==='loading' ? '<span class="status-badge status-loading">Loading…</span>' : e.status==='error' ? `<span class="status-badge status-error" title="${e.error}">Error</span>` : '<span class="status-badge status-ready">Ready</span>';
+    return `<tr class="${sel?'row-selected':''}" onclick="batchToggle(${e.id})" style="cursor:pointer">
+      <td class="check-cell"><input type="checkbox" class="bchk" ${sel?'checked':''} onclick="event.stopPropagation();batchToggle(${e.id})"></td>
+      <td class="fname-cell" title="${e.name}">${e.name}</td>
+      <td><div class="size-bar-wrap"><span>${fmtSize(e.sizeBytes)}</span><div class="size-bar" style="width:${barW}px"></div></div></td>
+      <td><span class="pg-badge">${e.pageCount}</span></td>
+      <td class="dim-cell">${fmtDim(e)}</td>
+      <td>${statusHtml}</td>
+      <td><button class="batch-btn secondary" style="padding:4px 10px;font-size:11px" onclick="event.stopPropagation();batchRunOnFile(${e.id})">Run Seq</button></td>
+    </tr>`;
+  }).join('');
+
+  const allSelInView = filtered.length > 0 && filtered.every(e=>batchSelected.has(e.id));
+
+  panel.innerHTML=`<div class="batch-main" style="padding:20px 24px">
+    <div class="batch-toolbar">
+      <div class="batch-stat"><div class="batch-stat-l">Total files</div><div class="batch-stat-v" style="color:var(--blue)">${batchFiles.length}</div></div>
+      <div class="batch-stat"><div class="batch-stat-l">Showing</div><div class="batch-stat-v">${filtered.length}</div></div>
+      <div class="batch-stat"><div class="batch-stat-l">Selected</div><div class="batch-stat-v" style="color:var(--orange)">${totalSel}</div></div>
+      <div class="batch-stat"><div class="batch-stat-l">Total size</div><div class="batch-stat-v" style="font-size:13px;padding-top:2px">${fmtSize(totalSize)}</div></div>
+      <div class="batch-stat"><div class="batch-stat-l">Selected size</div><div class="batch-stat-v" style="font-size:13px;padding-top:2px;color:var(--green)">${fmtSize(selSize)}</div></div>
+      <div class="batch-actions">
+        <button class="batch-btn secondary" onclick="batchSelectAll()">${allSelInView?'Deselect all':'Select all'}</button>
+        <button class="batch-btn secondary" onclick="batchSelectFiltered()">Select filtered</button>
+        <button class="batch-btn danger" onclick="batchClearAll()">Clear all</button>
+        <button class="batch-btn primary" onclick="batchDownload()" ${totalSel===0?'disabled style="opacity:.5;cursor:not-allowed"':''}>⬇ Download (${totalSel})</button>
+      </div>
+    </div>
+    <div class="batch-table-wrap">
+      <table class="batch-table">
+        <thead><tr>
+          <th class="check-cell"><input type="checkbox" class="bchk" ${allSelInView&&filtered.length?'checked':''} onchange="batchSelectAll(this.checked)"></th>
+          <th ${thStyle('name')}>Filename ${arrow('name')}</th><th ${thStyle('sizeBytes')}>File Size ${arrow('sizeBytes')}</th>
+          <th ${thStyle('pageCount')}>Pages ${arrow('pageCount')}</th><th ${thStyle('pageW')}>Page Size ${arrow('pageW')}</th>
+          <th>Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${filtered.length===0?'<div class="batch-empty" style="padding:32px;font-size:13px;color:var(--muted)">No files match the current filter</div>':''}
+    </div>
+  </div>`;
+}
+
+function batchToggle(id) { if (batchSelected.has(id)) batchSelected.delete(id); else batchSelected.add(id); batchRenderAll(); }
+function batchRemove(id) { batchFiles = batchFiles.filter(e=>e.id!==id); batchSelected.delete(id); batchRenderAll(); }
+function batchSelectAll(checked) {
+  const filtered = batchFilter(); const allSel = filtered.every(e=>batchSelected.has(e.id));
+  if (checked===undefined) { if (allSel) filtered.forEach(e=>batchSelected.delete(e.id)); else filtered.forEach(e=>batchSelected.add(e.id)); } 
+  else { if (checked) filtered.forEach(e=>batchSelected.add(e.id)); else filtered.forEach(e=>batchSelected.delete(e.id)); }
+  batchRenderAll();
+}
+function batchSelectFiltered() { batchFilter().forEach(e=>batchSelected.add(e.id)); batchRenderAll(); }
+function batchClearAll() { if (!confirm('Remove all files from the batch list?')) return; batchFiles=[]; batchSelected.clear(); batchRenderAll(); }
+function batchSetSort(col) { if (batchSortCol===col) batchSortAsc=!batchSortAsc; else { batchSortCol=col; batchSortAsc=true; } batchRenderMain(); }
+async function batchDownload() {
+  const sel = batchFiles.filter(e=>batchSelected.has(e.id)&&e.status==='ready');
+  if (!sel.length) { alert('No ready files selected.'); return; }
+  showProg(true); setProg('Preparing ZIP…', 0);
+  try {
+    const zip = new JSZip();
+    for (let i=0; i<sel.length; i++) {
+      const e = sel[i];
+      setProg(`Adding ${e.name} (${i+1}/${sel.length})`, Math.round((i/sel.length)*90));
+      await new Promise(r=>setTimeout(r,10));
+      const bytes = await e.file.arrayBuffer();
+      const digits = String(sel.length).length;
+      const num = String(i+1).padStart(Math.max(2,digits),'0');
+      zip.file(num + ' ' + e.name, bytes);
+    }
+    setProg('Creating ZIP file…', 92);
+    await new Promise(r=>setTimeout(r,20));
+    const blob = await zip.generateAsync({type:'blob', compression:'STORE'}, meta=>setProg(`Compressing… ${Math.round(meta.percent)}%`, 92+Math.round(meta.percent/8)));
+    setProg('Done!', 100);
+    await new Promise(r=>setTimeout(r,200));
+    showProg(false);
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href=url; a.download=`batch_${sel.length}_files.zip`; a.click(); URL.revokeObjectURL(url);
+  } catch(e) { showProg(false); alert('ZIP error: '+e.message); console.error(e); }
+}
+
+// FIX #11: No longer mutates pdfBytes/pdfFilename globals.
+// Passes bytes and filename directly into doRun via its new optional parameters,
+// eliminating the race condition when multiple files are processed concurrently.
+async function batchRunOnFile(id) {
+  const entry = batchFiles.find(e=>e.id===id); if (!entry) return;
+  const seq = SEQUENCES.find(s=>s.id===currentSeqId);
+  if (!seq) { alert('Select a sequence from the Sequences tab first, then come back to run it on this file.'); return; }
+  showProg(true); setProg('Loading '+entry.name+'…', 5);
+  try {
+    const bytes = new Uint8Array(await entry.file.arrayBuffer());
+    // Pass bytes and filename as explicit args — never touch the pdfBytes global
+    const {doc} = await doRun(seq.steps, (msg,pct)=>setProg(msg,pct), bytes, entry.name);
+    setProg('Saving…', 96); await sleep(30);
+    const out = await doc.save();
+    setProg('Done!', 100); await sleep(200);
+    showProg(false);
+    const blob = new Blob([out], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url;
+    a.download = entry.name.replace(/\.pdf$/i,'') + '_' + seq.name.replace(/[^a-z0-9]/gi,'_') + '.pdf';
+    a.click(); URL.revokeObjectURL(url);
+  } catch(e) {
+    showProg(false); alert('Error: ' + e.message); console.error(e);
+  }
+}
+document.getElementById("batch-input").addEventListener("change",e=>{batchAddFiles(e.target.files);e.target.value="";});
+document.getElementById("batch-filter").addEventListener("change",batchRenderAll);
+document.getElementById("batch-pg-min").addEventListener("input",batchRenderAll);
+document.getElementById("batch-pg-max").addEventListener("input",batchRenderAll);
+
+renderSeqList();renderToolsList();renderBuilderList();renderMain();
+</script>
+</body>
+</html>
