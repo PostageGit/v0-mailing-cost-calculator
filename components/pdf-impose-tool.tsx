@@ -1,1379 +1,974 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
-import { cn } from "@/lib/utils"
+import { useState, useCallback, useRef } from "react"
+import { PDFDocument, degrees, rgb, StandardFonts } from "pdf-lib"
 import { 
-  FileText, Upload, Download, Play, Plus, X, ChevronRight, 
-  RotateCw, Copy, Trash2, MoveVertical, Layers, BookOpen,
-  Grid3X3, Maximize2, Scissors, FileStack, Settings, Info,
-  CheckCircle2, AlertCircle, Loader2
+  Upload, Download, FileText, Play, Plus, X, RotateCw, Copy, 
+  Trash2, ArrowUpDown, BookOpen, Grid3X3, Stamp, LayoutGrid, 
+  Scissors, FileSearch, Layers, MoveVertical, ArrowDown, ArrowUp,
+  Info, ChevronRight, Loader2
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Progress } from "@/components/ui/progress"
+import { cn } from "@/lib/utils"
 
-// Import pdf-lib for PDF manipulation
-import { PDFDocument, degrees, rgb, StandardFonts, PageSizes } from "pdf-lib"
+const IN = 72 // 1 inch = 72 points
 
-const IN = 72 // Points per inch
-
-// Sheet size presets
-const SHEET_PRESETS = [
-  { name: "US Letter", w: 8.5, h: 11 },
-  { name: "US Legal", w: 8.5, h: 14 },
-  { name: "Tabloid", w: 11, h: 17 },
-  { name: "12x18", w: 12, h: 18 },
-  { name: "13x19", w: 13, h: 19 },
-  { name: "A4", w: 8.27, h: 11.69 },
-  { name: "A3", w: 11.69, h: 16.54 },
-  { name: "Custom", w: 0, h: 0 },
+// Sheet presets
+const SHEETS = [
+  { name: 'US Letter (8.5×11")', w: 8.5, h: 11 },
+  { name: 'US Legal (8.5×14")', w: 8.5, h: 14 },
+  { name: 'Tabloid (11×17")', w: 11, h: 17 },
+  { name: '12×18"', w: 12, h: 18 },
+  { name: '12×19"', w: 12, h: 19 },
+  { name: '13×19"', w: 13, h: 19 },
+  { name: 'A4 (8.27×11.69")', w: 8.27, h: 11.69 },
+  { name: 'A3 (11.69×16.54")', w: 11.69, h: 16.54 },
 ]
 
-// Tool definitions
-const TOOLS = {
-  // Imposition tools
-  SimpleBooklet: {
-    name: "Simple Booklet",
-    emoji: "📖",
-    desc: "Reorder pages for saddle-stitch booklet printing. Prints 2-up on sheets that fold in half.",
-    tip: "Page count must be divisible by 4. Tool will add blank pages if needed.",
-    category: "booklet",
+// Tool definitions - crop marks are now INSIDE the imposition tools
+const TOOLS: ToolDef[] = [
+  { group: "Imposition" },
+  { id: "SimpleBooklet", name: "Simple Booklet", icon: BookOpen, color: "bg-rose-500",
+    desc: "Saddle stitch for folded booklets",
+    plain: "Rearranges pages so when you fold and staple in the middle, pages come out in order.",
     params: [
-      { id: "sheet", label: "Sheet Size", type: "sheet", def: "Tabloid" },
-      { id: "sheetW", label: "Custom Width", type: "in", def: 11, hidden: true },
-      { id: "sheetH", label: "Custom Height", type: "in", def: 17, hidden: true },
+      { id: "margin", label: "Edge margin (inches)", type: "number", def: 0.25, min: 0, max: 2, step: 0.125 },
+      { id: "cropMarks", label: "Crop marks", type: "select", opts: ["no", "yes"], def: "no" },
+      { id: "noScale", label: "Scaling", type: "select", opts: ["keep 100%", "scale to fit"], def: "keep 100%" },
     ]
   },
-  Nup: {
-    name: "N-Up",
-    emoji: "⊞",
-    desc: "Place multiple pages on each sheet. Great for printing booklets, cards, or reducing paper usage.",
-    tip: "Pages are placed in reading order (left-to-right, top-to-bottom).",
-    category: "nup",
+  { id: "Nup", name: "N-Up Imposition", icon: Grid3X3, color: "bg-purple-500",
+    desc: "Multiple pages per sheet",
+    plain: "Puts multiple pages side-by-side on one big sheet.",
     params: [
-      { id: "cols", label: "Columns", type: "num", def: 2, min: 1, max: 10 },
-      { id: "rows", label: "Rows", type: "num", def: 2, min: 1, max: 10 },
-      { id: "sheet", label: "Sheet Size", type: "sheet", def: "Tabloid" },
-      { id: "sheetW", label: "Custom Width", type: "in", def: 11, hidden: true },
-      { id: "sheetH", label: "Custom Height", type: "in", def: 17, hidden: true },
-      { id: "gap", label: "Gap Between", type: "in", def: 0 },
-      { id: "order", label: "Reading Order", type: "sel", def: "Left-Right, Top-Bottom", opts: ["Left-Right, Top-Bottom", "Right-Left, Top-Bottom", "Top-Bottom, Left-Right"] },
+      { id: "sheet", label: "Output sheet", type: "sheet", def: "Tabloid (11×17\")" },
+      { id: "sheetW", label: "Width (in)", type: "number", def: 11, hidden: true },
+      { id: "sheetH", label: "Height (in)", type: "number", def: 17, hidden: true },
+      { id: "rows", label: "Rows", type: "number", def: 2, min: 1, max: 20 },
+      { id: "cols", label: "Columns", type: "number", def: 2, min: 1, max: 20 },
+      { id: "margin", label: "Margin (in)", type: "number", def: 0, min: 0, max: 2, step: 0.125 },
+      { id: "cropMarks", label: "Crop marks", type: "select", opts: ["no", "yes"], def: "no" },
     ]
   },
-  StepRepeat: {
-    name: "Step & Repeat",
-    emoji: "🔁",
-    desc: "Tile the same page multiple times on a sheet. Perfect for business cards, labels, tickets.",
-    tip: "Uses only the first page of your PDF.",
-    category: "nup",
+  { id: "StepRepeat", name: "Step & Repeat", icon: LayoutGrid, color: "bg-green-500",
+    desc: "Tile same page for cards/labels",
+    plain: "Fills sheet with copies of ONE page - perfect for business cards or stickers.",
     params: [
-      { id: "cols", label: "Columns", type: "num", def: 2, min: 1, max: 10 },
-      { id: "rows", label: "Rows", type: "num", def: 4, min: 1, max: 10 },
-      { id: "sheet", label: "Sheet Size", type: "sheet", def: "US Letter" },
-      { id: "sheetW", label: "Custom Width", type: "in", def: 8.5, hidden: true },
-      { id: "sheetH", label: "Custom Height", type: "in", def: 11, hidden: true },
-      { id: "gap", label: "Gap Between", type: "in", def: 0.125 },
+      { id: "sheet", label: "Output sheet", type: "sheet", def: "Tabloid (11×17\")" },
+      { id: "sheetW", label: "Width (in)", type: "number", def: 11, hidden: true },
+      { id: "sheetH", label: "Height (in)", type: "number", def: 17, hidden: true },
+      { id: "rows", label: "Rows", type: "number", def: 3, min: 1, max: 30 },
+      { id: "cols", label: "Columns", type: "number", def: 3, min: 1, max: 30 },
+      { id: "margin", label: "Margin (in)", type: "number", def: 0, min: 0, max: 2, step: 0.125 },
+      { id: "cropMarks", label: "Crop marks", type: "select", opts: ["no", "yes"], def: "no" },
     ]
   },
-  Join2Pages: {
-    name: "Join 2 Pages",
-    emoji: "⟷",
-    desc: "Combine pairs of pages side-by-side to create spreads. Useful for proofing booklet layouts.",
-    tip: "If odd number of pages, last page gets a blank partner.",
-    category: "other",
+  { id: "TilePages", name: "Tile Large Pages", icon: Scissors, color: "bg-cyan-500",
+    desc: "Split posters for printing",
+    plain: "Cuts one big page into smaller tiles to print on regular paper.",
     params: [
-      { id: "gap", label: "Gap Between", type: "in", def: 0 },
+      { id: "rows", label: "Tile rows", type: "number", def: 2, min: 1, max: 10 },
+      { id: "cols", label: "Tile columns", type: "number", def: 2, min: 1, max: 10 },
+      { id: "overlap", label: "Overlap (in)", type: "number", def: 0, min: 0, max: 1, step: 0.125 },
     ]
   },
-  // Page manipulation tools
-  RotatePages: {
-    name: "Rotate Pages",
-    emoji: "🔄",
-    desc: "Rotate all pages by a specified angle.",
-    tip: "Positive = clockwise, Negative = counter-clockwise.",
-    category: "page",
+  { group: "Page Size" },
+  { id: "PageSizes", name: "Adjust Page Sizes", icon: Layers, color: "bg-teal-500",
+    desc: "Scale, pad, or crop pages",
+    plain: "Changes page size - stretch to fit (scale), add border (pad), or cut edges (crop).",
     params: [
-      { id: "angle", label: "Angle", type: "sel", def: "90", opts: ["90", "180", "270", "-90"] },
-      { id: "range", label: "Page Range", type: "txt", def: "All" },
+      { id: "mode", label: "Method", type: "select", opts: ["scale", "proportional", "pad", "crop"], def: "proportional" },
+      { id: "w", label: "Target width (in)", type: "number", def: 8.5, min: 0.1 },
+      { id: "h", label: "Target height (in)", type: "number", def: 11, min: 0.1 },
+      { id: "range", label: "Apply to", type: "select", opts: ["all pages", "page 1 only", "all except first"], def: "all pages" },
     ]
   },
-  DuplicatePages: {
-    name: "Duplicate Pages",
-    emoji: "📋",
-    desc: "Create multiple copies of each page in sequence.",
-    tip: "2 copies of 3 pages = 1,1,2,2,3,3",
-    category: "page",
+  { id: "GenerateBleed", name: "Generate Bleed", icon: Layers, color: "bg-orange-500",
+    desc: "Extend page edges for printing",
+    plain: "Extends edges so ink prints to the edge without white borders.",
     params: [
-      { id: "copies", label: "Copies per Page", type: "num", def: 2, min: 1, max: 100 },
+      { id: "method", label: "Method", type: "select", opts: ["mirror edges", "scale page"], def: "mirror edges" },
+      { id: "bleed", label: "Bleed amount (in)", type: "number", def: 0.125, min: 0.04, max: 0.5, step: 0.0625 },
     ]
   },
-  DeletePages: {
-    name: "Delete Pages",
-    emoji: "🗑️",
-    desc: "Remove specific pages from the document.",
-    tip: "Use ranges like: 1,3,5-8,12",
-    category: "page",
+  { group: "Page Tools" },
+  { id: "Rotate", name: "Rotate Pages", icon: RotateCw, color: "bg-blue-500",
+    desc: "90°, 180°, or 270° rotation",
+    plain: "Spins pages around - turn sideways or upside down.",
     params: [
-      { id: "range", label: "Pages to Delete", type: "txt", def: "1" },
+      { id: "angle", label: "Rotate by", type: "select", opts: ["180°", "90° clockwise", "90° counter-clockwise"], def: "180°" },
+      { id: "range", label: "Which pages", type: "select", opts: ["all", "even only", "odd only"], def: "all" },
     ]
   },
-  ReversePages: {
-    name: "Reverse Order",
-    emoji: "↩️",
-    desc: "Reverse the order of all pages in the document.",
-    tip: "Useful for fixing duplex printing order.",
-    category: "page",
+  { id: "Duplicate", name: "Duplicate Pages", icon: Copy, color: "bg-blue-500",
+    desc: "Multiple copies of each page",
+    plain: "Makes extra copies of every page - like photocopying each page multiple times.",
+    params: [
+      { id: "copies", label: "Copies", type: "number", def: 2, min: 2, max: 20 },
+      { id: "collate", label: "Order", type: "select", opts: ["collated (1,1,2,2)", "uncollated (1,2,1,2)"], def: "collated (1,1,2,2)" },
+    ]
+  },
+  { id: "Delete", name: "Delete Pages", icon: Trash2, color: "bg-red-500",
+    desc: "Remove specific pages",
+    plain: "Removes pages from your document.",
+    params: [
+      { id: "from", label: "From page", type: "number", def: 1, min: 1 },
+      { id: "to", label: "To page", type: "number", def: 1, min: 1 },
+    ]
+  },
+  { id: "Move", name: "Move Page", icon: MoveVertical, color: "bg-blue-500",
+    desc: "Rearrange page position",
+    plain: "Moves a page to a different spot.",
+    params: [
+      { id: "pageNum", label: "Move page #", type: "number", def: 1, min: 1 },
+      { id: "where", label: "To", type: "select", opts: ["start", "end"], def: "start" },
+    ]
+  },
+  { id: "Reverse", name: "Reverse Order", icon: ArrowUpDown, color: "bg-rose-500",
+    desc: "Flip page order",
+    plain: "Reverses entire page order - last becomes first.",
     params: []
   },
-  InsertBlanks: {
-    name: "Insert Blanks",
-    emoji: "📄",
-    desc: "Add blank pages to reach a target count or make divisible by 4.",
-    tip: "For booklets, page count must be divisible by 4.",
-    category: "page",
+  { id: "InsertBlanks", name: "Insert Blanks", icon: Plus, color: "bg-amber-500",
+    desc: "Add empty pages",
+    plain: "Adds blank pages - useful for booklet multiples of 4.",
     params: [
-      { id: "mode", label: "Mode", type: "sel", def: "Make divisible by 4", opts: ["Make divisible by 4", "Target page count"] },
-      { id: "target", label: "Target Count", type: "num", def: 32, min: 1 },
+      { id: "count", label: "How many", type: "number", def: 2, min: 1, max: 20 },
+      { id: "where", label: "Where", type: "select", opts: ["before first", "after last", "after specific page"], def: "after last" },
+      { id: "pageNum", label: "After page #", type: "number", def: 1, min: 1 },
     ]
   },
-  // Finishing tools
-  GenerateBleed: {
-    name: "Generate Bleed",
-    emoji: "🖼️",
-    desc: "Extend page edges to create bleed area for printing.",
-    tip: "Standard bleed is 0.125\" (1/8 inch).",
-    category: "finish",
+  { id: "Split", name: "Split Even/Odd", icon: Scissors, color: "bg-green-500",
+    desc: "Separate even and odd pages",
+    plain: "Separates into even and odd numbered pages.",
     params: [
-      { id: "bleed", label: "Bleed Amount", type: "in", def: 0.125 },
-      { id: "method", label: "Method", type: "sel", def: "Mirror edges", opts: ["Mirror edges", "Extend color"] },
+      { id: "output", label: "Output", type: "select", opts: ["odd pages only", "even pages only"], def: "odd pages only" },
     ]
   },
-  CropMarks: {
-    name: "Add Crop Marks",
-    emoji: "✂️",
-    desc: "Add trim marks to show where to cut the paper.",
-    tip: "Registration marks help align color separations.",
-    category: "finish",
+  { group: "Stamping" },
+  { id: "PageNumbers", name: "Page Numbers", icon: Stamp, color: "bg-orange-500",
+    desc: "Add automatic numbering",
+    plain: "Prints page number on every page.",
     params: [
-      { id: "length", label: "Mark Length", type: "in", def: 0.25 },
-      { id: "offset", label: "Offset from Trim", type: "in", def: 0.125 },
-      { id: "weight", label: "Line Weight", type: "num", def: 0.5, min: 0.1, max: 2 },
+      { id: "startNum", label: "Start at", type: "number", def: 1, min: 0 },
+      { id: "prefix", label: "Prefix", type: "text", def: "" },
+      { id: "suffix", label: "Suffix", type: "text", def: "" },
+      { id: "position", label: "Position", type: "select", opts: ["Bottom Center", "Bottom Left", "Bottom Right", "Top Center", "Top Left", "Top Right"], def: "Bottom Center" },
+      { id: "fontSize", label: "Font size", type: "number", def: 10, min: 4, max: 72 },
     ]
   },
-  PageNumbers: {
-    name: "Add Page Numbers",
-    emoji: "🔢",
-    desc: "Add page numbers to each page.",
-    tip: "Position and style are customizable.",
-    category: "finish",
+  { id: "BatesStamp", name: "Bates Stamp", icon: Stamp, color: "bg-amber-500",
+    desc: "Legal document numbering",
+    plain: "Prints number with leading zeros plus prefix for legal docs.",
     params: [
-      { id: "position", label: "Position", type: "sel", def: "Bottom Centre", opts: ["Bottom Left", "Bottom Centre", "Bottom Right", "Top Left", "Top Centre", "Top Right"] },
-      { id: "startNum", label: "Start Number", type: "num", def: 1, min: 0 },
-      { id: "fontSize", label: "Font Size", type: "num", def: 10, min: 6, max: 24 },
-      { id: "prefix", label: "Prefix", type: "txt", def: "" },
-      { id: "suffix", label: "Suffix", type: "txt", def: "" },
+      { id: "startNum", label: "Start at", type: "number", def: 1, min: 0 },
+      { id: "digits", label: "Min digits", type: "number", def: 6, min: 1, max: 12 },
+      { id: "prefix", label: "Prefix", type: "text", def: "" },
+      { id: "position", label: "Position", type: "select", opts: ["Bottom Right", "Bottom Left", "Bottom Center", "Top Right", "Top Left", "Top Center"], def: "Bottom Right" },
+      { id: "fontSize", label: "Font size", type: "number", def: 10, min: 4, max: 72 },
     ]
   },
-  Creep: {
-    name: "Creep Compensation",
-    emoji: "📐",
-    desc: "Adjust for paper thickness in saddle-stitch booklets. Inner pages shift outward.",
-    tip: "Paper thickness is typically 0.003-0.006 inches.",
-    category: "booklet",
-    params: [
-      { id: "pages", label: "Total Pages", type: "num", def: 32, min: 4 },
-      { id: "paperThick", label: "Paper Thickness", type: "in", def: 0.004 },
-      { id: "direction", label: "Direction", type: "sel", def: "Inside pages shift most", opts: ["Inside pages shift most", "Outside pages shift most"] },
-    ]
-  },
-  // Utility tools
-  SplitMerge: {
-    name: "Split Pages",
-    emoji: "✂️",
-    desc: "Extract odd or even pages only.",
-    tip: "Useful for manual duplex printing.",
-    category: "other",
-    params: [
-      { id: "output", label: "Output", type: "sel", def: "Odd pages only", opts: ["Odd pages only", "Even pages only"] },
-    ]
-  },
-  TilePages: {
-    name: "Tile Large Pages",
-    emoji: "🔲",
-    desc: "Split large pages into printable tiles with overlap.",
-    tip: "Good for printing posters on regular paper.",
-    category: "other",
-    params: [
-      { id: "cols", label: "Columns", type: "num", def: 2, min: 1, max: 10 },
-      { id: "rows", label: "Rows", type: "num", def: 2, min: 1, max: 10 },
-      { id: "overlap", label: "Overlap", type: "in", def: 0.5 },
-    ]
-  },
-  ImpositionInfo: {
-    name: "PDF Info",
-    emoji: "🔍",
-    desc: "Analyze the PDF and show detailed information about pages, colors, fonts, and more.",
-    tip: "Run this first to understand your source file.",
-    category: "info",
+  { group: "Analysis" },
+  { id: "Info", name: "PDF Info", icon: FileSearch, color: "bg-slate-500",
+    desc: "Analyze document",
+    plain: "Shows page count, sizes, and other info - no changes made.",
     params: []
   },
+]
+
+type ParamDef = {
+  id: string
+  label: string
+  type: "number" | "select" | "sheet" | "text"
+  def: string | number
+  opts?: string[]
+  min?: number
+  max?: number
+  step?: number
+  hidden?: boolean
 }
 
-// Pre-built sequences
-const SEQUENCES = [
-  {
-    id: 1,
-    name: "Booklet from Letter Pages",
-    desc: "Standard saddle-stitch booklet on tabloid sheets",
-    category: "booklet",
-    steps: [
-      { cmd: "InsertBlanks", p: { mode: "Make divisible by 4" } },
-      { cmd: "SimpleBooklet", p: { sheet: "Tabloid" } },
-    ]
-  },
-  {
-    id: 2,
-    name: "4-Up Business Cards",
-    desc: "Step & repeat on letter paper with gap",
-    category: "nup",
-    steps: [
-      { cmd: "StepRepeat", p: { cols: 2, rows: 4, sheet: "US Letter", gap: 0.125 } },
-    ]
-  },
-  {
-    id: 3,
-    name: "2-Up Booklet with Creep",
-    desc: "Professional booklet with creep compensation",
-    category: "booklet",
-    steps: [
-      { cmd: "InsertBlanks", p: { mode: "Make divisible by 4" } },
-      { cmd: "Creep", p: { pages: 32, paperThick: 0.004, direction: "Inside pages shift most" } },
-      { cmd: "SimpleBooklet", p: { sheet: "Tabloid" } },
-    ]
-  },
-  {
-    id: 4,
-    name: "Spreads for Proofing",
-    desc: "Join page pairs side-by-side",
-    category: "other",
-    steps: [
-      { cmd: "Join2Pages", p: { gap: 0 } },
-    ]
-  },
-  {
-    id: 5,
-    name: "Add Trim Marks + Bleed",
-    desc: "Prepare file for commercial printing",
-    category: "finish",
-    steps: [
-      { cmd: "GenerateBleed", p: { bleed: 0.125, method: "Mirror edges" } },
-      { cmd: "CropMarks", p: { length: 0.25, offset: 0.125, weight: 0.5 } },
-    ]
-  },
-]
-
-// PDF Operations
-async function opSimpleBooklet(doc: PDFDocument, params: { sheetW: number, sheetH: number }) {
-  const pages = doc.getPages()
-  let n = pages.length
-  
-  // Pad to multiple of 4
-  const mod4 = n % 4
-  if (mod4 !== 0) {
-    const blanks = 4 - mod4
-    for (let i = 0; i < blanks; i++) {
-      doc.addPage([pages[0].getWidth(), pages[0].getHeight()])
+type ToolDef = 
+  | { group: string }
+  | { 
+      id: string
+      name: string
+      icon: typeof BookOpen
+      color: string
+      desc: string
+      plain: string
+      params: ParamDef[]
     }
-    n += blanks
-  }
+
+// ============================================
+// PDF Operations (from clean v3 source)
+// ============================================
+
+async function opRotate(doc: PDFDocument, params: { angle: number, range: string }) {
+  const nd = await PDFDocument.create()
+  const pgs = doc.getPages()
+  const angle = params.angle
   
-  // Build booklet order
+  for (let i = 0; i < pgs.length; i++) {
+    const pw = pgs[i].getWidth(), ph = pgs[i].getHeight()
+    let shouldRotate = false
+    
+    if (params.range === "all") shouldRotate = true
+    else if (params.range === "even only") shouldRotate = (i + 1) % 2 === 0
+    else if (params.range === "odd only") shouldRotate = (i + 1) % 2 === 1
+    
+    const [e] = await nd.embedPdf(doc, [i])
+    const pg = nd.addPage([pw, ph])
+    
+    if (shouldRotate) {
+      pg.drawPage(e, {
+        x: angle === 180 ? pw : angle === 90 ? 0 : ph,
+        y: angle === 180 ? ph : angle === 90 ? pw : 0,
+        width: pw, height: ph,
+        rotate: degrees(angle)
+      })
+    } else {
+      pg.drawPage(e, { x: 0, y: 0, width: pw, height: ph })
+    }
+  }
+  return nd
+}
+
+async function opDuplicate(doc: PDFDocument, params: { copies: number, collate: boolean }) {
+  const nd = await PDFDocument.create()
+  const pgs = doc.getPages()
+  const n = pgs.length
   const order: number[] = []
-  const sheets = n / 4
-  for (let sh = 0; sh < sheets; sh++) {
-    // Front: last, first
-    order.push(n - 1 - sh * 2)
-    order.push(sh * 2)
-    // Back: first+1, last-1
-    order.push(sh * 2 + 1)
-    order.push(n - 2 - sh * 2)
+  
+  if (params.collate) {
+    for (let i = 0; i < n; i++) for (let c = 0; c < params.copies; c++) order.push(i)
+  } else {
+    for (let c = 0; c < params.copies; c++) for (let i = 0; i < n; i++) order.push(i)
   }
   
-  // Create new document with imposed pages
-  const newDoc = await PDFDocument.create()
-  const sheetW = params.sheetW * IN
-  const sheetH = params.sheetH * IN
-  const allPages = doc.getPages()
-  
-  for (let i = 0; i < order.length; i += 2) {
-    const page = newDoc.addPage([sheetW, sheetH])
-    const leftIdx = order[i]
-    const rightIdx = order[i + 1]
-    
-    // Embed and place pages
-    const [leftEmbed] = await newDoc.embedPdf(doc, [leftIdx])
-    const [rightEmbed] = await newDoc.embedPdf(doc, [rightIdx])
-    
-    const srcW = allPages[0].getWidth()
-    const srcH = allPages[0].getHeight()
-    const scale = Math.min((sheetW / 2) / srcW, sheetH / srcH)
-    const scaledW = srcW * scale
-    const scaledH = srcH * scale
-    
-    // Left page
-    page.drawPage(leftEmbed, {
-      x: (sheetW / 4) - (scaledW / 2),
-      y: (sheetH / 2) - (scaledH / 2),
-      width: scaledW,
-      height: scaledH,
-    })
-    
-    // Right page
-    page.drawPage(rightEmbed, {
-      x: (sheetW * 3 / 4) - (scaledW / 2),
-      y: (sheetH / 2) - (scaledH / 2),
-      width: scaledW,
-      height: scaledH,
-    })
+  for (const idx of order) {
+    const [e] = await nd.embedPdf(doc, [idx])
+    const pg = nd.addPage([pgs[idx].getWidth(), pgs[idx].getHeight()])
+    pg.drawPage(e, { x: 0, y: 0, width: pgs[idx].getWidth(), height: pgs[idx].getHeight() })
   }
-  
-  return newDoc
+  return nd
 }
 
-async function opNup(doc: PDFDocument, params: { cols: number, rows: number, sheetW: number, sheetH: number, gap: number }) {
-  const pages = doc.getPages()
-  const newDoc = await PDFDocument.create()
-  const sheetW = params.sheetW * IN
-  const sheetH = params.sheetH * IN
-  const gap = params.gap * IN
-  const perSheet = params.cols * params.rows
+async function opDelete(doc: PDFDocument, params: { from: number, to: number }) {
+  const nd = await PDFDocument.create()
+  const pgs = doc.getPages()
+  const fromIdx = params.from - 1
+  const toIdx = params.to - 1
   
-  const cellW = (sheetW - (params.cols - 1) * gap) / params.cols
-  const cellH = (sheetH - (params.rows - 1) * gap) / params.rows
-  
-  for (let i = 0; i < pages.length; i += perSheet) {
-    const sheet = newDoc.addPage([sheetW, sheetH])
-    
-    for (let j = 0; j < perSheet && i + j < pages.length; j++) {
-      const col = j % params.cols
-      const row = Math.floor(j / params.cols)
-      
-      const [embedded] = await newDoc.embedPdf(doc, [i + j])
-      const srcPage = pages[i + j]
-      const scale = Math.min(cellW / srcPage.getWidth(), cellH / srcPage.getHeight())
-      const scaledW = srcPage.getWidth() * scale
-      const scaledH = srcPage.getHeight() * scale
-      
-      const x = col * (cellW + gap) + (cellW - scaledW) / 2
-      const y = sheetH - (row + 1) * (cellH + gap) + gap + (cellH - scaledH) / 2
-      
-      sheet.drawPage(embedded, { x, y, width: scaledW, height: scaledH })
-    }
+  for (let i = 0; i < pgs.length; i++) {
+    if (i >= fromIdx && i <= toIdx) continue
+    const [e] = await nd.embedPdf(doc, [i])
+    const pg = nd.addPage([pgs[i].getWidth(), pgs[i].getHeight()])
+    pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
   }
-  
-  return newDoc
+  return nd
 }
 
-async function opStepRepeat(doc: PDFDocument, params: { cols: number, rows: number, sheetW: number, sheetH: number, gap: number }) {
-  const srcPage = doc.getPages()[0]
-  const newDoc = await PDFDocument.create()
-  const sheetW = params.sheetW * IN
-  const sheetH = params.sheetH * IN
-  const gap = params.gap * IN
+async function opMove(doc: PDFDocument, params: { pageNum: number, where: string }) {
+  const nd = await PDFDocument.create()
+  const pgs = doc.getPages()
+  const n = pgs.length
+  const fromIdx = params.pageNum - 1
+  const order: number[] = []
   
-  const cellW = (sheetW - (params.cols - 1) * gap) / params.cols
-  const cellH = (sheetH - (params.rows - 1) * gap) / params.rows
-  
-  const sheet = newDoc.addPage([sheetW, sheetH])
-  const [embedded] = await newDoc.embedPdf(doc, [0])
-  const scale = Math.min(cellW / srcPage.getWidth(), cellH / srcPage.getHeight())
-  const scaledW = srcPage.getWidth() * scale
-  const scaledH = srcPage.getHeight() * scale
-  
-  for (let row = 0; row < params.rows; row++) {
-    for (let col = 0; col < params.cols; col++) {
-      const x = col * (cellW + gap) + (cellW - scaledW) / 2
-      const y = sheetH - (row + 1) * (cellH + gap) + gap + (cellH - scaledH) / 2
-      sheet.drawPage(embedded, { x, y, width: scaledW, height: scaledH })
-    }
+  if (params.where === "start") {
+    order.push(fromIdx)
+    for (let i = 0; i < n; i++) if (i !== fromIdx) order.push(i)
+  } else {
+    for (let i = 0; i < n; i++) if (i !== fromIdx) order.push(i)
+    order.push(fromIdx)
   }
   
-  return newDoc
-}
-
-async function opRotate(doc: PDFDocument, params: { angle: string, range: string }) {
-  const angle = parseInt(params.angle)
-  const pages = doc.getPages()
-  pages.forEach(page => page.setRotation(degrees(page.getRotation().angle + angle)))
-  return doc
-}
-
-async function opDuplicate(doc: PDFDocument, params: { copies: number }) {
-  const newDoc = await PDFDocument.create()
-  const pages = doc.getPages()
-  
-  for (let i = 0; i < pages.length; i++) {
-    for (let c = 0; c < params.copies; c++) {
-      const [copied] = await newDoc.copyPages(doc, [i])
-      newDoc.addPage(copied)
-    }
+  for (const idx of order) {
+    const pi = Math.max(0, Math.min(idx, n - 1))
+    const [e] = await nd.embedPdf(doc, [pi])
+    const pg = nd.addPage([pgs[pi].getWidth(), pgs[pi].getHeight()])
+    pg.drawPage(e, { x: 0, y: 0, width: pgs[pi].getWidth(), height: pgs[pi].getHeight() })
   }
-  
-  return newDoc
+  return nd
 }
 
 async function opReverse(doc: PDFDocument) {
-  const newDoc = await PDFDocument.create()
-  const pages = doc.getPages()
+  const nd = await PDFDocument.create()
+  const pgs = doc.getPages()
   
-  for (let i = pages.length - 1; i >= 0; i--) {
-    const [copied] = await newDoc.copyPages(doc, [i])
-    newDoc.addPage(copied)
+  for (let i = pgs.length - 1; i >= 0; i--) {
+    const [e] = await nd.embedPdf(doc, [i])
+    const pg = nd.addPage([pgs[i].getWidth(), pgs[i].getHeight()])
+    pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
   }
-  
-  return newDoc
+  return nd
 }
 
-async function opInsertBlanks(doc: PDFDocument, params: { mode: string, target: number }) {
-  const pages = doc.getPages()
-  let n = pages.length
+// Simple Booklet with CROP MARKS built in
+async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: boolean, noScale: boolean }) {
+  const pgs = doc.getPages()
+  const n = pgs.length
+  const total = Math.ceil(n / 4) * 4
+  const pw = pgs[0].getWidth(), ph = pgs[0].getHeight()
+  const margin = params.margin * IN
+  const shW = pw * 2 + margin * 2, shH = ph + margin * 2
+  const nd = await PDFDocument.create()
   
-  if (params.mode === "Make divisible by 4") {
-    const mod4 = n % 4
-    if (mod4 !== 0) {
-      const blanks = 4 - mod4
-      for (let i = 0; i < blanks; i++) {
-        doc.addPage([pages[0].getWidth(), pages[0].getHeight()])
-      }
-    }
-  } else {
-    while (doc.getPageCount() < params.target) {
-      doc.addPage([pages[0].getWidth(), pages[0].getHeight()])
+  let lo = 1, hi = total
+  const spreads: [number, number][] = []
+  while (lo <= hi) {
+    spreads.push([hi, lo])
+    hi--; lo++
+    if (lo <= hi) {
+      spreads.push([lo, hi])
+      lo++; hi--
     }
   }
+  
+  for (const [ln, rn] of spreads) {
+    const sh = nd.addPage([shW, shH])
+    
+    for (const [num, xOff] of [[ln, margin], [rn, margin + pw]] as [number, number][]) {
+      const idx = num - 1
+      if (idx >= 0 && idx < n) {
+        const [e] = await nd.embedPdf(doc, [idx])
+        const s = params.noScale ? 1 : Math.min(pw / e.width, ph / e.height)
+        const dw = e.width * s, dh = e.height * s
+        sh.drawPage(e, { x: xOff + (pw - dw) / 2, y: margin + (ph - dh) / 2, width: dw, height: dh })
+      }
+    }
+    
+    // CROP MARKS - drawn at trim edges
+    if (params.cropMarks) {
+      const marks: [number, number][] = [
+        [margin, margin], [margin, margin + ph],
+        [margin + shW / 2, margin], [margin + shW / 2, margin + ph]
+      ]
+      for (const [cx, cy] of marks) {
+        sh.drawLine({ start: { x: cx - 5, y: cy }, end: { x: cx + 5, y: cy }, thickness: 0.4, color: rgb(0, 0, 0) })
+        sh.drawLine({ start: { x: cx, y: cy - 5 }, end: { x: cx, y: cy + 5 }, thickness: 0.4, color: rgb(0, 0, 0) })
+      }
+    }
+  }
+  return nd
+}
+
+// N-Up with CROP MARKS built in
+async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, sheetW: number, sheetH: number, margin: number, cropMarks: boolean, stepRepeat?: boolean }) {
+  const pgs = doc.getPages()
+  const nd = await PDFDocument.create()
+  const sheetW = params.sheetW * IN
+  const sheetH = params.sheetH * IN
+  const marginAll = params.margin * IN
+  const cW = (sheetW - marginAll * 2) / params.cols
+  const cH = (sheetH - marginAll * 2) / params.rows
+  
+  let idx = 0
+  const total = params.stepRepeat ? params.rows * params.cols : pgs.length
+  
+  while (idx < total) {
+    const sh = nd.addPage([sheetW, sheetH])
+    
+    for (let r = 0; r < params.rows; r++) {
+      for (let c = 0; c < params.cols; c++) {
+        const pi = params.stepRepeat ? 0 : idx
+        if (!params.stepRepeat && idx >= pgs.length) break
+        
+        const [e] = await nd.embedPdf(doc, [pi])
+        const x = marginAll + c * cW
+        const y = sheetH - marginAll - (r + 1) * cH
+        const s = Math.min(cW / e.width, cH / e.height)
+        const dw = e.width * s, dh = e.height * s
+        
+        sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
+        
+        // CROP MARKS at each cell corner
+        if (params.cropMarks) {
+          const marks: [number, number][] = [[x, y], [x + cW, y], [x, y + cH], [x + cW, y + cH]]
+          for (const [cx, cy] of marks) {
+            sh.drawLine({ start: { x: cx - 3, y: cy }, end: { x: cx + 3, y: cy }, thickness: 0.3, color: rgb(0, 0, 0) })
+            sh.drawLine({ start: { x: cx, y: cy - 3 }, end: { x: cx, y: cy + 3 }, thickness: 0.3, color: rgb(0, 0, 0) })
+          }
+        }
+        idx++
+      }
+    }
+    if (params.stepRepeat) break
+  }
+  return nd
+}
+
+async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, h: number, range: string }) {
+  const pgs = doc.getPages()
+  const nd = await PDFDocument.create()
+  const w = params.w * IN
+  const h = params.h * IN
+  
+  for (let i = 0; i < pgs.length; i++) {
+    const skip = (params.range === "page 1 only" && i > 0) || (params.range === "all except first" && i === 0)
+    const [e] = await nd.embedPdf(doc, [i])
+    const tw = skip ? pgs[i].getWidth() : w
+    const th = skip ? pgs[i].getHeight() : h
+    const pg = nd.addPage([tw, th])
+    
+    if (skip) {
+      pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
+    } else if (params.mode === "scale") {
+      pg.drawPage(e, { x: 0, y: 0, width: w, height: h })
+    } else if (params.mode === "proportional") {
+      const s = Math.min(w / e.width, h / e.height)
+      const dw = e.width * s, dh = e.height * s
+      pg.drawPage(e, { x: (w - dw) / 2, y: (h - dh) / 2, width: dw, height: dh })
+    } else if (params.mode === "pad" || params.mode === "crop") {
+      pg.drawPage(e, { x: (w - e.width) / 2, y: (h - e.height) / 2, width: e.width, height: e.height })
+    }
+  }
+  return nd
+}
+
+async function opInsert(doc: PDFDocument, params: { where: string, count: number, pageNum: number }) {
+  const pgs = doc.getPages()
+  const nd = await PDFDocument.create()
+  const rw = pgs[0].getWidth(), rh = pgs[0].getHeight()
+  const addBlank = () => nd.addPage([rw, rh])
+  
+  if (params.where.includes("before")) {
+    for (let b = 0; b < params.count; b++) addBlank()
+  }
+  
+  for (let i = 0; i < pgs.length; i++) {
+    const [e] = await nd.embedPdf(doc, [i])
+    const pg = nd.addPage([pgs[i].getWidth(), pgs[i].getHeight()])
+    pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
+    
+    if (params.where.includes("specific") && i === params.pageNum - 1) {
+      for (let b = 0; b < params.count; b++) addBlank()
+    }
+  }
+  
+  if (params.where.includes("after last")) {
+    for (let b = 0; b < params.count; b++) addBlank()
+  }
+  
+  return nd
+}
+
+async function opPageNumbers(doc: PDFDocument, params: { startNum: number, prefix: string, suffix: string, position: string, fontSize: number }) {
+  const font = await doc.embedFont(StandardFonts.HelveticaBold)
+  const pgs = doc.getPages()
+  
+  pgs.forEach((pg, i) => {
+    const { width, height } = pg.getSize()
+    const label = params.prefix + (params.startNum + i) + params.suffix
+    const tw = font.widthOfTextAtSize(label, params.fontSize)
+    
+    const pos = params.position.toUpperCase()
+    const x = pos.includes("LEFT") ? 20 : pos.includes("RIGHT") ? width - tw - 20 : (width - tw) / 2
+    const y = pos.includes("TOP") ? height - params.fontSize - 20 : 20
+    
+    pg.drawText(label, { x, y, size: params.fontSize, font, color: rgb(0, 0, 0) })
+  })
   
   return doc
 }
 
-async function opPageNumbers(doc: PDFDocument, params: { position: string, startNum: number, fontSize: number, prefix: string, suffix: string }) {
-  const pages = doc.getPages()
-  const font = await doc.embedFont(StandardFonts.Helvetica)
+async function opBates(doc: PDFDocument, params: { startNum: number, digits: number, prefix: string, position: string, fontSize: number }) {
+  const font = await doc.embedFont(StandardFonts.HelveticaBold)
+  const pgs = doc.getPages()
   
-  pages.forEach((page, idx) => {
-    const text = `${params.prefix}${params.startNum + idx}${params.suffix}`
-    const textWidth = font.widthOfTextAtSize(text, params.fontSize)
-    const { width, height } = page.getSize()
+  pgs.forEach((pg, i) => {
+    const { width, height } = pg.getSize()
+    const label = params.prefix + String(params.startNum + i).padStart(params.digits, "0")
+    const tw = font.widthOfTextAtSize(label, params.fontSize)
     
-    let x = 0, y = 0
-    const margin = 36 // 0.5 inch
+    const pos = params.position.toUpperCase()
+    const x = pos.includes("LEFT") ? 20 : pos.includes("RIGHT") ? width - tw - 20 : (width - tw) / 2
+    const y = pos.includes("TOP") ? height - params.fontSize - 20 : 20
     
-    if (params.position.includes("Left")) x = margin
-    else if (params.position.includes("Right")) x = width - margin - textWidth
-    else x = (width - textWidth) / 2
-    
-    if (params.position.includes("Bottom")) y = margin
-    else y = height - margin - params.fontSize
-    
-    page.drawText(text, { x, y, size: params.fontSize, font, color: rgb(0, 0, 0) })
+    pg.drawText(label, { x, y, size: params.fontSize, font, color: rgb(0, 0, 0) })
   })
   
   return doc
 }
 
 async function opSplit(doc: PDFDocument, params: { output: string }) {
-  const newDoc = await PDFDocument.create()
-  const pages = doc.getPages()
-  const isOdd = params.output === "Odd pages only"
+  const pgs = doc.getPages()
+  const nd = await PDFDocument.create()
   
-  for (let i = 0; i < pages.length; i++) {
-    if (isOdd ? (i % 2 === 0) : (i % 2 === 1)) {
-      const [copied] = await newDoc.copyPages(doc, [i])
-      newDoc.addPage(copied)
-    }
+  for (let i = 0; i < pgs.length; i++) {
+    const isEven = (i + 1) % 2 === 0
+    if (params.output.includes("odd") && isEven) continue
+    if (params.output.includes("even") && !isEven) continue
+    
+    const [e] = await nd.embedPdf(doc, [i])
+    const pg = nd.addPage([pgs[i].getWidth(), pgs[i].getHeight()])
+    pg.drawPage(e, { x: 0, y: 0, width: pgs[i].getWidth(), height: pgs[i].getHeight() })
   }
-  
-  return newDoc
+  return nd
 }
 
-async function opJoin2Pages(doc: PDFDocument, params: { gap: number }) {
-  const pages = doc.getPages()
-  const newDoc = await PDFDocument.create()
-  const gap = params.gap * IN
+async function opTile(doc: PDFDocument, params: { rows: number, cols: number, overlap: number }) {
+  const pgs = doc.getPages()
+  const nd = await PDFDocument.create()
+  const overlap = params.overlap * IN
   
-  for (let i = 0; i < pages.length; i += 2) {
-    const p1 = pages[i]
-    const p2 = pages[i + 1] || null
-    const w1 = p1.getWidth(), h1 = p1.getHeight()
-    const w2 = p2 ? p2.getWidth() : w1
-    const h2 = p2 ? p2.getHeight() : h1
+  for (let i = 0; i < pgs.length; i++) {
+    const pw = pgs[i].getWidth(), ph = pgs[i].getHeight()
+    const tW = pw / params.cols + overlap
+    const tH = ph / params.rows + overlap
     
-    const newW = w1 + w2 + gap
-    const newH = Math.max(h1, h2)
-    const sheet = newDoc.addPage([newW, newH])
-    
-    const [emb1] = await newDoc.embedPdf(doc, [i])
-    sheet.drawPage(emb1, { x: 0, y: (newH - h1) / 2, width: w1, height: h1 })
-    
-    if (p2) {
-      const [emb2] = await newDoc.embedPdf(doc, [i + 1])
-      sheet.drawPage(emb2, { x: w1 + gap, y: (newH - h2) / 2, width: w2, height: h2 })
+    for (let r = 0; r < params.rows; r++) {
+      for (let c = 0; c < params.cols; c++) {
+        const [e] = await nd.embedPdf(doc, [i])
+        const pg = nd.addPage([tW - overlap, tH - overlap])
+        pg.drawPage(e, {
+          x: -(c * (pw / params.cols)),
+          y: -((params.rows - 1 - r) * (ph / params.rows)),
+          width: pw, height: ph
+        })
+      }
     }
   }
-  
-  return newDoc
+  return nd
 }
 
-// Add crop marks to each page
-async function opCropMarks(doc: PDFDocument, params: { length: number, offset: number, weight: number }) {
-  const markLen = params.length * IN   // Mark length in points
-  const offset = params.offset * IN    // Offset from trim edge
-  const weight = params.weight         // Line weight in points
-  
-  const pages = doc.getPages()
-  const newDoc = await PDFDocument.create()
-  
-  for (let i = 0; i < pages.length; i++) {
-    const srcPage = pages[i]
-    const w = srcPage.getWidth()
-    const h = srcPage.getHeight()
-    
-    // Create new page with extra space for marks
-    const extraSpace = offset + markLen + 10
-    const newW = w + extraSpace * 2
-    const newH = h + extraSpace * 2
-    const page = newDoc.addPage([newW, newH])
-    
-    // Embed and draw original page centered
-    const [embedded] = await newDoc.embedPdf(doc, [i])
-    page.drawPage(embedded, { x: extraSpace, y: extraSpace, width: w, height: h })
-    
-    // Draw crop marks at all four corners
-    // Marks are offset from the trim edge and extend outward
-    const corners = [
-      { x: extraSpace, y: extraSpace },                  // Bottom-left
-      { x: extraSpace + w, y: extraSpace },              // Bottom-right
-      { x: extraSpace, y: extraSpace + h },              // Top-left
-      { x: extraSpace + w, y: extraSpace + h },          // Top-right
-    ]
-    
-    for (const corner of corners) {
-      // Horizontal marks
-      const hDir = corner.x === extraSpace ? -1 : 1  // Left corners go left, right corners go right
-      page.drawLine({
-        start: { x: corner.x + offset * hDir, y: corner.y },
-        end: { x: corner.x + (offset + markLen) * hDir, y: corner.y },
-        thickness: weight,
-        color: rgb(0, 0, 0),
-      })
-      
-      // Vertical marks  
-      const vDir = corner.y === extraSpace ? -1 : 1  // Bottom corners go down, top corners go up
-      page.drawLine({
-        start: { x: corner.x, y: corner.y + offset * vDir },
-        end: { x: corner.x, y: corner.y + (offset + markLen) * vDir },
-        thickness: weight,
-        color: rgb(0, 0, 0),
-      })
-    }
-  }
-  
-  return newDoc
-}
-
-// Generate bleed by scaling content
-async function opGenerateBleed(doc: PDFDocument, params: { bleed: number, method: string }) {
+async function opGenBleed(doc: PDFDocument, params: { method: string, bleed: number }) {
+  const pgs = doc.getPages()
+  const nd = await PDFDocument.create()
   const bleedPt = params.bleed * IN
-  const pages = doc.getPages()
-  const newDoc = await PDFDocument.create()
   
-  for (let i = 0; i < pages.length; i++) {
-    const srcPage = pages[i]
-    const w = srcPage.getWidth()
-    const h = srcPage.getHeight()
-    const newW = w + bleedPt * 2
-    const newH = h + bleedPt * 2
+  for (let i = 0; i < pgs.length; i++) {
+    const pw = pgs[i].getWidth(), ph = pgs[i].getHeight()
+    const nw = pw + bleedPt * 2, nh = ph + bleedPt * 2
+    const [e] = await nd.embedPdf(doc, [i])
+    const pg = nd.addPage([nw, nh])
     
-    const page = newDoc.addPage([newW, newH])
-    const [embedded] = await newDoc.embedPdf(doc, [i])
-    
-    if (params.method.toLowerCase().includes("mirror")) {
-      // Scale to fill the entire new page size
-      page.drawPage(embedded, { x: 0, y: 0, width: newW, height: newH })
+    if (params.method.includes("scale")) {
+      pg.drawPage(e, { x: 0, y: 0, width: nw, height: nh })
     } else {
-      // Just center the content with white bleed
-      page.drawPage(embedded, { x: bleedPt, y: bleedPt, width: w, height: h })
+      pg.drawPage(e, { x: bleedPt, y: bleedPt, width: pw, height: ph })
     }
   }
-  
-  return newDoc
+  return nd
 }
 
-// Creep compensation for booklets
-async function opCreep(doc: PDFDocument, params: { pages: number, paperThick: number, direction: string }) {
-  const pages = doc.getPages()
-  const n = pages.length
-  const newDoc = await PDFDocument.create()
-  const sheets = Math.ceil(n / 4)
-  const totalShift = sheets * params.paperThick * IN
-  
-  for (let i = 0; i < n; i++) {
-    const srcPage = pages[i]
-    const w = srcPage.getWidth()
-    const h = srcPage.getHeight()
-    
-    // Calculate shift based on position
-    const sigPos = Math.floor(i % (params.pages / 2))
-    const maxPos = Math.max(1, params.pages / 2 - 1)
-    const insideFrac = sigPos / maxPos
-    const shiftFrac = params.direction.toLowerCase().includes("inside") ? insideFrac : (1 - insideFrac)
-    const shift = shiftFrac * totalShift
-    const isLeft = i % 2 === 0
-    const dx = isLeft ? -shift : shift
-    
-    const page = newDoc.addPage([w, h])
-    const [embedded] = await newDoc.embedPdf(doc, [i])
-    page.drawPage(embedded, { x: dx, y: 0, width: w, height: h })
-  }
-  
-  return newDoc
-}
-
-// Execute operation
-async function executeOp(doc: PDFDocument, cmd: string, params: Record<string, unknown>) {
-  // Resolve sheet size
-  if (params.sheet && params.sheet !== "Custom") {
-    const preset = SHEET_PRESETS.find(s => s.name === params.sheet)
-    if (preset) {
-      params.sheetW = preset.w
-      params.sheetH = preset.h
-    }
-  }
-  
-  switch (cmd) {
-    case "SimpleBooklet": return opSimpleBooklet(doc, params as { sheetW: number, sheetH: number })
-    case "Nup": return opNup(doc, params as { cols: number, rows: number, sheetW: number, sheetH: number, gap: number })
-    case "StepRepeat": return opStepRepeat(doc, params as { cols: number, rows: number, sheetW: number, sheetH: number, gap: number })
-    case "RotatePages": return opRotate(doc, params as { angle: string, range: string })
-    case "DuplicatePages": return opDuplicate(doc, params as { copies: number })
-    case "ReversePages": return opReverse(doc)
-    case "InsertBlanks": return opInsertBlanks(doc, params as { mode: string, target: number })
-    case "PageNumbers": return opPageNumbers(doc, params as { position: string, startNum: number, fontSize: number, prefix: string, suffix: string })
-    case "SplitMerge": return opSplit(doc, params as { output: string })
-    case "Join2Pages": return opJoin2Pages(doc, params as { gap: number })
-    case "CropMarks": return opCropMarks(doc, params as { length: number, offset: number, weight: number })
-    case "GenerateBleed": return opGenerateBleed(doc, params as { bleed: number, method: string })
-    case "Creep": return opCreep(doc, params as { pages: number, paperThick: number, direction: string })
-    default: return doc
-  }
-}
-
-interface PDFInfo {
-  filename: string
-  pages: number
-  width: number
-  height: number
-  widthIn: string
-  heightIn: string
-  fileSize: string
-  mod4: number
-  needBlanks: number
-}
+// ============================================
+// Main Component
+// ============================================
 
 export function PDFImposeTool() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
-  const [pdfInfo, setPdfInfo] = useState<PDFInfo | null>(null)
-  const [resultBytes, setResultBytes] = useState<Uint8Array | null>(null)
-  const [selectedTool, setSelectedTool] = useState<string | null>(null)
-  const [selectedSeq, setSelectedSeq] = useState<number | null>(null)
+  const [pdfName, setPdfName] = useState("")
+  const [activeTool, setActiveTool] = useState<string | null>(null)
   const [params, setParams] = useState<Record<string, unknown>>({})
   const [processing, setProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [progressMsg, setProgressMsg] = useState("")
-  const [customSteps, setCustomSteps] = useState<{ cmd: string; p: Record<string, unknown> }[]>([])
-  const [activeTab, setActiveTab] = useState("tools")
-  const [isDragging, setIsDragging] = useState(false)
+  const [progress, setProgress] = useState("")
+  const [result, setResult] = useState<Uint8Array | null>(null)
+  const [info, setInfo] = useState<{ pageCount: number, sizes: { page: number, w: number, h: number }[] } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Load PDF
-  const loadPDF = useCallback(async (file: File) => {
+  
+  const handleFile = useCallback(async (file: File) => {
     const bytes = new Uint8Array(await file.arrayBuffer())
     setPdfBytes(bytes)
-    setResultBytes(null)
-    
-    try {
-      const doc = await PDFDocument.load(bytes, { ignoreEncryption: true })
-      const pages = doc.getPages()
-      const p0 = pages[0]
-      const w = p0.getWidth()
-      const h = p0.getHeight()
-      const mod4 = pages.length % 4
-      
-      setPdfInfo({
-        filename: file.name,
-        pages: pages.length,
-        width: w,
-        height: h,
-        widthIn: (w / IN).toFixed(2),
-        heightIn: (h / IN).toFixed(2),
-        fileSize: file.size > 1048576 ? (file.size / 1048576).toFixed(2) + " MB" : (file.size / 1024).toFixed(0) + " KB",
-        mod4,
-        needBlanks: mod4 === 0 ? 0 : 4 - mod4,
-      })
-    } catch (e) {
-      console.error("Failed to load PDF:", e)
-    }
+    setPdfName(file.name)
+    setResult(null)
+    setInfo(null)
   }, [])
-
-  // Handle file drop
+  
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragging(false)
     const file = e.dataTransfer.files[0]
-    if (file?.name.toLowerCase().endsWith(".pdf")) {
-      loadPDF(file)
-    }
-  }, [loadPDF])
-
-  // Select tool and set default params
+    if (file?.name.endsWith(".pdf")) handleFile(file)
+  }, [handleFile])
+  
   const selectTool = (toolId: string) => {
-    setSelectedTool(toolId)
-    setSelectedSeq(null)
-    setResultBytes(null)
+    const tool = TOOLS.find(t => 'id' in t && t.id === toolId) as Extract<ToolDef, { id: string }>
+    if (!tool) return
     
-    const tool = TOOLS[toolId as keyof typeof TOOLS]
-    if (tool) {
-      const defaults: Record<string, unknown> = {}
-      tool.params.forEach(p => {
-        defaults[p.id] = p.def
-      })
-      setParams(defaults)
+    setActiveTool(toolId)
+    setResult(null)
+    setInfo(null)
+    
+    // Set default params
+    const defaults: Record<string, unknown> = {}
+    tool.params?.forEach(p => {
+      defaults[p.id] = p.def
+    })
+    setParams(defaults)
+  }
+  
+  const updateParam = (id: string, value: unknown) => {
+    setParams(prev => ({ ...prev, [id]: value }))
+    
+    // Handle sheet preset
+    if (id === "sheet") {
+      const sheet = SHEETS.find(s => s.name === value)
+      if (sheet) {
+        setParams(prev => ({ ...prev, sheetW: sheet.w, sheetH: sheet.h }))
+      }
     }
   }
-
-  // Select sequence
-  const selectSequence = (seqId: number) => {
-    setSelectedSeq(seqId)
-    setSelectedTool(null)
-    setResultBytes(null)
-  }
-
-  // Execute tool
+  
   const runTool = async () => {
-    if (!pdfBytes || !selectedTool) return
-    
+    if (!pdfBytes || !activeTool) return
     setProcessing(true)
-    setProgress(0)
-    setProgressMsg("Loading PDF...")
-    
-    try {
-      let doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
-      setProgress(30)
-      setProgressMsg(`Running ${TOOLS[selectedTool as keyof typeof TOOLS]?.name}...`)
-      
-      doc = await executeOp(doc, selectedTool, { ...params })
-      
-      setProgress(80)
-      setProgressMsg("Saving...")
-      
-      const result = await doc.save()
-      setResultBytes(new Uint8Array(result))
-      setProgress(100)
-      setProgressMsg("Done!")
-    } catch (e) {
-      console.error("Operation failed:", e)
-      setProgressMsg("Error: " + (e as Error).message)
-    } finally {
-      setTimeout(() => setProcessing(false), 500)
-    }
-  }
-
-  // Execute sequence
-  const runSequence = async () => {
-    if (!pdfBytes || selectedSeq === null) return
-    const seq = SEQUENCES.find(s => s.id === selectedSeq)
-    if (!seq) return
-    
-    setProcessing(true)
-    setProgress(0)
+    setProgress("Loading PDF...")
     
     try {
       let doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
       
-      for (let i = 0; i < seq.steps.length; i++) {
-        const step = seq.steps[i]
-        setProgress(Math.round(((i + 1) / seq.steps.length) * 80))
-        setProgressMsg(`Step ${i + 1}/${seq.steps.length}: ${TOOLS[step.cmd as keyof typeof TOOLS]?.name}`)
-        doc = await executeOp(doc, step.cmd, { ...step.p })
+      setProgress(`Running ${activeTool}...`)
+      
+      switch (activeTool) {
+        case "Rotate": {
+          const angleStr = params.angle as string
+          const angle = angleStr.includes("counter") ? -90 : angleStr.includes("clockwise") ? 90 : 180
+          doc = await opRotate(doc, { angle, range: params.range as string })
+          break
+        }
+        case "Duplicate":
+          doc = await opDuplicate(doc, {
+            copies: params.copies as number,
+            collate: (params.collate as string).includes("collated (1,1")
+          })
+          break
+        case "Delete":
+          doc = await opDelete(doc, { from: params.from as number, to: params.to as number })
+          break
+        case "Move":
+          doc = await opMove(doc, { pageNum: params.pageNum as number, where: params.where as string })
+          break
+        case "Reverse":
+          doc = await opReverse(doc)
+          break
+        case "SimpleBooklet":
+          doc = await opBooklet(doc, {
+            margin: params.margin as number,
+            cropMarks: params.cropMarks === "yes",
+            noScale: (params.noScale as string).includes("100")
+          })
+          break
+        case "Nup":
+          doc = await opNUp(doc, {
+            rows: params.rows as number,
+            cols: params.cols as number,
+            sheetW: params.sheetW as number,
+            sheetH: params.sheetH as number,
+            margin: params.margin as number,
+            cropMarks: params.cropMarks === "yes"
+          })
+          break
+        case "StepRepeat":
+          doc = await opNUp(doc, {
+            rows: params.rows as number,
+            cols: params.cols as number,
+            sheetW: params.sheetW as number,
+            sheetH: params.sheetH as number,
+            margin: params.margin as number,
+            cropMarks: params.cropMarks === "yes",
+            stepRepeat: true
+          })
+          break
+        case "PageSizes":
+          doc = await opPageSizes(doc, {
+            mode: params.mode as string,
+            w: params.w as number,
+            h: params.h as number,
+            range: params.range as string
+          })
+          break
+        case "InsertBlanks":
+          doc = await opInsert(doc, {
+            where: params.where as string,
+            count: params.count as number,
+            pageNum: params.pageNum as number
+          })
+          break
+        case "PageNumbers":
+          doc = await opPageNumbers(doc, {
+            startNum: params.startNum as number,
+            prefix: params.prefix as string || "",
+            suffix: params.suffix as string || "",
+            position: params.position as string,
+            fontSize: params.fontSize as number
+          })
+          break
+        case "BatesStamp":
+          doc = await opBates(doc, {
+            startNum: params.startNum as number,
+            digits: params.digits as number,
+            prefix: params.prefix as string || "",
+            position: params.position as string,
+            fontSize: params.fontSize as number
+          })
+          break
+        case "Split":
+          doc = await opSplit(doc, { output: params.output as string })
+          break
+        case "TilePages":
+          doc = await opTile(doc, {
+            rows: params.rows as number,
+            cols: params.cols as number,
+            overlap: params.overlap as number || 0
+          })
+          break
+        case "GenerateBleed":
+          doc = await opGenBleed(doc, {
+            method: params.method as string,
+            bleed: params.bleed as number
+          })
+          break
+        case "Info": {
+          const pgs = doc.getPages()
+          setInfo({
+            pageCount: pgs.length,
+            sizes: pgs.map((pg, i) => ({ page: i + 1, w: pg.getWidth(), h: pg.getHeight() }))
+          })
+          setProcessing(false)
+          return
+        }
       }
       
-      setProgress(90)
-      setProgressMsg("Saving...")
+      setProgress("Saving PDF...")
+      const resultBytes = await doc.save()
+      setResult(new Uint8Array(resultBytes))
       
-      const result = await doc.save()
-      setResultBytes(new Uint8Array(result))
-      setProgress(100)
-      setProgressMsg("Done!")
-    } catch (e) {
-      console.error("Sequence failed:", e)
-      setProgressMsg("Error: " + (e as Error).message)
-    } finally {
-      setTimeout(() => setProcessing(false), 500)
+    } catch (err) {
+      console.error(err)
+      alert("Error processing PDF: " + (err as Error).message)
     }
-  }
-
-  // Run custom pipeline
-  const runCustom = async () => {
-    if (!pdfBytes || customSteps.length === 0) return
     
-    setProcessing(true)
-    setProgress(0)
-    
-    try {
-      let doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
-      
-      for (let i = 0; i < customSteps.length; i++) {
-        const step = customSteps[i]
-        setProgress(Math.round(((i + 1) / customSteps.length) * 80))
-        setProgressMsg(`Step ${i + 1}/${customSteps.length}: ${TOOLS[step.cmd as keyof typeof TOOLS]?.name}`)
-        doc = await executeOp(doc, step.cmd, { ...step.p })
-      }
-      
-      setProgress(90)
-      setProgressMsg("Saving...")
-      
-      const result = await doc.save()
-      setResultBytes(new Uint8Array(result))
-      setProgress(100)
-      setProgressMsg("Done!")
-    } catch (e) {
-      console.error("Custom pipeline failed:", e)
-    } finally {
-      setTimeout(() => setProcessing(false), 500)
-    }
+    setProcessing(false)
   }
-
-  // Add to custom pipeline
-  const addToCustom = () => {
-    if (!selectedTool) return
-    setCustomSteps([...customSteps, { cmd: selectedTool, p: { ...params } }])
-  }
-
-  // Download result
+  
   const downloadResult = () => {
-    if (!resultBytes || !pdfInfo) return
-    const blob = new Blob([resultBytes], { type: "application/pdf" })
+    if (!result) return
+    const blob = new Blob([result], { type: "application/pdf" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = pdfInfo.filename.replace(".pdf", "_imposed.pdf")
+    a.download = `${pdfName.replace(".pdf", "")}_imposed.pdf`
     a.click()
     URL.revokeObjectURL(url)
   }
-
-  // Render param input
-  const renderParam = (p: { id: string; label: string; type: string; def?: unknown; opts?: string[]; min?: number; max?: number; hidden?: boolean }) => {
-    if (p.hidden) return null
-    
-    const value = params[p.id] ?? p.def
-    
-    if (p.type === "sel" || p.type === "sheet") {
-      const options = p.type === "sheet" ? SHEET_PRESETS.map(s => s.name) : (p.opts || [])
-      return (
-        <div key={p.id} className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground">{p.label}</Label>
-          <Select value={String(value)} onValueChange={v => setParams({ ...params, [p.id]: v })}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map(opt => (
-                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )
-    }
-    
-    if (p.type === "txt") {
-      return (
-        <div key={p.id} className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground">{p.label}</Label>
-          <Input
-            value={String(value || "")}
-            onChange={e => setParams({ ...params, [p.id]: e.target.value })}
-            className="h-9"
-          />
-        </div>
-      )
-    }
-    
-    return (
-      <div key={p.id} className="space-y-1.5">
-        <Label className="text-xs font-medium text-muted-foreground">
-          {p.label} {p.type === "in" && <span className="text-muted-foreground">(in)</span>}
-        </Label>
-        <Input
-          type="number"
-          value={value as number}
-          onChange={e => setParams({ ...params, [p.id]: parseFloat(e.target.value) || 0 })}
-          min={p.min}
-          max={p.max}
-          step={p.type === "in" ? 0.001 : 1}
-          className="h-9"
-        />
-      </div>
-    )
-  }
-
+  
+  const tool = activeTool ? TOOLS.find(t => 'id' in t && t.id === activeTool) as Extract<ToolDef, { id: string }> : null
+  
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-card">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
-            <Layers className="h-5 w-5 text-violet-600" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">PDF Impose</h1>
-            <p className="text-xs text-muted-foreground">Imposition, N-Up, Booklet, and more</p>
-          </div>
+    <div className="h-full flex bg-muted/30">
+      {/* Sidebar - Tools */}
+      <div className="w-72 border-r bg-card overflow-y-auto">
+        <div className="p-4 border-b">
+          <h2 className="font-bold text-sm">All Tools</h2>
         </div>
-        
-        {pdfInfo && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300 truncate max-w-[200px]">
-                {pdfInfo.filename}
-              </span>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4 mr-2" />
-              Change File
-            </Button>
-          </div>
-        )}
+        <div className="py-2">
+          {TOOLS.map((item, idx) => {
+            if ('group' in item && !('id' in item)) {
+              return (
+                <div key={idx} className="px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  {item.group}
+                </div>
+              )
+            }
+            const t = item as Extract<ToolDef, { id: string }>
+            return (
+              <button
+                key={t.id}
+                onClick={() => selectTool(t.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                  activeTool === t.id ? "bg-primary/10 border-l-2 border-primary" : "hover:bg-muted/50"
+                )}
+              >
+                <div className={cn("p-2 rounded-lg", t.color)}>
+                  <t.icon className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold">{t.name}</div>
+                  <div className="text-xs text-muted-foreground">{t.desc}</div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-72 border-r bg-card flex flex-col">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
-              <TabsTrigger value="tools" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                Tools
-              </TabsTrigger>
-              <TabsTrigger value="sequences" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                Sequences
-              </TabsTrigger>
-              <TabsTrigger value="custom" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                Custom
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Tools Tab */}
-            <TabsContent value="tools" className="flex-1 m-0 overflow-auto">
-              <div className="p-3 space-y-4">
-                {/* Booklet */}
-                <div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Booklet</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(TOOLS).filter(([, t]) => t.category === "booklet").map(([id, t]) => (
-                      <Button
-                        key={id}
-                        variant={selectedTool === id ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => selectTool(id)}
-                      >
-                        <span className="mr-1">{t.emoji}</span>
-                        {t.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* N-Up */}
-                <div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">N-Up</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(TOOLS).filter(([, t]) => t.category === "nup").map(([id, t]) => (
-                      <Button
-                        key={id}
-                        variant={selectedTool === id ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => selectTool(id)}
-                      >
-                        <span className="mr-1">{t.emoji}</span>
-                        {t.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Page */}
-                <div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Page Tools</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(TOOLS).filter(([, t]) => t.category === "page").map(([id, t]) => (
-                      <Button
-                        key={id}
-                        variant={selectedTool === id ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => selectTool(id)}
-                      >
-                        <span className="mr-1">{t.emoji}</span>
-                        {t.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Finishing */}
-                <div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Finishing</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(TOOLS).filter(([, t]) => t.category === "finish").map(([id, t]) => (
-                      <Button
-                        key={id}
-                        variant={selectedTool === id ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => selectTool(id)}
-                      >
-                        <span className="mr-1">{t.emoji}</span>
-                        {t.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Other */}
-                <div>
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 px-1">Other</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(TOOLS).filter(([, t]) => t.category === "other" || t.category === "info").map(([id, t]) => (
-                      <Button
-                        key={id}
-                        variant={selectedTool === id ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => selectTool(id)}
-                      >
-                        <span className="mr-1">{t.emoji}</span>
-                        {t.name}
-                      </Button>
-                    ))}
-                  </div>
+      
+      {/* Main Panel */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {!pdfBytes ? (
+          // Drop Zone
+          <div
+            className="h-full flex items-center justify-center"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <div 
+              className="w-96 border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="font-bold mb-2">Upload your PDF</h3>
+              <p className="text-sm text-muted-foreground mb-4">All processing happens in your browser. Nothing is uploaded.</p>
+              <button className="px-5 py-2 bg-primary text-primary-foreground rounded-full text-sm font-semibold">
+                Choose PDF
+              </button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+            />
+          </div>
+        ) : !activeTool ? (
+          // No tool selected
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <div className="text-5xl mb-4">&#8592;</div>
+              <h3 className="font-bold text-lg mb-2">Pick a tool</h3>
+              <p className="text-muted-foreground">Select a tool from the sidebar to get started.</p>
+              <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300 text-sm">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium">{pdfName}</span>
                 </div>
               </div>
-            </TabsContent>
-
-            {/* Sequences Tab */}
-            <TabsContent value="sequences" className="flex-1 m-0 overflow-auto">
-              <div className="p-2 space-y-1">
-                {SEQUENCES.map(seq => (
-                  <button
-                    key={seq.id}
-                    onClick={() => selectSequence(seq.id)}
-                    className={cn(
-                      "w-full p-3 rounded-lg text-left transition-colors",
-                      selectedSeq === seq.id ? "bg-primary/10 border-l-2 border-primary" : "hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="font-semibold text-sm">{seq.name}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{seq.desc}</div>
-                    <div className="flex gap-1.5 mt-2">
-                      <Badge variant="secondary" className="text-[10px]">{seq.steps.length} steps</Badge>
-                      <Badge variant="outline" className="text-[10px]">{seq.category}</Badge>
+            </div>
+          </div>
+        ) : tool ? (
+          // Tool panel
+          <div className="max-w-2xl">
+            {/* Tool header */}
+            <div className="bg-card rounded-xl shadow-sm p-6 mb-4">
+              <div className="flex items-start gap-4">
+                <div className={cn("p-3 rounded-xl", tool.color)}>
+                  <tool.icon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">{tool.name}</h2>
+                  <p className="text-muted-foreground mt-1">{tool.plain || tool.desc}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Result banner */}
+            {result && (
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-4 flex items-center gap-4">
+                <span className="text-2xl">Done!</span>
+                <div className="flex-1">
+                  <div className="font-bold text-green-700 dark:text-green-300">{(result.length / 1024).toFixed(0)} KB ready</div>
+                </div>
+                <button
+                  onClick={downloadResult}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-full text-sm font-semibold hover:bg-green-700"
+                >
+                  <Download className="h-4 w-4" /> Download
+                </button>
+              </div>
+            )}
+            
+            {/* Info result */}
+            {info && (
+              <div className="bg-card rounded-xl shadow-sm p-6 mb-4">
+                <h3 className="font-bold mb-4">PDF Info</h3>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs font-bold text-muted-foreground uppercase">Pages</div>
+                    <div className="text-lg font-bold font-mono">{info.pageCount}</div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs font-bold text-muted-foreground uppercase">File</div>
+                    <div className="text-sm font-medium truncate">{pdfName}</div>
+                  </div>
+                </div>
+                <div className="text-xs font-bold text-muted-foreground uppercase mb-2">Page Sizes</div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {info.sizes.map(s => (
+                    <div key={s.page} className="flex justify-between px-3 py-1.5 bg-muted/30 rounded text-sm font-mono">
+                      <span>Page {s.page}</span>
+                      <span>{(s.w / IN).toFixed(2)}&quot; x {(s.h / IN).toFixed(2)}&quot;</span>
                     </div>
-                  </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Parameters */}
+            <div className="bg-card rounded-xl shadow-sm p-6">
+              <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide mb-4">Settings</h3>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                {tool.params?.filter(p => !p.hidden).map(p => (
+                  <div key={p.id} className={cn("space-y-1.5", p.type === "text" && "col-span-2")}>
+                    <label className="text-xs font-bold text-muted-foreground uppercase">{p.label}</label>
+                    {p.type === "select" || p.type === "sheet" ? (
+                      <select
+                        value={params[p.id] as string}
+                        onChange={(e) => updateParam(p.id, e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
+                      >
+                        {p.type === "sheet" 
+                          ? SHEETS.map(s => <option key={s.name} value={s.name}>{s.name}</option>)
+                          : p.opts?.map(o => <option key={o} value={o}>{o}</option>)
+                        }
+                      </select>
+                    ) : p.type === "text" ? (
+                      <input
+                        type="text"
+                        value={params[p.id] as string || ""}
+                        onChange={(e) => updateParam(p.id, e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        value={params[p.id] as number}
+                        onChange={(e) => updateParam(p.id, parseFloat(e.target.value) || 0)}
+                        min={p.min}
+                        max={p.max}
+                        step={p.step || 1}
+                        className="w-full px-3 py-2 rounded-lg border bg-background text-sm font-mono"
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
-            </TabsContent>
-
-            {/* Custom Tab */}
-            <TabsContent value="custom" className="flex-1 m-0 flex flex-col">
-              <div className="p-3 border-b">
-                <div className="font-semibold text-sm mb-2">Custom Pipeline</div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={runCustom} disabled={!pdfBytes || customSteps.length === 0 || processing}>
-                    <Play className="h-3 w-3 mr-1" />
-                    Run
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setCustomSteps([])}>
-                    Clear
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className="flex-1 p-3">
-                {customSteps.length === 0 ? (
-                  <div className="text-center text-muted-foreground text-sm py-8">
-                    <div className="text-2xl mb-2">📋</div>
-                    <div>Use any tool, then click</div>
-                    <div className="font-semibold">+ Add to Custom</div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {customSteps.map((step, idx) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {TOOLS[step.cmd as keyof typeof TOOLS]?.name}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0"
-                          onClick={() => setCustomSteps(customSteps.filter((_, i) => i !== idx))}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-
-          {/* File info footer */}
-          {pdfInfo && (
-            <div className="border-t p-3 bg-muted/30">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <div className="text-muted-foreground">Pages</div>
-                  <div className="font-mono font-bold">{pdfInfo.pages}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Size</div>
-                  <div className="font-mono font-bold">{pdfInfo.widthIn}" x {pdfInfo.heightIn}"</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">File</div>
-                  <div className="font-mono">{pdfInfo.fileSize}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Mod 4</div>
-                  <div className={cn("font-mono font-bold", pdfInfo.mod4 === 0 ? "text-green-600" : "text-orange-600")}>
-                    {pdfInfo.mod4 === 0 ? "OK" : `+${pdfInfo.needBlanks}`}
-                  </div>
-                </div>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={runTool}
+                  disabled={processing}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold disabled:opacity-50"
+                >
+                  {processing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {progress}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      Run {tool.name}
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto p-6">
-          {!pdfBytes ? (
-            /* Drop zone */
-            <div
-              className={cn(
-                "h-full flex items-center justify-center",
-              )}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-            >
-              <div
-                className={cn(
-                  "w-96 p-10 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer",
-                  isDragging ? "border-primary bg-primary/5 scale-105" : "border-border hover:border-primary/50"
-                )}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="text-5xl mb-4">📄</div>
-                <div className="text-xl font-bold mb-2">Open a PDF</div>
-                <div className="text-sm text-muted-foreground mb-4">
-                  All processing happens locally in your browser.<br />
-                  Nothing is sent to any server.
-                </div>
-                <Button>Choose PDF</Button>
-              </div>
-            </div>
-          ) : selectedTool ? (
-            /* Tool panel */
-            <div className="max-w-2xl">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className="text-4xl">{TOOLS[selectedTool as keyof typeof TOOLS]?.emoji}</div>
-                    <div>
-                      <CardTitle>{TOOLS[selectedTool as keyof typeof TOOLS]?.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {TOOLS[selectedTool as keyof typeof TOOLS]?.desc}
-                      </CardDescription>
-                      <div className="flex items-start gap-2 mt-3 p-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-                        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                        {TOOLS[selectedTool as keyof typeof TOOLS]?.tip}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {resultBytes && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <div className="flex-1">
-                        <div className="font-semibold text-green-700 dark:text-green-300">
-                          Done - {(resultBytes.length / 1024).toFixed(0)} KB
-                        </div>
-                      </div>
-                      <Button onClick={downloadResult} className="bg-green-600 hover:bg-green-700">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  )}
-
-                  {TOOLS[selectedTool as keyof typeof TOOLS]?.params.length > 0 && (
-                    <div className="space-y-4">
-                      <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Settings</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        {TOOLS[selectedTool as keyof typeof TOOLS]?.params.map(p => renderParam(p))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <Button onClick={runTool} disabled={processing}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Run - {TOOLS[selectedTool as keyof typeof TOOLS]?.name}
-                    </Button>
-                    <Button variant="outline" onClick={addToCustom}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add to Custom
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : selectedSeq !== null ? (
-            /* Sequence panel */
-            <div className="max-w-2xl">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{SEQUENCES.find(s => s.id === selectedSeq)?.name}</CardTitle>
-                  <CardDescription>{SEQUENCES.find(s => s.id === selectedSeq)?.desc}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {resultBytes && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <div className="flex-1">
-                        <div className="font-semibold text-green-700 dark:text-green-300">
-                          Done - {(resultBytes.length / 1024).toFixed(0)} KB
-                        </div>
-                      </div>
-                      <Button onClick={downloadResult} className="bg-green-600 hover:bg-green-700">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Pipeline - {SEQUENCES.find(s => s.id === selectedSeq)?.steps.length} steps
-                    </div>
-                    {SEQUENCES.find(s => s.id === selectedSeq)?.steps.map((step, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold">
-                            {TOOLS[step.cmd as keyof typeof TOOLS]?.emoji} {TOOLS[step.cmd as keyof typeof TOOLS]?.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {Object.entries(step.p).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(" · ")}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Button onClick={runSequence} disabled={processing}>
-                    <Play className="h-4 w-4 mr-2" />
-                    {resultBytes ? "Run Again" : "Run Sequence"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            /* Default: show file info */
-            <div className="max-w-2xl">
-              <Card>
-                <CardHeader>
-                  <CardTitle>File Loaded</CardTitle>
-                  <CardDescription>Select a tool from the sidebar to get started</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="p-4 rounded-lg bg-muted/50 text-center">
-                      <div className="text-2xl font-bold text-primary">{pdfInfo?.pages}</div>
-                      <div className="text-xs text-muted-foreground">Pages</div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50 text-center">
-                      <div className="text-lg font-bold">{pdfInfo?.widthIn}" x {pdfInfo?.heightIn}"</div>
-                      <div className="text-xs text-muted-foreground">Page Size</div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50 text-center">
-                      <div className="text-lg font-bold">{pdfInfo?.fileSize}</div>
-                      <div className="text-xs text-muted-foreground">File Size</div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50 text-center">
-                      <div className={cn("text-lg font-bold", pdfInfo?.mod4 === 0 ? "text-green-600" : "text-orange-600")}>
-                        {pdfInfo?.mod4 === 0 ? "Yes" : `Need +${pdfInfo?.needBlanks}`}
-                      </div>
-                      <div className="text-xs text-muted-foreground">Booklet Ready</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
-
+      
       {/* Processing overlay */}
       {processing && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-80">
-            <CardContent className="pt-6 text-center">
-              <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
-              <div className="font-semibold mb-2">{progressMsg}</div>
-              <Progress value={progress} className="h-2" />
-            </CardContent>
-          </Card>
+          <div className="bg-card rounded-2xl shadow-xl p-8 text-center">
+            <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
+            <div className="font-bold mb-1">Processing PDF...</div>
+            <div className="text-sm text-muted-foreground">{progress}</div>
+          </div>
         </div>
       )}
-
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) loadPDF(file)
-        }}
-      />
     </div>
   )
 }
