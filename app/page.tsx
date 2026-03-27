@@ -27,6 +27,7 @@ import { ExportToQB } from "@/components/export-to-qb"
 import { NonprofitLookup } from "@/components/nonprofit-lookup"
 import WorkflowPage from "@/app/workflow/page"
 import { CalculatorsHub } from "@/components/calculators-hub"
+import { PDFBatchTool } from "@/components/pdf-batch-tool"
 
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,7 @@ import {
   PanelRightOpen, X, Layers, ArrowLeft, PenLine, LayoutDashboard,
   Users, Menu, ChevronLeft, Columns3, List, Download, LayoutPanelLeft, DollarSign,
   SkipForward, AlertCircle, CircleDashed, CheckCircle2, MessageSquare, Building2, GitBranch,
+  FileStack,
 } from "lucide-react"
 
 // ---- Calculator Steps (after planner) ----
@@ -78,7 +80,7 @@ class StepErrorBoundary extends Component<{ children: ReactNode; stepId: string 
 type Section =
   | "quotes-board" | "jobs-board" | "deliveries" | "billing" | "ohp-bids"
   | "customers" | "invoices" | "export-qb" | "chat-quotes"
-  | "nonprofit-lookup" | "workflow" | "calculators"
+  | "nonprofit-lookup" | "workflow" | "calculators" | "pdf-tools"
   | "job"
 
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
@@ -95,6 +97,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
   { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools" },
   { id: "calculators", label: "Calculators", icon: <Stamp className="h-4 w-4" />, group: "tools" },
+  { id: "pdf-tools", label: "PDF Tools", icon: <FileStack className="h-4 w-4" />, group: "tools" },
 ]
 
 type JobPhase = "planner" | "pricing"
@@ -521,6 +524,13 @@ function AppContent() {
           {section === "calculators" && (
             <div className="flex-1 overflow-auto">
               <CalculatorsHub />
+            </div>
+          )}
+
+          {/* == PDF TOOLS == */}
+          {section === "pdf-tools" && (
+            <div className="flex-1 overflow-hidden">
+              <PDFBatchTool />
             </div>
           )}
 
