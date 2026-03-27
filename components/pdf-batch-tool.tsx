@@ -605,11 +605,12 @@ export function PDFBatchTool() {
         const group = groups[gi]
         const pageCount = group.pageCount
 
-        // 1. Create SEPARATOR page - named to sort FIRST
+        // 1. Create SEPARATOR page - named with "!" to sort FIRST
+        // "!" (ASCII 33) comes before letters (ASCII 65+) so it sorts first
         setProcessMsg(`Creating ${pageCount}-page separator...`)
         const separatorPdf = await generateSeparatorPage(pageCount, group.files.length, gi + 1, groups.length)
-        // Name: "14 SEPARATOR PAGE.pdf" - the page count prefix ensures proper sorting
-        zip.file(`${String(pageCount).padStart(3, '0')} SEPARATOR PAGE.pdf`, separatorPdf)
+        const paddedCount = String(pageCount).padStart(3, '0')
+        zip.file(`${paddedCount} !SEPARATOR.pdf`, separatorPdf)
         currentStep++
         setProcessProgress(Math.round((currentStep / totalSteps) * 100))
 
@@ -619,9 +620,9 @@ export function PDFBatchTool() {
           setProcessMsg(`Adding ${file.name}...`)
           
           const ab = await file.file.arrayBuffer()
-          // Rename: "14 originalname.pdf"
+          // Rename: "014 originalname.pdf" - starts with letter so sorts after !SEPARATOR
           const baseName = file.name.replace(/\.pdf$/i, "")
-          const newName = `${String(pageCount).padStart(3, '0')} ${baseName}.pdf`
+          const newName = `${paddedCount} ${baseName}.pdf`
           zip.file(newName, ab)
           
           currentStep++
