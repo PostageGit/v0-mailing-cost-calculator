@@ -203,7 +203,14 @@ type ToolDef =
 // PDF Operations (from clean v3 source)
 // ============================================
 
+// CRITICAL: Re-hydrate PDF to ensure content is properly loaded
+// This forces pdf-lib to fully parse all content streams
+async function rehy(doc: PDFDocument): Promise<PDFDocument> {
+  return PDFDocument.load(await doc.save(), { ignoreEncryption: true })
+}
+
 async function opRotate(doc: PDFDocument, params: { angle: number, range: string }) {
+  doc = await rehy(doc) // Re-hydrate first
   const nd = await PDFDocument.create()
   const pgs = doc.getPages()
   const angle = params.angle
@@ -234,6 +241,7 @@ async function opRotate(doc: PDFDocument, params: { angle: number, range: string
 }
 
 async function opDuplicate(doc: PDFDocument, params: { copies: number, collate: boolean }) {
+  doc = await rehy(doc)
   const nd = await PDFDocument.create()
   const pgs = doc.getPages()
   const n = pgs.length
@@ -254,6 +262,7 @@ async function opDuplicate(doc: PDFDocument, params: { copies: number, collate: 
 }
 
 async function opDelete(doc: PDFDocument, params: { from: number, to: number }) {
+  doc = await rehy(doc)
   const nd = await PDFDocument.create()
   const pgs = doc.getPages()
   const fromIdx = params.from - 1
@@ -269,6 +278,7 @@ async function opDelete(doc: PDFDocument, params: { from: number, to: number }) 
 }
 
 async function opMove(doc: PDFDocument, params: { pageNum: number, where: string }) {
+  doc = await rehy(doc)
   const nd = await PDFDocument.create()
   const pgs = doc.getPages()
   const n = pgs.length
@@ -293,6 +303,7 @@ async function opMove(doc: PDFDocument, params: { pageNum: number, where: string
 }
 
 async function opReverse(doc: PDFDocument) {
+  doc = await rehy(doc)
   const nd = await PDFDocument.create()
   const pgs = doc.getPages()
   
@@ -306,6 +317,7 @@ async function opReverse(doc: PDFDocument) {
 
 // Simple Booklet with CROP MARKS built in
 async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: boolean, noScale: boolean }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const n = pgs.length
   const total = Math.ceil(n / 4) * 4
@@ -355,6 +367,7 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
 
 // N-Up with CROP MARKS built in
 async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, sheetW: number, sheetH: number, margin: number, cropMarks: boolean, stepRepeat?: boolean }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
   const sheetW = params.sheetW * IN
@@ -399,6 +412,7 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
 }
 
 async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, h: number, range: string }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
   const w = params.w * IN
@@ -427,6 +441,7 @@ async function opPageSizes(doc: PDFDocument, params: { mode: string, w: number, 
 }
 
 async function opInsert(doc: PDFDocument, params: { where: string, count: number, pageNum: number }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
   const rw = pgs[0].getWidth(), rh = pgs[0].getHeight()
@@ -454,6 +469,7 @@ async function opInsert(doc: PDFDocument, params: { where: string, count: number
 }
 
 async function opPageNumbers(doc: PDFDocument, params: { startNum: number, prefix: string, suffix: string, position: string, fontSize: number }) {
+  doc = await rehy(doc)
   const font = await doc.embedFont(StandardFonts.HelveticaBold)
   const pgs = doc.getPages()
   
@@ -473,6 +489,7 @@ async function opPageNumbers(doc: PDFDocument, params: { startNum: number, prefi
 }
 
 async function opBates(doc: PDFDocument, params: { startNum: number, digits: number, prefix: string, position: string, fontSize: number }) {
+  doc = await rehy(doc)
   const font = await doc.embedFont(StandardFonts.HelveticaBold)
   const pgs = doc.getPages()
   
@@ -492,6 +509,7 @@ async function opBates(doc: PDFDocument, params: { startNum: number, digits: num
 }
 
 async function opSplit(doc: PDFDocument, params: { output: string }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
   
@@ -508,6 +526,7 @@ async function opSplit(doc: PDFDocument, params: { output: string }) {
 }
 
 async function opTile(doc: PDFDocument, params: { rows: number, cols: number, overlap: number }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
   const overlap = params.overlap * IN
@@ -533,6 +552,7 @@ async function opTile(doc: PDFDocument, params: { rows: number, cols: number, ov
 }
 
 async function opGenBleed(doc: PDFDocument, params: { method: string, bleed: number }) {
+  doc = await rehy(doc)
   const pgs = doc.getPages()
   const nd = await PDFDocument.create()
   const bleedPt = params.bleed * IN
