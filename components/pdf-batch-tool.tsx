@@ -182,8 +182,16 @@ export function PDFBatchTool() {
       .map(([pageCount, files]) => ({ pageCount, files }))
   }
 
-  // ========== SEPARATOR PAGE - Shows HUGE page count and set count ==========
-  const generateSeparatorPage = async (pageCount: number, fileCount: number, groupIndex: number, totalGroups: number) => {
+  // ========== WEIGHT DIVIDER PAGE - Only for 20+ pages ==========
+  // 20-31 pages = 2 OZ, 32-37 pages = 3 OZ, 38+ pages = 4 OZ
+  const getWeightInfo = (pageCount: number): { oz: number; label: string; color: { r: number; g: number; b: number } } | null => {
+    if (pageCount >= 38) return { oz: 4, label: "4 OZ", color: { r: 0.6, g: 0.1, b: 0.1 } }  // Dark red
+    if (pageCount >= 32) return { oz: 3, label: "3 OZ", color: { r: 0.7, g: 0.3, b: 0 } }   // Orange
+    if (pageCount >= 20) return { oz: 2, label: "2 OZ", color: { r: 0.1, g: 0.4, b: 0.7 } } // Blue
+    return null // Under 20 pages = standard 1oz, no divider needed
+  }
+
+  const generateWeightDivider = async (pageCount: number, fileCount: number, weightInfo: { oz: number; label: string; color: { r: number; g: number; b: number } }) => {
     const doc = await PDFDocument.create()
     const page = doc.addPage([612, 792]) // Letter size
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
@@ -191,112 +199,118 @@ export function PDFBatchTool() {
     
     const { width, height } = page.getSize()
     const centerX = width / 2
+    const { r, g, b } = weightInfo.color
 
-    // ========== TOP HEADER ==========
+    // ========== FULL PAGE COLORED HEADER ==========
     page.drawRectangle({
       x: 0,
-      y: height - 120,
+      y: height - 180,
       width: width,
-      height: 120,
-      color: rgb(0.1, 0.15, 0.35)
+      height: 180,
+      color: rgb(r, g, b)
     })
 
-    page.drawText("SEPARATOR PAGE", {
-      x: centerX - 100,
+    page.drawText("WEIGHT DIVIDER", {
+      x: centerX - 120,
       y: height - 50,
-      size: 28,
+      size: 32,
       font: fontBold,
       color: rgb(1, 1, 1)
     })
 
-    page.drawText(`Group ${groupIndex} of ${totalGroups}  |  KEEP ON TOP`, {
-      x: centerX - 130,
-      y: height - 85,
+    page.drawText("PLACE ON TOP OF STACK", {
+      x: centerX - 110,
+      y: height - 90,
+      size: 16,
+      font: fontRegular,
+      color: rgb(1, 1, 1, 0.85)
+    })
+
+    page.drawText(`${fileCount} set${fileCount > 1 ? 's' : ''} @ ${pageCount} pages each`, {
+      x: centerX - 100,
+      y: height - 130,
       size: 14,
       font: fontRegular,
-      color: rgb(0.7, 0.8, 0.95)
+      color: rgb(1, 1, 1, 0.7)
     })
 
-    // ========== HUGE PAGE COUNT ==========
+    // ========== HUGE WEIGHT LABEL ==========
     page.drawRectangle({
-      x: 50,
+      x: 40,
+      y: height - 550,
+      width: width - 80,
+      height: 340,
+      borderColor: rgb(r, g, b),
+      borderWidth: 12,
+      color: rgb(1, 1, 1)
+    })
+
+    // The big weight text
+    const ozText = weightInfo.label
+    page.drawText(ozText, {
+      x: centerX - 140,
       y: height - 420,
-      width: width - 100,
-      height: 260,
-      borderColor: rgb(0.2, 0.4, 0.8),
-      borderWidth: 6,
-      color: rgb(0.95, 0.97, 1)
-    })
-
-    const pageCountText = `${pageCount}`
-    const textWidth = pageCountText.length > 2 ? 180 : (pageCountText.length > 1 ? 130 : 80)
-    page.drawText(pageCountText, {
-      x: centerX - textWidth / 2,
-      y: height - 320,
-      size: 200,
+      size: 180,
       font: fontBold,
-      color: rgb(0.15, 0.3, 0.7)
+      color: rgb(r, g, b)
     })
 
-    page.drawText("PAGES", {
-      x: centerX - 55,
-      y: height - 390,
-      size: 48,
-      font: fontBold,
-      color: rgb(0.4, 0.4, 0.5)
+    // Page range subtitle
+    let rangeText = ""
+    if (weightInfo.oz === 2) rangeText = "(20-31 pages)"
+    else if (weightInfo.oz === 3) rangeText = "(32-37 pages)"
+    else if (weightInfo.oz === 4) rangeText = "(38+ pages)"
+
+    page.drawText(rangeText, {
+      x: centerX - 60,
+      y: height - 520,
+      size: 20,
+      font: fontRegular,
+      color: rgb(0.4, 0.4, 0.4)
     })
 
-    // ========== SET COUNT BOX ==========
+    // ========== INFO BOX ==========
     page.drawRectangle({
-      x: 50,
-      y: 180,
-      width: width - 100,
-      height: 200,
-      borderColor: rgb(0.9, 0.25, 0.1),
-      borderWidth: 6,
-      color: rgb(1, 0.97, 0.95)
+      x: 40,
+      y: 80,
+      width: width - 80,
+      height: 120,
+      color: rgb(0.96, 0.96, 0.98),
+      borderColor: rgb(0.85, 0.85, 0.88),
+      borderWidth: 1
     })
 
-    const setsText = `${fileCount}`
-    page.drawText(setsText, {
-      x: centerX - (setsText.length > 1 ? 80 : 50),
-      y: 270,
-      size: 160,
+    page.drawText(`This lot: ${pageCount} pages x ${fileCount} sets`, {
+      x: 60,
+      y: 165,
+      size: 16,
       font: fontBold,
-      color: rgb(0.9, 0.2, 0.1)
+      color: rgb(0.2, 0.2, 0.2)
     })
 
-    page.drawText(fileCount === 1 ? "SET" : "SETS", {
-      x: centerX - 40,
-      y: 200,
-      size: 40,
-      font: fontBold,
-      color: rgb(0.5, 0.5, 0.5)
-    })
-
-    // ========== FOOTER ==========
-    page.drawRectangle({
-      x: 0,
-      y: 0,
-      width: width,
-      height: 60,
-      color: rgb(0.95, 0.95, 0.95)
-    })
-
-    page.drawText(`All ${pageCount}-page files are in this group`, {
-      x: centerX - 130,
-      y: 35,
+    page.drawText(`Weight class: ${weightInfo.oz} ounce postage required`, {
+      x: 60,
+      y: 135,
       size: 14,
       font: fontRegular,
       color: rgb(0.4, 0.4, 0.4)
     })
 
     page.drawText(`Generated: ${new Date().toLocaleString()}`, {
-      x: centerX - 80,
-      y: 15,
-      size: 9,
+      x: 60,
+      y: 100,
+      size: 10,
       font: fontRegular,
       color: rgb(0.6, 0.6, 0.6)
+    })
+
+    // ========== BOTTOM STRIPE ==========
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: width,
+      height: 40,
+      color: rgb(r, g, b)
     })
 
     return await doc.save()
@@ -576,6 +590,7 @@ export function PDFBatchTool() {
   }
 
   // Download ZIP - organized by page count
+  // ONLY adds weight dividers for lots with 20+ pages (2oz, 3oz, 4oz)
   const downloadZip = async () => {
     const groups = getPageGroups()
     
@@ -590,7 +605,9 @@ export function PDFBatchTool() {
 
     try {
       const zip = new JSZip()
-      const totalSteps = groups.length * 2 + groups.reduce((sum, g) => sum + g.files.length, 0) + 1
+      // Count dividers needed (only for 20+ page groups)
+      const dividersNeeded = groups.filter(g => getWeightInfo(g.pageCount) !== null).length
+      const totalSteps = dividersNeeded + groups.reduce((sum, g) => sum + g.files.length, 0) + 1
       let currentStep = 0
 
       // First add the full report at root
@@ -604,23 +621,29 @@ export function PDFBatchTool() {
       for (let gi = 0; gi < groups.length; gi++) {
         const group = groups[gi]
         const pageCount = group.pageCount
-
-        // 1. Create SEPARATOR page - named with "!" to sort FIRST
-        // "!" (ASCII 33) comes before letters (ASCII 65+) so it sorts first
-        setProcessMsg(`Creating ${pageCount}-page separator...`)
-        const separatorPdf = await generateSeparatorPage(pageCount, group.files.length, gi + 1, groups.length)
         const paddedCount = String(pageCount).padStart(3, '0')
-        zip.file(`${paddedCount} !SEPARATOR.pdf`, separatorPdf)
-        currentStep++
-        setProcessProgress(Math.round((currentStep / totalSteps) * 100))
+        
+        // Check if this group needs a weight divider (20+ pages)
+        const weightInfo = getWeightInfo(pageCount)
+        
+        if (weightInfo) {
+          // Create WEIGHT DIVIDER - only for 20+ page lots
+          setProcessMsg(`Creating ${weightInfo.label} divider for ${pageCount}-page lot...`)
+          const dividerPdf = await generateWeightDivider(pageCount, group.files.length, weightInfo)
+          // "!" sorts first, include weight in filename for clarity
+          zip.file(`${paddedCount} !${weightInfo.label} DIVIDER.pdf`, dividerPdf)
+          currentStep++
+          setProcessProgress(Math.round((currentStep / totalSteps) * 100))
+        }
+        // No divider for lots under 20 pages (standard 1oz)
 
-        // 2. Add all files for this page count
+        // Add all files for this page count
         for (let fi = 0; fi < group.files.length; fi++) {
           const file = group.files[fi]
           setProcessMsg(`Adding ${file.name}...`)
           
           const ab = await file.file.arrayBuffer()
-          // Rename: "014 originalname.pdf" - starts with letter so sorts after !SEPARATOR
+          // Rename: "014 originalname.pdf" - starts with letter so sorts after divider
           const baseName = file.name.replace(/\.pdf$/i, "")
           const newName = `${paddedCount} ${baseName}.pdf`
           zip.file(newName, ab)
@@ -689,7 +712,7 @@ export function PDFBatchTool() {
               <div>
                 <h1 className="text-2xl font-bold">PDF Batch Organizer</h1>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Drop PDFs - auto-groups by page count - adds separator pages
+                  Groups by page count - adds weight dividers for 20+ page lots (2oz/3oz/4oz)
                 </p>
               </div>
             </div>
