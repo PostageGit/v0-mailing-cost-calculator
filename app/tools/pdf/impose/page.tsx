@@ -1,9 +1,14 @@
+"use client"
+
 export default function PDFImposePage() {
   return (
-    <iframe 
-      src="/qi-impose-pro.html" 
-      className="w-full h-screen border-0"
-      title="QI Impose Pro"
-    />
+    <div className="w-full h-screen">
+      <iframe 
+        src="/qi-impose-pro.html" 
+        className="w-full h-full border-0"
+        title="QI Impose Pro"
+        sandbox="allow-scripts allow-same-origin allow-downloads"
+      />
+    </div>
   )
 }
