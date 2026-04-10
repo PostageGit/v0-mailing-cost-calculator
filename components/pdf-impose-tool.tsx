@@ -15,20 +15,21 @@ const IN = 72 // 1 inch = 72 points
 // ============================================
 // Live Imposition Preview Component - BEFORE → AFTER
 // ============================================
-function ImpositionPreview({ toolId, params, fileInfo }: { 
+function ImpositionPreview({ toolId, params, fileInfo }: {
   toolId: string
   params: Record<string, string | number>
-  fileInfo: { firstPageW: number, firstPageH: number, pageCount: number } | null 
-}) {
+  fileInfo: { firstPageW: number, firstPageH: number, pageCount: number, trimW?: number, trimH?: number, hasBleed?: boolean } | null
+  }) {
   const previewW = 280
   const previewH = 180
   const halfW = previewW / 2
   const padding = 12
   const arrowY = previewH / 2
   
-  // Get source page size (from loaded PDF or default Letter)
-  const srcW = fileInfo ? fileInfo.firstPageW / IN : 8.5
-  const srcH = fileInfo ? fileInfo.firstPageH / IN : 11
+  // Get source page size (from loaded PDF or default Letter) - use TRIM size if available
+  const srcW = fileInfo ? (fileInfo.trimW || fileInfo.firstPageW) / IN : 8.5
+  const srcH = fileInfo ? (fileInfo.trimH || fileInfo.firstPageH) / IN : 11
+  const hasBleed = fileInfo?.hasBleed || false
   const pageCount = fileInfo?.pageCount || 8
   
   // Common SVG styles  
@@ -126,15 +127,24 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
     const showCrop = params.cropMarks === "yes"
     const isStepRepeat = toolId === "StepRepeat"
     
+    // For Step & Repeat, use FULL page size (with bleed) for layout
+    // Trim size is only for crop mark placement
+    const fullW = fileInfo ? fileInfo.firstPageW / IN : srcW
+    const fullH = fileInfo ? fileInfo.firstPageH / IN : srcH
+    const layoutW = isStepRepeat ? fullW : srcW // Step & Repeat uses full size
+    const layoutH = isStepRepeat ? fullH : srcH
+    
     // Calculate ACTUAL cell size in inches (for validation)
     const actualCellW = (sheetW - margin * 2) / cols
     const actualCellH = (sheetH - margin * 2) / rows
     const isInvalid = actualCellW <= 0.25 || actualCellH <= 0.25 || margin * 2 >= sheetW || margin * 2 >= sheetH
     const isTooSmall = actualCellW < 1 || actualCellH < 1
     
-    // BEFORE: Single page
-    const beforeScale = Math.min((halfW - padding * 3) / srcW, (previewH - 50) / srcH) * 0.65
-    const bpW = srcW * beforeScale, bpH = srcH * beforeScale
+    // BEFORE: Single page (show bleed if present)
+    const beforeScale = Math.min((halfW - padding * 3) / fullW, (previewH - 50) / fullH) * 0.65
+    const bpW = fullW * beforeScale, bpH = fullH * beforeScale
+    const trimBpW = srcW * beforeScale, trimBpH = srcH * beforeScale
+    const bleedOffset = (bpW - trimBpW) / 2
     const bpX = padding + (halfW - padding * 2 - bpW) / 2
     const bpY = 30 + (previewH - 50 - bpH) / 2
     
@@ -185,22 +195,40 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
           {isTooSmall ? "WARNING" : "AFTER"}
         </text>
         
-        {/* BEFORE: Single page (or stack for N-up) */}
+        {/* BEFORE: Single page (or stack for N-up) - show bleed if present */}
         {!isStepRepeat && (
           <>
             <rect x={bpX + 4} y={bpY + 4} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
             <rect x={bpX + 2} y={bpY + 2} width={bpW} height={bpH} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1} rx={1} />
           </>
         )}
-        <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
-        <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">
-          {isStepRepeat ? "1" : `${cols * rows}pg`}
+        {/* Show bleed area (amber) around trim area (blue) */}
+        {hasBleed && bleedOffset > 1 ? (
+          <>
+            <rect x={bpX} y={bpY} width={bpW} height={bpH} fill="#fef3c7" stroke="#f59e0b" strokeWidth={1} rx={1} />
+            <rect x={bpX + bleedOffset} y={bpY + bleedOffset} width={trimBpW} height={trimBpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+            <text x={bpX + bpW/2} y={bpY + bpH/2 - 6} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[8px] font-bold">
+              {isStepRepeat ? "1" : `${cols * rows}pg`}
+            </text>
+            <text x={bpX + bpW/2} y={bpY + bpH/2 + 6} textAnchor="middle" dominantBaseline="middle" className="fill-amber-500 text-[6px]">
+              +bleed
+            </text>
+          </>
+        ) : (
+          <>
+            <rect x={bpX} y={bpY} width={bpW} height={bpH} fill={pageFill} stroke={pageStroke} strokeWidth={1} rx={1} />
+            <text x={bpX + bpW/2} y={bpY + bpH/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[9px] font-bold">
+              {isStepRepeat ? "1" : `${cols * rows}pg`}
+            </text>
+          </>
+        )}
+        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">
+          {hasBleed ? `${srcW.toFixed(1)}"x${srcH.toFixed(1)}" trim` : `${srcW.toFixed(1)}"x${srcH.toFixed(1)}"`}
         </text>
-        <text x={bpX + bpW/2} y={bpY + bpH + 10} textAnchor="middle" className="fill-slate-400 text-[7px]">{srcW.toFixed(1)}&quot;x{srcH.toFixed(1)}&quot;</text>
         
         <Arrow />
         
-        {/* AFTER: Sheet with grid */}
+        {/* AFTER: Sheet with grid - show bleed preserved in cells */}
         <rect x={aX} y={aY} width={sW} height={sH} fill={sheetFill} stroke={isTooSmall ? "#f59e0b" : sheetStroke} strokeWidth={isTooSmall ? 2 : 1} rx={2} />
         {Array.from({ length: rows }).map((_, r) =>
           Array.from({ length: cols }).map((_, c) => {
@@ -208,27 +236,41 @@ function ImpositionPreview({ toolId, params, fileInfo }: {
             const cy = aY + mS + r * cellH + 1
             const cw = Math.max(2, cellW - 2)
             const ch = Math.max(2, cellH - 2)
+            // For cells with bleed, show bleed area (amber) around trim (blue)
+            const cellBleedX = hasBleed && isStepRepeat ? cw * 0.08 : 0
+            const cellBleedY = hasBleed && isStepRepeat ? ch * 0.08 : 0
             return (
               <g key={`${r}-${c}`}>
-                <rect x={cx} y={cy} width={cw} height={ch} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                {hasBleed && isStepRepeat && cw > 10 ? (
+                  <>
+                    <rect x={cx} y={cy} width={cw} height={ch} fill="#fef3c7" stroke="#f59e0b" strokeWidth={0.3} />
+                    <rect x={cx + cellBleedX} y={cy + cellBleedY} width={cw - cellBleedX*2} height={ch - cellBleedY*2} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                  </>
+                ) : (
+                  <rect x={cx} y={cy} width={cw} height={ch} fill={pageFill} stroke={pageStroke} strokeWidth={0.5} />
+                )}
                 {cw > 8 && ch > 8 && (
                   <text x={cx + cw/2} y={cy + ch/2} textAnchor="middle" dominantBaseline="middle" className="fill-blue-500 text-[7px]">
                     {isStepRepeat ? "1" : r * cols + c + 1}
                   </text>
                 )}
+                {/* Crop marks at TRIM edges (inside bleed) */}
                 {showCrop && cw > 6 && (
                   <g stroke={cropColor} strokeWidth={0.3}>
-                    <line x1={cx - 2} y1={cy} x2={cx + 2} y2={cy} />
-                    <line x1={cx} y1={cy - 2} x2={cx} y2={cy + 2} />
+                    <line x1={cx + cellBleedX - 2} y1={cy + cellBleedY} x2={cx + cellBleedX + 2} y2={cy + cellBleedY} />
+                    <line x1={cx + cellBleedX} y1={cy + cellBleedY - 2} x2={cx + cellBleedX} y2={cy + cellBleedY + 2} />
                   </g>
                 )}
               </g>
             )
           })
         )}
-        {/* Show actual cell dimensions */}
+        {/* Show actual cell dimensions and bleed status */}
         <text x={aX + sW/2} y={aY + sH + 10} textAnchor="middle" className={cn(isTooSmall ? "fill-amber-500 font-semibold" : "fill-slate-400", "text-[7px]")}>
-          Cell: {actualCellW.toFixed(2)}&quot;x{actualCellH.toFixed(2)}&quot;
+          {hasBleed && isStepRepeat 
+            ? `Cell: ${fullW.toFixed(2)}"x${fullH.toFixed(2)}" (bleed preserved)`
+            : `Cell: ${actualCellW.toFixed(2)}"x${actualCellH.toFixed(2)}"`
+          }
         </text>
       </svg>
     )
@@ -479,17 +521,17 @@ const SEQUENCES: Sequence[] = [
     ]
   },
   {
-    name: "Business Cards (3.5x2)",
-    desc: "Fit to 3.5x2 then step & repeat on 12x18 with crop marks",
+    name: "Business Cards (with bleed)",
+    desc: "Step & repeat preserving bleed - crop marks at trim edges - 12x18 sheet",
     steps: [
-      { tool: "PageSizes", params: { mode: "fit", w: 3.5, h: 2, range: "all pages" } },
       { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
   {
-    name: "Business Cards (pre-sized)",
-    desc: "For PDFs already at 3.5x2 - step & repeat on 12x18",
+    name: "Business Cards (no bleed)",
+    desc: "Resize to 3.5x2 then step & repeat on 12x18",
     steps: [
+      { tool: "PageSizes", params: { mode: "fit", w: 3.5, h: 2, range: "all pages" } },
       { tool: "StepRepeat", params: { sheetW: 12, sheetH: 18, rows: 0, cols: 0, margin: 0.25, cropMarks: "yes" } },
     ]
   },
@@ -914,33 +956,36 @@ async function opBooklet(doc: PDFDocument, params: { margin: number, cropMarks: 
   return nd
 }
 
-// N-Up with CROP MARKS built in
-// NOTE: sheetW, sheetH, margin are expected in POINTS (already multiplied by IN)
-async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, sheetW: number, sheetH: number, margin: number, cropMarks: boolean, stepRepeat?: boolean }) {
+// N-Up / Step & Repeat - Matches QI_Impose_Pro exactly
+// Key: ALWAYS scale pages to fit cells, center in cell
+// This preserves bleed because entire page (including bleed) scales proportionally
+async function opNUp(doc: PDFDocument, params: { 
+  rows: number, cols: number, sheetW: number, sheetH: number, margin: number, 
+  cropMarks: boolean, stepRepeat?: boolean,
+  trimW?: number, trimH?: number
+}) {
   doc = await rehy(doc)
   const pgs = doc.getPages()
   if (pgs.length === 0) return doc
   
   const nd = await PDFDocument.create()
-  const sheetW = params.sheetW
-  const sheetH = params.sheetH
-  const marginAll = params.margin
+  const { sheetW, sheetH, margin: marginAll, cropMarks } = params
   
-  // Get source page dimensions for auto-calculation
-  const srcPage = pgs[0]
-  const srcW = srcPage.getWidth()
-  const srcH = srcPage.getHeight()
+  // Source page for auto-calculating grid
+  const srcW = pgs[0].getWidth()
+  const srcH = pgs[0].getHeight()
   
-  // Auto-calculate rows/cols if either is 0 (Step & Repeat mode)
+  // Auto-calculate rows/cols if 0 (step & repeat)
   let rows = params.rows
   let cols = params.cols
   if (rows <= 0 || cols <= 0) {
     const availW = sheetW - marginAll * 2
     const availH = sheetH - marginAll * 2
-    cols = Math.max(1, Math.floor(availW / srcW))
-    rows = Math.max(1, Math.floor(availH / srcH))
+    cols = cols <= 0 ? Math.max(1, Math.floor(availW / srcW)) : cols
+    rows = rows <= 0 ? Math.max(1, Math.floor(availH / srcH)) : rows
   }
   
+  // Cell size - divide available space evenly
   const cW = (sheetW - marginAll * 2) / cols
   const cH = (sheetH - marginAll * 2) / rows
   
@@ -956,36 +1001,21 @@ async function opNUp(doc: PDFDocument, params: { rows: number, cols: number, she
         if (!params.stepRepeat && idx >= pgs.length) break
         
         const [e] = await nd.embedPdf(doc, [pi])
-        const x = marginAll + c * cW
-        const y = sheetH - marginAll - (r + 1) * cH
+        
+        // ALWAYS scale to fit cell, center in cell (matches QI_Impose_Pro)
         const s = Math.min(cW / e.width, cH / e.height)
         const dw = e.width * s, dh = e.height * s
-        
+        const x = marginAll + c * cW
+        const y = sheetH - marginAll - (r + 1) * cH
         sh.drawPage(e, { x: x + (cW - dw) / 2, y: y + (cH - dh) / 2, width: dw, height: dh })
         
-        // CROP MARKS at each cell corner - proper L-shaped trim marks
-        if (params.cropMarks) {
-          const cropLen = 10, cropDist = 3
-          const corners: [number, number, number, number][] = [
-            [x, y, -1, -1],           // bottom-left: marks go left and down
-            [x + cW, y, 1, -1],       // bottom-right: marks go right and down
-            [x, y + cH, -1, 1],       // top-left: marks go left and up
-            [x + cW, y + cH, 1, 1]    // top-right: marks go right and up
-          ]
-          for (const [cx, cy, dx, dy] of corners) {
-            // Horizontal mark
-            sh.drawLine({ 
-              start: { x: cx + cropDist * dx, y: cy }, 
-              end: { x: cx + (cropDist + cropLen) * dx, y: cy }, 
-              thickness: 0.3, color: rgb(0, 0, 0) 
-            })
-            // Vertical mark
-            sh.drawLine({ 
-              start: { x: cx, y: cy + cropDist * dy }, 
-              end: { x: cx, y: cy + (cropDist + cropLen) * dy }, 
-              thickness: 0.3, color: rgb(0, 0, 0) 
-            })
-          }
+        // Crop marks at cell corners (matches QI_Impose_Pro)
+        if (cropMarks) {
+          const corners: [number, number][] = [[x, y], [x + cW, y], [x, y + cH], [x + cW, y + cH]]
+          corners.forEach(([cx, cy]) => {
+            sh.drawLine({ start: { x: cx - 3, y: cy }, end: { x: cx + 3, y: cy }, thickness: 0.3, color: rgb(0, 0, 0) })
+            sh.drawLine({ start: { x: cx, y: cy - 3 }, end: { x: cx, y: cy + 3 }, thickness: 0.3, color: rgb(0, 0, 0) })
+          })
         }
         idx++
       }
@@ -1180,8 +1210,14 @@ type FileInfo = {
   fileSize: number
   pages: { page: number, w: number, h: number, orientation: string }[]
   hasMixedSizes: boolean
-  firstPageW: number
-  firstPageH: number
+  firstPageW: number // MediaBox width (full page)
+  firstPageH: number // MediaBox height (full page)
+  trimW?: number // TrimBox width (actual content size)
+  trimH?: number // TrimBox height (actual content size)
+  bleedW?: number // BleedBox width
+  bleedH?: number // BleedBox height
+  hasBleed: boolean // true if TrimBox differs from MediaBox
+  bleedAmount?: number // bleed in points on each side
   colorHint: string // CMYK/RGB detection hint
   creationDate?: string
   producer?: string
@@ -1231,16 +1267,53 @@ const handleFile = useCallback(async (file: File) => {
       const firstH = pages[0]?.h || 0
       const hasMixedSizes = pages.some(p => Math.abs(p.w - firstW) > 1 || Math.abs(p.h - firstH) > 1)
       
+      // Try to detect TrimBox/BleedBox from PDF
+      // These are stored in the page dictionary
+      const pdfString = new TextDecoder().decode(bytes)
+      let trimW: number | undefined, trimH: number | undefined
+      let bleedW: number | undefined, bleedH: number | undefined
+      let hasBleed = false
+      let bleedAmount: number | undefined
+      
+      // Parse TrimBox - format: /TrimBox [x1 y1 x2 y2] or /TrimBox[x1 y1 x2 y2]
+      const trimBoxMatch = pdfString.match(/\/TrimBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/)
+      if (trimBoxMatch) {
+        const x1 = parseFloat(trimBoxMatch[1])
+        const y1 = parseFloat(trimBoxMatch[2])
+        const x2 = parseFloat(trimBoxMatch[3])
+        const y2 = parseFloat(trimBoxMatch[4])
+        trimW = Math.abs(x2 - x1)
+        trimH = Math.abs(y2 - y1)
+        
+        // If TrimBox is smaller than MediaBox, there's bleed
+        if (Math.abs(trimW - firstW) > 1 || Math.abs(trimH - firstH) > 1) {
+          hasBleed = true
+          // Calculate bleed amount (assuming symmetric bleed)
+          bleedAmount = Math.max((firstW - trimW) / 2, (firstH - trimH) / 2)
+        }
+      }
+      
+      // Parse BleedBox
+      const bleedBoxMatch = pdfString.match(/\/BleedBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]/)
+      if (bleedBoxMatch) {
+        const x1 = parseFloat(bleedBoxMatch[1])
+        const y1 = parseFloat(bleedBoxMatch[2])
+        const x2 = parseFloat(bleedBoxMatch[3])
+        const y2 = parseFloat(bleedBoxMatch[4])
+        bleedW = Math.abs(x2 - x1)
+        bleedH = Math.abs(y2 - y1)
+      }
+      
       // Try to detect color space from PDF content (heuristic)
-      const pdfString = new TextDecoder().decode(bytes.slice(0, 50000))
       let colorHint = "Unknown"
-      if (pdfString.includes("/DeviceCMYK") || (pdfString.includes("/ICCBased") && pdfString.includes("CMYK"))) {
+      const colorSample = pdfString.slice(0, 50000)
+      if (colorSample.includes("/DeviceCMYK") || (colorSample.includes("/ICCBased") && colorSample.includes("CMYK"))) {
         colorHint = "CMYK"
-      } else if (pdfString.includes("/DeviceRGB")) {
+      } else if (colorSample.includes("/DeviceRGB")) {
         colorHint = "RGB"
-      } else if (pdfString.includes("/DeviceGray")) {
+      } else if (colorSample.includes("/DeviceGray")) {
         colorHint = "Grayscale"
-      } else if (pdfString.includes("/Separation")) {
+      } else if (colorSample.includes("/Separation")) {
         colorHint = "Spot Colors"
       }
       
@@ -1255,6 +1328,12 @@ const handleFile = useCallback(async (file: File) => {
         hasMixedSizes,
         firstPageW: firstW,
         firstPageH: firstH,
+        trimW,
+        trimH,
+        bleedW,
+        bleedH,
+        hasBleed,
+        bleedAmount,
         colorHint,
         creationDate,
         producer
@@ -1338,16 +1417,18 @@ const selectTool = (toolId: string) => {
             noScale: (params.noScale as string).includes("100")
           })
           break
-        case "Nup":
-          doc = await opNUp(doc, {
-            rows: params.rows as number,
-            cols: params.cols as number,
-            sheetW: (params.sheetW as number) * IN,
-            sheetH: (params.sheetH as number) * IN,
-            margin: (params.margin as number) * IN,
-            cropMarks: params.cropMarks === "yes"
-          })
-          break
+case "Nup":
+  doc = await opNUp(doc, {
+  rows: params.rows as number,
+  cols: params.cols as number,
+  sheetW: (params.sheetW as number) * IN,
+  sheetH: (params.sheetH as number) * IN,
+  margin: (params.margin as number) * IN,
+  cropMarks: params.cropMarks === "yes",
+  trimW: fileInfo?.trimW,
+  trimH: fileInfo?.trimH
+  })
+  break
         case "StepRepeat":
           doc = await opNUp(doc, {
             rows: params.rows as number,
@@ -1356,7 +1437,9 @@ const selectTool = (toolId: string) => {
             sheetH: (params.sheetH as number) * IN,
             margin: (params.margin as number) * IN,
             cropMarks: params.cropMarks === "yes",
-            stepRepeat: true
+            stepRepeat: true,
+            trimW: fileInfo?.trimW,
+            trimH: fileInfo?.trimH
           })
           break
 case "PageSizes":
@@ -1490,16 +1573,18 @@ case "PageSizes":
               noScale: p.noScale === "keep 100%" 
             })
             break
-          case "Nup":
-            doc = await opNUp(doc, { 
-              rows: (p.rows as number) || 2, 
-              cols: (p.cols as number) || 2, 
-              sheetW: ((p.sheetW as number) || 11) * IN, 
-              sheetH: ((p.sheetH as number) || 17) * IN, 
-              margin: ((p.margin as number) || 0) * IN, 
-              cropMarks: p.cropMarks === "yes" 
-            })
-            break
+case "Nup":
+  doc = await opNUp(doc, {
+  rows: (p.rows as number) || 2,
+  cols: (p.cols as number) || 2,
+  sheetW: ((p.sheetW as number) || 11) * IN,
+  sheetH: ((p.sheetH as number) || 17) * IN,
+  margin: ((p.margin as number) || 0) * IN,
+  cropMarks: p.cropMarks === "yes",
+  trimW: fileInfo?.trimW,
+  trimH: fileInfo?.trimH
+  })
+  break
           case "StepRepeat":
             doc = await opNUp(doc, { 
               rows: (p.rows as number) || 0, 
@@ -1508,7 +1593,9 @@ case "PageSizes":
               sheetH: ((p.sheetH as number) || 17) * IN, 
               margin: ((p.margin as number) || 0) * IN, 
               cropMarks: p.cropMarks === "yes",
-              stepRepeat: true 
+              stepRepeat: true,
+              trimW: fileInfo?.trimW,
+              trimH: fileInfo?.trimH
             })
             break
           case "Duplicate":
@@ -2003,19 +2090,43 @@ return (
                 <span className="text-sm font-mono">{formatSize(fileInfo.fileSize)}</span>
               </div>
               
-              {/* Page Dimensions */}
-              <div className="flex flex-col shrink-0">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Dimensions</span>
-                <span className="text-sm font-mono">
-                  {(fileInfo.firstPageW / IN).toFixed(2)}&quot; x {(fileInfo.firstPageH / IN).toFixed(2)}&quot;
-                </span>
-              </div>
-              
-              {/* Page Size Name */}
-              <div className="flex flex-col shrink-0">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Page Size</span>
-                <span className="text-sm">{getPageSizeName(fileInfo.firstPageW, fileInfo.firstPageH)}</span>
-              </div>
+{/* Page Dimensions - Show trim size if available */}
+  <div className="flex flex-col shrink-0">
+    <span className="text-[10px] font-bold text-muted-foreground uppercase">
+      {fileInfo.hasBleed ? "Trim Size" : "Dimensions"}
+    </span>
+    <span className="text-sm font-mono font-semibold text-foreground">
+      {fileInfo.trimW && fileInfo.trimH 
+        ? `${(fileInfo.trimW / IN).toFixed(2)}" x ${(fileInfo.trimH / IN).toFixed(2)}"`
+        : `${(fileInfo.firstPageW / IN).toFixed(2)}" x ${(fileInfo.firstPageH / IN).toFixed(2)}"`
+      }
+    </span>
+  </div>
+  
+  {/* Show bleed info if present */}
+  {fileInfo.hasBleed && (
+    <>
+      <div className="h-6 w-px bg-border shrink-0" />
+      <div className="flex flex-col shrink-0">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase">With Bleed</span>
+        <span className="text-sm font-mono text-muted-foreground">
+          {(fileInfo.firstPageW / IN).toFixed(2)}&quot; x {(fileInfo.firstPageH / IN).toFixed(2)}&quot;
+        </span>
+      </div>
+      <div className="flex flex-col shrink-0">
+        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Bleed</span>
+        <span className="text-sm font-mono text-amber-600 dark:text-amber-400">
+          {fileInfo.bleedAmount ? `${(fileInfo.bleedAmount / IN).toFixed(3)}"` : "Detected"}
+        </span>
+      </div>
+    </>
+  )}
+  
+  {/* Page Size Name */}
+  <div className="flex flex-col shrink-0">
+  <span className="text-[10px] font-bold text-muted-foreground uppercase">Page Size</span>
+  <span className="text-sm">{getPageSizeName(fileInfo.trimW || fileInfo.firstPageW, fileInfo.trimH || fileInfo.firstPageH)}</span>
+  </div>
               
               {/* Orientation */}
               <div className="flex flex-col shrink-0">
@@ -2081,17 +2192,34 @@ return (
                   <div className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2 text-center">Current</div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-center aspect-[4/3]">
                     <svg viewBox="0 0 120 90" className="w-full h-full max-w-28">
-                      {/* Page representation */}
-                      <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
-                      <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
-                      {/* Size label */}
-                      <text x="60" y="50" textAnchor="middle" className="fill-blue-600 text-[8px] font-bold">
-                        {(fileInfo.firstPageW / IN).toFixed(1)}&quot; x {(fileInfo.firstPageH / IN).toFixed(1)}&quot;
-                      </text>
-                      <text x="60" y="62" textAnchor="middle" className="fill-slate-500 text-[6px]">
-                        {fileInfo.pageCount} page{fileInfo.pageCount > 1 ? 's' : ''}
-                      </text>
-                    </svg>
+{/* Page representation with bleed visualization */}
+  <rect x="10" y="5" width="100" height="80" fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1" rx="2" />
+  {fileInfo.hasBleed ? (
+    <>
+      {/* Bleed area (outer) */}
+      <rect x="15" y="10" width="90" height="70" fill="#fef3c7" stroke="#f59e0b" strokeWidth="0.5" rx="1" strokeDasharray="2,1" />
+      {/* Trim area (inner) */}
+      <rect x="22" y="17" width="76" height="56" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+    </>
+  ) : (
+    <rect x="20" y="15" width="80" height="60" fill="#dbeafe" stroke="#60a5fa" strokeWidth="1" rx="1" />
+  )}
+  {/* Size label - show trim size if available */}
+  <text x="60" y={fileInfo.hasBleed ? 42 : 50} textAnchor="middle" className="fill-blue-600 text-[8px] font-bold">
+    {fileInfo.trimW && fileInfo.trimH 
+      ? `${(fileInfo.trimW / IN).toFixed(1)}" x ${(fileInfo.trimH / IN).toFixed(1)}"`
+      : `${(fileInfo.firstPageW / IN).toFixed(1)}" x ${(fileInfo.firstPageH / IN).toFixed(1)}"`
+    }
+  </text>
+  {fileInfo.hasBleed && (
+    <text x="60" y="54" textAnchor="middle" className="fill-amber-600 text-[6px]">
+      +{fileInfo.bleedAmount ? (fileInfo.bleedAmount / IN * 2).toFixed(2) : "?"}&quot; bleed
+    </text>
+  )}
+  <text x="60" y={fileInfo.hasBleed ? 66 : 62} textAnchor="middle" className="fill-slate-500 text-[6px]">
+  {fileInfo.pageCount} page{fileInfo.pageCount > 1 ? 's' : ''}
+  </text>
+  </svg>
                   </div>
                 </div>
                 
@@ -2112,9 +2240,9 @@ return (
                         ? SEQUENCES.find(s => s.name === pendingAction.name)
                         : null
                       
-                      // Get final output size from sequence
-                      let outputW = fileInfo.firstPageW / IN
-                      let outputH = fileInfo.firstPageH / IN
+// Get final output size from sequence - use TRIM size if available (excludes bleed)
+  let outputW = (fileInfo.trimW || fileInfo.firstPageW) / IN
+  let outputH = (fileInfo.trimH || fileInfo.firstPageH) / IN
                       let gridCols = 1, gridRows = 1
                       let isBooklet = false
                       let isRotate = false

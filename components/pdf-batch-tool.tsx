@@ -764,7 +764,8 @@ export function PDFBatchTool() {
   }
 
   // Download ZIP - organized by page count
-  // ONLY adds weight dividers for lots with 20+ pages (2oz, 3oz, 4oz)
+  // ONLY adds weight dividers when oz weight CLASS changes (not per page count!)
+  // 1oz: 1-19 pages (no divider), 2oz: 20-31, 3oz: 32-37, 4oz: 38+
   const downloadZip = async () => {
     const groups = getPageGroups()
     
@@ -779,8 +780,16 @@ export function PDFBatchTool() {
 
     try {
       const zip = new JSZip()
-      // Count dividers needed (only for 20+ page groups when toggle is on)
-      const dividersNeeded = useWeightDividers ? groups.filter(g => getWeightInfo(g.pageCount) !== null).length : 0
+      
+      // Count UNIQUE weight classes (not page counts!) for divider count
+      const weightClasses = new Set<number>()
+      if (useWeightDividers) {
+        groups.forEach(g => {
+          const wi = getWeightInfo(g.pageCount)
+          if (wi) weightClasses.add(wi.oz)
+        })
+      }
+      const dividersNeeded = weightClasses.size
       const totalSteps = dividersNeeded + groups.reduce((sum, g) => sum + g.files.length, 0) + 1
       let currentStep = 0
 
@@ -791,6 +800,9 @@ export function PDFBatchTool() {
       currentStep++
       setProcessProgress(Math.round((currentStep / totalSteps) * 100))
 
+      // Track which weight classes we've already created dividers for
+      const createdDividers = new Set<number>()
+      
       // Process each page-count group
       for (let gi = 0; gi < groups.length; gi++) {
         const group = groups[gi]
@@ -800,12 +812,36 @@ export function PDFBatchTool() {
         // Check if this group needs a weight divider (20+ pages) AND toggle is on
         const weightInfo = getWeightInfo(pageCount)
         
-        if (useWeightDividers && weightInfo) {
-          // Create WEIGHT DIVIDER - only for 20+ page lots when enabled
-          setProcessMsg(`Creating ${weightInfo.label} divider for ${pageCount}-page lot...`)
-          const dividerPdf = await generateWeightDivider(pageCount, group.files.length, weightInfo)
-          // "!" sorts first, include weight in filename for clarity
-          zip.file(`${paddedCount} !${weightInfo.label} DIVIDER.pdf`, dividerPdf)
+        // Only create ONE divider per weight CLASS (2oz, 3oz, 4oz), not per page count
+        if (useWeightDividers && weightInfo && !createdDividers.has(weightInfo.oz)) {
+          createdDividers.add(weightInfo.oz)
+          
+          // Count ALL files in this weight class for the divider
+          const filesInWeightClass = groups
+            .filter(g => {
+              const wi = getWeightInfo(g.pageCount)
+              return wi && wi.oz === weightInfo.oz
+            })
+            .reduce((sum, g) => sum + g.files.length, 0)
+          
+          // Get page range for this weight class
+          const pagesInClass = groups
+            .filter(g => {
+              const wi = getWeightInfo(g.pageCount)
+              return wi && wi.oz === weightInfo.oz
+            })
+            .map(g => g.pageCount)
+          const minPages = Math.min(...pagesInClass)
+          const maxPages = Math.max(...pagesInClass)
+          const pageRangeLabel = minPages === maxPages ? `${minPages}` : `${minPages}-${maxPages}`
+          
+          setProcessMsg(`Creating ${weightInfo.label} divider...`)
+          const dividerPdf = await generateWeightDivider(minPages, filesInWeightClass, weightInfo)
+          
+          // Use weight oz prefix so dividers sort before their files
+          // "020" for 2oz sorts before "020", "021", etc.
+          const ozPrefix = weightInfo.oz === 2 ? "020" : weightInfo.oz === 3 ? "032" : "038"
+          zip.file(`${ozPrefix} !${weightInfo.oz} OZ DIVIDER.pdf`, dividerPdf)
           currentStep++
           setProcessProgress(Math.round((currentStep / totalSteps) * 100))
         }
