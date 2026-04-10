@@ -8,7 +8,12 @@ import { cookies } from 'next/headers'
 export async function createSafeClient() {
   const client = await createClient()
   // Check for stub (error field present means something is wrong)
-  if ((client as any).error?.message) return null
+  const errMsg = (client as any).error?.message
+  if (errMsg) {
+    console.log('[v0] createSafeClient returning null due to error:', errMsg)
+    return null
+  }
+  console.log('[v0] createSafeClient returning valid client')
   return client
 }
 
@@ -17,6 +22,7 @@ export async function createSafeClient() {
 export function supabaseReady() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+  console.log('[v0] supabaseReady check - url:', !!url, 'key:', !!key)
   return !!(url && key)
 }
 
