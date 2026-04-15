@@ -426,7 +426,12 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
               </Button>
               )}
               {!standalone && (() => {
-                const dims = envDims[inputs.itemName]
+                // Get envelope dimensions from settings items
+                const envItem = settings.items.find(i => i.name === inputs.itemName)
+                if (!envItem) return null
+                // Parse dimensions from envelope name (e.g. "9x12" or "#10")
+                const dimMatch = envItem.name.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i)
+                const dims = dimMatch ? [parseFloat(dimMatch[1]), parseFloat(dimMatch[2])] : null
                 if (!dims) return null
                 return (
                   <ShippingCalcButton
