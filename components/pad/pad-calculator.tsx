@@ -25,6 +25,7 @@ interface PadCalculatorResult {
   cost: number
   price: number
   description: string
+  inputs: PadInputs
 }
 
 interface PadCalculatorProps {
@@ -32,9 +33,11 @@ interface PadCalculatorProps {
   standalone?: boolean
   /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
   onResult?: (result: PadCalculatorResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: PadInputs
 }
 
-export function PadCalculator({ viewMode = "detailed", standalone = false, onResult }: PadCalculatorProps) {
+export function PadCalculator({ viewMode = "detailed", standalone = false, onResult, initialInputs }: PadCalculatorProps) {
   const quote = useQuote()
   const { paperDataLookup } = usePapersContext()
 
@@ -53,7 +56,15 @@ export function PadCalculator({ viewMode = "detailed", standalone = false, onRes
     }
   }, [settingsData])
 
-  const [inputs, setInputs] = useState<PadInputs>(defaultPadInputs())
+  const [inputs, setInputs] = useState<PadInputs>(initialInputs || defaultPadInputs())
+  
+  // Reset to initialInputs when it changes
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs(initialInputs)
+    }
+  }, [initialInputs])
+  
   const [calcResult, setCalcResult] = useState<PadCalcResult | null>(null)
   const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<PadCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -153,7 +164,8 @@ export function PadCalculator({ viewMode = "detailed", standalone = false, onRes
       onResult({
         cost: calcResult.totalCost || totalPrice * 0.7,
         price: totalPrice,
-        description: `${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad ${inputs.pageWidth}x${inputs.pageHeight}, ${desc}`
+        description: `${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad ${inputs.pageWidth}x${inputs.pageHeight}, ${desc}`,
+        inputs: inputs
       })
       return
     }

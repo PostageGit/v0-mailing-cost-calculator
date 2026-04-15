@@ -23,6 +23,7 @@ interface SpiralCalculatorResult {
   cost: number
   price: number
   description: string
+  inputs: SpiralInputs
 }
 
 interface SpiralCalculatorProps {
@@ -30,9 +31,11 @@ interface SpiralCalculatorProps {
   standalone?: boolean
   /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
   onResult?: (result: SpiralCalculatorResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: SpiralInputs
 }
 
-export function SpiralCalculator({ viewMode = "detailed", standalone = false, onResult }: SpiralCalculatorProps) {
+export function SpiralCalculator({ viewMode = "detailed", standalone = false, onResult, initialInputs }: SpiralCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { paperDataLookup } = usePapersContext()
@@ -42,7 +45,14 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false, on
     (p) => p.type === "spiral_book" && (p.production === "inhouse" || p.production === "both" || p.production === "ohp")
   )
 
-  const [inputs, setInputs] = useState<SpiralInputs>(defaultSpiralInputs())
+  const [inputs, setInputs] = useState<SpiralInputs>(initialInputs || defaultSpiralInputs())
+  
+  // Reset to initialInputs when it changes
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs(initialInputs)
+    }
+  }, [initialInputs])
   const [calcResult, setCalcResult] = useState<SpiralCalcResult | null>(null)
   const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<SpiralCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -202,7 +212,8 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false, on
       onResult({
         cost: calcResult.totalCost || totalPrice * 0.7,
         price: totalPrice,
-        description: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}, ${desc}`
+        description: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}, ${desc}`,
+        inputs: inputs
       })
       return
     }

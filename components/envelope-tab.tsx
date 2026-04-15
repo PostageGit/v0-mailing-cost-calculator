@@ -83,20 +83,25 @@ interface EnvelopeResult {
   cost: number
   price: number
   description: string
+  inputs: EnvelopeInputs
 }
 
 interface EnvelopeTabProps {
   standalone?: boolean
   /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
   onResult?: (result: EnvelopeResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: EnvelopeInputs
 }
 
-export function EnvelopeTab({ standalone = false, onResult }: EnvelopeTabProps = {}) {
+export function EnvelopeTab({ standalone = false, onResult, initialInputs }: EnvelopeTabProps = {}) {
   const quote = useQuote()
   const mailing = useMailing()
   const v = useFormValidation()
 
   const [inputs, setInputs] = useState<EnvelopeInputs>(() => {
+    // If initialInputs provided (re-editing), use those
+    if (initialInputs) return initialInputs
     const def = defaultEnvelopeInputs()
     // Pre-fill amount from planner printQty (mailing qty + 50 overage)
     if (mailing.printQty > 0) def.amount = mailing.printQty
@@ -113,6 +118,14 @@ export function EnvelopeTab({ standalone = false, onResult }: EnvelopeTabProps =
     }
     return def
   })
+  
+  // Reset to initialInputs when it changes (for re-opening saved calculations)
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs(initialInputs)
+    }
+  }, [initialInputs])
+  
   const [calcResult, setCalcResult] = useState<EnvelopeCalcResult | null>(null)
   const [error, setError] = useState("")
   const [effectiveTotal, setEffectiveTotal] = useState(0)
@@ -180,7 +193,8 @@ export function EnvelopeTab({ standalone = false, onResult }: EnvelopeTabProps =
       onResult({
         cost: calcResult.cost || finalAmount * 0.7,
         price: finalAmount,
-        description: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}, ${desc}`
+        description: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}, ${desc}`,
+        inputs: inputs
       })
       return
     }

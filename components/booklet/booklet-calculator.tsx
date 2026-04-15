@@ -47,6 +47,7 @@ interface BookletCalculatorResult {
   cost: number
   price: number
   description: string
+  inputs: BookletInputs
 }
 
 interface BookletCalculatorProps {
@@ -54,9 +55,11 @@ interface BookletCalculatorProps {
   standalone?: boolean
   /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
   onResult?: (result: BookletCalculatorResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: BookletInputs
 }
 
-export function BookletCalculator({ viewMode = "detailed", standalone = false, onResult }: BookletCalculatorProps) {
+export function BookletCalculator({ viewMode = "detailed", standalone = false, onResult, initialInputs }: BookletCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -95,8 +98,15 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false, o
     return { ...EMPTY_INPUTS, ...restored }
   }, [hasSavedQuote, savedBookletItem])
 
-  // Local form state - always starts empty
-  const [localInputs, setLocalInputs] = useState<BookletInputs>(EMPTY_INPUTS)
+  // Local form state - use initialInputs if provided (for re-editing), otherwise starts empty
+  const [localInputs, setLocalInputs] = useState<BookletInputs>(initialInputs || EMPTY_INPUTS)
+  
+  // Reset to initialInputs when it changes (for re-opening saved calculations)
+  useEffect(() => {
+    if (initialInputs) {
+      setLocalInputs(initialInputs)
+    }
+  }, [initialInputs])
   const [calcResult, setCalcResult] = useState<BookletCalcResult | null>(null)
   const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<BookletCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -301,7 +311,8 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false, o
       onResult({
         cost: cr.totalCost || totalPrice * 0.7, // estimate cost as 70% of price if not available
         price: totalPrice,
-        description: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}, ${desc}`
+        description: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}, ${desc}`,
+        inputs: inputs // Include inputs so calculator can be reopened with same settings
       })
       return
     }

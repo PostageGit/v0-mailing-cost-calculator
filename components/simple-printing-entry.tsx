@@ -253,24 +253,28 @@ export function SimplePrintingEntry() {
   }
   
   // Handler for when calculator returns a result - fills in the vendor's cost/price
-  const handleCalculatorResult = (result: { cost: number; price: number; description?: string; inputs?: unknown }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleCalculatorResult = (result: { cost: number; price: number; description?: string; inputs?: any }) => {
     if (!activeItemId || !calcVendorId) return
     
     // Update the vendor quote with the calculated cost and price
     // The calculator already calculates the final price including markup
+    // IMPORTANT: Store the inputs so we can reopen calculator with same settings
     setPrintItems(prev => prev.map(item => {
       if (item.id !== activeItemId) return item
       return {
         ...item,
         vendorQuotes: item.vendorQuotes.map(vq => {
           if (vq.vendorId !== calcVendorId) return vq
-          // Use the price directly from the calculator (it already has markup applied)
           return {
             ...vq,
             cost: result.cost,
-            price: result.price, // Use the final price from calculator
+            price: result.price,
             priceOverride: false,
-            calcState: result // Store calc state for reference
+            calcState: {
+              inputs: result.inputs, // Store inputs to reopen calculator with same settings
+              description: result.description
+            }
           }
         })
       }
@@ -535,19 +539,42 @@ export function SimplePrintingEntry() {
       )}
 
       {/* Calculator Dialog - passes onResult so price goes to vendor row, NOT directly to quote */}
+      {/* Also passes initialInputs from saved calcState so calculator reopens with previous settings */}
       <Dialog open={showCalc} onOpenChange={setShowCalc}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Printout Calculator</DialogTitle>
             <DialogDescription>Calculate in-house printing cost - price will be added to vendor comparison</DialogDescription>
           </DialogHeader>
-          {/* "flat" calcType uses PrintingCalculator for postcards, flat cards, folded cards, self-mailers, letters */}
-          {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
-          {activeItem?.calcType === "booklet" && <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
-          {activeItem?.calcType === "spiral" && <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
-          {activeItem?.calcType === "perfect" && <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
-          {activeItem?.calcType === "pad" && <PadCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
-          {activeItem?.calcType === "envelope" && <EnvelopeTab onResult={handleCalculatorResult} />}
+          {(() => {
+            // Get saved inputs from the vendor we're calculating for
+            const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
+            const savedInputs = vendorQuote?.calcState?.inputs
+            
+            return (
+              <>
+                {/* "flat" calcType uses PrintingCalculator for postcards, flat cards, folded cards, self-mailers, letters */}
+                {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && (
+                  <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                )}
+                {activeItem?.calcType === "booklet" && (
+                  <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                )}
+                {activeItem?.calcType === "spiral" && (
+                  <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                )}
+                {activeItem?.calcType === "perfect" && (
+                  <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                )}
+                {activeItem?.calcType === "pad" && (
+                  <PadCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                )}
+                {activeItem?.calcType === "envelope" && (
+                  <EnvelopeTab onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                )}
+              </>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </div>
