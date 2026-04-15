@@ -533,7 +533,7 @@ export function SimplePrintingEntry() {
                 )}
               </div>
               
-              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* ═══════════════════════════════════��═══════════════════════════ */}
               {/* FLAT PRINTING SPECS (postcards, letters, self-mailers, etc) */}
               {/* ═══════════════════════════════════════════════════════════════ */}
               {(activeItem.calcType === "flat" || activeItem.calcType === "printing") && (
@@ -921,10 +921,24 @@ export function SimplePrintingEntry() {
         
         // Map lamination spec to lamination object
         const lamToObject = (lam: string | undefined) => {
-          if (!lam || lam === "none") return { enabled: false, type: "Gloss" as const, sides: "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
+          if (!lam || lam === "none" || lam === "") return { enabled: false, type: "Gloss" as const, sides: "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
           const isGloss = lam.toLowerCase().includes("gloss")
           const isTwoSide = lam.includes("2-Side") || lam.includes("2 Side")
           return { enabled: true, type: isGloss ? "Gloss" as const : "Matte" as const, sides: isTwoSide ? "D/S" as const : "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
+        }
+        
+        // Map fold spec to foldFinish object for PrintingCalculator
+        // Fold options in specs: "none", "half", "tri", "z", "gate", "accordion", "roll"
+        const foldToObject = (fold: string | undefined) => {
+          if (!fold || fold === "none" || fold === "") {
+            return { enabled: false, finishType: "fold" as const, foldType: "half" as const, orientation: "width" as const }
+          }
+          return { 
+            enabled: true, 
+            finishType: "fold" as const,  // could be "score_and_fold" but default to "fold"
+            foldType: fold as "half" | "tri" | "z" | "gate" | "accordion" | "roll",
+            orientation: "width" as const  // default orientation
+          }
         }
         
         // Build specsToInputs based on calculator type
@@ -950,6 +964,7 @@ export function SimplePrintingEntry() {
               isBroker: false,
               printingMarkupPct: 0,
               lamination: lamToObject(specs.lamination),
+              foldFinish: foldToObject(specs.fold),  // NOW MAPPING FOLD!
             }
           } else if (calcType === "booklet") {
             // ONLY pass values user actually selected
