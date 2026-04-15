@@ -398,51 +398,48 @@ export function SimplePrintingEntry() {
               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Specifications</h4>
               
               {/* CRISP SPEC FIELDS - Inline pills style */}
-              <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-wrap items-end gap-5">
                 {/* Qty */}
-                <div className="w-24">
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Qty</label>
+                <div className="w-28">
+                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quantity</label>
                   <Input 
                     type="number" 
                     value={activeItem.specs.quantity} 
                     onChange={(e) => updateSpecs({ quantity: parseInt(e.target.value) || 0 })} 
                     disabled={activeItem.addedToQuote} 
-                    className="h-10 text-base font-semibold text-center rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0" 
+                    className="h-11 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
                   />
                 </div>
                 
-                {/* Size */}
-                <div className="flex items-end gap-1">
-                  <div className="w-20">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Width</label>
+                {/* Size - Width x Height */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Size (W × H)</label>
+                  <div className="flex items-center gap-2">
                     <Input 
                       type="number" 
                       step={0.125} 
                       value={activeItem.specs.width || ""} 
                       onChange={(e) => updateSpecs({ width: parseFloat(e.target.value) || 0 })} 
                       disabled={activeItem.addedToQuote} 
-                      placeholder="0"
-                      className="h-10 text-base font-semibold text-center rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0" 
+                      placeholder="W"
+                      className="h-11 w-20 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
                     />
-                  </div>
-                  <span className="text-muted-foreground font-bold mb-2">×</span>
-                  <div className="w-20">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Height</label>
+                    <span className="text-muted-foreground font-bold text-lg">×</span>
                     <Input 
                       type="number" 
                       step={0.125} 
                       value={activeItem.specs.height || ""} 
                       onChange={(e) => updateSpecs({ height: parseFloat(e.target.value) || 0 })} 
                       disabled={activeItem.addedToQuote} 
-                      placeholder="0"
-                      className="h-10 text-base font-semibold text-center rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0" 
+                      placeholder="H"
+                      className="h-11 w-20 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
                     />
                   </div>
                 </div>
                 
                 {/* Pages (booklets only) */}
                 {isBooklet && (
-                  <div className="w-20">
+                  <div className="w-24">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Pages</label>
                     <Input 
                       type="number" 
@@ -451,16 +448,16 @@ export function SimplePrintingEntry() {
                       value={activeItem.specs.pages || ""} 
                       onChange={(e) => updateSpecs({ pages: parseInt(e.target.value) || 0 })} 
                       disabled={activeItem.addedToQuote} 
-                      className="h-10 text-base font-semibold text-center rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0" 
+                      className="h-11 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
                     />
                   </div>
                 )}
                 
                 {/* Colors */}
-                <div className="w-40">
+                <div className="min-w-[185px]">
                   <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
                   <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="h-10 text-sm font-semibold rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0">
+                    <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
@@ -468,11 +465,11 @@ export function SimplePrintingEntry() {
                 </div>
                 
                 {/* Paper */}
-                <div className="w-44">
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper</label>
+                <div className="min-w-[185px]">
+                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper Stock</label>
                   <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="h-10 text-sm font-semibold rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0">
-                      <SelectValue placeholder="Select..." />
+                    <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                      <SelectValue placeholder="Select paper..." />
                     </SelectTrigger>
                     <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                   </Select>
@@ -480,10 +477,10 @@ export function SimplePrintingEntry() {
                 
                 {/* Fold (non-booklets only) */}
                 {!isBooklet && (
-                  <div className="w-32">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold</label>
+                  <div className="min-w-[145px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold Type</label>
                     <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-10 text-sm font-semibold rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0">
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
@@ -492,10 +489,10 @@ export function SimplePrintingEntry() {
                 )}
                 
                 {/* Lamination */}
-                <div className="w-36">
+                <div className="min-w-[145px]">
                   <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
                   <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="h-10 text-sm font-semibold rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0">
+                    <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
@@ -508,10 +505,10 @@ export function SimplePrintingEntry() {
                   onClick={() => !activeItem.addedToQuote && updateSpecs({ hasBleed: !activeItem.specs.hasBleed })}
                   disabled={activeItem.addedToQuote}
                   className={cn(
-                    "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                    "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
                     activeItem.specs.hasBleed 
                       ? "bg-foreground text-background border-foreground" 
-                      : "bg-background text-muted-foreground border-border/50 hover:border-border"
+                      : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
                   )}
                 >
                   {activeItem.specs.hasBleed && <Check className="h-4 w-4" />}
@@ -520,13 +517,14 @@ export function SimplePrintingEntry() {
               </div>
               
               {/* Notes */}
-              <div className="mt-4">
+              <div className="mt-5">
+                <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Notes / Special Instructions</label>
                 <Input 
                   value={activeItem.specs.notes} 
                   onChange={(e) => updateSpecs({ notes: e.target.value })} 
-                  placeholder="Notes / special instructions..." 
+                  placeholder="Enter any special instructions..." 
                   disabled={activeItem.addedToQuote} 
-                  className="h-10 text-sm rounded-xl border-2 border-border/50 bg-background focus:border-foreground focus:ring-0" 
+                  className="h-11 text-sm rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
                 />
               </div>
             </div>
