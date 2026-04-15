@@ -19,15 +19,17 @@ import { BookletCalculator } from "@/components/booklet/booklet-calculator"
 import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
 import { PadCalculator } from "@/components/pad/pad-calculator"
+import { EnvelopeTab } from "@/components/envelope-tab"
 import { formatCurrency } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import type { Vendor } from "@/lib/vendor-types"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-type CalcType = "printing" | "booklet" | "spiral" | "perfect" | "pad"
+type CalcType = "envelope" | "printing" | "booklet" | "spiral" | "perfect" | "pad"
 
 const calcLabels: Record<CalcType, string> = {
+  envelope: "Envelope Printing",
   printing: "Flat/Digital Print",
   booklet: "Saddle-Stitch Booklet",
   spiral: "Spiral Binding",
@@ -49,17 +51,28 @@ interface VendorQuote {
 function generateSpecsFromPiece(piece: MailPiece, printQty: number): string {
   const parts: string[] = []
   parts.push(`Qty: ${printQty.toLocaleString()}`)
-  const typeMeta = PIECE_TYPE_META[piece.type]
-  if (typeMeta) parts.push(typeMeta.label)
-  if (piece.width && piece.height) {
-    parts.push(`${piece.width}" x ${piece.height}" finished`)
-  }
-  if (piece.foldType && piece.foldType !== "none") {
-    const foldInfo = FOLD_OPTIONS.find(f => f.id === piece.foldType)
-    if (foldInfo) {
-      const flatSize = getFlatSize(piece)
-      if (flatSize.w && flatSize.h) {
-        parts.push(`${foldInfo.label} (${flatSize.w}" x ${flatSize.h}" flat)`)
+  
+  // Handle envelope pieces specially
+  if (piece.type === "envelope") {
+    parts.push("Envelope")
+    if (piece.envelopeName) parts.push(piece.envelopeName)
+    if (piece.envelopeKind) parts.push(piece.envelopeKind === "paper" ? "Paper" : "Plastic")
+    if (piece.width && piece.height) {
+      parts.push(`${piece.width}" x ${piece.height}"`)
+    }
+  } else {
+    const typeMeta = PIECE_TYPE_META[piece.type]
+    if (typeMeta) parts.push(typeMeta.label)
+    if (piece.width && piece.height) {
+      parts.push(`${piece.width}" x ${piece.height}" finished`)
+    }
+    if (piece.foldType && piece.foldType !== "none") {
+      const foldInfo = FOLD_OPTIONS.find(f => f.id === piece.foldType)
+      if (foldInfo) {
+        const flatSize = getFlatSize(piece)
+        if (flatSize.w && flatSize.h) {
+          parts.push(`${foldInfo.label} (${flatSize.w}" x ${flatSize.h}" flat)`)
+        }
       }
     }
   }
@@ -106,6 +119,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
       const meta = PIECE_TYPE_META[piece.type]
       if (!meta) return false
       switch (calcType) {
+        case "envelope": return piece.type === "envelope"
         case "printing": return meta.calc === "flat"
         case "booklet": return meta.calc === "booklet"
         case "spiral": return meta.calc === "spiral"
@@ -470,6 +484,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                 initialInputs={vendorQuotes.find(vq => vq.vendorId === calcVendorId)?.calcState}
               />
             )}
+            {calcType === "envelope" && <EnvelopeTab standalone />}
             {calcType === "booklet" && <BookletCalculator standalone />}
             {calcType === "spiral" && <SpiralCalculator standalone />}
             {calcType === "perfect" && <PerfectCalculator standalone />}

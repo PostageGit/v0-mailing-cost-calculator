@@ -319,10 +319,10 @@ const renderStep = () => {
   // Map view mode: "quick" -> "compact" for the calculator forms
   const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
   switch (currentStep) {
-    case "envelope": return <EnvelopeTab />
+    // ALL printing calculators: use SimplePrintingEntry when simple_mode is ON (including envelope)
+    case "envelope": return appConfig.simple_mode ? <SimplePrintingEntry calcType="envelope" /> : <EnvelopeTab />
     case "usps":     return <USPSPostageCalculator />
     case "labor":    return <ServiceBuilder />
-    // Printing calculators: use SimplePrintingEntry when simple_mode is ON
     case "printing": return appConfig.simple_mode ? <SimplePrintingEntry calcType="printing" /> : <PrintingCalculator viewMode={viewMode} />
     case "booklet":  return appConfig.simple_mode ? <SimplePrintingEntry calcType="booklet" /> : <BookletCalculator viewMode={viewMode} />
     case "spiral":   return appConfig.simple_mode ? <SimplePrintingEntry calcType="spiral" /> : <SpiralCalculator viewMode={viewMode} />
