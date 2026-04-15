@@ -8,6 +8,42 @@ export interface QuoteLineItem {
   label: string            // e.g. "19,880 - 4x6 Flat Prints" or "Postage - 1st Class"
   description: string      // additional details lines
   amount: number           // the dollar total for this line
+  
+  // Vendor & pricing info (for printing items)
+  vendor?: string          // vendor name e.g. "Printout RSH"
+  vendorId?: string        // vendor ID for lookup
+  quantity?: number        // qty for this line
+  unitCost?: number        // cost per unit
+  unitPrice?: number       // price per unit (with markup)
+  
+  // Calculator state - allows reopening with all inputs preserved
+  calcState?: {
+    inputs: Record<string, unknown>
+    breakdown?: Record<string, unknown>
+  }
+  
+  // Full specs from the printing entry form
+  specs?: {
+    quantity: number
+    width: number
+    height: number
+    pages?: number
+    paper?: string
+    colors?: string
+    hasBleed?: boolean
+    fold?: string
+    lamination?: string
+    notes?: string
+    coverPaper?: string
+    coverColors?: string
+    coverBleed?: boolean
+    insidePaper?: string
+    insideColors?: string
+    insideBleed?: boolean
+    sheetsPerPad?: number
+    bindingType?: string
+  }
+  
   /** Optional metadata that travels with the item through the job lifecycle */
   metadata?: {
     // Planner piece context
