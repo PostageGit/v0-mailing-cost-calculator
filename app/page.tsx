@@ -323,11 +323,11 @@ const renderStep = () => {
     case "usps":     return <USPSPostageCalculator />
     case "labor":    return <ServiceBuilder />
     // Printing calculators: use SimplePrintingEntry when simple_mode is ON
-    case "printing": return appConfig.simple_mode ? <SimplePrintingEntry /> : <PrintingCalculator viewMode={viewMode} />
-    case "booklet":  return appConfig.simple_mode ? <SimplePrintingEntry /> : <BookletCalculator viewMode={viewMode} />
-    case "spiral":   return appConfig.simple_mode ? <SimplePrintingEntry /> : <SpiralCalculator viewMode={viewMode} />
-    case "perfect":  return appConfig.simple_mode ? <SimplePrintingEntry /> : <PerfectCalculator viewMode={viewMode} />
-    case "pad":      return appConfig.simple_mode ? <SimplePrintingEntry /> : <PadCalculator viewMode={viewMode} />
+    case "printing": return appConfig.simple_mode ? <SimplePrintingEntry calcType="printing" /> : <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return appConfig.simple_mode ? <SimplePrintingEntry calcType="booklet" /> : <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return appConfig.simple_mode ? <SimplePrintingEntry calcType="spiral" /> : <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return appConfig.simple_mode ? <SimplePrintingEntry calcType="perfect" /> : <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return appConfig.simple_mode ? <SimplePrintingEntry calcType="pad" /> : <PadCalculator viewMode={viewMode} />
     case "ohp":      return <VendorBidTab />
   }
 }
