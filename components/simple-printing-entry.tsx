@@ -533,7 +533,7 @@ export function SimplePrintingEntry() {
                 )}
               </div>
               
-              {/* ═══════════════════════════════════��═══════════════════════════ */}
+              {/* ═══════════════════════════════════���═══════════════════════════ */}
               {/* FLAT PRINTING SPECS (postcards, letters, self-mailers, etc) */}
               {/* ═══════════════════════════════════════════════════════════════ */}
               {(activeItem.calcType === "flat" || activeItem.calcType === "printing") && (
@@ -991,28 +991,57 @@ export function SimplePrintingEntry() {
               printingMarkupPct: 0,
             }
           } else if (calcType === "spiral") {
+            // SpiralInputs uses nested objects: inside, front, back
             specsToInputs = {
               bookQty: specs.quantity || 0,
               pagesPerBook: specs.pages || 0,
               pageWidth: specs.width || 0,
               pageHeight: specs.height || 0,
-              separateCover: true,
-              coverPaper: specs.coverPaper || "",
-              coverSides: specs.coverColors || "",
-              coverBleed: specs.coverBleed || false,
-              insidePaper: specs.insidePaper || "",
-              insideSides: specs.insideColors || "",
-              insideBleed: specs.insideBleed || false,
+              // Inside pages - nested object
+              inside: {
+                paperName: specs.insidePaper || "",
+                sheetSize: "cheapest",
+                sides: specs.insideColors || "",
+                hasBleed: specs.insideBleed || false,
+              },
+              // Front cover - nested object
+              useFrontCover: !!(specs.coverPaper),
+              front: {
+                paperName: specs.coverPaper || "",
+                sheetSize: "cheapest",
+                sides: specs.coverColors || "",
+                hasBleed: specs.coverBleed || false,
+              },
+              // Back cover - not in specs UI, default off
+              useBackCover: false,
+              back: {
+                paperName: "",
+                sheetSize: "cheapest",
+                sides: "",
+                hasBleed: false,
+              },
+              clearPlastic: false,
+              blackVinyl: false,
+              isBroker: false,
+              customLevel: "auto",
             }
           } else if (calcType === "pad") {
+            // PadInputs uses nested inside object
             specsToInputs = {
               padQty: specs.quantity || 0,
-              sheetsPerPad: specs.sheetsPerPad || 0,
-              padWidth: specs.width || 0,
-              padHeight: specs.height || 0,
-              paperName: specs.paper || "",
-              sidesValue: specs.colors ? colorsToSides(specs.colors) : "",
-              hasBleed: specs.hasBleed || false,
+              pagesPerPad: specs.sheetsPerPad || 0,  // FIXED: pagesPerPad not sheetsPerPad
+              pageWidth: specs.width || 0,           // FIXED: pageWidth not padWidth
+              pageHeight: specs.height || 0,         // FIXED: pageHeight not padHeight
+              // Inside - nested object
+              inside: {
+                paperName: specs.paper || "",
+                sheetSize: "cheapest",
+                sides: specs.colors ? colorsToSides(specs.colors) : "",
+                hasBleed: specs.hasBleed || false,
+              },
+              useChipBoard: true,
+              isBroker: false,
+              customLevel: "auto",
             }
           } else if (calcType === "envelope") {
             const w = specs.width || 0
