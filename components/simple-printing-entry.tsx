@@ -86,7 +86,10 @@ function generateSpecsFromPiece(piece: MailPiece, printQty: number): string {
 export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: CalcType }) {
   const { addItem } = useQuote()
   const { pieces, printQty } = useMailing()
-  const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
+  const { data: vendors, error: vendorsError, isLoading: vendorsLoading } = useSWR<Vendor[]>("/api/vendors", fetcher)
+  
+  // Debug logging
+  console.log("[v0] SimplePrintingEntry - vendors:", vendors?.length, "loading:", vendorsLoading, "error:", vendorsError)
   
   // Items per piece
   const [printItems, setPrintItems] = useState<PrintItem[]>([])
@@ -163,7 +166,11 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
   
   const addVendorToItem = (itemId: string, vendorId: string) => {
     const vendor = vendors?.find(v => v.id === vendorId)
-    if (!vendor) return
+    if (!vendor) {
+      console.log("[v0] Vendor not found:", vendorId)
+      return
+    }
+    console.log("[v0] Adding vendor to item:", vendor.company_name)
     setPrintItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       if (item.vendorQuotes.some(vq => vq.vendorId === vendorId)) return item
@@ -171,7 +178,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
         ...item,
         vendorQuotes: [...item.vendorQuotes, {
           vendorId: vendor.id,
-          vendorName: vendor.name,
+          vendorName: vendor.company_name,
           isInternal: vendor.is_internal,
           cost: 0,
           price: 0
@@ -324,26 +331,37 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Vendor Pricing</CardTitle>
                 {/* ALWAYS show vendor dropdown - user picks who to compare */}
-                <Select onValueChange={(v) => addVendorToItem(activeItem.id, v)} disabled={activeItem.addedToQuote || !vendors}>
+                <Select 
+                  onValueChange={(v) => {
+                    console.log("[v0] Adding vendor:", v)
+                    addVendorToItem(activeItem.id, v)
+                  }} 
+                  disabled={activeItem.addedToQuote}
+                >
                   <SelectTrigger className="w-56 h-9 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
                     <Plus className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Add Vendor to Compare" />
+                    <SelectValue placeholder={vendorsLoading ? "Loading..." : "Add Vendor to Compare"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {!vendors || vendors.length === 0 ? (
-                      <SelectItem value="_none" disabled>Loading vendors...</SelectItem>
-                    ) : (
-                      vendors
-                        .filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id))
-                        .map(v => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.name} {v.is_internal && "(Printout)"}
-                          </SelectItem>
-                        ))
-                    )}
-                    {vendors && vendors.filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id)).length === 0 && (
-                      <SelectItem value="_all" disabled>All vendors added</SelectItem>
-                    )}
+                    {vendorsLoading ? (
+                      <SelectItem value="_loading" disabled>Loading vendors...</SelectItem>
+                    ) : vendorsError ? (
+                      <SelectItem value="_error" disabled>Error loading vendors</SelectItem>
+                    ) : !vendors || vendors.length === 0 ? (
+                      <SelectItem value="_none" disabled>No vendors in database</SelectItem>
+                    ) : (() => {
+                      // Vendor table doesn't have status column - show all vendors
+                      const availableVendors = vendors.filter(v => !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id))
+                      console.log("[v0] Available vendors to add:", availableVendors.length, availableVendors.map(v => v.company_name))
+                      if (availableVendors.length === 0) {
+                        return <SelectItem value="_all" disabled>All vendors added</SelectItem>
+                      }
+                      return availableVendors.map(v => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.company_name} {v.is_internal && "(Printout)"}
+                        </SelectItem>
+                      ))
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
