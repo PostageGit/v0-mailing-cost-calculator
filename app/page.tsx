@@ -190,6 +190,28 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
   }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
   const visibleSteps = useMemo(() => {
+    // In SIMPLE MODE: consolidate all printing into one "Printing" step
+    // Hide envelope, booklet, spiral, perfect, pad, ohp - all handled by SimplePrintingEntry
+    if (appConfig.simple_mode) {
+      const hasAnyPrinting = mailing.needsEnvelope || mailing.needsPrinting || mailing.needsBooklet || 
+                            mailing.needsSpiral || mailing.needsPerfect || mailing.needsPad || mailing.needsOHP
+      return ALL_STEPS.filter((step) => {
+        // Only show: Postage, Services, and ONE "Printing" step
+        if (step.id === "usps") return true
+        if (step.id === "labor") return true
+        if (step.id === "printing") return hasAnyPrinting // This becomes the unified printing step
+        // Hide all other printing calculators in simple mode
+        if (step.id === "envelope") return false
+        if (step.id === "booklet") return false
+        if (step.id === "spiral") return false
+        if (step.id === "perfect") return false
+        if (step.id === "pad") return false
+        if (step.id === "ohp") return false
+        return true
+      })
+    }
+    
+    // FULL MODE: show individual steps as before
     return ALL_STEPS.filter((step) => {
       if (step.id === "envelope" && !mailing.needsEnvelope) return false
       if (step.id === "printing" && !mailing.needsPrinting) return false
@@ -200,7 +222,7 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
       if (step.id === "ohp" && !mailing.needsOHP) return false
       return true
     })
-  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP])
+  }, [appConfig.simple_mode, mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP])
 
   useEffect(() => {
     if (jobPhase === "pricing" && !visibleSteps.find((s) => s.id === currentStep)) {
@@ -318,16 +340,21 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
 const renderStep = () => {
   // Map view mode: "quick" -> "compact" for the calculator forms
   const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
+  
+  // SIMPLE MODE: "printing" step shows SimplePrintingEntry with ALL pieces
+  if (appConfig.simple_mode && currentStep === "printing") {
+    return <SimplePrintingEntry />
+  }
+  
   switch (currentStep) {
-    // ALL printing calculators: use SimplePrintingEntry when simple_mode is ON (including envelope)
-    case "envelope": return appConfig.simple_mode ? <SimplePrintingEntry calcType="envelope" /> : <EnvelopeTab />
+    case "envelope": return <EnvelopeTab />
     case "usps":     return <USPSPostageCalculator />
     case "labor":    return <ServiceBuilder />
-    case "printing": return appConfig.simple_mode ? <SimplePrintingEntry calcType="printing" /> : <PrintingCalculator viewMode={viewMode} />
-    case "booklet":  return appConfig.simple_mode ? <SimplePrintingEntry calcType="booklet" /> : <BookletCalculator viewMode={viewMode} />
-    case "spiral":   return appConfig.simple_mode ? <SimplePrintingEntry calcType="spiral" /> : <SpiralCalculator viewMode={viewMode} />
-    case "perfect":  return appConfig.simple_mode ? <SimplePrintingEntry calcType="perfect" /> : <PerfectCalculator viewMode={viewMode} />
-    case "pad":      return appConfig.simple_mode ? <SimplePrintingEntry calcType="pad" /> : <PadCalculator viewMode={viewMode} />
+    case "printing": return <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return <PadCalculator viewMode={viewMode} />
     case "ohp":      return <VendorBidTab />
   }
 }
