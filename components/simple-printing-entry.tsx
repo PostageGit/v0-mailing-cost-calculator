@@ -323,24 +323,29 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
             <CardHeader className="py-3 px-4 border-b bg-muted/30">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Vendor Pricing</CardTitle>
-                {vendors && vendors.filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id)).length > 0 && (
-                  <Select onValueChange={(v) => addVendorToItem(activeItem.id, v)} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="w-48 h-8 text-xs">
-                      <Plus className="h-3 w-3 mr-1" />
-                      <SelectValue placeholder="Add vendor..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vendors
+                {/* ALWAYS show vendor dropdown - user picks who to compare */}
+                <Select onValueChange={(v) => addVendorToItem(activeItem.id, v)} disabled={activeItem.addedToQuote || !vendors}>
+                  <SelectTrigger className="w-56 h-9 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+                    <Plus className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Add Vendor to Compare" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!vendors || vendors.length === 0 ? (
+                      <SelectItem value="_none" disabled>Loading vendors...</SelectItem>
+                    ) : (
+                      vendors
                         .filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id))
                         .map(v => (
                           <SelectItem key={v.id} value={v.id}>
                             {v.name} {v.is_internal && "(Printout)"}
                           </SelectItem>
                         ))
-                      }
-                    </SelectContent>
-                  </Select>
-                )}
+                    )}
+                    {vendors && vendors.filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id)).length === 0 && (
+                      <SelectItem value="_all" disabled>All vendors added</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent className="p-0">
