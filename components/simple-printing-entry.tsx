@@ -252,6 +252,36 @@ export function SimplePrintingEntry() {
     setShowCalc(true)
   }
   
+  // Handler for when calculator returns a result - fills in the vendor's cost/price
+  const handleCalculatorResult = (result: { cost: number; price: number; description?: string }) => {
+    if (!activeItemId || !calcVendorId) return
+    
+    // Update the vendor quote with the calculated cost and price
+    setPrintItems(prev => prev.map(item => {
+      if (item.id !== activeItemId) return item
+      return {
+        ...item,
+        vendorQuotes: item.vendorQuotes.map(vq => {
+          if (vq.vendorId !== calcVendorId) return vq
+          // Calculate price with markup
+          const totalCost = result.cost + vq.shipping
+          const calculatedPrice = Math.round(totalCost * (1 + vq.markupPercent / 100) * 100) / 100
+          return {
+            ...vq,
+            cost: result.cost,
+            price: calculatedPrice,
+            priceOverride: false,
+            calcState: result // Store calc state for reference
+          }
+        })
+      }
+    }))
+    
+    // Close the calculator dialog
+    setShowCalc(false)
+    setCalcVendorId(null)
+  }
+  
   const handleAddToQuote = () => {
     if (!activeItem || !activeItem.selectedVendorId) return
     const selected = activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)
@@ -505,19 +535,19 @@ export function SimplePrintingEntry() {
         </Card>
       )}
 
-      {/* Calculator Dialog */}
+      {/* Calculator Dialog - passes onResult so price goes to vendor row, NOT directly to quote */}
       <Dialog open={showCalc} onOpenChange={setShowCalc}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Printout Calculator</DialogTitle>
-            <DialogDescription>Calculate in-house printing cost</DialogDescription>
+            <DialogDescription>Calculate in-house printing cost - price will be added to vendor comparison</DialogDescription>
           </DialogHeader>
-          {activeItem?.calcType === "printing" && <PrintingCalculator viewMode="detailed" />}
-          {activeItem?.calcType === "booklet" && <BookletCalculator viewMode="detailed" />}
-          {activeItem?.calcType === "spiral" && <SpiralCalculator viewMode="detailed" />}
-          {activeItem?.calcType === "perfect" && <PerfectCalculator viewMode="detailed" />}
-          {activeItem?.calcType === "pad" && <PadCalculator viewMode="detailed" />}
-          {activeItem?.calcType === "envelope" && <EnvelopeTab />}
+          {activeItem?.calcType === "printing" && <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
+          {activeItem?.calcType === "booklet" && <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
+          {activeItem?.calcType === "spiral" && <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
+          {activeItem?.calcType === "perfect" && <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
+          {activeItem?.calcType === "pad" && <PadCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
+          {activeItem?.calcType === "envelope" && <EnvelopeTab onResult={handleCalculatorResult} />}
         </DialogContent>
       </Dialog>
     </div>

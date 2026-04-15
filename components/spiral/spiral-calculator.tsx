@@ -19,12 +19,20 @@ import { ShippingCalcButton } from "@/components/shipping-calc-dialog"
 import { useMailing, PIECE_TYPE_META, type MailPiece } from "@/lib/mailing-context"
 import { usePapersContext } from "@/lib/papers-context"
 
+interface SpiralCalculatorResult {
+  cost: number
+  price: number
+  description: string
+}
+
 interface SpiralCalculatorProps {
   viewMode?: "detailed" | "compact"
   standalone?: boolean
+  /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
+  onResult?: (result: SpiralCalculatorResult) => void
 }
 
-export function SpiralCalculator({ viewMode = "detailed", standalone = false }: SpiralCalculatorProps) {
+export function SpiralCalculator({ viewMode = "detailed", standalone = false, onResult }: SpiralCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { paperDataLookup } = usePapersContext()
@@ -187,6 +195,18 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
     if (calcResult.backResult) extras.push("Printed Back Cover")
     const extrasStr = extras.length > 0 ? ` (${extras.join(", ")})` : ""
     const desc = `${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${extrasStr}`
+    const totalPrice = effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal
+    
+    // If onResult callback provided, call it instead of adding to quote
+    if (onResult) {
+      onResult({
+        cost: calcResult.totalCost || totalPrice * 0.7,
+        price: totalPrice,
+        description: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}, ${desc}`
+      })
+      return
+    }
+    
     quote.addItem({
       category: "spiral",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Spiral Book ${inputs.pageWidth}x${inputs.pageHeight}`,
@@ -376,9 +396,12 @@ export function SpiralCalculator({ viewMode = "detailed", standalone = false }: 
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                 size="lg"
               >
-                <Plus className="h-4 w-4" />
-                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-              </Button>
+                  <Plus className="h-4 w-4" />
+                  {onResult 
+                    ? `Use This Price - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}`
+                    : `Add to Quote - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}`
+                  }
+                </Button>
               )}
               {!standalone && (
               <ShippingCalcButton

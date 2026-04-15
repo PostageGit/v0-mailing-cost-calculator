@@ -79,7 +79,19 @@ function matchPlannerEnvelope(
   return null
 }
 
-export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {}) {
+interface EnvelopeResult {
+  cost: number
+  price: number
+  description: string
+}
+
+interface EnvelopeTabProps {
+  standalone?: boolean
+  /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
+  onResult?: (result: EnvelopeResult) => void
+}
+
+export function EnvelopeTab({ standalone = false, onResult }: EnvelopeTabProps = {}) {
   const quote = useQuote()
   const mailing = useMailing()
   const v = useFormValidation()
@@ -161,6 +173,18 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : calcResult.price
+    const desc = `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`
+    
+    // If onResult callback provided, call it instead of adding to quote
+    if (onResult) {
+      onResult({
+        cost: calcResult.cost || finalAmount * 0.7,
+        price: finalAmount,
+        description: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}, ${desc}`
+      })
+      return
+    }
+    
     quote.addItem({
       category: "envelope",
       label: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
@@ -421,11 +445,14 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                 size="sm"
               >
-                <Plus className="h-4 w-4" />
-                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
-              </Button>
-              )}
-              {!standalone && (() => {
+                      <Plus className="h-4 w-4" />
+                      {onResult 
+                        ? `Use This Price - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}`
+                        : `Add to Quote - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}`
+                      }
+                    </Button>
+                  )}
+                  {!standalone && !onResult && (() => {
                 // Get envelope dimensions from settings items
                 const envItem = settings.items.find(i => i.name === inputs.itemName)
                 if (!envItem) return null

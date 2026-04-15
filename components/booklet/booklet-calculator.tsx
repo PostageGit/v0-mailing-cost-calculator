@@ -43,12 +43,20 @@ const EMPTY_INPUTS: BookletInputs = {
   printingMarkupPct: 0,
 }
 
+interface BookletCalculatorResult {
+  cost: number
+  price: number
+  description: string
+}
+
 interface BookletCalculatorProps {
   viewMode?: "detailed" | "compact"
   standalone?: boolean
+  /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
+  onResult?: (result: BookletCalculatorResult) => void
 }
 
-export function BookletCalculator({ viewMode = "detailed", standalone = false }: BookletCalculatorProps) {
+export function BookletCalculator({ viewMode = "detailed", standalone = false, onResult }: BookletCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -286,6 +294,18 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false }:
     if (!cr || !cr.isValid) return
     const coverDesc = inputs.separateCover ? `w/ ${cr.coverResult.paper} Cover` : "Self-Cover"
     const desc = `${inputs.insidePaper}, ${cr.insideResult.sides}${inputs.laminationType !== "none" ? `, ${inputs.laminationType} lam.` : ""}`
+    const totalPrice = effectiveTotal > 0 ? effectiveTotal : cr.grandTotal
+    
+    // If onResult callback provided, call it instead of adding to quote
+    if (onResult) {
+      onResult({
+        cost: cr.totalCost || totalPrice * 0.7, // estimate cost as 70% of price if not available
+        price: totalPrice,
+        description: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}, ${desc}`
+      })
+      return
+    }
+    
     quote.addItem({
       category: "booklet",
       label: `${inputs.bookQty.toLocaleString()} - ${inputs.pagesPerBook}pg Booklet ${inputs.pageWidth}x${inputs.pageHeight} ${coverDesc}`,
@@ -524,18 +544,21 @@ export function BookletCalculator({ viewMode = "detailed", standalone = false }:
                 />
               )}
 
-              {/* Add to Quote + Shipping + Compare with Chat */}
-              <div className={`flex gap-2 ${viewMode === "compact" ? "mt-2" : "mt-4"}`}>
-                {!standalone && (
-                <Button
-                  onClick={handleAddToQuote}
-                  className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                  size={viewMode === "compact" ? "default" : "lg"}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}
-                </Button>
-                )}
+                {/* Add to Quote + Shipping + Compare with Chat */}
+                <div className={`flex gap-2 ${viewMode === "compact" ? "mt-2" : "mt-4"}`}>
+                  {!standalone && (
+                    <Button
+                      onClick={handleAddToQuote}
+                      className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+                      size={viewMode === "compact" ? "default" : "lg"}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {onResult 
+                        ? `Use This Price - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}`
+                        : `Add to Quote - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : effectiveCalcResult.grandTotal)}`
+                      }
+                    </Button>
+                  )}
                 {viewMode !== "compact" && !standalone && <ShippingCalcButton
                   pieceWidth={inputs.pageWidth}
                   pieceHeight={inputs.pageHeight}
