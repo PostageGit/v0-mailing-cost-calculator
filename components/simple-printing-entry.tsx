@@ -622,6 +622,25 @@ export function SimplePrintingEntry() {
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {/* ADD TO QUOTE BUTTON */}
+              {!activeItem.addedToQuote && activeItem.selectedVendorId && (
+                <Button 
+                  onClick={handleAddToQuote} 
+                  className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base mt-4" 
+                  disabled={activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price === 0}
+                >
+                  <Check className="h-5 w-5" />
+                  Add to Quote - {formatCurrency(activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price || 0)}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Calculator Dialog - passes onResult so price goes to vendor row, NOT directly to quote */}
       {/* Also passes initialInputs from saved calcState so calculator reopens with previous settings */}
       <Dialog open={showCalc} onOpenChange={setShowCalc}>
