@@ -774,9 +774,15 @@ const renderStep = () => {
                 </div>
 
                 {/* Content + Quote Sidebar */}
-                <div className="flex-1 flex min-h-0 overflow-hidden justify-center">
-                  <div className="flex-1 min-w-0 max-w-4xl overflow-auto px-4 sm:px-6 pt-4 pb-8">
-                    <div key={currentStep} className="step-enter">
+                <div className="flex-1 flex min-h-0 overflow-hidden">
+                  <div className={cn(
+                    "flex-1 min-w-0 overflow-auto",
+                    // Simple mode printing uses full width, other steps use centered max-w
+                    appConfig.simple_mode && currentStep === "printing"
+                      ? "px-0 pt-0 pb-0"
+                      : "max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-8"
+                  )}>
+                    <div key={currentStep} className="step-enter h-full">
                       <StepErrorBoundary stepId={currentStep}>
                         {renderStep()}
                       </StepErrorBoundary>
