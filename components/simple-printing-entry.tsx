@@ -860,185 +860,159 @@ export function SimplePrintingEntry() {
       </div>
 
       {/* Calculator Dialog - passes onResult so price goes to vendor row, NOT directly to quote */}
-      {/* Also passes initialInputs from saved calcState OR from specs if no saved inputs */}
-      <Dialog open={showCalc} onOpenChange={setShowCalc}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Printout Calculator</DialogTitle>
-            <DialogDescription>Calculate in-house printing cost - price will be added to vendor comparison</DialogDescription>
-          </DialogHeader>
-          {(() => {
-            // Get saved inputs from the vendor we're calculating for
-            const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
-            const savedInputs = vendorQuote?.calcState?.inputs
-            
-            // If no saved inputs, create initial inputs from the specs filled in the UI
-            // This auto-populates calculator with qty, size, colors, paper, etc from specs
-            // Map colors string to sidesValue: "4/4" → "D/S", "4/0" → "S/S", "1/1" → "D/S", "1/0" → "S/S"
-            const colorsToSides = (colors: string | undefined): string => {
-              if (!colors) return "S/S"
-              if (colors.includes("/4") || colors.includes("/1")) return "D/S" // double-sided
-              return "S/S" // single-sided (4/0, 1/0)
+      {/* Compute initialInputs from specs BEFORE the Dialog opens */}
+      {(() => {
+        // Get saved inputs from the vendor we're calculating for
+        const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
+        const savedInputs = vendorQuote?.calcState?.inputs
+        
+        // Map colors string to sidesValue: "4/4" → "D/S", "4/0" → "S/S"
+        const colorsToSides = (colors: string | undefined): string => {
+          if (!colors) return "S/S"
+          if (colors.includes("/4") || colors.includes("/1")) return "D/S"
+          return "S/S"
+        }
+        
+        // Map lamination spec to lamination object
+        const lamToObject = (lam: string | undefined) => {
+          if (!lam || lam === "none") return { enabled: false, type: "Gloss" as const, sides: "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
+          const isGloss = lam.toLowerCase().includes("gloss")
+          const isTwoSide = lam.includes("2-Side") || lam.includes("2 Side")
+          return { enabled: true, type: isGloss ? "Gloss" as const : "Matte" as const, sides: isTwoSide ? "D/S" as const : "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
+        }
+        
+        // Build specsToInputs based on calculator type
+        let specsToInputs: Record<string, unknown> | undefined = undefined
+        
+        if (activeItem?.specs) {
+          const specs = activeItem.specs
+          const calcType = activeItem.calcType
+          
+          if (calcType === "flat" || calcType === "printing") {
+            specsToInputs = {
+              qty: specs.quantity || 0,
+              width: specs.width || 0,
+              height: specs.height || 0,
+              paperName: specs.paper || "20lb Offset",
+              sidesValue: colorsToSides(specs.colors),
+              hasBleed: specs.hasBleed || false,
+              addOnCharge: 0,
+              addOnDescription: "",
+              finishingIds: [],
+              finishingCalcIds: [],
+              isBroker: false,
+              printingMarkupPct: 0,
+              lamination: lamToObject(specs.lamination),
             }
-            
-            // Map lamination spec to lamination object for PrintingCalculator
-            const lamToObject = (lam: string | undefined) => {
-              if (!lam || lam === "none") return { enabled: false, type: "Gloss" as const, sides: "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
-              const isGloss = lam.toLowerCase().includes("gloss")
-              const isTwoSide = lam.includes("2-Side") || lam.includes("2 Side")
-              return { 
-                enabled: true, 
-                type: isGloss ? "Gloss" as const : "Matte" as const, 
-                sides: isTwoSide ? "D/S" as const : "S/S" as const,
-                markupPct: 225,
-                brokerDiscountPct: 30
-              }
+          } else if (calcType === "booklet") {
+            specsToInputs = {
+              bookQty: specs.quantity || 0,
+              pagesPerBook: specs.pages || 8,
+              pageWidth: specs.width || 0,
+              pageHeight: specs.height || 0,
+              separateCover: true,
+              coverPaper: specs.coverPaper || "10pt Gloss",
+              coverSides: specs.coverColors || "4/4",
+              coverBleed: specs.coverBleed || false,
+              coverSheetSize: "cheapest",
+              insidePaper: specs.insidePaper || "20lb Offset",
+              insideSides: specs.insideColors || "D/S",
+              insideBleed: specs.insideBleed || false,
+              insideSheetSize: "cheapest",
+              bindingType: specs.bindingType || "staple",
+              laminationType: specs.lamination === "none" ? "none" : specs.lamination?.toLowerCase().includes("gloss") ? "gloss" : "matte",
+              insertSections: [],
+              insertFeePerSection: 25,
+              customLevel: "auto",
+              isBroker: false,
+              printingMarkupPct: 0,
             }
-            
-            // Build specsToInputs based on calculator type
-            // Must include ALL required fields so calculator doesn't get undefined values
-            let specsToInputs: Record<string, unknown> | undefined = undefined
-            
-            if (activeItem?.specs) {
-              const specs = activeItem.specs
-              const calcType = activeItem.calcType
-              
-              // Debug: log what we're passing
-              console.log("[v0] Specs to pass to calculator:", { specs, calcType })
-              
-              if (calcType === "flat" || calcType === "printing") {
-                // PrintingCalculator expects full PrintingInputs object
-                specsToInputs = {
-                  // Start with all defaults
-                  qty: specs.quantity || 0,
-                  width: specs.width || 0,
-                  height: specs.height || 0,
-                  paperName: specs.paper || "20lb Offset",
-                  sidesValue: colorsToSides(specs.colors),
-                  hasBleed: specs.hasBleed || false,
-                  addOnCharge: 0,
-                  addOnDescription: "",
-                  finishingIds: [],
-                  finishingCalcIds: [],
-                  isBroker: false,
-                  printingMarkupPct: 0,
-                  lamination: lamToObject(specs.lamination),
-                }
-                console.log("[v0] PrintingCalculator initialInputs:", specsToInputs)
-              } else if (calcType === "booklet") {
-                // BookletCalculator expects: bookQty, pagesPerBook, pageWidth, pageHeight, coverPaper, insidePaper, etc
-                // Now using the booklet-specific specs fields!
-                specsToInputs = {
-                  bookQty: specs.quantity || 0,
-                  pagesPerBook: specs.pages || 8,
-                  pageWidth: specs.width || 0,
-                  pageHeight: specs.height || 0,
-                  separateCover: true,
-                  coverPaper: specs.coverPaper || "10pt Gloss",
-                  coverSides: specs.coverColors || "4/4",
-                  coverBleed: specs.coverBleed || false,
-                  coverSheetSize: "cheapest",
-                  insidePaper: specs.insidePaper || "20lb Offset",
-                  insideSides: specs.insideColors || "D/S",
-                  insideBleed: specs.insideBleed || false,
-                  insideSheetSize: "cheapest",
-                  bindingType: specs.bindingType || "staple",
-                  laminationType: specs.lamination === "none" ? "none" : specs.lamination?.toLowerCase().includes("gloss") ? "gloss" : "matte",
-                  insertSections: [],
-                  insertFeePerSection: 25,
-                  customLevel: "auto",
-                  isBroker: false,
-                  printingMarkupPct: 0,
-                }
-                console.log("[v0] BookletCalculator initialInputs:", specsToInputs)
-              } else if (calcType === "spiral") {
-                // SpiralCalculator - uses same booklet-specific specs
-                specsToInputs = {
-                  bookQty: specs.quantity || 0,
-                  pagesPerBook: specs.pages || 8,
-                  pageWidth: specs.width || 0,
-                  pageHeight: specs.height || 0,
-                  separateCover: true,
-                  coverPaper: specs.coverPaper || "10pt Gloss",
-                  coverSides: specs.coverColors || "4/4",
-                  coverBleed: specs.coverBleed || false,
-                  insidePaper: specs.insidePaper || "20lb Offset",
-                  insideSides: specs.insideColors || "D/S",
-                  insideBleed: specs.insideBleed || false,
-                }
-                console.log("[v0] SpiralCalculator initialInputs:", specsToInputs)
-              } else if (calcType === "pad") {
-                // PadCalculator - uses sheetsPerPad from specs
-                specsToInputs = {
-                  padQty: specs.quantity || 0,
-                  sheetsPerPad: specs.sheetsPerPad || 50,
-                  padWidth: specs.width || 0,
-                  padHeight: specs.height || 0,
-                  paperName: specs.paper || "20lb Offset",
-                  sidesValue: colorsToSides(specs.colors),
-                  hasBleed: specs.hasBleed || false,
-                }
-                console.log("[v0] PadCalculator initialInputs:", specsToInputs)
-              } else if (calcType === "envelope") {
-                // EnvelopeTab uses: amount, itemName, inkType, printType, hasBleed, customerType
-                // Map width x height to standard envelope itemName
-                const w = specs.width || 0
-                const h = specs.height || 0
-                let itemName = "6x9" // default
-                // Try to match by dimensions
-                if (w === 9 && h === 12) itemName = "9x12"
-                else if (w === 6 && h === 9) itemName = "6x9"
-                else if (w === 9.5 && h === 4.125) itemName = "#10 no window"
-                else if (w === 4.125 && h === 9.5) itemName = "#10 no window"
-                else if (w > 0 && h > 0) itemName = `${w}x${h}` // custom
-                
-                specsToInputs = {
-                  amount: specs.quantity || 0,
-                  itemName: itemName,
-                  inkType: "InkJet" as const,
-                  printType: "Text + Logo" as const,
-                  hasBleed: specs.hasBleed || false,
-                  customerType: "Regular" as const,
-                  customEnvCost: 0,
-                  customPrintCost: 0,
-                }
-                console.log("[v0] EnvelopeTab initialInputs:", specsToInputs)
-              }
+          } else if (calcType === "spiral") {
+            specsToInputs = {
+              bookQty: specs.quantity || 0,
+              pagesPerBook: specs.pages || 8,
+              pageWidth: specs.width || 0,
+              pageHeight: specs.height || 0,
+              separateCover: true,
+              coverPaper: specs.coverPaper || "10pt Gloss",
+              coverSides: specs.coverColors || "4/4",
+              coverBleed: specs.coverBleed || false,
+              insidePaper: specs.insidePaper || "20lb Offset",
+              insideSides: specs.insideColors || "D/S",
+              insideBleed: specs.insideBleed || false,
             }
+          } else if (calcType === "pad") {
+            specsToInputs = {
+              padQty: specs.quantity || 0,
+              sheetsPerPad: specs.sheetsPerPad || 50,
+              padWidth: specs.width || 0,
+              padHeight: specs.height || 0,
+              paperName: specs.paper || "20lb Offset",
+              sidesValue: colorsToSides(specs.colors),
+              hasBleed: specs.hasBleed || false,
+            }
+          } else if (calcType === "envelope") {
+            const w = specs.width || 0
+            const h = specs.height || 0
+            let itemName = "6x9"
+            if (w === 9 && h === 12) itemName = "9x12"
+            else if (w === 6 && h === 9) itemName = "6x9"
+            else if (w === 9.5 && h === 4.125) itemName = "#10 no window"
+            else if (w === 4.125 && h === 9.5) itemName = "#10 no window"
+            else if (w > 0 && h > 0) itemName = `${w}x${h}`
             
-            // Use saved inputs first, then fall back to specs-derived inputs
-            const initialInputs = savedInputs || specsToInputs
-            
-            // Create a stable key based on specs to force remount when specs change
-            // Include booklet-specific fields for those job types
-            const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper || activeItem.specs.coverPaper}-${activeItem.specs.colors || activeItem.specs.coverColors}-${activeItem.specs.insidePaper}-${activeItem.specs.pages}` : "empty"
-            
-            return (
-              <>
-                {/* "flat" calcType uses PrintingCalculator for postcards, flat cards, folded cards, self-mailers, letters */}
-                {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && (
-                  <PrintingCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
-                )}
-                {activeItem?.calcType === "booklet" && (
-                  <BookletCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
-                )}
-                {activeItem?.calcType === "spiral" && (
-                  <SpiralCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
-                )}
-                {activeItem?.calcType === "perfect" && (
-                  <PerfectCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
-                )}
-                {activeItem?.calcType === "pad" && (
-                  <PadCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
-                )}
-                {activeItem?.calcType === "envelope" && (
-                  <EnvelopeTab key={specsKey} onResult={handleCalculatorResult} initialInputs={initialInputs} />
-                )}
-              </>
-            )
-          })()}
-        </DialogContent>
-      </Dialog>
+            specsToInputs = {
+              amount: specs.quantity || 0,
+              itemName: itemName,
+              inkType: "InkJet" as const,
+              printType: "Text + Logo" as const,
+              hasBleed: specs.hasBleed || false,
+              customerType: "Regular" as const,
+              customEnvCost: 0,
+              customPrintCost: 0,
+            }
+          }
+        }
+        
+        // Use saved inputs first, then fall back to specs-derived inputs
+        const initialInputs = savedInputs || specsToInputs
+        
+        // Key forces remount when specs change
+        const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper || activeItem.specs.coverPaper}-${activeItem.specs.colors || activeItem.specs.coverColors}-${activeItem.specs.insidePaper}-${activeItem.specs.pages}` : "empty"
+        
+        return (
+          <Dialog open={showCalc} onOpenChange={setShowCalc}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Printout Calculator</DialogTitle>
+                <DialogDescription>Calculate in-house printing cost - price will be added to vendor comparison</DialogDescription>
+              </DialogHeader>
+              {showCalc && (
+                <>
+                  {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && (
+                    <PrintingCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  )}
+                  {activeItem?.calcType === "booklet" && (
+                    <BookletCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  )}
+                  {activeItem?.calcType === "spiral" && (
+                    <SpiralCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  )}
+                  {activeItem?.calcType === "perfect" && (
+                    <PerfectCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  )}
+                  {activeItem?.calcType === "pad" && (
+                    <PadCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  )}
+                  {activeItem?.calcType === "envelope" && (
+                    <EnvelopeTab key={specsKey} onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  )}
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+        )
+      })()}
     </div>
   )
 }
