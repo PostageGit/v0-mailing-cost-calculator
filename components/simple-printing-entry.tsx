@@ -58,18 +58,31 @@ const LAM_OPTIONS = [
 ]
 
 interface PieceSpecs {
+  // Common fields
   quantity: number
   width: number
   height: number
-  pages?: number
+  notes: string
+  
+  // Flat printing fields (postcards, letters, self-mailers)
   paper: string
-  colors: string
+  colors: string        // "4/4", "4/0", "1/1", "1/0"
   hasBleed: boolean
   fold: string
   lamination: string
+  
+  // Booklet/Spiral specific fields
+  pages?: number
   coverPaper?: string
-  coverColors?: string
-  notes: string
+  coverColors?: string  // "4/4", "4/0"
+  coverBleed?: boolean
+  insidePaper?: string
+  insideColors?: string // "D/S", "S/S"
+  insideBleed?: boolean
+  bindingType?: string  // "staple", "spiral", "perfect"
+  
+  // Pad specific
+  sheetsPerPad?: number
 }
 
 interface VendorQuote {
@@ -390,16 +403,15 @@ export function SimplePrintingEntry() {
               )}
             </div>
 
-            {/* SPECIFICATIONS CARD */}
+            {/* SPECIFICATIONS CARD - Shows different fields based on calcType */}
             <div className={cn(
               "rounded-2xl border-2 bg-card p-6 mb-6",
               activeItem.addedToQuote ? "border-green-300 bg-green-50/20 dark:border-green-800 dark:bg-green-950/10" : "border-border/50"
             )}>
               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Specifications</h4>
               
-              {/* CRISP SPEC FIELDS - Inline pills style */}
-              <div className="flex flex-wrap items-end gap-5">
-                {/* Qty */}
+              {/* COMMON FIELDS: Qty + Size */}
+              <div className="flex flex-wrap items-end gap-5 mb-4">
                 <div className="w-28">
                   <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quantity</label>
                   <Input 
@@ -411,9 +423,8 @@ export function SimplePrintingEntry() {
                   />
                 </div>
                 
-                {/* Size - Width x Height */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Size (W × H)</label>
+                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Finished Size (W × H)</label>
                   <div className="flex items-center gap-2">
                     <Input 
                       type="number" 
@@ -437,46 +448,57 @@ export function SimplePrintingEntry() {
                   </div>
                 </div>
                 
-                {/* Pages (booklets only) */}
-                {isBooklet && (
+                {/* Pages - for booklets/spirals/pads */}
+                {(isBooklet || activeItem.calcType === "spiral" || activeItem.calcType === "pad") && (
                   <div className="w-24">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Pages</label>
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      {activeItem.calcType === "pad" ? "Sheets" : "Pages"}
+                    </label>
                     <Input 
                       type="number" 
-                      step={4} 
-                      min={4} 
-                      value={activeItem.specs.pages || ""} 
-                      onChange={(e) => updateSpecs({ pages: parseInt(e.target.value) || 0 })} 
+                      step={activeItem.calcType === "pad" ? 25 : 4} 
+                      min={activeItem.calcType === "pad" ? 25 : 4} 
+                      value={activeItem.calcType === "pad" ? (activeItem.specs.sheetsPerPad || "") : (activeItem.specs.pages || "")} 
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0
+                        if (activeItem.calcType === "pad") {
+                          updateSpecs({ sheetsPerPad: val })
+                        } else {
+                          updateSpecs({ pages: val })
+                        }
+                      }} 
                       disabled={activeItem.addedToQuote} 
                       className="h-11 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
                     />
                   </div>
                 )}
-                
-                {/* Colors */}
-                <div className="min-w-[185px]">
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
-                  <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Paper */}
-                <div className="min-w-[185px]">
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper Stock</label>
-                  <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                      <SelectValue placeholder="Select paper..." />
-                    </SelectTrigger>
-                    <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Fold (non-booklets only) */}
-                {!isBooklet && (
+              </div>
+              
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* FLAT PRINTING SPECS (postcards, letters, self-mailers, etc) */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {(activeItem.calcType === "flat" || activeItem.calcType === "printing") && (
+                <div className="flex flex-wrap items-end gap-5">
+                  <div className="min-w-[185px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper Stock</label>
+                    <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                        <SelectValue placeholder="Select paper..." />
+                      </SelectTrigger>
+                      <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="min-w-[185px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                    <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  
                   <div className="min-w-[145px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold Type</label>
                     <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
@@ -486,37 +508,196 @@ export function SimplePrintingEntry() {
                       <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                )}
-                
-                {/* Lamination */}
-                <div className="min-w-[145px]">
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
-                  <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                    <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
-                  </Select>
+                  
+                  <div className="min-w-[145px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
+                    <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => !activeItem.addedToQuote && updateSpecs({ hasBleed: !activeItem.specs.hasBleed })}
+                    disabled={activeItem.addedToQuote}
+                    className={cn(
+                      "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                      activeItem.specs.hasBleed 
+                        ? "bg-foreground text-background border-foreground" 
+                        : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                    )}
+                  >
+                    {activeItem.specs.hasBleed && <Check className="h-4 w-4" />}
+                    Bleed
+                  </button>
                 </div>
-                
-                {/* Bleed toggle */}
-                <button 
-                  type="button"
-                  onClick={() => !activeItem.addedToQuote && updateSpecs({ hasBleed: !activeItem.specs.hasBleed })}
-                  disabled={activeItem.addedToQuote}
-                  className={cn(
-                    "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
-                    activeItem.specs.hasBleed 
-                      ? "bg-foreground text-background border-foreground" 
-                      : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
-                  )}
-                >
-                  {activeItem.specs.hasBleed && <Check className="h-4 w-4" />}
-                  Bleed
-                </button>
-              </div>
+              )}
               
-              {/* Notes */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* BOOKLET / SPIRAL SPECS - Cover + Inside sections */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {(isBooklet || activeItem.calcType === "spiral") && (
+                <div className="space-y-4">
+                  {/* COVER */}
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Cover</h5>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="min-w-[185px]">
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Paper</label>
+                        <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                            <SelectValue placeholder="Select cover..." />
+                          </SelectTrigger>
+                          <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="min-w-[185px]">
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Colors</label>
+                        <Select value={activeItem.specs.coverColors || "4/4"} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <button 
+                        type="button"
+                        onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
+                        disabled={activeItem.addedToQuote}
+                        className={cn(
+                          "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                          activeItem.specs.coverBleed 
+                            ? "bg-foreground text-background border-foreground" 
+                            : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                        )}
+                      >
+                        {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
+                        Bleed
+                      </button>
+                      
+                      <div className="min-w-[145px]">
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Lam</label>
+                        <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* INSIDE PAGES */}
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Inside Pages</h5>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="min-w-[185px]">
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Inside Paper</label>
+                        <Select value={activeItem.specs.insidePaper || ""} onValueChange={(v) => updateSpecs({ insidePaper: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                            <SelectValue placeholder="Select inside..." />
+                          </SelectTrigger>
+                          <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="min-w-[145px]">
+                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Inside Colors</label>
+                        <Select value={activeItem.specs.insideColors || "D/S"} onValueChange={(v) => updateSpecs({ insideColors: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="D/S">Double-Sided</SelectItem>
+                            <SelectItem value="S/S">Single-Sided</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <button 
+                        type="button"
+                        onClick={() => !activeItem.addedToQuote && updateSpecs({ insideBleed: !activeItem.specs.insideBleed })}
+                        disabled={activeItem.addedToQuote}
+                        className={cn(
+                          "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                          activeItem.specs.insideBleed 
+                            ? "bg-foreground text-background border-foreground" 
+                            : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                        )}
+                      >
+                        {activeItem.specs.insideBleed && <Check className="h-4 w-4" />}
+                        Bleed
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* PAD SPECS */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {activeItem.calcType === "pad" && (
+                <div className="flex flex-wrap items-end gap-5">
+                  <div className="min-w-[185px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper Stock</label>
+                    <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                        <SelectValue placeholder="Select paper..." />
+                      </SelectTrigger>
+                      <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="min-w-[185px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                    <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => !activeItem.addedToQuote && updateSpecs({ hasBleed: !activeItem.specs.hasBleed })}
+                    disabled={activeItem.addedToQuote}
+                    className={cn(
+                      "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                      activeItem.specs.hasBleed 
+                        ? "bg-foreground text-background border-foreground" 
+                        : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                    )}
+                  >
+                    {activeItem.specs.hasBleed && <Check className="h-4 w-4" />}
+                    Bleed
+                  </button>
+                </div>
+              )}
+              
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* ENVELOPE SPECS */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {activeItem.calcType === "envelope" && (
+                <div className="flex flex-wrap items-end gap-5">
+                  <div className="min-w-[185px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                    <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              
+              {/* Notes - shown for all types */}
               <div className="mt-5">
                 <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Notes / Special Instructions</label>
                 <Input 
@@ -707,44 +888,58 @@ export function SimplePrintingEntry() {
                 console.log("[v0] PrintingCalculator initialInputs:", specsToInputs)
               } else if (calcType === "booklet") {
                 // BookletCalculator expects: bookQty, pagesPerBook, pageWidth, pageHeight, coverPaper, insidePaper, etc
+                // Now using the booklet-specific specs fields!
                 specsToInputs = {
                   bookQty: specs.quantity || 0,
                   pagesPerBook: specs.pages || 8,
                   pageWidth: specs.width || 0,
                   pageHeight: specs.height || 0,
-                  coverPaper: specs.paper || "10pt Gloss",
-                  insidePaper: "20lb Offset",
-                  coverSides: specs.colors || "4/4",
-                  insideSides: "D/S",
-                  coverBleed: specs.hasBleed || false,
-                  insideBleed: specs.hasBleed || false,
+                  separateCover: true,
+                  coverPaper: specs.coverPaper || "10pt Gloss",
+                  coverSides: specs.coverColors || "4/4",
+                  coverBleed: specs.coverBleed || false,
+                  coverSheetSize: "cheapest",
+                  insidePaper: specs.insidePaper || "20lb Offset",
+                  insideSides: specs.insideColors || "D/S",
+                  insideBleed: specs.insideBleed || false,
+                  insideSheetSize: "cheapest",
+                  bindingType: specs.bindingType || "staple",
                   laminationType: specs.lamination === "none" ? "none" : specs.lamination?.toLowerCase().includes("gloss") ? "gloss" : "matte",
+                  insertSections: [],
+                  insertFeePerSection: 25,
+                  customLevel: "auto",
+                  isBroker: false,
+                  printingMarkupPct: 0,
                 }
+                console.log("[v0] BookletCalculator initialInputs:", specsToInputs)
               } else if (calcType === "spiral") {
-                // SpiralCalculator
+                // SpiralCalculator - uses same booklet-specific specs
                 specsToInputs = {
                   bookQty: specs.quantity || 0,
                   pagesPerBook: specs.pages || 8,
                   pageWidth: specs.width || 0,
                   pageHeight: specs.height || 0,
-                  coverPaper: specs.paper || "10pt Gloss",
-                  insidePaper: "20lb Offset",
-                  coverSides: specs.colors || "4/4",
-                  insideSides: "D/S",
-                  coverBleed: specs.hasBleed || false,
-                  insideBleed: specs.hasBleed || false,
+                  separateCover: true,
+                  coverPaper: specs.coverPaper || "10pt Gloss",
+                  coverSides: specs.coverColors || "4/4",
+                  coverBleed: specs.coverBleed || false,
+                  insidePaper: specs.insidePaper || "20lb Offset",
+                  insideSides: specs.insideColors || "D/S",
+                  insideBleed: specs.insideBleed || false,
                 }
+                console.log("[v0] SpiralCalculator initialInputs:", specsToInputs)
               } else if (calcType === "pad") {
-                // PadCalculator
+                // PadCalculator - uses sheetsPerPad from specs
                 specsToInputs = {
                   padQty: specs.quantity || 0,
-                  sheetsPerPad: specs.pages || 50,
+                  sheetsPerPad: specs.sheetsPerPad || 50,
                   padWidth: specs.width || 0,
                   padHeight: specs.height || 0,
                   paperName: specs.paper || "20lb Offset",
                   sidesValue: colorsToSides(specs.colors),
                   hasBleed: specs.hasBleed || false,
                 }
+                console.log("[v0] PadCalculator initialInputs:", specsToInputs)
               } else if (calcType === "envelope") {
                 // EnvelopeTab
                 specsToInputs = {
@@ -760,7 +955,8 @@ export function SimplePrintingEntry() {
             const initialInputs = savedInputs || specsToInputs
             
             // Create a stable key based on specs to force remount when specs change
-            const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper}-${activeItem.specs.colors}` : "empty"
+            // Include booklet-specific fields for those job types
+            const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper || activeItem.specs.coverPaper}-${activeItem.specs.colors || activeItem.specs.coverColors}-${activeItem.specs.insidePaper}-${activeItem.specs.pages}` : "empty"
             
             return (
               <>
