@@ -41,6 +41,8 @@ interface VendorQuote {
   isInternal: boolean // Printout = true
   cost: number
   price: number
+  // Saved calculator state for Printout (so we can reopen and edit)
+  calcState?: any
 }
 
 // Generate specs text from a mail piece
@@ -327,12 +329,14 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                         {/* Printout gets calculator button */}
                         {vq.isInternal && (
                           <Button
-                            variant="outline"
+                            variant={vq.calcState ? "default" : "outline"}
                             size="sm"
                             onClick={() => openCalculator(vq.vendorId)}
-                            title="Open Calculator"
+                            title={vq.calcState ? "Edit Calculation" : "Open Calculator"}
+                            className={vq.calcState ? "bg-blue-600 hover:bg-blue-700" : ""}
                           >
                             <Calculator className="h-4 w-4" />
+                            {vq.calcState && <span className="ml-1 text-xs">Edit</span>}
                           </Button>
                         )}
                         {/* Non-Printout vendors can be removed */}
@@ -440,17 +444,32 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
         </CardContent>
       </Card>
       
-      {/* Calculator Dialog */}
+      {/* Calculator Dialog - Returns price via onResult and saves state */}
       <Dialog open={showCalc} onOpenChange={setShowCalc}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Printout Calculator - {calcLabels[calcType]}</DialogTitle>
             <DialogDescription>
-              Calculate price, then enter the result in the price table
+              Calculate price, then click "Use This Price" to bring it back
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
-            {calcType === "printing" && <PrintingCalculator standalone />}
+            {calcType === "printing" && (
+              <PrintingCalculator 
+                onResult={(result) => {
+                  // Update the vendor quote with calculated price and save state
+                  if (calcVendorId) {
+                    setVendorQuotes(prev => prev.map(vq => 
+                      vq.vendorId === calcVendorId 
+                        ? { ...vq, cost: result.cost, price: result.price, calcState: result.inputs }
+                        : vq
+                    ))
+                  }
+                  setShowCalc(false)
+                }}
+                initialInputs={vendorQuotes.find(vq => vq.vendorId === calcVendorId)?.calcState}
+              />
+            )}
             {calcType === "booklet" && <BookletCalculator standalone />}
             {calcType === "spiral" && <SpiralCalculator standalone />}
             {calcType === "perfect" && <PerfectCalculator standalone />}
