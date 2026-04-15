@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useMailing, PIECE_TYPE_META, STANDARD_ENVELOPES, FOLD_OPTIONS, getFlatSize, type PieceType, type ProductionRoute, type FoldType } from "@/lib/mailing-context"
 import { useQuote } from "@/lib/quote-context"
+import { useAppConfig } from "@/lib/app-config-context"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -74,6 +75,7 @@ const ADD_CATEGORIES: CategoryItem[] = [
 export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   const m = useMailing()
   const q = useQuote()
+  const { config: appConfig } = useAppConfig()
 
   // Sync: if quote context has a saved quantity and mailing context doesn't, hydrate it
   const [hydrated, setHydrated] = useState(false)
@@ -724,6 +726,14 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
                     {/* Production routing */}
                     {(() => {
                       const isPlasticOuter = piece.position === 1 && piece.type === "envelope" && piece.envelopeKind === "plastic"
+                      
+                      // In SIMPLE MODE, hide Production toggle - vendor decision happens later on Simple Printing page
+                      if (appConfig.simple_mode) return (
+                        <div className="flex items-center gap-2 py-1">
+                          <span className="text-xs text-muted-foreground">Vendor selection happens in Printing step</span>
+                        </div>
+                      )
+                      
                       if (isPlasticOuter) return (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
