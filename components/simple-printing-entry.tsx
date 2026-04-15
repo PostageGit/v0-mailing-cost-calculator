@@ -980,13 +980,29 @@ export function SimplePrintingEntry() {
                 }
                 console.log("[v0] PadCalculator initialInputs:", specsToInputs)
               } else if (calcType === "envelope") {
-                // EnvelopeTab
+                // EnvelopeTab uses: amount, itemName, inkType, printType, hasBleed, customerType
+                // Map width x height to standard envelope itemName
+                const w = specs.width || 0
+                const h = specs.height || 0
+                let itemName = "6x9" // default
+                // Try to match by dimensions
+                if (w === 9 && h === 12) itemName = "9x12"
+                else if (w === 6 && h === 9) itemName = "6x9"
+                else if (w === 9.5 && h === 4.125) itemName = "#10 no window"
+                else if (w === 4.125 && h === 9.5) itemName = "#10 no window"
+                else if (w > 0 && h > 0) itemName = `${w}x${h}` // custom
+                
                 specsToInputs = {
-                  quantity: specs.quantity || 0,
-                  width: specs.width || 0,
-                  height: specs.height || 0,
-                  colors: specs.colors || "4/0",
+                  amount: specs.quantity || 0,
+                  itemName: itemName,
+                  inkType: "InkJet" as const,
+                  printType: "Text + Logo" as const,
+                  hasBleed: specs.hasBleed || false,
+                  customerType: "Regular" as const,
+                  customEnvCost: 0,
+                  customPrintCost: 0,
                 }
+                console.log("[v0] EnvelopeTab initialInputs:", specsToInputs)
               }
             }
             
