@@ -29,6 +29,8 @@ import WorkflowPage from "@/app/workflow/page"
 import { CalculatorsHub } from "@/components/calculators-hub"
 import { PDFBatchTool } from "@/components/pdf-batch-tool"
 import { PDFImposeTool } from "@/components/pdf-impose-tool"
+import { SimplePrintingEntry } from "@/components/simple-printing-entry"
+import { useAppConfig } from "@/lib/app-config-context"
 
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
@@ -158,8 +160,9 @@ function PDFToolsSection() {
 }
 
 function AppContent() {
-  const [section, setSection] = useState<Section>("quotes-board")
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+const { config: appConfig } = useAppConfig()
+const [section, setSection] = useState<Section>("quotes-board")
+const [sidebarOpen, setSidebarOpen] = useState(true)
   const [quoteView, setQuoteView] = useState<"board" | "list" | "sidebar">("board")
   const [jobView, setJobView] = useState<"board" | "list" | "sidebar">("board")
   const [showSettings, setShowSettings] = useState(false)
@@ -312,21 +315,22 @@ function AppContent() {
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
   [visibleSteps, completedSteps])
 
-  const renderStep = () => {
-    // Map view mode: "quick" -> "compact" for the calculator forms
-    const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
-    switch (currentStep) {
-      case "envelope": return <EnvelopeTab />
-      case "usps":     return <USPSPostageCalculator />
-      case "labor":    return <ServiceBuilder />
-      case "printing": return <PrintingCalculator viewMode={viewMode} />
-      case "booklet":  return <BookletCalculator viewMode={viewMode} />
-      case "spiral":   return <SpiralCalculator viewMode={viewMode} />
-      case "perfect":  return <PerfectCalculator viewMode={viewMode} />
-      case "pad":      return <PadCalculator viewMode={viewMode} />
-      case "ohp":      return <VendorBidTab />
-    }
+const renderStep = () => {
+  // Map view mode: "quick" -> "compact" for the calculator forms
+  const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
+  switch (currentStep) {
+    case "envelope": return <EnvelopeTab />
+    case "usps":     return <USPSPostageCalculator />
+    case "labor":    return <ServiceBuilder />
+    // Printing calculators: use SimplePrintingEntry when simple_mode is ON
+    case "printing": return appConfig.simple_mode ? <SimplePrintingEntry /> : <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return appConfig.simple_mode ? <SimplePrintingEntry /> : <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return appConfig.simple_mode ? <SimplePrintingEntry /> : <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return appConfig.simple_mode ? <SimplePrintingEntry /> : <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return appConfig.simple_mode ? <SimplePrintingEntry /> : <PadCalculator viewMode={viewMode} />
+    case "ohp":      return <VendorBidTab />
   }
+}
 
   const isJobView = section === "job"
 

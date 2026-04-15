@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import { ChatBubble } from '@/components/chat-bubble'
 import { ChatProvider } from '@/lib/chat-context'
 import { PapersProvider } from '@/lib/papers-context'
+import { AppConfigProvider } from '@/lib/app-config-context'
 
 import './globals.css'
 
@@ -32,12 +33,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body suppressHydrationWarning className={`${_inter.variable} ${_jetbrainsMono.variable} font-sans antialiased`}>
-        <PapersProvider>
-          <ChatProvider>
-            {children}
-            <ChatBubble />
-          </ChatProvider>
-        </PapersProvider>
+        <AppConfigProvider>
+          <PapersProvider>
+            <ChatProvider>
+              {children}
+              <ChatBubble />
+            </ChatProvider>
+          </PapersProvider>
+        </AppConfigProvider>
       </body>
     </html>
   )
