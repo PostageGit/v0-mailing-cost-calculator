@@ -155,16 +155,23 @@ export function SimplePrintingEntry() {
           pieceLabel: meta?.label || piece.type,
           calcType: getCalcType(piece) || "flat",
           specs: {
+            // Only fill what we KNOW from the mail piece - everything else EMPTY
             quantity: printQty,
             width: piece.width || 0,
             height: piece.height || 0,
             pages: piece.pageCount,
+            // ALL selection fields start EMPTY - forces user to choose
             paper: "",
-            colors: "4/4",
+            colors: "",           // empty = amber, user must select
             hasBleed: false,
-            fold: piece.foldType || "none",
-            lamination: "none",
-            notes: ""
+            fold: "",             // empty = amber, user must select  
+            lamination: "",       // empty = amber, user must select
+            notes: "",
+            // Booklet fields - all empty
+            coverPaper: "",
+            coverColors: "",
+            insidePaper: "",
+            insideColors: "",
           },
           vendorQuotes: [],
           selectedVendorId: null,
@@ -417,8 +424,13 @@ export function SimplePrintingEntry() {
               const isWidthFilled = specs.width > 0
               const isHeightFilled = specs.height > 0
               const isPaperFilled = !!specs.paper && specs.paper !== ""
+              const isColorsFilled = !!specs.colors && specs.colors !== ""
+              const isFoldFilled = !!specs.fold && specs.fold !== ""
+              const isLamFilled = !!specs.lamination && specs.lamination !== ""
               const isCoverPaperFilled = !!specs.coverPaper && specs.coverPaper !== ""
+              const isCoverColorsFilled = !!specs.coverColors && specs.coverColors !== ""
               const isInsidePaperFilled = !!specs.insidePaper && specs.insidePaper !== ""
+              const isInsideColorsFilled = !!specs.insideColors && specs.insideColors !== ""
               const isPagesFilled = (specs.pages || 0) > 0
               const isSheetsFilled = (specs.sheetsPerPad || 0) > 0
               
@@ -517,30 +529,36 @@ export function SimplePrintingEntry() {
                   </div>
                   
                   <div className="min-w-[185px]">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Colors {!isColorsFilled && <span className="text-amber-500">*</span>}
+                    </label>
                     <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={selectFilled}>
-                        <SelectValue />
+                      <SelectTrigger className={isColorsFilled ? selectFilled : selectUnfilled}>
+                        <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
                       <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
                   <div className="min-w-[145px]">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold Type</label>
+                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isFoldFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Fold Type {!isFoldFilled && <span className="text-amber-500">*</span>}
+                    </label>
                     <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={selectFilled}>
-                        <SelectValue />
+                      <SelectTrigger className={isFoldFilled ? selectFilled : selectUnfilled}>
+                        <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
                       <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
                   <div className="min-w-[145px]">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
+                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isLamFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Lamination {!isLamFilled && <span className="text-amber-500">*</span>}
+                    </label>
                     <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={selectFilled}>
-                        <SelectValue />
+                      <SelectTrigger className={isLamFilled ? selectFilled : selectUnfilled}>
+                        <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
                       <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                     </Select>
@@ -587,10 +605,12 @@ export function SimplePrintingEntry() {
                       </div>
                       
                       <div className="min-w-[185px]">
-                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Colors</label>
-                        <Select value={activeItem.specs.coverColors || "4/4"} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={selectFilled}>
-                            <SelectValue />
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Cover Colors {!isCoverColorsFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isCoverColorsFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
                           <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
@@ -612,10 +632,12 @@ export function SimplePrintingEntry() {
                       </button>
                       
                       <div className="min-w-[145px]">
-                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Lam</label>
-                        <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={selectFilled}>
-                            <SelectValue />
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isLamFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Cover Lam {!isLamFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.lamination || ""} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isLamFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
                           <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                         </Select>
@@ -642,10 +664,12 @@ export function SimplePrintingEntry() {
                       </div>
                       
                       <div className="min-w-[145px]">
-                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Inside Colors</label>
-                        <Select value={activeItem.specs.insideColors || "D/S"} onValueChange={(v) => updateSpecs({ insideColors: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={selectFilled}>
-                            <SelectValue />
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsideColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Inside Colors {!isInsideColorsFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.insideColors || ""} onValueChange={(v) => updateSpecs({ insideColors: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isInsideColorsFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="D/S">Double-Sided</SelectItem>
