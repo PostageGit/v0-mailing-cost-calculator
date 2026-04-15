@@ -253,23 +253,22 @@ export function SimplePrintingEntry() {
   }
   
   // Handler for when calculator returns a result - fills in the vendor's cost/price
-  const handleCalculatorResult = (result: { cost: number; price: number; description?: string }) => {
+  const handleCalculatorResult = (result: { cost: number; price: number; description?: string; inputs?: unknown }) => {
     if (!activeItemId || !calcVendorId) return
     
     // Update the vendor quote with the calculated cost and price
+    // The calculator already calculates the final price including markup
     setPrintItems(prev => prev.map(item => {
       if (item.id !== activeItemId) return item
       return {
         ...item,
         vendorQuotes: item.vendorQuotes.map(vq => {
           if (vq.vendorId !== calcVendorId) return vq
-          // Calculate price with markup
-          const totalCost = result.cost + vq.shipping
-          const calculatedPrice = Math.round(totalCost * (1 + vq.markupPercent / 100) * 100) / 100
+          // Use the price directly from the calculator (it already has markup applied)
           return {
             ...vq,
             cost: result.cost,
-            price: calculatedPrice,
+            price: result.price, // Use the final price from calculator
             priceOverride: false,
             calcState: result // Store calc state for reference
           }
@@ -542,7 +541,8 @@ export function SimplePrintingEntry() {
             <DialogTitle>Printout Calculator</DialogTitle>
             <DialogDescription>Calculate in-house printing cost - price will be added to vendor comparison</DialogDescription>
           </DialogHeader>
-          {activeItem?.calcType === "printing" && <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
+          {/* "flat" calcType uses PrintingCalculator for postcards, flat cards, folded cards, self-mailers, letters */}
+          {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
           {activeItem?.calcType === "booklet" && <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
           {activeItem?.calcType === "spiral" && <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
           {activeItem?.calcType === "perfect" && <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} />}
