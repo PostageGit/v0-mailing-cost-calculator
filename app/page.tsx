@@ -89,17 +89,18 @@ type Section =
 interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools"; simpleMode?: boolean }
 const NAV_ITEMS: NavItem[] = [
   // simpleMode: true = show in simple mode, false/undefined = show only in full mode
+  // In SIMPLE MODE: only Quotes and Production are visible
   { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards", simpleMode: true },
   { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards", simpleMode: true },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
-  { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards", simpleMode: true },
-  { id: "ohp-bids",     label: "Shop Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards", simpleMode: true },
-  { id: "chat-quotes",  label: "Quote Cats", icon: <MessageSquare className="h-4 w-4" />,   group: "dashboards", simpleMode: true },
+  { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
+  { id: "ohp-bids",     label: "Shop Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
+  { id: "chat-quotes",  label: "Quote Cats", icon: <MessageSquare className="h-4 w-4" />,   group: "dashboards" },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
-  { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data", simpleMode: true },
-  { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data", simpleMode: true },
+  { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
+  { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
   { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
-  { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools", simpleMode: true },
+  { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools" },
   { id: "calculators", label: "Calculators", icon: <Stamp className="h-4 w-4" />, group: "tools" },
   { id: "pdf-tools", label: "PDF Tools", icon: <FileStack className="h-4 w-4" />, group: "tools" },
 ]
@@ -418,7 +419,10 @@ const renderStep = () => {
             "flex-1 pt-2 pb-4 flex flex-col gap-4 overflow-y-auto overflow-x-hidden",
             sidebarOpen ? "px-3" : "px-[7px]"
           )} style={{ scrollbarWidth: "none", scrollbarGutter: "stable" }}>
-            {(["dashboards", "data", "tools"] as const).map((group) => (
+            {(["dashboards", "data", "tools"] as const).map((group) => {
+              const groupItems = NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode))
+              if (groupItems.length === 0) return null // Hide empty groups in simple mode
+              return (
               <div key={group}>
                 {sidebarOpen && (
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 px-3">
@@ -426,7 +430,7 @@ const renderStep = () => {
                   </p>
                 )}
                 <div className="flex flex-col gap-0.5">
-{NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode)).map((nav) => {
+{groupItems.map((nav) => {
   const active = section === nav.id
   return (
   <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
@@ -445,7 +449,7 @@ const renderStep = () => {
                   })}
                 </div>
               </div>
-            ))}
+            )})}
           </nav>
 
           {/* Settings footer */}
@@ -471,13 +475,16 @@ const renderStep = () => {
               </Button>
             </div>
             <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4 flex flex-col gap-4">
-              {(["dashboards", "data", "tools"] as const).map((group) => (
+              {(["dashboards", "data", "tools"] as const).map((group) => {
+                const groupItems = NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode))
+                if (groupItems.length === 0) return null
+                return (
                 <div key={group}>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
                     {group === "dashboards" ? "Boards" : group === "data" ? "Manage" : "Tools"}
                   </p>
                   <div className="flex flex-col gap-0.5">
-{NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode)).map((nav) => {
+{groupItems.map((nav) => {
   const active = section === nav.id
   return (
   <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(false) }}
@@ -492,7 +499,7 @@ const renderStep = () => {
                     })}
                   </div>
                 </div>
-              ))}
+              )})}
             </nav>
             <div className="px-2 pb-3 border-t border-border pt-2">
               <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
