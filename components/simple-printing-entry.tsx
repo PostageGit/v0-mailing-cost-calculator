@@ -42,8 +42,11 @@ interface VendorQuote {
   vendorId: string
   vendorName: string
   isInternal: boolean
-  cost: number
-  price: number
+  cost: number          // Base cost from vendor
+  shipping: number      // Shipping cost to get it here
+  markupPercent: number // Markup percentage
+  price: number         // Final price to customer (can be auto-calculated or overridden)
+  priceOverride: boolean // True if user manually set price instead of using calculated
   calcState?: any
 }
 
@@ -88,8 +91,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
   const { pieces, printQty } = useMailing()
   const { data: vendors, error: vendorsError, isLoading: vendorsLoading } = useSWR<Vendor[]>("/api/vendors", fetcher)
   
-  // Debug logging
-  console.log("[v0] SimplePrintingEntry - vendors:", vendors?.length, "loading:", vendorsLoading, "error:", vendorsError)
+
   
   // Items per piece
   const [printItems, setPrintItems] = useState<PrintItem[]>([])
@@ -152,25 +154,51 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
     setPrintItems(prev => prev.map(item => item.id === itemId ? { ...item, quantity } : item))
   }
   
-  const updateVendorQuote = (itemId: string, vendorId: string, field: "cost" | "price", value: number) => {
+  const updateVendorQuote = (itemId: string, vendorId: string, field: "cost" | "shipping" | "markupPercent" | "price", value: number) => {
     setPrintItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       return {
         ...item,
-        vendorQuotes: item.vendorQuotes.map(vq => 
-          vq.vendorId === vendorId ? { ...vq, [field]: value } : vq
-        )
+        vendorQuotes: item.vendorQuotes.map(vq => {
+          if (vq.vendorId !== vendorId) return vq
+          const updated = { ...vq, [field]: value }
+          // If user changes price directly, mark as override
+          if (field === "price") {
+            updated.priceOverride = true
+          }
+          // Auto-calculate price if not overridden and cost/shipping/markup changes
+          if (!updated.priceOverride && (field === "cost" || field === "shipping" || field === "markupPercent")) {
+            const totalCost = updated.cost + updated.shipping
+            updated.price = Math.round(totalCost * (1 + updated.markupPercent / 100) * 100) / 100
+          }
+          return updated
+        })
+      }
+    }))
+  }
+  
+  // Recalculate price from cost+shipping+markup
+  const recalculatePrice = (itemId: string, vendorId: string) => {
+    setPrintItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item
+      return {
+        ...item,
+        vendorQuotes: item.vendorQuotes.map(vq => {
+          if (vq.vendorId !== vendorId) return vq
+          const totalCost = vq.cost + vq.shipping
+          return { 
+            ...vq, 
+            price: Math.round(totalCost * (1 + vq.markupPercent / 100) * 100) / 100,
+            priceOverride: false 
+          }
+        })
       }
     }))
   }
   
   const addVendorToItem = (itemId: string, vendorId: string) => {
     const vendor = vendors?.find(v => v.id === vendorId)
-    if (!vendor) {
-      console.log("[v0] Vendor not found:", vendorId)
-      return
-    }
-    console.log("[v0] Adding vendor to item:", vendor.company_name)
+    if (!vendor) return
     setPrintItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       if (item.vendorQuotes.some(vq => vq.vendorId === vendorId)) return item
@@ -181,7 +209,10 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
           vendorName: vendor.company_name,
           isInternal: vendor.is_internal,
           cost: 0,
-          price: 0
+          shipping: 0,
+          markupPercent: 30, // Default 30% markup
+          price: 0,
+          priceOverride: false
         }]
       }
     }))
@@ -216,15 +247,27 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
     const selected = item.vendorQuotes.find(vq => vq.vendorId === item.selectedVendorId)
     if (!selected || selected.price <= 0) return
     
+    // Total cost includes base cost + shipping
+    const totalCost = selected.cost + selected.shipping
+    
     addItem({
       id: crypto.randomUUID(),
       category: "printing",
-      description: `${item.specs} (${selected.vendorName})`,
+      // Description for CUSTOMER - NO vendor name (internal only)
+      description: item.specs,
       quantity: item.quantity,
-      unitCost: selected.cost / item.quantity,
+      unitCost: totalCost / item.quantity,
       unitPrice: selected.price / item.quantity,
+      // Vendor info stored internally but NOT shown to customer
       vendor: selected.vendorName,
-      vendorId: selected.vendorId
+      vendorId: selected.vendorId,
+      // Store additional internal metadata
+      metadata: {
+        baseCost: selected.cost,
+        shipping: selected.shipping,
+        markupPercent: selected.markupPercent,
+        isInternal: selected.isInternal
+      }
     })
     
     setPrintItems(prev => prev.map(i => 
@@ -332,10 +375,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                 <CardTitle className="text-base">Vendor Pricing</CardTitle>
                 {/* ALWAYS show vendor dropdown - user picks who to compare */}
                 <Select 
-                  onValueChange={(v) => {
-                    console.log("[v0] Adding vendor:", v)
-                    addVendorToItem(activeItem.id, v)
-                  }} 
+                  onValueChange={(v) => addVendorToItem(activeItem.id, v)} 
                   disabled={activeItem.addedToQuote}
                 >
                   <SelectTrigger className="w-56 h-9 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90">
@@ -350,9 +390,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                     ) : !vendors || vendors.length === 0 ? (
                       <SelectItem value="_none" disabled>No vendors in database</SelectItem>
                     ) : (() => {
-                      // Vendor table doesn't have status column - show all vendors
                       const availableVendors = vendors.filter(v => !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id))
-                      console.log("[v0] Available vendors to add:", availableVendors.length, availableVendors.map(v => v.company_name))
                       if (availableVendors.length === 0) {
                         return <SelectItem value="_all" disabled>All vendors added</SelectItem>
                       }
@@ -383,87 +421,51 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                     <div 
                       key={vq.vendorId}
                       className={cn(
-                        "p-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-muted/50",
+                        "p-4 transition-all cursor-pointer hover:bg-muted/50 border-b last:border-b-0",
                         isCheapest && "bg-green-50 dark:bg-green-950/20",
                         isSelected && "ring-2 ring-inset ring-primary bg-primary/5"
                       )}
                       onClick={() => !activeItem.addedToQuote && selectVendor(activeItem.id, vq.vendorId)}
                     >
-                      {/* Selection indicator */}
-                      <div className={cn(
-                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
-                        isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
-                      )}>
-                        {isSelected && <Check className="h-3 w-3" />}
-                      </div>
-                      
-                      {/* Vendor name */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Building2 className={cn("h-4 w-4", vq.isInternal ? "text-blue-600" : "text-muted-foreground")} />
-                          <span className="font-medium truncate">{vq.vendorName}</span>
-                          {vq.isInternal && <Badge variant="secondary" className="text-[10px] h-4">In-House</Badge>}
+                      {/* Row 1: Vendor name + badges + actions */}
+                      <div className="flex items-center gap-3 mb-3">
+                        {/* Selection indicator */}
+                        <div className={cn(
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0",
+                          isSelected ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30"
+                        )}>
+                          {isSelected && <Check className="h-4 w-4" />}
+                        </div>
+                        
+                        {/* Vendor name */}
+                        <div className="flex items-center gap-2 flex-1">
+                          <Building2 className={cn("h-5 w-5", vq.isInternal ? "text-blue-600" : "text-muted-foreground")} />
+                          <span className="font-semibold text-base">{vq.vendorName}</span>
+                          {vq.isInternal && <Badge variant="secondary" className="text-xs">Printout</Badge>}
                           {isCheapest && (
-                            <Badge className="bg-green-600 text-white text-[10px] h-4 gap-0.5">
-                              <Trophy className="h-2.5 w-2.5" /> Best
+                            <Badge className="bg-green-600 text-white text-xs gap-1">
+                              <Trophy className="h-3 w-3" /> Best Price
                             </Badge>
                           )}
                         </div>
-                      </div>
-                      
-                      {/* Cost input */}
-                      <div className="w-28">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          placeholder="Cost"
-                          value={vq.cost || ""}
-                          onChange={(e) => {
-                            e.stopPropagation()
-                            updateVendorQuote(activeItem.id, vq.vendorId, "cost", parseFloat(e.target.value) || 0)
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-8 text-sm text-right"
-                          disabled={activeItem.addedToQuote}
-                        />
-                      </div>
-                      
-                      {/* Price input */}
-                      <div className="w-28">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          placeholder="Price"
-                          value={vq.price || ""}
-                          onChange={(e) => {
-                            e.stopPropagation()
-                            updateVendorQuote(activeItem.id, vq.vendorId, "price", parseFloat(e.target.value) || 0)
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className={cn("h-8 text-sm text-right font-semibold", vq.price > 0 && "text-green-700 dark:text-green-400")}
-                          disabled={activeItem.addedToQuote}
-                        />
-                      </div>
-                      
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        {vq.isInternal && (
-                          <Button
-                            variant={vq.calcState ? "default" : "outline"}
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openCalculator(activeItem.id, vq.vendorId)
-                            }}
-                            className={cn("h-8 px-2", vq.calcState && "bg-blue-600 hover:bg-blue-700")}
-                            disabled={activeItem.addedToQuote}
-                          >
-                            <Calculator className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {!vq.isInternal && (
+                        
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          {vq.isInternal && (
+                            <Button
+                              variant={vq.calcState ? "default" : "outline"}
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openCalculator(activeItem.id, vq.vendorId)
+                              }}
+                              className={cn("gap-1", vq.calcState && "bg-blue-600 hover:bg-blue-700")}
+                              disabled={activeItem.addedToQuote}
+                            >
+                              <Calculator className="h-4 w-4" />
+                              {vq.calcState ? "Edit Calc" : "Calculator"}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -471,12 +473,133 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                               e.stopPropagation()
                               removeVendorFromItem(activeItem.id, vq.vendorId)
                             }}
-                            className="h-8 px-2 text-destructive hover:text-destructive"
+                            className="text-destructive hover:text-destructive"
                             disabled={activeItem.addedToQuote}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
+                        </div>
+                      </div>
+                      
+                      {/* Row 2: Cost, Shipping, Markup, Price - horizontal layout */}
+                      <div className="grid grid-cols-5 gap-3 pl-9">
+                        {/* Cost */}
+                        <div>
+                          <label className="text-[10px] uppercase text-muted-foreground font-medium mb-1 block">Cost</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="0.00"
+                            value={vq.cost || ""}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              updateVendorQuote(activeItem.id, vq.vendorId, "cost", parseFloat(e.target.value) || 0)
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-9 text-sm text-right"
+                            disabled={activeItem.addedToQuote}
+                          />
+                        </div>
+                        
+                        {/* Shipping */}
+                        <div>
+                          <label className="text-[10px] uppercase text-muted-foreground font-medium mb-1 block">Shipping</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="0.00"
+                            value={vq.shipping || ""}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              updateVendorQuote(activeItem.id, vq.vendorId, "shipping", parseFloat(e.target.value) || 0)
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-9 text-sm text-right"
+                            disabled={activeItem.addedToQuote}
+                          />
+                        </div>
+                        
+                        {/* Markup % */}
+                        <div>
+                          <label className="text-[10px] uppercase text-muted-foreground font-medium mb-1 block">Markup %</label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            placeholder="30"
+                            value={vq.markupPercent || ""}
+                            onChange={(e) => {
+                              e.stopPropagation()
+                              updateVendorQuote(activeItem.id, vq.vendorId, "markupPercent", parseFloat(e.target.value) || 0)
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-9 text-sm text-right"
+                            disabled={activeItem.addedToQuote}
+                          />
+                        </div>
+                        
+                        {/* Price (calculated or override) */}
+                        <div>
+                          <label className="text-[10px] uppercase text-muted-foreground font-medium mb-1 block flex items-center gap-1">
+                            Price
+                            {vq.priceOverride && <span className="text-amber-600">(manual)</span>}
+                          </label>
+                          <div className="flex gap-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              placeholder="0.00"
+                              value={vq.price || ""}
+                              onChange={(e) => {
+                                e.stopPropagation()
+                                updateVendorQuote(activeItem.id, vq.vendorId, "price", parseFloat(e.target.value) || 0)
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className={cn(
+                                "h-9 text-sm text-right font-bold flex-1",
+                                vq.price > 0 && "text-green-700 dark:text-green-400",
+                                vq.priceOverride && "border-amber-400"
+                              )}
+                              disabled={activeItem.addedToQuote}
+                            />
+                            {vq.priceOverride && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  recalculatePrice(activeItem.id, vq.vendorId)
+                                }}
+                                className="h-9 px-2"
+                                title="Recalculate from cost+shipping+markup"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Select button */}
+                        <div className="flex items-end">
+                          <Button
+                            variant={isSelected ? "default" : "outline"}
+                            className={cn(
+                              "w-full h-9",
+                              isSelected && "bg-primary"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              selectVendor(activeItem.id, vq.vendorId)
+                            }}
+                            disabled={activeItem.addedToQuote}
+                          >
+                            {isSelected ? <Check className="h-4 w-4 mr-1" /> : null}
+                            {isSelected ? "Selected" : "Select"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )
