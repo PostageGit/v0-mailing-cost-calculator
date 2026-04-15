@@ -640,7 +640,7 @@ export function SimplePrintingEntry() {
       </div>
 
       {/* Calculator Dialog - passes onResult so price goes to vendor row, NOT directly to quote */}
-      {/* Also passes initialInputs from saved calcState so calculator reopens with previous settings */}
+      {/* Also passes initialInputs from saved calcState OR from specs if no saved inputs */}
       <Dialog open={showCalc} onOpenChange={setShowCalc}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -652,26 +652,54 @@ export function SimplePrintingEntry() {
             const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
             const savedInputs = vendorQuote?.calcState?.inputs
             
+            // If no saved inputs, create initial inputs from the specs filled in the UI
+            // This auto-populates calculator with qty, size, colors, paper, etc from specs
+            const specsToInputs = activeItem?.specs ? {
+              // Common fields for all calculators
+              quantity: activeItem.specs.quantity || 0,
+              finishedWidth: activeItem.specs.width || 0,
+              finishedHeight: activeItem.specs.height || 0,
+              colorsFront: activeItem.specs.colors?.startsWith("4/") ? 4 : activeItem.specs.colors?.startsWith("1/") ? 1 : 0,
+              colorsBack: activeItem.specs.colors?.includes("/4") ? 4 : activeItem.specs.colors?.includes("/1") ? 1 : activeItem.specs.colors?.includes("/0") ? 0 : 0,
+              paperName: activeItem.specs.paper || "",
+              foldType: activeItem.specs.fold || "flat",
+              lamination: activeItem.specs.lamination || "none",
+              bleed: activeItem.specs.hasBleed ? 0.125 : 0,
+              // Booklet/spiral specific
+              bookQty: activeItem.specs.quantity || 0,
+              pagesPerBook: activeItem.specs.pages || 8,
+              pageWidth: activeItem.specs.width || 0,
+              pageHeight: activeItem.specs.height || 0,
+              // Pad specific
+              padQty: activeItem.specs.quantity || 0,
+              pagesPerPad: activeItem.specs.pages || 50,
+              // Envelope specific
+              envelopeQty: activeItem.specs.quantity || 0,
+            } : undefined
+            
+            // Use saved inputs first, then fall back to specs-derived inputs
+            const initialInputs = savedInputs || specsToInputs
+            
             return (
               <>
                 {/* "flat" calcType uses PrintingCalculator for postcards, flat cards, folded cards, self-mailers, letters */}
                 {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && (
-                  <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                  <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "booklet" && (
-                  <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                  <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "spiral" && (
-                  <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                  <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "perfect" && (
-                  <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                  <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "pad" && (
-                  <PadCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                  <PadCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "envelope" && (
-                  <EnvelopeTab onResult={handleCalculatorResult} initialInputs={savedInputs} />
+                  <EnvelopeTab onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
               </>
             )
