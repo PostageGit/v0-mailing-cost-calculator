@@ -105,52 +105,101 @@ export function AppSettingsPanel() {
         </CardContent>
       </Card>
 
-      {/* Simple Mode Toggle */}
+      {/* Simple Mode Toggle - VERY CLEAR */}
       <Card className={cn(
-        "transition-all",
-        config.simple_mode && "ring-2 ring-amber-500"
+        "transition-all border-2",
+        config.simple_mode ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : "border-slate-300"
       )}>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                Simple Printing Mode
-                {config.simple_mode && (
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300">
-                    ON
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription className="mt-1">
-                For Postage Plus users who just need to enter printing prices
-              </CardDescription>
-            </div>
+            <CardTitle className="text-xl">Simple Printing Mode</CardTitle>
             <Switch
               id="simple-mode"
               checked={config.simple_mode}
               onCheckedChange={handleSimpleModeToggle}
+              className="scale-125"
             />
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm">
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="font-medium mb-2">When Simple Mode is ON:</div>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• In-house printing becomes like OHP - just enter price/cost</li>
-                <li>• Skip detailed paper, impressions, and finishing setup</li>
-                <li>• Optional calculator button if you need to calculate a price</li>
-                <li>• Perfect for Postage Plus quoting workflow</li>
-              </ul>
+        <CardContent className="space-y-4">
+          {/* BIG STATUS INDICATOR */}
+          <div className={cn(
+            "p-4 rounded-xl text-center text-lg font-bold",
+            config.simple_mode 
+              ? "bg-amber-500 text-white" 
+              : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+          )}>
+            {config.simple_mode ? "SIMPLE MODE IS ON" : "SIMPLE MODE IS OFF"}
+          </div>
+
+          {/* WHAT HAPPENS NOW - Crystal clear */}
+          <div className={cn(
+            "p-5 rounded-xl border-2",
+            config.simple_mode 
+              ? "border-amber-400 bg-white dark:bg-slate-900" 
+              : "border-slate-300 bg-white dark:bg-slate-900"
+          )}>
+            <div className="text-base font-bold mb-3 text-center">
+              {config.simple_mode ? "What happens now:" : "What happens now:"}
             </div>
-            <div className="p-3 bg-muted rounded-lg">
-              <div className="font-medium mb-2">When Simple Mode is OFF:</div>
-              <ul className="space-y-1 text-muted-foreground">
-                <li>• Full detailed printing calculator workflow</li>
-                <li>• Select paper, calculate impressions, add finishing</li>
-                <li>• Perfect for Printout internal pricing</li>
-              </ul>
-            </div>
+            
+            {config.simple_mode ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <span className="text-2xl">1.</span>
+                  <div>
+                    <div className="font-semibold">Printing = Just Type a Price</div>
+                    <div className="text-sm text-muted-foreground">No calculators. Just enter what Printout quoted you.</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <span className="text-2xl">2.</span>
+                  <div>
+                    <div className="font-semibold">Works Like OHP</div>
+                    <div className="text-sm text-muted-foreground">Enter description, quantity, cost, price. Done.</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <span className="text-2xl">3.</span>
+                  <div>
+                    <div className="font-semibold">Calculator Available If Needed</div>
+                    <div className="text-sm text-muted-foreground">Button to open calculator if you need to figure out a price.</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                  <span className="text-2xl">1.</span>
+                  <div>
+                    <div className="font-semibold">Full Printing Calculators</div>
+                    <div className="text-sm text-muted-foreground">Pick paper, enter impressions, add finishing options.</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                  <span className="text-2xl">2.</span>
+                  <div>
+                    <div className="font-semibold">Detailed Pricing</div>
+                    <div className="text-sm text-muted-foreground">System calculates cost based on paper + clicks + finishing.</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                  <span className="text-2xl">3.</span>
+                  <div>
+                    <div className="font-semibold">For Printout Team</div>
+                    <div className="text-sm text-muted-foreground">Full control over all print job details.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* WHO SHOULD USE THIS */}
+          <div className="text-center text-sm text-muted-foreground pt-2">
+            {config.simple_mode 
+              ? "Best for: Postage Plus team doing quotes" 
+              : "Best for: Printout team pricing jobs"
+            }
           </div>
         </CardContent>
       </Card>
