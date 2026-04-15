@@ -913,12 +913,13 @@ export function SimplePrintingEntry() {
           const calcType = activeItem.calcType
           
           if (calcType === "flat" || calcType === "printing") {
+            // ONLY pass values user actually selected - empty stays empty!
             specsToInputs = {
               qty: specs.quantity || 0,
               width: specs.width || 0,
               height: specs.height || 0,
-              paperName: specs.paper || "20lb Offset",
-              sidesValue: colorsToSides(specs.colors),
+              paperName: specs.paper || "",  // empty if not selected
+              sidesValue: specs.colors ? colorsToSides(specs.colors) : "",  // empty if not selected
               hasBleed: specs.hasBleed || false,
               addOnCharge: 0,
               addOnDescription: "",
@@ -929,22 +930,23 @@ export function SimplePrintingEntry() {
               lamination: lamToObject(specs.lamination),
             }
           } else if (calcType === "booklet") {
+            // ONLY pass values user actually selected
             specsToInputs = {
               bookQty: specs.quantity || 0,
-              pagesPerBook: specs.pages || 8,
+              pagesPerBook: specs.pages || 0,  // 0 if not set
               pageWidth: specs.width || 0,
               pageHeight: specs.height || 0,
               separateCover: true,
-              coverPaper: specs.coverPaper || "10pt Gloss",
-              coverSides: specs.coverColors || "4/4",
+              coverPaper: specs.coverPaper || "",  // empty if not selected
+              coverSides: specs.coverColors || "",  // empty if not selected
               coverBleed: specs.coverBleed || false,
               coverSheetSize: "cheapest",
-              insidePaper: specs.insidePaper || "20lb Offset",
-              insideSides: specs.insideColors || "D/S",
+              insidePaper: specs.insidePaper || "",  // empty if not selected
+              insideSides: specs.insideColors || "",  // empty if not selected
               insideBleed: specs.insideBleed || false,
               insideSheetSize: "cheapest",
               bindingType: specs.bindingType || "staple",
-              laminationType: specs.lamination === "none" ? "none" : specs.lamination?.toLowerCase().includes("gloss") ? "gloss" : "matte",
+              laminationType: specs.lamination ? (specs.lamination.toLowerCase().includes("gloss") ? "gloss" : "matte") : "none",
               insertSections: [],
               insertFeePerSection: 25,
               customLevel: "auto",
@@ -954,25 +956,25 @@ export function SimplePrintingEntry() {
           } else if (calcType === "spiral") {
             specsToInputs = {
               bookQty: specs.quantity || 0,
-              pagesPerBook: specs.pages || 8,
+              pagesPerBook: specs.pages || 0,
               pageWidth: specs.width || 0,
               pageHeight: specs.height || 0,
               separateCover: true,
-              coverPaper: specs.coverPaper || "10pt Gloss",
-              coverSides: specs.coverColors || "4/4",
+              coverPaper: specs.coverPaper || "",
+              coverSides: specs.coverColors || "",
               coverBleed: specs.coverBleed || false,
-              insidePaper: specs.insidePaper || "20lb Offset",
-              insideSides: specs.insideColors || "D/S",
+              insidePaper: specs.insidePaper || "",
+              insideSides: specs.insideColors || "",
               insideBleed: specs.insideBleed || false,
             }
           } else if (calcType === "pad") {
             specsToInputs = {
               padQty: specs.quantity || 0,
-              sheetsPerPad: specs.sheetsPerPad || 50,
+              sheetsPerPad: specs.sheetsPerPad || 0,
               padWidth: specs.width || 0,
               padHeight: specs.height || 0,
-              paperName: specs.paper || "20lb Offset",
-              sidesValue: colorsToSides(specs.colors),
+              paperName: specs.paper || "",
+              sidesValue: specs.colors ? colorsToSides(specs.colors) : "",
               hasBleed: specs.hasBleed || false,
             }
           } else if (calcType === "envelope") {
