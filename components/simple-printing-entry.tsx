@@ -463,44 +463,48 @@ export function SimplePrintingEntry() {
                         <div className="col-span-2 text-right">Price</div>
                         <div className="col-span-2"></div>
                       </div>
-                      {/* Table Rows */}
+                      {/* Table Rows - Click anywhere to select */}
                       {activeItem.vendorQuotes.map((vq) => {
                         const isCheapest = getCheapestId(activeItem) === vq.vendorId
                         const isSelected = activeItem.selectedVendorId === vq.vendorId
                         return (
-                          <div key={vq.vendorId} className={cn(
-                            "grid grid-cols-12 gap-1 px-2 py-1.5 items-center border-t text-sm",
-                            isCheapest && "bg-green-50 dark:bg-green-950/20",
-                            isSelected && "ring-2 ring-inset ring-primary bg-primary/5"
-                          )}>
+                          <div 
+                            key={vq.vendorId} 
+                            onClick={() => !activeItem.addedToQuote && selectVendor(vq.vendorId)}
+                            className={cn(
+                              "grid grid-cols-12 gap-1 px-2 py-1.5 items-center border-t text-sm cursor-pointer transition-colors",
+                              isSelected 
+                                ? "bg-primary/15 dark:bg-primary/20" 
+                                : isCheapest 
+                                  ? "bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-900/30" 
+                                  : "hover:bg-muted/50"
+                            )}
+                          >
                             {/* Vendor Name */}
                             <div className="col-span-3 flex items-center gap-1.5 min-w-0">
-                              <button onClick={() => selectVendor(vq.vendorId)} disabled={activeItem.addedToQuote} className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0", isSelected ? "border-primary bg-primary" : "border-muted-foreground/40")}>
-                                {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                              </button>
-                              <span className="font-medium truncate">{vq.vendorName}</span>
+                              <span className={cn("font-medium truncate", isSelected && "text-primary")}>{vq.vendorName}</span>
                               {vq.isInternal && <Badge variant="secondary" className="text-[9px] px-1 h-4 shrink-0">P</Badge>}
                               {isCheapest && <Trophy className="h-3.5 w-3.5 text-green-600 shrink-0" />}
                             </div>
                             {/* Cost */}
-                            <div className="col-span-2">
+                            <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                               <Input type="number" min={0} step={0.01} value={vq.cost || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "cost", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-7 text-right text-xs px-1" />
                             </div>
                             {/* Pickup/Shipping */}
-                            <div className="col-span-2">
+                            <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                               <Input type="number" min={0} step={0.01} value={vq.shipping || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "shipping", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-7 text-right text-xs px-1" />
                             </div>
                             {/* Markup % */}
-                            <div className="col-span-1">
+                            <div className="col-span-1" onClick={(e) => e.stopPropagation()}>
                               <Input type="number" min={0} step={1} value={vq.markupPercent || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "markupPercent", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-7 text-right text-xs px-1" />
                             </div>
                             {/* Price */}
-                            <div className="col-span-2 flex items-center gap-0.5">
+                            <div className="col-span-2 flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                               <Input type="number" min={0} step={0.01} value={vq.price || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "price", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className={cn("h-7 text-right text-xs px-1 font-bold flex-1", vq.price > 0 && "text-green-700 dark:text-green-400", vq.priceOverride && "border-amber-400")} />
-                              {vq.priceOverride && <button onClick={() => recalculatePrice(vq.vendorId)} className="p-0.5 text-muted-foreground hover:text-foreground"><RefreshCw className="h-3 w-3" /></button>}
+                              {vq.priceOverride && <button onClick={(e) => { e.stopPropagation(); recalculatePrice(vq.vendorId) }} className="p-0.5 text-muted-foreground hover:text-foreground"><RefreshCw className="h-3 w-3" /></button>}
                             </div>
                             {/* Actions */}
-                            <div className="col-span-2 flex items-center justify-end gap-1">
+                            <div className="col-span-2 flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                               {vq.isInternal && <Button variant="ghost" size="sm" onClick={() => openCalculator(vq.vendorId)} disabled={activeItem.addedToQuote} className="h-6 w-6 p-0"><Calculator className="h-3.5 w-3.5" /></Button>}
                               <Button variant="ghost" size="sm" onClick={() => removeVendor(vq.vendorId)} disabled={activeItem.addedToQuote} className="h-6 w-6 p-0 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>

@@ -86,19 +86,20 @@ type Section =
   | "nonprofit-lookup" | "workflow" | "calculators" | "pdf-tools"
   | "job"
 
-interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
+interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools"; simpleMode?: boolean }
 const NAV_ITEMS: NavItem[] = [
-  { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
-  { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  // simpleMode: true = show in simple mode, false/undefined = show only in full mode
+  { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards", simpleMode: true },
+  { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards", simpleMode: true },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
-  { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
-  { id: "ohp-bids",     label: "OHP Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
-  { id: "chat-quotes",  label: "Chat Quotes", icon: <MessageSquare className="h-4 w-4" />,   group: "dashboards" },
+  { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards", simpleMode: true },
+  { id: "ohp-bids",     label: "Shop Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards", simpleMode: true },
+  { id: "chat-quotes",  label: "Quote Cats", icon: <MessageSquare className="h-4 w-4" />,   group: "dashboards", simpleMode: true },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
-  { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
-  { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
+  { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data", simpleMode: true },
+  { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data", simpleMode: true },
   { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
-  { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools" },
+  { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools", simpleMode: true },
   { id: "calculators", label: "Calculators", icon: <Stamp className="h-4 w-4" />, group: "tools" },
   { id: "pdf-tools", label: "PDF Tools", icon: <FileStack className="h-4 w-4" />, group: "tools" },
 ]
@@ -425,10 +426,10 @@ const renderStep = () => {
                   </p>
                 )}
                 <div className="flex flex-col gap-0.5">
-                  {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
-                    const active = section === nav.id
-                    return (
-                      <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
+{NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode)).map((nav) => {
+  const active = section === nav.id
+  return (
+  <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
                         className={cn(
                           "flex items-center rounded-lg transition-all w-full",
                           sidebarOpen ? "gap-2.5 px-3 py-2 text-sm min-h-[40px]" : "h-10 justify-center",
@@ -476,10 +477,10 @@ const renderStep = () => {
                     {group === "dashboards" ? "Boards" : group === "data" ? "Manage" : "Tools"}
                   </p>
                   <div className="flex flex-col gap-0.5">
-                    {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
-                      const active = section === nav.id
-                      return (
-                        <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(false) }}
+{NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode)).map((nav) => {
+  const active = section === nav.id
+  return (
+  <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(false) }}
                           className={cn(
                             "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all min-h-[44px] w-full",
                             active ? "bg-foreground text-background font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
