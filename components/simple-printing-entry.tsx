@@ -654,28 +654,95 @@ export function SimplePrintingEntry() {
             
             // If no saved inputs, create initial inputs from the specs filled in the UI
             // This auto-populates calculator with qty, size, colors, paper, etc from specs
-            const specsToInputs = activeItem?.specs ? {
-              // Common fields for all calculators
-              quantity: activeItem.specs.quantity || 0,
-              finishedWidth: activeItem.specs.width || 0,
-              finishedHeight: activeItem.specs.height || 0,
-              colorsFront: activeItem.specs.colors?.startsWith("4/") ? 4 : activeItem.specs.colors?.startsWith("1/") ? 1 : 0,
-              colorsBack: activeItem.specs.colors?.includes("/4") ? 4 : activeItem.specs.colors?.includes("/1") ? 1 : activeItem.specs.colors?.includes("/0") ? 0 : 0,
-              paperName: activeItem.specs.paper || "",
-              foldType: activeItem.specs.fold || "flat",
-              lamination: activeItem.specs.lamination || "none",
-              bleed: activeItem.specs.hasBleed ? 0.125 : 0,
-              // Booklet/spiral specific
-              bookQty: activeItem.specs.quantity || 0,
-              pagesPerBook: activeItem.specs.pages || 8,
-              pageWidth: activeItem.specs.width || 0,
-              pageHeight: activeItem.specs.height || 0,
-              // Pad specific
-              padQty: activeItem.specs.quantity || 0,
-              pagesPerPad: activeItem.specs.pages || 50,
-              // Envelope specific
-              envelopeQty: activeItem.specs.quantity || 0,
-            } : undefined
+            // Map colors string to sidesValue: "4/4" → "D/S", "4/0" → "S/S", "1/1" → "D/S", "1/0" → "S/S"
+            const colorsToSides = (colors: string | undefined): string => {
+              if (!colors) return "S/S"
+              if (colors.includes("/4") || colors.includes("/1")) return "D/S" // double-sided
+              return "S/S" // single-sided (4/0, 1/0)
+            }
+            
+            // Map lamination spec to lamination object for PrintingCalculator
+            const lamToObject = (lam: string | undefined) => {
+              if (!lam || lam === "none") return { enabled: false, type: "Gloss" as const, sides: "S/S" as const, markupPct: 225, brokerDiscountPct: 30 }
+              const isGloss = lam.toLowerCase().includes("gloss")
+              const isTwoSide = lam.includes("2-Side") || lam.includes("2 Side")
+              return { 
+                enabled: true, 
+                type: isGloss ? "Gloss" as const : "Matte" as const, 
+                sides: isTwoSide ? "D/S" as const : "S/S" as const,
+                markupPct: 225,
+                brokerDiscountPct: 30
+              }
+            }
+            
+            // Build specsToInputs based on calculator type
+            let specsToInputs: Record<string, unknown> | undefined = undefined
+            
+            if (activeItem?.specs) {
+              const specs = activeItem.specs
+              const calcType = activeItem.calcType
+              
+              if (calcType === "flat" || calcType === "printing") {
+                // PrintingCalculator expects: qty, width, height, paperName, sidesValue, hasBleed, lamination
+                specsToInputs = {
+                  qty: specs.quantity || 0,
+                  width: specs.width || 0,
+                  height: specs.height || 0,
+                  paperName: specs.paper || "20lb Offset",
+                  sidesValue: colorsToSides(specs.colors),
+                  hasBleed: specs.hasBleed || false,
+                  lamination: lamToObject(specs.lamination),
+                }
+              } else if (calcType === "booklet") {
+                // BookletCalculator expects: bookQty, pagesPerBook, pageWidth, pageHeight, coverPaper, insidePaper, etc
+                specsToInputs = {
+                  bookQty: specs.quantity || 0,
+                  pagesPerBook: specs.pages || 8,
+                  pageWidth: specs.width || 0,
+                  pageHeight: specs.height || 0,
+                  coverPaper: specs.paper || "10pt Gloss",
+                  insidePaper: "20lb Offset",
+                  coverSides: specs.colors || "4/4",
+                  insideSides: "D/S",
+                  coverBleed: specs.hasBleed || false,
+                  insideBleed: specs.hasBleed || false,
+                  laminationType: specs.lamination === "none" ? "none" : specs.lamination?.toLowerCase().includes("gloss") ? "gloss" : "matte",
+                }
+              } else if (calcType === "spiral") {
+                // SpiralCalculator
+                specsToInputs = {
+                  bookQty: specs.quantity || 0,
+                  pagesPerBook: specs.pages || 8,
+                  pageWidth: specs.width || 0,
+                  pageHeight: specs.height || 0,
+                  coverPaper: specs.paper || "10pt Gloss",
+                  insidePaper: "20lb Offset",
+                  coverSides: specs.colors || "4/4",
+                  insideSides: "D/S",
+                  coverBleed: specs.hasBleed || false,
+                  insideBleed: specs.hasBleed || false,
+                }
+              } else if (calcType === "pad") {
+                // PadCalculator
+                specsToInputs = {
+                  padQty: specs.quantity || 0,
+                  sheetsPerPad: specs.pages || 50,
+                  padWidth: specs.width || 0,
+                  padHeight: specs.height || 0,
+                  paperName: specs.paper || "20lb Offset",
+                  sidesValue: colorsToSides(specs.colors),
+                  hasBleed: specs.hasBleed || false,
+                }
+              } else if (calcType === "envelope") {
+                // EnvelopeTab
+                specsToInputs = {
+                  quantity: specs.quantity || 0,
+                  width: specs.width || 0,
+                  height: specs.height || 0,
+                  colors: specs.colors || "4/0",
+                }
+              }
+            }
             
             // Use saved inputs first, then fall back to specs-derived inputs
             const initialInputs = savedInputs || specsToInputs
