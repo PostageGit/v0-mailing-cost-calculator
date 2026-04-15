@@ -676,23 +676,35 @@ export function SimplePrintingEntry() {
             }
             
             // Build specsToInputs based on calculator type
+            // Must include ALL required fields so calculator doesn't get undefined values
             let specsToInputs: Record<string, unknown> | undefined = undefined
             
             if (activeItem?.specs) {
               const specs = activeItem.specs
               const calcType = activeItem.calcType
               
+              // Debug: log what we're passing
+              console.log("[v0] Specs to pass to calculator:", { specs, calcType })
+              
               if (calcType === "flat" || calcType === "printing") {
-                // PrintingCalculator expects: qty, width, height, paperName, sidesValue, hasBleed, lamination
+                // PrintingCalculator expects full PrintingInputs object
                 specsToInputs = {
+                  // Start with all defaults
                   qty: specs.quantity || 0,
                   width: specs.width || 0,
                   height: specs.height || 0,
                   paperName: specs.paper || "20lb Offset",
                   sidesValue: colorsToSides(specs.colors),
                   hasBleed: specs.hasBleed || false,
+                  addOnCharge: 0,
+                  addOnDescription: "",
+                  finishingIds: [],
+                  finishingCalcIds: [],
+                  isBroker: false,
+                  printingMarkupPct: 0,
                   lamination: lamToObject(specs.lamination),
                 }
+                console.log("[v0] PrintingCalculator initialInputs:", specsToInputs)
               } else if (calcType === "booklet") {
                 // BookletCalculator expects: bookQty, pagesPerBook, pageWidth, pageHeight, coverPaper, insidePaper, etc
                 specsToInputs = {
@@ -747,26 +759,29 @@ export function SimplePrintingEntry() {
             // Use saved inputs first, then fall back to specs-derived inputs
             const initialInputs = savedInputs || specsToInputs
             
+            // Create a stable key based on specs to force remount when specs change
+            const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper}-${activeItem.specs.colors}` : "empty"
+            
             return (
               <>
                 {/* "flat" calcType uses PrintingCalculator for postcards, flat cards, folded cards, self-mailers, letters */}
                 {(activeItem?.calcType === "flat" || activeItem?.calcType === "printing") && (
-                  <PrintingCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  <PrintingCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "booklet" && (
-                  <BookletCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  <BookletCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "spiral" && (
-                  <SpiralCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  <SpiralCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "perfect" && (
-                  <PerfectCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  <PerfectCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "pad" && (
-                  <PadCalculator viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  <PadCalculator key={specsKey} viewMode="detailed" onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
                 {activeItem?.calcType === "envelope" && (
-                  <EnvelopeTab onResult={handleCalculatorResult} initialInputs={initialInputs} />
+                  <EnvelopeTab key={specsKey} onResult={handleCalculatorResult} initialInputs={initialInputs} />
                 )}
               </>
             )

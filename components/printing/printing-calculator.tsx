@@ -130,12 +130,23 @@ export function PrintingCalculator({ viewMode = "detailed", standalone = false, 
   }, [hasSavedFlat, savedFlatItem])
 
   // Local form state - load from initialInputs if provided
-  const [localInputs, setLocalInputs] = useState<PrintingInputs>(initialInputs || EMPTY_INPUTS)
+  const [localInputs, setLocalInputs] = useState<PrintingInputs>(() => {
+    console.log("[v0] PrintingCalculator initial mount, initialInputs:", initialInputs)
+    if (initialInputs && typeof initialInputs === 'object') {
+      // Merge with EMPTY_INPUTS to ensure all fields exist
+      return { ...EMPTY_INPUTS, ...initialInputs }
+    }
+    return EMPTY_INPUTS
+  })
   
   // Reset to initialInputs when it changes (for re-opening saved calculations)
   useEffect(() => {
-    if (initialInputs) {
-      setLocalInputs(initialInputs)
+    console.log("[v0] PrintingCalculator useEffect, initialInputs changed:", initialInputs)
+    if (initialInputs && typeof initialInputs === 'object' && Object.keys(initialInputs).length > 0) {
+      // Merge with EMPTY_INPUTS to ensure all fields exist
+      const merged = { ...EMPTY_INPUTS, ...initialInputs }
+      console.log("[v0] Setting localInputs to:", merged)
+      setLocalInputs(merged)
     }
   }, [initialInputs])
   
