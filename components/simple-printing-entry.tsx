@@ -220,7 +220,11 @@ export function SimplePrintingEntry() {
           vendorId: vendor.id,
           vendorName: vendor.company_name,
           isInternal: vendor.is_internal,
-          cost: 0, shipping: 0, markupPercent: 30, price: 0, priceOverride: false
+          cost: 0,
+          shipping: vendor.pickup_cost || 0, // Auto-populate from vendor's pickup cost
+          markupPercent: 30,
+          price: 0,
+          priceOverride: false
         }]
       }
     }))
@@ -290,15 +294,15 @@ export function SimplePrintingEntry() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] min-h-[500px] gap-4">
+    <div className="flex h-[calc(100vh-180px)] min-h-[400px] gap-3">
       {/* LEFT SIDEBAR - Pieces List */}
-      <div className="w-56 shrink-0 flex flex-col border rounded-lg bg-card overflow-hidden">
-        <div className="p-3 border-b bg-muted/30">
-          <h3 className="font-semibold text-sm">Mail Pieces</h3>
-          <p className="text-xs text-muted-foreground">{printItems.filter(i => i.addedToQuote).length}/{printItems.length} quoted</p>
+      <div className="w-48 shrink-0 flex flex-col border rounded-lg bg-card overflow-hidden">
+        <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
+          <h3 className="font-semibold text-sm">Pieces</h3>
+          <Badge variant="outline" className="text-[10px]">{printItems.filter(i => i.addedToQuote).length}/{printItems.length}</Badge>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="p-1.5 space-y-0.5">
             {printItems.map((item, idx) => {
               const isActive = item.id === activeItemId
               return (
@@ -306,25 +310,19 @@ export function SimplePrintingEntry() {
                   key={item.id}
                   onClick={() => setActiveItemId(item.id)}
                   className={cn(
-                    "w-full text-left p-3 rounded-lg transition-all",
+                    "w-full text-left px-2 py-1.5 rounded transition-all flex items-center gap-2",
                     isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted",
                     item.addedToQuote && !isActive && "bg-green-100 dark:bg-green-900/30"
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                      item.addedToQuote ? "bg-green-600 text-white" : isActive ? "bg-primary-foreground text-primary" : "bg-muted-foreground/20"
-                    )}>
-                      {item.addedToQuote ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">{item.pieceLabel}</div>
-                      <div className={cn("text-xs truncate", isActive ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                        {item.specs.quantity.toLocaleString()} pcs
-                      </div>
-                    </div>
-                    {isActive && <ChevronRight className="h-4 w-4 shrink-0" />}
+                  <span className={cn(
+                    "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                    item.addedToQuote ? "bg-green-600 text-white" : isActive ? "bg-primary-foreground text-primary" : "bg-muted-foreground/20"
+                  )}>
+                    {item.addedToQuote ? <Check className="h-3 w-3" /> : idx + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-xs truncate">{item.pieceLabel}</div>
                   </div>
                 </button>
               )
@@ -337,107 +335,96 @@ export function SimplePrintingEntry() {
       {activeItem && (
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Card className="flex-1 flex flex-col overflow-hidden">
-            {/* Header */}
-            <CardHeader className={cn(
-              "py-3 border-b shrink-0",
+            {/* Compact Header */}
+            <div className={cn(
+              "px-3 py-2 border-b flex items-center justify-between shrink-0",
               activeItem.addedToQuote && "bg-green-100 dark:bg-green-900/30"
             )}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center font-bold",
-                    activeItem.addedToQuote ? "bg-green-600 text-white" : "bg-primary text-primary-foreground"
-                  )}>
-                    {activeItem.addedToQuote ? <Check className="h-6 w-6" /> : printItems.findIndex(i => i.id === activeItemId) + 1}
-                  </span>
-                  <div>
-                    <CardTitle className="text-lg">{activeItem.pieceLabel}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{activeItem.calcType.charAt(0).toUpperCase() + activeItem.calcType.slice(1)} printing</p>
-                  </div>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "w-7 h-7 rounded flex items-center justify-center text-sm font-bold",
+                  activeItem.addedToQuote ? "bg-green-600 text-white" : "bg-primary text-primary-foreground"
+                )}>
+                  {activeItem.addedToQuote ? <Check className="h-4 w-4" /> : printItems.findIndex(i => i.id === activeItemId) + 1}
+                </span>
+                <div>
+                  <h3 className="font-semibold text-base leading-tight">{activeItem.pieceLabel}</h3>
+                  <p className="text-xs text-muted-foreground">{activeItem.calcType}</p>
                 </div>
-                {activeItem.addedToQuote && <Badge className="bg-green-600">Added to Quote</Badge>}
               </div>
-            </CardHeader>
+              {activeItem.addedToQuote && <Badge className="bg-green-600 text-xs">Quoted</Badge>}
+            </div>
 
-            {/* Scrollable Content */}
+            {/* Content */}
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-4">
-                {/* SPECS SECTION */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <h4 className="font-semibold text-sm">Job Specifications</h4>
+              <div className="p-3 space-y-3">
+                {/* SPECS - Compact 2-row layout */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Specifications</h4>
                   </div>
-                  
-                  {/* Row 1: Core specs */}
-                  <div className="grid grid-cols-6 gap-3">
+                  {/* All specs in 2 rows */}
+                  <div className="grid grid-cols-8 gap-2">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Qty</Label>
-                      <Input type="number" value={activeItem.specs.quantity} onChange={(e) => updateSpecs({ quantity: parseInt(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-8" />
+                      <Label className="text-[10px] text-muted-foreground">Qty</Label>
+                      <Input type="number" value={activeItem.specs.quantity} onChange={(e) => updateSpecs({ quantity: parseInt(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-7 text-xs" />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Width</Label>
-                      <Input type="number" step={0.125} value={activeItem.specs.width || ""} onChange={(e) => updateSpecs({ width: parseFloat(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-8" />
+                      <Label className="text-[10px] text-muted-foreground">Width</Label>
+                      <Input type="number" step={0.125} value={activeItem.specs.width || ""} onChange={(e) => updateSpecs({ width: parseFloat(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-7 text-xs" />
                     </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Height</Label>
-                      <Input type="number" step={0.125} value={activeItem.specs.height || ""} onChange={(e) => updateSpecs({ height: parseFloat(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-8" />
+                      <Label className="text-[10px] text-muted-foreground">Height</Label>
+                      <Input type="number" step={0.125} value={activeItem.specs.height || ""} onChange={(e) => updateSpecs({ height: parseFloat(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-7 text-xs" />
                     </div>
                     {isBooklet && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">Pages</Label>
-                        <Input type="number" step={4} min={4} value={activeItem.specs.pages || ""} onChange={(e) => updateSpecs({ pages: parseInt(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-8" />
+                        <Label className="text-[10px] text-muted-foreground">Pages</Label>
+                        <Input type="number" step={4} min={4} value={activeItem.specs.pages || ""} onChange={(e) => updateSpecs({ pages: parseInt(e.target.value) || 0 })} disabled={activeItem.addedToQuote} className="h-7 text-xs" />
                       </div>
                     )}
                     <div>
-                      <Label className="text-xs text-muted-foreground">Colors</Label>
+                      <Label className="text-[10px] text-muted-foreground">Colors</Label>
                       <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-end pb-1">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox checked={activeItem.specs.hasBleed} onCheckedChange={(c) => updateSpecs({ hasBleed: !!c })} disabled={activeItem.addedToQuote} />
-                        <span className="text-xs">Bleed</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Paper & Finishing */}
-                  <div className="grid grid-cols-4 gap-3">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Paper Stock</Label>
+                      <Label className="text-[10px] text-muted-foreground">Paper</Label>
                       <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select paper" /></SelectTrigger>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                         <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     {!isBooklet && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">Fold</Label>
+                        <Label className="text-[10px] text-muted-foreground">Fold</Label>
                         <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     )}
                     <div>
-                      <Label className="text-xs text-muted-foreground">Lamination</Label>
+                      <Label className="text-[10px] text-muted-foreground">Lam</Label>
                       <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Notes</Label>
-                      <Input value={activeItem.specs.notes} onChange={(e) => updateSpecs({ notes: e.target.value })} placeholder="Special instructions..." disabled={activeItem.addedToQuote} className="h-8 text-xs" />
-                    </div>
                   </div>
-
-                  {/* Specs Preview */}
-                  <div className="p-2 bg-muted/50 rounded text-xs text-muted-foreground font-mono">
-                    {buildSpecsText(activeItem.specs) || "Fill in specs above..."}
+                  {/* Notes + Bleed in one row */}
+                  <div className="flex gap-2 items-center">
+                    <Input value={activeItem.specs.notes} onChange={(e) => updateSpecs({ notes: e.target.value })} placeholder="Notes / special instructions..." disabled={activeItem.addedToQuote} className="h-7 text-xs flex-1" />
+                    <label className="flex items-center gap-1.5 cursor-pointer shrink-0 text-xs">
+                      <Checkbox checked={activeItem.specs.hasBleed} onCheckedChange={(c) => updateSpecs({ hasBleed: !!c })} disabled={activeItem.addedToQuote} className="h-4 w-4" />
+                      Bleed
+                    </label>
+                  </div>
+                  {/* Specs Summary */}
+                  <div className="px-2 py-1 bg-muted/50 rounded text-[11px] text-muted-foreground font-mono truncate">
+                    {buildSpecsText(activeItem.specs) || "Fill in specs..."}
                   </div>
                 </div>
 
@@ -462,77 +449,60 @@ export function SimplePrintingEntry() {
                   </div>
 
                   {activeItem.vendorQuotes.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">
-                      <Building2 className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm">No vendors added</p>
-                      <p className="text-xs">Click "Add Vendor" to start comparing prices</p>
+                    <div className="py-6 text-center text-muted-foreground border-2 border-dashed rounded">
+                      <p className="text-sm">Click "Add Vendor" to compare prices</p>
                     </div>
                   ) : (
-                    <div className="border rounded-lg divide-y">
+                    <div className="border rounded overflow-hidden">
+                      {/* Table Header */}
+                      <div className="grid grid-cols-12 gap-1 px-2 py-1.5 bg-muted/50 text-[10px] uppercase text-muted-foreground font-medium">
+                        <div className="col-span-3">Vendor</div>
+                        <div className="col-span-2 text-right">Cost</div>
+                        <div className="col-span-2 text-right">Pickup</div>
+                        <div className="col-span-1 text-right">%</div>
+                        <div className="col-span-2 text-right">Price</div>
+                        <div className="col-span-2"></div>
+                      </div>
+                      {/* Table Rows */}
                       {activeItem.vendorQuotes.map((vq) => {
                         const isCheapest = getCheapestId(activeItem) === vq.vendorId
                         const isSelected = activeItem.selectedVendorId === vq.vendorId
                         return (
                           <div key={vq.vendorId} className={cn(
-                            "p-3 transition-all",
+                            "grid grid-cols-12 gap-1 px-2 py-1.5 items-center border-t text-sm",
                             isCheapest && "bg-green-50 dark:bg-green-950/20",
-                            isSelected && "ring-2 ring-inset ring-primary"
+                            isSelected && "ring-2 ring-inset ring-primary bg-primary/5"
                           )}>
-                            {/* Vendor Header */}
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <Building2 className={cn("h-4 w-4", vq.isInternal && "text-blue-600")} />
-                                <span className="font-semibold">{vq.vendorName}</span>
-                                {vq.isInternal && <Badge variant="secondary" className="text-[10px]">Printout</Badge>}
-                                {isCheapest && <Badge className="bg-green-600 text-[10px] gap-0.5"><Trophy className="h-2.5 w-2.5" /> Best</Badge>}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {vq.isInternal && (
-                                  <Button variant="outline" size="sm" onClick={() => openCalculator(vq.vendorId)} disabled={activeItem.addedToQuote} className="h-7 text-xs gap-1">
-                                    <Calculator className="h-3 w-3" />
-                                    Calc
-                                  </Button>
-                                )}
-                                <Button variant="ghost" size="sm" onClick={() => removeVendor(vq.vendorId)} disabled={activeItem.addedToQuote} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
+                            {/* Vendor Name */}
+                            <div className="col-span-3 flex items-center gap-1.5 min-w-0">
+                              <button onClick={() => selectVendor(vq.vendorId)} disabled={activeItem.addedToQuote} className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0", isSelected ? "border-primary bg-primary" : "border-muted-foreground/40")}>
+                                {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                              </button>
+                              <span className="font-medium truncate">{vq.vendorName}</span>
+                              {vq.isInternal && <Badge variant="secondary" className="text-[9px] px-1 h-4 shrink-0">P</Badge>}
+                              {isCheapest && <Trophy className="h-3.5 w-3.5 text-green-600 shrink-0" />}
                             </div>
-                            {/* Price Inputs */}
-                            <div className="grid grid-cols-6 gap-2 items-end">
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground uppercase">Cost</Label>
-                                <Input type="number" min={0} step={0.01} value={vq.cost || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "cost", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-8 text-right text-sm" />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground uppercase">Shipping</Label>
-                                <Input type="number" min={0} step={0.01} value={vq.shipping || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "shipping", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-8 text-right text-sm" />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground uppercase">Markup %</Label>
-                                <Input type="number" min={0} step={1} value={vq.markupPercent || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "markupPercent", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-8 text-right text-sm" />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] text-muted-foreground uppercase flex items-center gap-1">
-                                  Price {vq.priceOverride && <span className="text-amber-600">(manual)</span>}
-                                </Label>
-                                <div className="flex gap-1">
-                                  <Input type="number" min={0} step={0.01} value={vq.price || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "price", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className={cn("h-8 text-right text-sm font-bold", vq.price > 0 && "text-green-700 dark:text-green-400")} />
-                                  {vq.priceOverride && (
-                                    <Button variant="ghost" size="sm" onClick={() => recalculatePrice(vq.vendorId)} className="h-8 w-8 p-0" title="Recalculate"><RefreshCw className="h-3 w-3" /></Button>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="col-span-2">
-                                <Button
-                                  variant={isSelected ? "default" : "outline"}
-                                  className={cn("w-full h-8 text-xs", isSelected && "bg-primary")}
-                                  onClick={() => selectVendor(vq.vendorId)}
-                                  disabled={activeItem.addedToQuote}
-                                >
-                                  {isSelected ? <><Check className="h-3 w-3 mr-1" /> Selected</> : "Select This Vendor"}
-                                </Button>
-                              </div>
+                            {/* Cost */}
+                            <div className="col-span-2">
+                              <Input type="number" min={0} step={0.01} value={vq.cost || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "cost", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-7 text-right text-xs px-1" />
+                            </div>
+                            {/* Pickup/Shipping */}
+                            <div className="col-span-2">
+                              <Input type="number" min={0} step={0.01} value={vq.shipping || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "shipping", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-7 text-right text-xs px-1" />
+                            </div>
+                            {/* Markup % */}
+                            <div className="col-span-1">
+                              <Input type="number" min={0} step={1} value={vq.markupPercent || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "markupPercent", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className="h-7 text-right text-xs px-1" />
+                            </div>
+                            {/* Price */}
+                            <div className="col-span-2 flex items-center gap-0.5">
+                              <Input type="number" min={0} step={0.01} value={vq.price || ""} onChange={(e) => updateVendorQuote(vq.vendorId, "price", parseFloat(e.target.value) || 0)} disabled={activeItem.addedToQuote} className={cn("h-7 text-right text-xs px-1 font-bold flex-1", vq.price > 0 && "text-green-700 dark:text-green-400", vq.priceOverride && "border-amber-400")} />
+                              {vq.priceOverride && <button onClick={() => recalculatePrice(vq.vendorId)} className="p-0.5 text-muted-foreground hover:text-foreground"><RefreshCw className="h-3 w-3" /></button>}
+                            </div>
+                            {/* Actions */}
+                            <div className="col-span-2 flex items-center justify-end gap-1">
+                              {vq.isInternal && <Button variant="ghost" size="sm" onClick={() => openCalculator(vq.vendorId)} disabled={activeItem.addedToQuote} className="h-6 w-6 p-0"><Calculator className="h-3.5 w-3.5" /></Button>}
+                              <Button variant="ghost" size="sm" onClick={() => removeVendor(vq.vendorId)} disabled={activeItem.addedToQuote} className="h-6 w-6 p-0 text-destructive hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                           </div>
                         )
@@ -543,11 +513,11 @@ export function SimplePrintingEntry() {
               </div>
             </ScrollArea>
 
-            {/* Footer Action */}
+            {/* Footer */}
             {!activeItem.addedToQuote && activeItem.selectedVendorId && (
-              <div className="p-4 border-t bg-muted/30 shrink-0">
-                <Button onClick={handleAddToQuote} className="w-full h-10 gap-2 bg-green-600 hover:bg-green-700 text-white" disabled={activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price === 0}>
-                  <Check className="h-4 w-4" />
+              <div className="px-3 py-2 border-t bg-muted/30 shrink-0">
+                <Button onClick={handleAddToQuote} className="w-full h-8 gap-2 bg-green-600 hover:bg-green-700 text-white text-sm" disabled={activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price === 0}>
+                  <Check className="h-3.5 w-3.5" />
                   Add to Quote - {formatCurrency(activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price || 0)}
                 </Button>
               </div>
