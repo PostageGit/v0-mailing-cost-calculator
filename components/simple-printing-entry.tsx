@@ -404,6 +404,25 @@ export function SimplePrintingEntry() {
             </div>
 
             {/* SPECIFICATIONS CARD - Shows different fields based on calcType */}
+            {/* Helper: styling for unfilled vs filled fields */}
+            {(() => {
+              // Unfilled fields get amber border to show they need attention
+              const inputUnfilled = "h-11 text-base font-semibold text-center rounded-xl border-2 border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 focus:border-foreground focus:ring-0 shadow-sm placeholder:text-amber-600/70"
+              const inputFilled = "h-11 text-base font-semibold text-center rounded-xl border-2 border-green-500/60 bg-background focus:border-foreground focus:ring-0 shadow-sm"
+              const selectUnfilled = "h-11 text-sm font-semibold rounded-xl border-2 border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 focus:border-foreground focus:ring-0 w-full shadow-sm text-amber-700 dark:text-amber-400"
+              const selectFilled = "h-11 text-sm font-semibold rounded-xl border-2 border-green-500/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm"
+              
+              const specs = activeItem.specs
+              const isQtyFilled = specs.quantity > 0
+              const isWidthFilled = specs.width > 0
+              const isHeightFilled = specs.height > 0
+              const isPaperFilled = !!specs.paper && specs.paper !== ""
+              const isCoverPaperFilled = !!specs.coverPaper && specs.coverPaper !== ""
+              const isInsidePaperFilled = !!specs.insidePaper && specs.insidePaper !== ""
+              const isPagesFilled = (specs.pages || 0) > 0
+              const isSheetsFilled = (specs.sheetsPerPad || 0) > 0
+              
+              return (
             <div className={cn(
               "rounded-2xl border-2 bg-card p-6 mb-6",
               activeItem.addedToQuote ? "border-green-300 bg-green-50/20 dark:border-green-800 dark:bg-green-950/10" : "border-border/50"
@@ -413,18 +432,23 @@ export function SimplePrintingEntry() {
               {/* COMMON FIELDS: Qty + Size */}
               <div className="flex flex-wrap items-end gap-5 mb-4">
                 <div className="w-28">
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Quantity</label>
+                  <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isQtyFilled ? "text-muted-foreground" : "text-amber-600")}>
+                    Quantity {!isQtyFilled && <span className="text-amber-500">*</span>}
+                  </label>
                   <Input 
                     type="number" 
-                    value={activeItem.specs.quantity} 
+                    value={activeItem.specs.quantity || ""} 
                     onChange={(e) => updateSpecs({ quantity: parseInt(e.target.value) || 0 })} 
                     disabled={activeItem.addedToQuote} 
-                    className="h-11 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
+                    placeholder="0"
+                    className={isQtyFilled ? inputFilled : inputUnfilled} 
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Finished Size (W × H)</label>
+                  <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", (isWidthFilled && isHeightFilled) ? "text-muted-foreground" : "text-amber-600")}>
+                    Finished Size (W × H) {(!isWidthFilled || !isHeightFilled) && <span className="text-amber-500">*</span>}
+                  </label>
                   <div className="flex items-center gap-2">
                     <Input 
                       type="number" 
@@ -433,7 +457,7 @@ export function SimplePrintingEntry() {
                       onChange={(e) => updateSpecs({ width: parseFloat(e.target.value) || 0 })} 
                       disabled={activeItem.addedToQuote} 
                       placeholder="W"
-                      className="h-11 w-20 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
+                      className={cn(isWidthFilled ? inputFilled : inputUnfilled, "w-20")} 
                     />
                     <span className="text-muted-foreground font-bold text-lg">×</span>
                     <Input 
@@ -443,7 +467,7 @@ export function SimplePrintingEntry() {
                       onChange={(e) => updateSpecs({ height: parseFloat(e.target.value) || 0 })} 
                       disabled={activeItem.addedToQuote} 
                       placeholder="H"
-                      className="h-11 w-20 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
+                      className={cn(isHeightFilled ? inputFilled : inputUnfilled, "w-20")} 
                     />
                   </div>
                 </div>
@@ -451,8 +475,8 @@ export function SimplePrintingEntry() {
                 {/* Pages - for booklets/spirals/pads */}
                 {(isBooklet || activeItem.calcType === "spiral" || activeItem.calcType === "pad") && (
                   <div className="w-24">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                      {activeItem.calcType === "pad" ? "Sheets" : "Pages"}
+                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", (activeItem.calcType === "pad" ? isSheetsFilled : isPagesFilled) ? "text-muted-foreground" : "text-amber-600")}>
+                      {activeItem.calcType === "pad" ? "Sheets" : "Pages"} {!(activeItem.calcType === "pad" ? isSheetsFilled : isPagesFilled) && <span className="text-amber-500">*</span>}
                     </label>
                     <Input 
                       type="number" 
@@ -468,7 +492,8 @@ export function SimplePrintingEntry() {
                         }
                       }} 
                       disabled={activeItem.addedToQuote} 
-                      className="h-11 text-base font-semibold text-center rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 shadow-sm" 
+                      placeholder="0"
+                      className={(activeItem.calcType === "pad" ? isSheetsFilled : isPagesFilled) ? inputFilled : inputUnfilled} 
                     />
                   </div>
                 )}
@@ -480,10 +505,12 @@ export function SimplePrintingEntry() {
               {(activeItem.calcType === "flat" || activeItem.calcType === "printing") && (
                 <div className="flex flex-wrap items-end gap-5">
                   <div className="min-w-[185px]">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper Stock</label>
+                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Paper Stock {!isPaperFilled && <span className="text-amber-500">*</span>}
+                    </label>
                     <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                        <SelectValue placeholder="Select paper..." />
+                      <SelectTrigger className={isPaperFilled ? selectFilled : selectUnfilled}>
+                        <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
                       <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
@@ -492,7 +519,7 @@ export function SimplePrintingEntry() {
                   <div className="min-w-[185px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
                     <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                      <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
@@ -502,7 +529,7 @@ export function SimplePrintingEntry() {
                   <div className="min-w-[145px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold Type</label>
                     <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                      <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
@@ -512,7 +539,7 @@ export function SimplePrintingEntry() {
                   <div className="min-w-[145px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
                     <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                      <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
@@ -543,13 +570,17 @@ export function SimplePrintingEntry() {
                 <div className="space-y-4">
                   {/* COVER */}
                   <div className="p-4 bg-muted/30 rounded-xl">
-                    <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Cover</h5>
+                    <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Cover {!isCoverPaperFilled && <span className="text-amber-500">— needs paper selection</span>}
+                    </h5>
                     <div className="flex flex-wrap items-end gap-4">
                       <div className="min-w-[185px]">
-                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Paper</label>
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Cover Paper {!isCoverPaperFilled && <span className="text-amber-500">*</span>}
+                        </label>
                         <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                            <SelectValue placeholder="Select cover..." />
+                          <SelectTrigger className={isCoverPaperFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
                           <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                         </Select>
@@ -558,7 +589,7 @@ export function SimplePrintingEntry() {
                       <div className="min-w-[185px]">
                         <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Colors</label>
                         <Select value={activeItem.specs.coverColors || "4/4"} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                          <SelectTrigger className={selectFilled}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
@@ -583,7 +614,7 @@ export function SimplePrintingEntry() {
                       <div className="min-w-[145px]">
                         <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Lam</label>
                         <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                          <SelectTrigger className={selectFilled}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
@@ -594,13 +625,17 @@ export function SimplePrintingEntry() {
                   
                   {/* INSIDE PAGES */}
                   <div className="p-4 bg-muted/30 rounded-xl">
-                    <h5 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Inside Pages</h5>
+                    <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isInsidePaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Inside Pages {!isInsidePaperFilled && <span className="text-amber-500">— needs paper selection</span>}
+                    </h5>
                     <div className="flex flex-wrap items-end gap-4">
                       <div className="min-w-[185px]">
-                        <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Inside Paper</label>
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsidePaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Inside Paper {!isInsidePaperFilled && <span className="text-amber-500">*</span>}
+                        </label>
                         <Select value={activeItem.specs.insidePaper || ""} onValueChange={(v) => updateSpecs({ insidePaper: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                            <SelectValue placeholder="Select inside..." />
+                          <SelectTrigger className={isInsidePaperFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
                           <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                         </Select>
@@ -609,7 +644,7 @@ export function SimplePrintingEntry() {
                       <div className="min-w-[145px]">
                         <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Inside Colors</label>
                         <Select value={activeItem.specs.insideColors || "D/S"} onValueChange={(v) => updateSpecs({ insideColors: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                          <SelectTrigger className={selectFilled}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -644,10 +679,12 @@ export function SimplePrintingEntry() {
               {activeItem.calcType === "pad" && (
                 <div className="flex flex-wrap items-end gap-5">
                   <div className="min-w-[185px]">
-                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper Stock</label>
+                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Paper Stock {!isPaperFilled && <span className="text-amber-500">*</span>}
+                    </label>
                     <Select value={activeItem.specs.paper} onValueChange={(v) => updateSpecs({ paper: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
-                        <SelectValue placeholder="Select paper..." />
+                      <SelectTrigger className={isPaperFilled ? selectFilled : selectUnfilled}>
+                        <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
                       <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                     </Select>
@@ -656,7 +693,7 @@ export function SimplePrintingEntry() {
                   <div className="min-w-[185px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
                     <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                      <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
@@ -688,7 +725,7 @@ export function SimplePrintingEntry() {
                   <div className="min-w-[185px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
                     <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className="h-11 text-sm font-semibold rounded-xl border-2 border-border/60 bg-background focus:border-foreground focus:ring-0 w-full shadow-sm">
+                      <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
@@ -709,6 +746,8 @@ export function SimplePrintingEntry() {
                 />
               </div>
             </div>
+              )
+            })()}
 
             {/* VENDOR PRICING CARD */}
             <div className="rounded-2xl border-2 border-border/50 bg-card p-6">
