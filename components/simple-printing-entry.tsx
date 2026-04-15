@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import useSWR from "swr"
 import { useQuote } from "@/lib/quote-context"
+import { useMailing, PIECE_TYPE_META, FOLD_OPTIONS, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,17 +46,83 @@ interface PrintItem {
 // Which calculator to show
 type CalcType = "printing" | "booklet" | "spiral" | "perfect" | "pad"
 
+// Generate specs text from a mail piece
+function generateSpecsFromPiece(piece: MailPiece, printQty: number): string {
+  const parts: string[] = []
+  
+  // Quantity
+  parts.push(`Qty: ${printQty.toLocaleString()}`)
+  
+  // Type
+  const typeMeta = PIECE_TYPE_META[piece.type]
+  parts.push(typeMeta?.label || piece.type)
+  
+  // Size (finished)
+  if (piece.width && piece.height) {
+    parts.push(`${piece.width}" x ${piece.height}" finished`)
+  }
+  
+  // Fold info
+  if (piece.foldType && piece.foldType !== "none") {
+    const foldInfo = FOLD_OPTIONS.find(f => f.id === piece.foldType)
+    if (foldInfo) {
+      const flatSize = getFlatSize(piece)
+      if (flatSize.w && flatSize.h) {
+        parts.push(`${foldInfo.label} fold (${flatSize.w}" x ${flatSize.h}" flat)`)
+      } else {
+        parts.push(`${foldInfo.label} fold`)
+      }
+    }
+  }
+  
+  // Production note
+  if (piece.production === "inhouse") {
+    parts.push("In-house printing")
+  } else if (piece.production === "ohp") {
+    parts.push("Out-of-house printing")
+  }
+  
+  return parts.join(" | ")
+}
+
 export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: CalcType }) {
   const { addItem, items, removeItem } = useQuote()
+  const { pieces, printQty, quantity: mailingQty } = useMailing()
   const { data: vendors } = useSWR<Vendor[]>("/api/vendors", fetcher)
   
   // Local state for items being built (before adding to quote)
   const [printItems, setPrintItems] = useState<PrintItem[]>([])
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   
-  // New item form
+  // New item form - auto-populate from mailing pieces
   const [specs, setSpecs] = useState("")
   const [quantity, setQuantity] = useState<number>(1)
+  
+  // Get relevant pieces based on calcType
+  const relevantPieces = useMemo(() => {
+    return pieces.filter(piece => {
+      const meta = PIECE_TYPE_META[piece.type]
+      if (!meta) return false
+      
+      switch (calcType) {
+        case "printing": return meta.calc === "flat"
+        case "booklet": return meta.calc === "booklet"
+        case "spiral": return meta.calc === "spiral"
+        case "perfect": return meta.calc === "perfect"
+        case "pad": return meta.calc === "pad"
+        default: return false
+      }
+    })
+  }, [pieces, calcType])
+  
+  // Auto-populate specs from first relevant piece (only on initial load)
+  useEffect(() => {
+    if (relevantPieces.length > 0 && !specs && printQty > 0) {
+      const piece = relevantPieces[0]
+      setSpecs(generateSpecsFromPiece(piece, printQty))
+      setQuantity(printQty)
+    }
+  }, [relevantPieces, printQty, specs])
   
   // Calculator dialog
   const [showCalculator, setShowCalculator] = useState(false)
@@ -463,10 +530,42 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
             New {calcLabels[calcType]} Item
           </CardTitle>
           <CardDescription>
-            Enter complete specs so vendors know exactly what to quote
+            {relevantPieces.length > 0 
+              ? "Specs auto-filled from mailer info - edit as needed"
+              : "Enter complete specs so vendors know exactly what to quote"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Auto-populated info banner */}
+          {relevantPieces.length > 0 && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                    Auto-filled from mailer setup
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    {relevantPieces.length} piece(s) found: {relevantPieces.map(p => PIECE_TYPE_META[p.type]?.label).join(", ")}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="shrink-0 h-7 text-xs"
+                  onClick={() => {
+                    if (relevantPieces.length > 0) {
+                      setSpecs(generateSpecsFromPiece(relevantPieces[0], printQty))
+                      setQuantity(printQty)
+                    }
+                  }}
+                >
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="specs">Item Specs</Label>
             <Textarea
@@ -477,7 +576,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
               className="min-h-[100px]"
             />
             <p className="text-xs text-muted-foreground">
-              Include: Quantity, Size, Paper, Colors, Finishing
+              Include: Quantity, Size, Paper, Colors, Finishing - Add any details vendors need to quote
             </p>
           </div>
           
