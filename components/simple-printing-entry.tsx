@@ -118,29 +118,24 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
     })
   }, [pieces, calcType])
   
-  // Initialize items from relevant pieces
+  // Initialize items from relevant pieces - start with EMPTY vendor list
+  // User decides which vendors to compare for each piece
   useEffect(() => {
-    if (relevantPieces.length > 0 && printItems.length === 0 && printoutVendor) {
+    if (relevantPieces.length > 0 && printItems.length === 0) {
       const items: PrintItem[] = relevantPieces.map(piece => ({
         id: crypto.randomUUID(),
         pieceId: piece.id,
         pieceName: PIECE_TYPE_META[piece.type]?.label || piece.type,
         specs: generateSpecsFromPiece(piece, printQty),
         quantity: printQty,
-        vendorQuotes: [{
-          vendorId: printoutVendor.id,
-          vendorName: printoutVendor.name,
-          isInternal: true,
-          cost: 0,
-          price: 0
-        }],
+        vendorQuotes: [], // START EMPTY - user adds vendors they want to compare
         selectedVendorId: null,
         addedToQuote: false
       }))
       setPrintItems(items)
       if (items.length > 0) setActivePieceId(items[0].pieceId)
     }
-  }, [relevantPieces, printItems.length, printoutVendor, printQty])
+  }, [relevantPieces, printItems.length, printQty])
   
   // Get current active item
   const activeItem = printItems.find(item => item.pieceId === activePieceId)
@@ -328,17 +323,19 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
             <CardHeader className="py-3 px-4 border-b bg-muted/30">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Vendor Pricing</CardTitle>
-                {externalVendors.filter(v => !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id)).length > 0 && (
+                {vendors && vendors.filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id)).length > 0 && (
                   <Select onValueChange={(v) => addVendorToItem(activeItem.id, v)} disabled={activeItem.addedToQuote}>
                     <SelectTrigger className="w-48 h-8 text-xs">
                       <Plus className="h-3 w-3 mr-1" />
                       <SelectValue placeholder="Add vendor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {externalVendors
-                        .filter(v => !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id))
+                      {vendors
+                        .filter(v => v.status === "active" && !activeItem.vendorQuotes.some(vq => vq.vendorId === v.id))
                         .map(v => (
-                          <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.name} {v.is_internal && "(Printout)"}
+                          </SelectItem>
                         ))
                       }
                     </SelectContent>
@@ -347,6 +344,13 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
               </div>
             </CardHeader>
             <CardContent className="p-0">
+              {activeItem.vendorQuotes.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Building2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                  <p className="font-medium">No vendors added yet</p>
+                  <p className="text-sm mt-1">Use "Add vendor" above to add vendors to compare prices</p>
+                </div>
+              ) : (
               <div className="divide-y">
                 {activeItem.vendorQuotes.map((vq) => {
                   const isCheapest = getCheapestVendor(activeItem) === vq.vendorId && vq.price > 0
@@ -360,7 +364,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                         isCheapest && "bg-green-50 dark:bg-green-950/20",
                         isSelected && "ring-2 ring-inset ring-primary bg-primary/5"
                       )}
-                      onClick={() => !activeItem.addedToQuote && vq.price > 0 && selectVendor(activeItem.id, vq.vendorId)}
+                      onClick={() => !activeItem.addedToQuote && selectVendor(activeItem.id, vq.vendorId)}
                     >
                       {/* Selection indicator */}
                       <div className={cn(
@@ -455,6 +459,7 @@ export function SimplePrintingEntry({ calcType = "printing" }: { calcType?: Calc
                   )
                 })}
               </div>
+              )}
             </CardContent>
           </Card>
           
