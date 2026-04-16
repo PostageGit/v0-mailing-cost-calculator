@@ -165,7 +165,7 @@ function AppContent() {
 const { config: appConfig } = useAppConfig()
   const [section, setSection] = useState<Section>("quotes-board")
 const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [quoteView, setQuoteView] = useState<"board" | "list" | "sidebar">("sidebar")
+  const [quoteView, setQuoteView] = useState<"board" | "list" | "sidebar">("board")
   const [jobView, setJobView] = useState<"board" | "list" | "sidebar">("board")
   const [showSettings, setShowSettings] = useState(false)
   const [jobPhase, setJobPhase] = useState<JobPhase>("planner")
