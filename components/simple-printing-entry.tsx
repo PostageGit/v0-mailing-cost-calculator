@@ -32,12 +32,13 @@ const PAPER_OPTIONS = [
   "60# Offset Text", "24# Bond", "28# Bond"
 ]
 
+// Standardized color options for ALL print types (flat, cover, inside)
 const COLOR_OPTIONS = [
-  { value: "4/4", label: "4/4 Full Color Both" },
-  { value: "4/0", label: "4/0 Full Color Front" },
-  { value: "4/1", label: "4/1 Color/Black" },
-  { value: "1/1", label: "1/1 Black Both" },
-  { value: "1/0", label: "1/0 Black Front" },
+  { value: "4/4", label: "4/4 (Color Both Sides)" },
+  { value: "4/0", label: "4/0 (Color One Side)" },
+  { value: "4/1", label: "4/1 (Color / Black)" },
+  { value: "1/1", label: "1/1 (Black Both Sides)" },
+  { value: "1/0", label: "1/0 (Black One Side)" },
 ]
 
 const FOLD_TYPE_OPTIONS = [
@@ -952,7 +953,7 @@ export function SimplePrintingEntry() {
                         </Select>
                       </div>
                       
-                      <div className="min-w-[145px]">
+                      <div className="min-w-[185px]">
                         <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsideColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
                           Inside Colors {!isInsideColorsFilled && <span className="text-amber-500">*</span>}
                         </label>
@@ -960,10 +961,7 @@ export function SimplePrintingEntry() {
                           <SelectTrigger className={isInsideColorsFilled ? selectFilled : selectUnfilled}>
                             <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="D/S">Double-Sided</SelectItem>
-                            <SelectItem value="S/S">Single-Sided</SelectItem>
-                          </SelectContent>
+                          <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       
