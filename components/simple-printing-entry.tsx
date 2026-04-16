@@ -393,28 +393,130 @@ export function SimplePrintingEntry() {
       return
     }
     
-    // Build the full specs from saved data
-    const savedSpecs: PieceSpecs = {
-      quantity: item.specs?.quantity || item.quantity || 0,
-      width: item.specs?.width || 0,
-      height: item.specs?.height || 0,
-      paper: item.specs?.paper || "",
-      colors: item.specs?.colors || "",
-      hasBleed: item.specs?.hasBleed || false,
-      fold: item.specs?.fold || "",
-      lamination: item.specs?.lamination || "",
-      notes: item.specs?.notes || "",
-      pages: item.specs?.pages || 0,
-      coverPaper: item.specs?.coverPaper || "",
-      coverColors: item.specs?.coverColors || "",
-      coverBleed: item.specs?.coverBleed || false,
-      insidePaper: item.specs?.insidePaper || "",
-      insideColors: item.specs?.insideColors || "",
-      insideBleed: item.specs?.insideBleed || false,
-      bindingType: item.specs?.bindingType || "",
-      sheetsPerPad: item.specs?.sheetsPerPad || 0,
+    // Build specs from calcState.inputs (FULL calculator data) when available
+    const inputs = item.calcState?.inputs as Record<string, unknown> | undefined
+    const calcType = item.category || item.metadata?.calcType || "flat"
+    console.log("[v0] calcState.inputs:", inputs)
+    console.log("[v0] calcType:", calcType)
+    
+    let savedSpecs: PieceSpecs
+    
+    if (inputs) {
+      // Use FULL calculator inputs - this has ALL the fields the calculator needs
+      if (calcType === "booklet" || calcType === "perfect") {
+        savedSpecs = {
+          quantity: (inputs.bookQty as number) || item.quantity || 0,
+          width: (inputs.pageWidth as number) || 0,
+          height: (inputs.pageHeight as number) || 0,
+          pages: (inputs.pagesPerBook as number) || 0,
+          coverPaper: (inputs.coverPaper as string) || "",
+          coverColors: (inputs.coverSides as string) || "",
+          coverBleed: (inputs.coverBleed as boolean) || false,
+          insidePaper: (inputs.insidePaper as string) || "",
+          insideColors: (inputs.insideSides as string) || "",
+          insideBleed: (inputs.insideBleed as boolean) || false,
+          bindingType: (inputs.bindingType as string) || "",
+          lamination: (inputs.laminationType as string) || "",
+          paper: "",
+          colors: "",
+          hasBleed: false,
+          fold: "",
+          notes: item.specs?.notes || "",
+          sheetsPerPad: 0,
+        }
+      } else if (calcType === "spiral") {
+        const inside = inputs.inside as Record<string, unknown> | undefined
+        const front = inputs.front as Record<string, unknown> | undefined
+        savedSpecs = {
+          quantity: (inputs.bookQty as number) || item.quantity || 0,
+          width: (inputs.pageWidth as number) || 0,
+          height: (inputs.pageHeight as number) || 0,
+          pages: (inputs.pagesPerBook as number) || 0,
+          insidePaper: (inside?.paperName as string) || "",
+          insideColors: (inside?.sides as string) || "",
+          insideBleed: (inside?.hasBleed as boolean) || false,
+          coverPaper: (front?.paperName as string) || "",
+          coverColors: (front?.sides as string) || "",
+          coverBleed: (front?.hasBleed as boolean) || false,
+          bindingType: "spiral",
+          lamination: "",
+          paper: "",
+          colors: "",
+          hasBleed: false,
+          fold: "",
+          notes: item.specs?.notes || "",
+          sheetsPerPad: 0,
+        }
+      } else if (calcType === "pad") {
+        const inside = inputs.inside as Record<string, unknown> | undefined
+        savedSpecs = {
+          quantity: (inputs.padQty as number) || item.quantity || 0,
+          width: (inputs.pageWidth as number) || 0,
+          height: (inputs.pageHeight as number) || 0,
+          sheetsPerPad: (inputs.pagesPerPad as number) || 0,
+          paper: (inside?.paperName as string) || "",
+          colors: (inside?.sides as string) || "",
+          hasBleed: (inside?.hasBleed as boolean) || false,
+          pages: 0,
+          coverPaper: "",
+          coverColors: "",
+          coverBleed: false,
+          insidePaper: "",
+          insideColors: "",
+          insideBleed: false,
+          bindingType: "",
+          lamination: "",
+          fold: "",
+          notes: item.specs?.notes || "",
+        }
+      } else {
+        // Flat / envelope
+        const lam = inputs.lamination as Record<string, unknown> | undefined
+        savedSpecs = {
+          quantity: (inputs.qty as number) || (inputs.amount as number) || item.quantity || 0,
+          width: (inputs.width as number) || 0,
+          height: (inputs.height as number) || 0,
+          paper: (inputs.paperName as string) || "",
+          colors: (inputs.sidesValue as string) || "",
+          hasBleed: (inputs.hasBleed as boolean) || false,
+          fold: "",
+          lamination: (lam?.type as string) || "",
+          notes: item.specs?.notes || "",
+          pages: 0,
+          coverPaper: "",
+          coverColors: "",
+          coverBleed: false,
+          insidePaper: "",
+          insideColors: "",
+          insideBleed: false,
+          bindingType: "",
+          sheetsPerPad: 0,
+        }
+      }
+    } else {
+      // Fallback to item.specs if no calcState.inputs
+      savedSpecs = {
+        quantity: item.specs?.quantity || item.quantity || 0,
+        width: item.specs?.width || 0,
+        height: item.specs?.height || 0,
+        paper: item.specs?.paper || "",
+        colors: item.specs?.colors || "",
+        hasBleed: item.specs?.hasBleed || false,
+        fold: item.specs?.fold || "",
+        lamination: item.specs?.lamination || "",
+        notes: item.specs?.notes || "",
+        pages: item.specs?.pages || 0,
+        coverPaper: item.specs?.coverPaper || "",
+        coverColors: item.specs?.coverColors || "",
+        coverBleed: item.specs?.coverBleed || false,
+        insidePaper: item.specs?.insidePaper || "",
+        insideColors: item.specs?.insideColors || "",
+        insideBleed: item.specs?.insideBleed || false,
+        bindingType: item.specs?.bindingType || "",
+        sheetsPerPad: item.specs?.sheetsPerPad || 0,
+      }
     }
-    console.log("[v0] Rebuilt specs:", savedSpecs)
+    console.log("[v0] Rebuilt savedSpecs:", savedSpecs)
     
     // Build vendor quote from saved data - MUST include calcState with full inputs
     const savedVendorQuote: VendorQuote | null = item.vendor && item.vendorId ? {
@@ -457,6 +559,7 @@ export function SimplePrintingEntry() {
       const newId = `edit-${quoteItemId}-${Date.now()}`
       const newPrintItem: PrintItem = {
         id: newId,
+        pieceId: `quote-${quoteItemId}`,
         pieceLabel: item.label || item.metadata?.pieceName || "Print Item",
         calcType: calcType,
         specs: savedSpecs,
