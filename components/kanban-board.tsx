@@ -2683,9 +2683,8 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onAr
    MAIN KANBAN BOARD
    ════════════════════════════════════��═══════════════ */
 
-export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote, simpleView: simpleViewProp }: {
+export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote }: {
   boardType?: "quote" | "job"; viewMode?: "board" | "list" | "sidebar"; onLoadQuote: (quoteId: string) => void;
-  simpleView?: boolean;
 }) {
   const isJob = boardType === "job"
   const colsUrl = `/api/board-columns?type=${boardType}`
@@ -2705,10 +2704,9 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
   const [userFilter, setUserFilter] = useState<string>("all")
-  // Use prop if provided, otherwise use local state (for standalone usage)
-  const [simpleViewLocal, setSimpleViewLocal] = useState(false)
-  const simpleView = simpleViewProp ?? simpleViewLocal
-  const setSimpleView = setSimpleViewLocal
+  // Card density toggle - always defaults to Full (false = detailed cards)
+  // This is independent of the global Simple Mode setting
+  const [simpleView, setSimpleView] = useState(false)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null; showTimeline?: boolean }>>({})

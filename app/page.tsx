@@ -533,7 +533,7 @@ const renderStep = () => {
                 </div>
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard boardType="quote" viewMode={quoteView} onLoadQuote={handleLoadQuote} simpleView={appConfig.simple_mode} />
+                <KanbanBoard boardType="quote" viewMode={quoteView} onLoadQuote={handleLoadQuote} />
               </div>
             </div>
           )}
@@ -553,7 +553,7 @@ const renderStep = () => {
                 )}
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard boardType="job" viewMode={jobView} onLoadQuote={handleLoadQuote} simpleView={appConfig.simple_mode} />
+                <KanbanBoard boardType="job" viewMode={jobView} onLoadQuote={handleLoadQuote} />
               </div>
             </div>
           )}
