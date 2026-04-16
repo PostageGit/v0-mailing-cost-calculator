@@ -151,7 +151,7 @@ function getJobNextStep(q: Quote): NextStepResult | null {
     }
   }
   
-  // ══����� PRIORITY 7: All done! (GREEN) ═══
+  // ══������ PRIORITY 7: All done! (GREEN) ═══
   return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
@@ -3633,22 +3633,30 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Primary action: OPEN — loads the full Quote
+                              Builder form (same behaviour as the Open button
+                              on every kanban card). Was previously mislabeled
+                              "Calculator" which hid the real entry point. */}
                           <button
-                            onClick={() => setDetailQuote(q)}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); onLoadQuote(q.id) }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-foreground text-background font-bold text-[11px] tracking-wide shadow-sm hover:bg-foreground/90 hover:shadow transition-all active:scale-[0.97]"
+                            title="Open full quote form"
                           >
                             <Pencil className="h-3 w-3" />
-                            Edit / Revise
+                            Open
                           </button>
+                          {/* Secondary: quick peek of the summary card */}
                           <button
-                            onClick={() => { setExpandedRowId(null); onLoadQuote(q.id) }}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-border bg-secondary/80 text-foreground hover:bg-secondary transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setDetailQuote(q) }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                            title="Quick summary preview"
                           >
-                            Calculator
+                            <LayoutPanelLeft className="h-3 w-3" />
+                            Preview
                           </button>
                           <button
-                            onClick={() => { setExpandedRowId(null); handleArchive(q.id) }}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); handleArchive(q.id) }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-medium rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                           >
                             <Archive className="h-3 w-3" />
                             Archive
@@ -4180,20 +4188,25 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         </div>
                       </div>
                     
-                      {/* Quick Actions */}
+                      {/* Quick Actions — OPEN is the primary action.
+                          It loads the full Quote Form (with the planner,
+                          pricing, revisions tabs).  The smaller secondary
+                          "Edit Details" below opens the lightweight summary
+                          modal for quick field tweaks. */}
                       <div className="mt-auto space-y-2 pt-4 border-t border-border/30">
-                        <div
-                          onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
-                          className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-medium bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors"
-                        >
-                          Edit Details
-                        </div>
-                        <div
+                        <button
                           onClick={() => { setFullCardModalQuote(null); onLoadQuote(q.id) }}
-                          className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-medium bg-secondary border border-border/50 cursor-pointer hover:bg-secondary/80 transition-colors"
+                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[13px] font-bold bg-foreground text-background shadow-sm hover:bg-foreground/90 hover:shadow transition-all active:scale-[0.98]"
                         >
-                          Open in Calculator
-                        </div>
+                          <Pencil className="h-3.5 w-3.5" />
+                          Open Full Quote Form
+                        </button>
+                        <button
+                          onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                          className="w-full px-4 py-2 rounded-lg text-center text-[11px] font-medium bg-secondary/60 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                        >
+                          Edit quick details only
+                        </button>
                         {boardType === "quote" && (
                           <div
                             onClick={() => { handleConvertToJob(q.id); setFullCardModalQuote(null) }}
