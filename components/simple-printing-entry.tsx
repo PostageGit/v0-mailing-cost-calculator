@@ -664,16 +664,16 @@ export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps
   }
 
   return (
-    <div className={cn("h-full", qbMode && "bg-neutral-100 dark:bg-neutral-900 p-4")}>
-      {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content */}
-      <div className={cn(
-        "flex h-full",
-        qbMode && "bg-white dark:bg-neutral-950 rounded-xl shadow-sm border border-border overflow-hidden"
-      )}>
-        {/* LEFT SIDEBAR - Simple list of all items */}
+    <div className={cn("h-full", !qbMode && "h-full")}>
+      {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content
+          In qbMode the quote document (on the left, outside this component)
+          already lists every piece, so we hide the inner sidebar and let
+          the editor use the full helper width. */}
+      <div className="flex h-full">
+        {/* LEFT SIDEBAR - hidden in qbMode since the quote document shows items */}
         <div className={cn(
-          "w-56 shrink-0 border-r p-4 overflow-y-auto",
-          qbMode ? "bg-neutral-50/80 dark:bg-neutral-900/40" : "bg-muted/30"
+          "w-56 shrink-0 border-r p-4 overflow-y-auto bg-muted/30",
+          qbMode && "hidden"
         )}>
           <div className="space-y-1.5">
             {printItems.map((item) => {
@@ -720,12 +720,46 @@ export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps
 
         {/* MAIN CONTENT AREA */}
         {activeItem && (
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className={cn("flex-1 overflow-y-auto", qbMode ? "p-4" : "p-6")}>
+            {/* QB MODE: Compact piece chip selector - replaces the hidden inner sidebar */}
+            {qbMode && printItems.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-border">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mr-1">Piece:</span>
+                {printItems.map((item) => {
+                  const isActive = item.id === activeItemId
+                  const selectedVendor = item.vendorQuotes.find(vq => vq.vendorId === item.selectedVendorId)
+                  const isSaved = item.addedToQuote
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveItemId(item.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all",
+                        isActive
+                          ? "bg-foreground text-background"
+                          : isSaved
+                            ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 hover:bg-green-100"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent"
+                      )}
+                    >
+                      {isSaved && <Check className={cn("h-3 w-3 shrink-0", isActive ? "text-background" : "text-green-600")} />}
+                      <span className="truncate max-w-[140px]">{item.pieceLabel}</span>
+                      {selectedVendor && selectedVendor.price > 0 && (
+                        <span className={cn("text-[10px] font-mono", isActive ? "text-background/70" : "text-muted-foreground")}>
+                          {formatCurrency(selectedVendor.price)}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             {/* PIECE HEADER */}
-            <div className="flex items-center justify-between mb-6">
+            <div className={cn("flex items-center justify-between", qbMode ? "mb-4" : "mb-6")}>
               <div>
-                <h2 className="text-xl font-bold text-foreground">{activeItem.pieceLabel}</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">{buildSpecsText(activeItem.specs) || "Configure specifications below"}</p>
+                <h2 className={cn("font-bold text-foreground", qbMode ? "text-base" : "text-xl")}>{activeItem.pieceLabel}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{buildSpecsText(activeItem.specs) || "Configure specifications below"}</p>
               </div>
               {activeItem.addedToQuote && (
                 <Badge className="bg-green-600 text-white gap-1.5 px-3 py-1">
