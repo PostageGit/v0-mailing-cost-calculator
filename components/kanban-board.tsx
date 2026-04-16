@@ -151,7 +151,7 @@ function getJobNextStep(q: Quote): NextStepResult | null {
     }
   }
   
-  // ══���� PRIORITY 7: All done! (GREEN) ═══
+  // ══����� PRIORITY 7: All done! (GREEN) ═══
   return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
@@ -3424,18 +3424,27 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className="text-[14px] text-right font-semibold tabular-nums text-foreground">
                       {formatCurrency(q.total)}
                     </span>
-                    {/* Full Card Button */}
-                    <div className="flex justify-center">
-                      <div
-                        role="button"
-                        tabIndex={0}
+                    {/* Primary row action: OPEN — loads the full Quote Form
+                        directly (not the tiny summary modal). Matches the
+                        prominent Open button on board cards so behaviour is
+                        consistent across every kanban view.  A secondary
+                        quick-peek icon still opens the summary card modal. */}
+                    <div className="flex justify-center items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onLoadQuote(q.id) }}
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-foreground text-background font-bold text-[11px] tracking-wide shadow-sm hover:bg-foreground/90 hover:shadow transition-all active:scale-[0.97]"
+                        title="Open full quote form"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Open
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); setFullCardModalQuote(q) }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setFullCardModalQuote(q) }}}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-foreground/90 text-background cursor-pointer hover:bg-foreground transition-all select-none"
+                        className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                        title="Quick preview card"
                       >
                         <LayoutPanelLeft className="h-3.5 w-3.5" />
-                        View
-                      </div>
+                      </button>
                     </div>
                   </div>
                   {/* Expanded Details Panel - Chat Quote inspired */}
