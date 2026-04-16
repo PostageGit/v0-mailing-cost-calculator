@@ -344,9 +344,12 @@ export function QuoteFormLayout({
           </div>
         </header>
 
-        {/* Tool content - only area that scrolls in the right column */}
+        {/* Tool content - only area that scrolls in the right column.
+            The `data-pricing-helper` attribute triggers the normalization
+            CSS scope in globals.css so every step's calculator looks
+            consistent end-to-end when used as a helper. */}
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-4">
+          <div data-pricing-helper className="p-4">
             {children}
           </div>
         </div>
