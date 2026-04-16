@@ -913,6 +913,7 @@ const qbStepDescriptions: Record<string, string> = {
                             stepNumber={qbIdx >= 0 ? qbIdx + 1 : undefined}
                             totalSteps={visibleSteps.length}
                             onExit={() => setQuoteFormView(false)}
+                            onClose={() => setSection("quotes-board")}
                           >
                             <div key={currentStep} className="h-full">
                               <StepErrorBoundary stepId={currentStep}>
@@ -1053,7 +1054,7 @@ const qbStepDescriptions: Record<string, string> = {
                         <div className="flex items-stretch">
                           {/* Close - exits the quote workflow back to Quotes board */}
                           <button
-                            onClick={() => setSection("quotes")}
+                            onClick={() => setSection("quotes-board")}
                             className="group flex items-center gap-2 py-4 px-3 hover:bg-secondary/50 transition-colors border-l border-border"
                             title="Close and return to Quotes"
                           >

@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
-  Wrench, Plus, X,
+  Wrench, Plus, X, Copy, Mail, CheckCircle2,
 } from "lucide-react"
 
 // Render order for categories inside the quote.
@@ -53,12 +53,15 @@ export interface QuoteFormLayoutProps {
   stepNumber?: number
   /** Total visible steps in the workflow (for progress display) */
   totalSteps?: number
+  /** Exit the workflow from the helper header (e.g. leave QB view) */
   onExit?: () => void
+  /** Close the quote entirely and return to the Quotes board */
+  onClose?: () => void
 }
 
 export function QuoteFormLayout({
   children, stepTitle, stepDescription, stepIcon, stepId,
-  stepNumber, totalSteps,
+  stepNumber, totalSteps, onClose,
 }: QuoteFormLayoutProps) {
   const {
     items,
@@ -82,6 +85,55 @@ export function QuoteFormLayout({
 
   // Inline custom-line editor state
   const [customDraft, setCustomDraft] = useState<{ label: string; amount: string } | null>(null)
+
+  // Email copy feedback state
+  const [emailCopied, setEmailCopied] = useState(false)
+
+  /** Build a plain-text email body representing the current quote.
+   *  Format is deliberately simple so it pastes cleanly into Gmail/Outlook. */
+  const buildQuoteEmail = () => {
+    const total = getTotal()
+    const header = projectName || "Quote"
+    const quoteRef = quoteNumber ? `Quote #${quoteNumber}` : "New Quote"
+    const revLabel = currentRevision ? ` (Revision ${currentRevision})` : ""
+    const lines: string[] = []
+    lines.push(`${header} — ${quoteRef}${revLabel}`)
+    if (contactName) lines.push(`Customer: ${contactName}`)
+    if (referenceNumber) lines.push(`Reference: ${referenceNumber}`)
+    lines.push("")
+    lines.push("LINE ITEMS")
+    lines.push("─".repeat(48))
+    if (orderedItems.length === 0) {
+      lines.push("(no items)")
+    } else {
+      for (const it of orderedItems) {
+        const cat = getCategoryLabel(it.category)
+        const label = it.label || "—"
+        const amt = formatCurrency(it.amount)
+        lines.push(`• [${cat}] ${label}  —  ${amt}`)
+        if (it.description) {
+          const firstDescLine = it.description.split("\n")[0].trim()
+          if (firstDescLine) lines.push(`    ${firstDescLine}`)
+        }
+      }
+    }
+    lines.push("─".repeat(48))
+    lines.push(`TOTAL: ${formatCurrency(total)}`)
+    lines.push("")
+    lines.push("Please let us know if you'd like to proceed or adjust any of the above.")
+    return lines.join("\n")
+  }
+
+  const handleCopyForEmail = async () => {
+    try {
+      const text = buildQuoteEmail()
+      await navigator.clipboard.writeText(text)
+      setEmailCopied(true)
+      setTimeout(() => setEmailCopied(false), 2000)
+    } catch (err) {
+      console.log("[v0] Copy to clipboard failed:", err)
+    }
+  }
 
   const commitCustomLine = () => {
     if (!customDraft) return
@@ -350,8 +402,10 @@ export function QuoteFormLayout({
               )}
             </div>
 
-            {/* Total + primary action */}
-            <div className="px-6 py-3 flex items-center justify-between gap-4">
+            {/* Total + action cluster. Visual priority flips based on state:
+                - Unsaved work: Save is the bold green primary.
+                - Clean/saved: Close becomes the bold primary ("all done, exit"). */}
+            <div className="px-6 py-3 flex items-center justify-between gap-3">
               <div className="flex items-baseline gap-3 min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Quote Total
@@ -360,22 +414,66 @@ export function QuoteFormLayout({
                   {formatCurrency(total)}
                 </span>
               </div>
-              <Button
-                onClick={saveQuote}
-                disabled={isSaving || !hasUnsavedChanges || itemCount === 0}
-                className={cn(
-                  "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
-                  hasUnsavedChanges && itemCount > 0
-                    ? "bg-green-600 hover:bg-green-700 text-white"
-                    : "bg-muted text-muted-foreground"
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Copy-for-email: secondary, always available when there are items. */}
+                <Button
+                  variant="outline"
+                  onClick={handleCopyForEmail}
+                  disabled={itemCount === 0}
+                  className={cn(
+                    "gap-2 h-9 px-3 rounded-lg font-semibold text-xs border-border",
+                    emailCopied && "border-green-500 text-green-700 dark:text-green-400"
+                  )}
+                  title="Copy a plain-text quote summary for email"
+                >
+                  {emailCopied ? (
+                    <><CheckCircle2 className="h-4 w-4" /> Copied</>
+                  ) : (
+                    <><Mail className="h-4 w-4" /> Copy for Email</>
+                  )}
+                </Button>
+
+                {/* Save: primary when there are unsaved changes, muted otherwise. */}
+                <Button
+                  onClick={saveQuote}
+                  disabled={isSaving || !hasUnsavedChanges || itemCount === 0}
+                  className={cn(
+                    "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
+                    hasUnsavedChanges && itemCount > 0
+                      ? "bg-green-600 hover:bg-green-700 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {isSaving ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                  ) : (
+                    <><Save className="h-4 w-4" /> Save</>
+                  )}
+                </Button>
+
+                {/* Close & Finish: becomes the prominent primary once everything
+                    is saved, giving the user a clear "done, exit" path. */}
+                {onClose && (
+                  <Button
+                    onClick={onClose}
+                    className={cn(
+                      "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
+                      !hasUnsavedChanges && itemCount > 0
+                        ? "bg-foreground text-background hover:bg-foreground/90"
+                        : "bg-card text-foreground border border-border hover:bg-secondary"
+                    )}
+                    title={
+                      hasUnsavedChanges
+                        ? "Close without saving"
+                        : "Close quote and return to Quotes"
+                    }
+                  >
+                    <X className="h-4 w-4" />
+                    {!hasUnsavedChanges && itemCount > 0 ? "Finish" : "Close"}
+                  </Button>
                 )}
-              >
-                {isSaving ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-                ) : (
-                  <><Save className="h-4 w-4" /> Save Quote</>
-                )}
-              </Button>
+              </div>
             </div>
           </footer>
         </article>
