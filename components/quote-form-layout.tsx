@@ -20,6 +20,14 @@ import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 /** Lightweight customer shape - matches `/api/customers` response for the
  *  fields we actually use here (name resolution). */
@@ -200,6 +208,42 @@ export function QuoteFormLayout({
   // Email copy feedback state
   const [emailCopied, setEmailCopied] = useState(false)
 
+  // When the user clicks another revision tab WHILE they have unsaved
+  // edits, we stash the requested revision number here and pop a confirm
+  // dialog. Three outcomes: save-then-switch, discard-then-switch, cancel.
+  const [pendingRevisionSwitch, setPendingRevisionSwitch] = useState<number | null>(null)
+
+  /** Guarded revision switch. If there are unsaved changes, defers to the
+   *  confirmation dialog. Otherwise switches immediately. */
+  const requestRevisionSwitch = (revisionNumber: number) => {
+    if (revisionNumber === currentRevision) return
+    if (hasUnsavedChanges && itemCount > 0) {
+      setPendingRevisionSwitch(revisionNumber)
+      return
+    }
+    loadRevision(revisionNumber)
+  }
+
+  /** Save current edits (creates new revision when on an older one), then
+   *  switch to the requested revision once the save settles. */
+  const handleSaveAndSwitch = async () => {
+    const target = pendingRevisionSwitch
+    if (target === null) return
+    setPendingRevisionSwitch(null)
+    await saveQuote()
+    // saveQuote refreshes the revisions list. Use a microtask so the new
+    // revision is in state before we navigate to the user's chosen one.
+    setTimeout(() => loadRevision(target), 0)
+  }
+
+  /** Throw away unsaved edits and jump to the requested revision. */
+  const handleDiscardAndSwitch = () => {
+    const target = pendingRevisionSwitch
+    if (target === null) return
+    setPendingRevisionSwitch(null)
+    loadRevision(target)
+  }
+
   /** Build a plain-text email body representing the current quote.
    *  Format is deliberately simple so it pastes cleanly into Gmail/Outlook. */
   const buildQuoteEmail = () => {
@@ -365,7 +409,7 @@ export function QuoteFormLayout({
                       <button
                         key={rev.revision_number}
                         type="button"
-                        onClick={() => loadRevision(rev.revision_number)}
+                        onClick={() => requestRevisionSwitch(rev.revision_number)}
                         className={cn(
                           "group relative shrink-0 flex flex-col items-start text-left",
                           "px-4 py-3 min-w-[160px] rounded-t-lg transition-all",
@@ -821,6 +865,59 @@ export function QuoteFormLayout({
           </Button>
         )}
       </div>
+
+      {/* ─── Unsaved-changes guard when switching revisions ─── */}
+      <AlertDialog
+        open={pendingRevisionSwitch !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRevisionSwitch(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;re editing{" "}
+              <strong className="text-foreground">Rev {currentRevision}</strong>
+              {" "}and have unsaved changes. What would you like to do before
+              switching to{" "}
+              <strong className="text-foreground">
+                Rev {pendingRevisionSwitch ?? ""}
+              </strong>
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPendingRevisionSwitch(null)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDiscardAndSwitch}
+              disabled={isSaving}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900"
+            >
+              <Trash2 className="h-4 w-4" />
+              Discard changes
+            </Button>
+            <Button
+              onClick={handleSaveAndSwitch}
+              disabled={isSaving}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              {isSaving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : (
+                <><Save className="h-4 w-4" /> Save as Rev {maxRev + 1}</>
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
