@@ -717,81 +717,21 @@ const renderStep = () => {
           {isJobView && jobPhase === "pricing" && (
             <StepErrorBoundary stepId="pricing-layout">
               <div className="flex-1 flex flex-col min-h-0">
-                {/* Step Pills - QB Form Mode uses clean breadcrumb-style nav; Classic uses colorful pills */}
-                <div className={cn(
-                  "shrink-0",
-                  quoteFormView
-                    ? "bg-white dark:bg-neutral-950 border-b border-border/60"
-                    : "bg-background border-b border-border/40"
-                )}>
-                  <div className={cn("px-4 sm:px-6", quoteFormView ? "py-0" : "py-1.5")}>
+                {/* Step Pills - hidden entirely in QB Quote Form mode
+                    (the bold bottom action bar handles navigation instead). */}
+                {!quoteFormView && (
+                <div className="shrink-0 bg-background border-b border-border/40">
+                  <div className="px-4 sm:px-6 py-1.5">
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                       <button onClick={() => setJobPhase("planner")}
-                        className={cn(
-                          "flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all",
-                          quoteFormView
-                            ? "px-3 py-3 text-xs font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-border mr-2"
-                            : "px-3 py-2 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground mr-1 min-h-[44px]"
-                        )}>
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-all whitespace-nowrap shrink-0 mr-1 min-h-[44px]">
                         <Layers className="h-3.5 w-3.5" /> Planner
                       </button>
-                      {!quoteFormView && <div className="w-px h-4 bg-border shrink-0" />}
+                      <div className="w-px h-4 bg-border shrink-0" />
                       {visibleSteps.map((step, stepIdx) => {
                         const active = step.id === currentStep
                         const status = getStepStatus(step.id)
                         const reachable = canNavigateTo(stepIdx)
-
-                        // QB FORM MODE: Clean breadcrumb-style tabs (like QuickBooks form tabs)
-                        if (quoteFormView) {
-                          return (
-                            <div key={step.id} className="relative shrink-0 flex items-center">
-                              <button
-                                onClick={() => reachable && setCurrentStep(step.id)}
-                                disabled={!reachable}
-                                className={cn(
-                                  "flex items-center gap-2 px-3.5 py-3 text-xs font-medium whitespace-nowrap transition-all border-b-2 -mb-[1px]",
-                                  !reachable && !active && "opacity-40 cursor-not-allowed",
-                                  active
-                                    ? "text-foreground border-primary font-semibold"
-                                    : status === "done"
-                                      ? "text-emerald-700 dark:text-emerald-400 border-transparent hover:border-emerald-300"
-                                      : status === "skipped"
-                                        ? "text-amber-600 dark:text-amber-400 border-transparent hover:border-amber-300"
-                                        : "text-muted-foreground border-transparent hover:text-foreground hover:border-border"
-                                )}
-                              >
-                                {/* Status indicator dot */}
-                                <span className={cn(
-                                  "inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0",
-                                  active
-                                    ? "bg-primary text-primary-foreground"
-                                    : status === "done"
-                                      ? "bg-emerald-500 text-white"
-                                      : status === "skipped"
-                                        ? "bg-amber-500 text-white"
-                                        : "bg-muted text-muted-foreground"
-                                )}>
-                                  {status === "done" ? <Check className="h-2.5 w-2.5" /> : status === "skipped" ? <SkipForward className="h-2.5 w-2.5" /> : stepIdx + 1}
-                                </span>
-                                {step.label}
-                                {/* Inline skip button on active step */}
-                                {active && status !== "done" && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleSkipStep() }}
-                                    title="Skip this step"
-                                    className="ml-1 p-0.5 rounded text-muted-foreground/60 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-                                  >
-                                    <SkipForward className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </button>
-                              {/* Chevron separator between steps */}
-                              {stepIdx < visibleSteps.length - 1 && (
-                                <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0 mx-0.5" />
-                              )}
-                            </div>
-                          )
-                        }
 
                         // CLASSIC MODE: Original colorful pill style
                         return (
@@ -841,10 +781,7 @@ const renderStep = () => {
                           return (
                             <button onClick={handleNextStep}
                               className={cn(
-                                "flex items-center gap-0.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0",
-                                quoteFormView
-                                  ? "ml-2 px-2.5 py-1.5 rounded-md border border-border"
-                                  : "px-2 py-1.5 rounded-full",
+                                "flex items-center gap-0.5 px-2 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0",
                                 canGo
                                   ? "text-muted-foreground hover:text-foreground hover:bg-secondary"
                                   : "text-muted-foreground/30 cursor-not-allowed"
@@ -863,8 +800,9 @@ const renderStep = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Job Summary Bar */}
+                {/* Job Summary Bar - becomes the sole top chrome in QB Quote Form mode */}
                 <div className={cn(
                   "shrink-0 border-b border-border/40",
                   quoteFormView ? "bg-white dark:bg-neutral-950" : "bg-secondary/30"
@@ -995,6 +933,108 @@ const renderStep = () => {
                     </aside>
                   )}
                 </div>
+
+                {/* QB MODE: Bold bottom action bar - simple, confident, QuickBooks-style */}
+                {quoteFormView && jobPhase === "pricing" && (() => {
+                  const idx = visibleSteps.findIndex(s => s.id === currentStep)
+                  const prev = idx > 0 ? visibleSteps[idx - 1] : null
+                  const next = idx < visibleSteps.length - 1 ? visibleSteps[idx + 1] : null
+                  const canGoNext = isEditingExisting || getStepStatus(currentStep) !== "pending"
+                  return (
+                    <div className="shrink-0 border-t-2 border-border bg-white dark:bg-neutral-950">
+                      <div className="flex items-center justify-between px-4 sm:px-8 py-3 gap-4">
+                        {/* Previous */}
+                        {prev ? (
+                          <button
+                            onClick={() => setCurrentStep(prev.id)}
+                            className="group flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary transition-colors"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                            <div className="text-left hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Previous</div>
+                              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5">{prev.label}</div>
+                            </div>
+                            <span className="sm:hidden text-xs font-semibold text-foreground">{prev.label}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setJobPhase("planner")}
+                            className="group flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary transition-colors"
+                          >
+                            <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                            <div className="text-left hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Back to</div>
+                              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5">Planner</div>
+                            </div>
+                            <span className="sm:hidden text-xs font-semibold text-foreground">Planner</span>
+                          </button>
+                        )}
+
+                        {/* Center: compact step dots indicator */}
+                        <div className="hidden md:flex items-center gap-1.5">
+                          {visibleSteps.map((s, i) => {
+                            const st = getStepStatus(s.id)
+                            const isActive = s.id === currentStep
+                            const reachable = canNavigateTo(i)
+                            return (
+                              <button
+                                key={s.id}
+                                onClick={() => reachable && setCurrentStep(s.id)}
+                                disabled={!reachable}
+                                title={s.label}
+                                className={cn(
+                                  "transition-all rounded-full shrink-0",
+                                  isActive
+                                    ? "w-8 h-2 bg-foreground"
+                                    : st === "done"
+                                      ? "w-2 h-2 bg-emerald-500 hover:w-4"
+                                      : st === "skipped"
+                                        ? "w-2 h-2 bg-amber-400 hover:w-4"
+                                        : reachable
+                                          ? "w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                                          : "w-2 h-2 bg-muted-foreground/20 cursor-not-allowed"
+                                )}
+                              />
+                            )
+                          })}
+                          <span className="ml-3 text-[11px] font-mono text-muted-foreground tabular-nums">
+                            {idx + 1}/{visibleSteps.length}
+                          </span>
+                        </div>
+
+                        {/* Next - bold primary action */}
+                        {next ? (
+                          <button
+                            onClick={handleNextStep}
+                            disabled={!canGoNext}
+                            className={cn(
+                              "group flex items-center gap-2.5 px-4 py-2.5 rounded-lg font-semibold transition-all shadow-sm",
+                              canGoNext
+                                ? "bg-foreground text-background hover:bg-foreground/90 hover:shadow"
+                                : "bg-muted text-muted-foreground cursor-not-allowed"
+                            )}
+                            title={!canGoNext ? "Complete or skip this step first" : undefined}
+                          >
+                            <div className="text-right hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-widest font-semibold leading-none opacity-70">Next</div>
+                              <div className="text-xs font-bold leading-tight mt-0.5">{next.label}</div>
+                            </div>
+                            <span className="sm:hidden text-xs font-bold">{next.label}</span>
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSection("export-qb")}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+                          >
+                            Finish
+                            <Check className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 <MobileBar onGoToExport={() => setSection("export-qb")} />
               </div>
