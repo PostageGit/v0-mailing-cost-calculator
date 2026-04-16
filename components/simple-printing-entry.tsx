@@ -669,42 +669,62 @@ export function SimplePrintingEntry() {
             
             return (
               <div className="mb-6">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">In Quote</h3>
+                <h3 className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider mb-1">Saved to Quote</h3>
+                <p className="text-[10px] text-muted-foreground mb-2">Click to edit</p>
                 <div className="space-y-1.5">
-                  {savedPrintItems.map((qi) => (
-                    <button
-                      key={qi.id}
-                      onClick={() => handleEditQuoteItem(qi.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all border",
-                        editingQuoteItemId === qi.id
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/50"
-                      )}
-                    >
-                      <Check className={cn("h-3.5 w-3.5 shrink-0", editingQuoteItemId === qi.id ? "text-white" : "text-green-600")} />
-                      <div className="flex-1 min-w-0">
-                        <div className={cn("text-xs font-bold truncate", editingQuoteItemId === qi.id ? "text-white" : "text-foreground")}>{qi.label}</div>
-                        <div className={cn("text-[10px]", editingQuoteItemId === qi.id ? "text-white/70" : "text-green-700 dark:text-green-400")}>
-                          {formatCurrency(qi.amount)}
+                  {savedPrintItems.map((qi) => {
+                    const isEditing = editingQuoteItemId === qi.id
+                    return (
+                      <button
+                        key={qi.id}
+                        onClick={() => handleEditQuoteItem(qi.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all border",
+                          isEditing
+                            ? "bg-amber-500 text-white border-amber-500 ring-2 ring-amber-300"
+                            : "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/50"
+                        )}
+                      >
+                        {isEditing ? (
+                          <Pencil className="h-3.5 w-3.5 shrink-0 text-white" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className={cn("text-xs font-bold truncate", isEditing ? "text-white" : "text-foreground")}>
+                            {isEditing ? "EDITING: " : ""}{qi.label}
+                          </div>
+                          <div className={cn("text-[10px]", isEditing ? "text-white/80" : "text-green-700 dark:text-green-400")}>
+                            {formatCurrency(qi.amount)}
+                          </div>
                         </div>
-                      </div>
-                      <Pencil className={cn("h-3 w-3 shrink-0", editingQuoteItemId === qi.id ? "text-white/70" : "text-muted-foreground")} />
-                    </button>
-                  ))}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )
           })()}
           
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Pieces</h3>
-            <Badge variant="outline" className="text-[10px] h-5 font-semibold">
-              {printItems.filter(i => i.addedToQuote).length}/{printItems.length}
-            </Badge>
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Mail Pieces</h3>
+              <Badge variant="outline" className="text-[10px] h-5 font-semibold">
+                {printItems.filter(i => i.addedToQuote).length}/{printItems.length}
+              </Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Get pricing for each piece</p>
           </div>
           <div className="space-y-1.5">
-            {printItems.map((item, idx) => {
+            {printItems
+              // When editing a quote item, hide the temporary edit item from this list
+              // (it shows in "Saved to Quote" section above with EDITING label)
+              .filter(item => {
+                // If we're editing a quote item and this item is that edit, hide it
+                if (editingQuoteItemId && item.id.startsWith('edit-')) return false
+                return true
+              })
+              .map((item, idx) => {
               const isActive = item.id === activeItemId
               const selectedVendor = item.vendorQuotes.find(vq => vq.vendorId === item.selectedVendorId)
               return (
