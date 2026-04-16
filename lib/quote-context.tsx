@@ -405,13 +405,21 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   
   const loadRevision = useCallback((revisionNumber: number) => {
     const rev = revisions.find(r => r.revision_number === revisionNumber)
-    if (rev && !rev.is_current) {
-      // Load the old revision data into current state
-      setItems(rev.items || [])
-      setProjectNameRaw(rev.project_name || "")
-      if (rev.quantity) setQuantityRaw(rev.quantity)
-      setCurrentRevision(revisionNumber)
-      dirtyRef.current = true // Mark as dirty since we're reverting
+    if (!rev) return
+    // Load the old revision data into current state so the user can edit it.
+    // On next save, persistNow() will PATCH these values; the API compares
+    // them against the DB's current row and snapshots the existing row into
+    // the revisions array, effectively creating a NEW revision from the edit.
+    setItems(rev.items || [])
+    setProjectNameRaw(rev.project_name || "")
+    if (rev.quantity !== undefined) setQuantityRaw(rev.quantity)
+    setCurrentRevision(revisionNumber)
+    // If user switched to any revision (current or older) it counts as a
+    // deliberate intent — mark dirty + unsaved so the Save button activates
+    // and a save will persist whatever they do from here as a new revision.
+    if (!rev.is_current) {
+      dirtyRef.current = true
+      setHasUnsavedChanges(true)
     }
   }, [revisions])
 

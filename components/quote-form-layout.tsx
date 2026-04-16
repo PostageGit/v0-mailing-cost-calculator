@@ -310,14 +310,15 @@ export function QuoteFormLayout({
                     Q-{quoteNumber}
                   </span>
                 )}
-                {/* Only show the amber "historical revision" pill when the
-                    user has actually navigated to a past revision.  Latest
-                    revision = normal editing, no noisy warning. */}
+                {/* When the user has loaded an older revision, show a pill
+                    clearly communicating that edits here will create a NEW
+                    revision on save (the backend handles this automatically
+                    by snapshotting the current row before updating). */}
                 {revisions.length >= 2 && !isViewingLatest && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700">
                     <Clock className="h-3 w-3 text-amber-700 dark:text-amber-400" />
                     <span className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                      Viewing Older Revision — Read Only
+                      Editing Rev {currentRevision} · Save creates Rev {maxRev + 1}
                     </span>
                   </span>
                 )}
@@ -328,21 +329,36 @@ export function QuoteFormLayout({
             </div>
 
             {/* Revision tabs — shown whenever the quote has 2+ revisions.
-                Substantial, clickable tabs so the user can flip between
-                saved revisions instantly. Active tab is bold black with the
-                total; inactive tabs show rev number + date + total. */}
+                Substantial, roomy tabs: each tab is big enough to show the
+                revision number, a "Latest" badge, the saved date on its own
+                line, and the total in large mono type. Users can flip
+                between any revision, edit, and save — saving from an older
+                revision automatically creates a new revision in the API. */}
             {revisions.length >= 2 && (
-              <div className="px-6 pb-2 border-b border-border/40 bg-muted/20">
-                <div className="flex items-stretch gap-1 overflow-x-auto -mb-px">
+              <div className="px-6 pt-1 pb-0 bg-gradient-to-b from-muted/30 to-transparent">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    Revisions
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {revisions.length} total — click any to open &amp; edit
+                  </span>
+                </div>
+                <div className="flex items-stretch gap-2 overflow-x-auto pb-0 -mb-px">
                   {sortedRevisions.map((rev) => {
                     const isActive = rev.revision_number === currentRevision
-                    const isLatest =
-                      rev.revision_number ===
-                      Math.max(...revisions.map((r) => r.revision_number))
-                    const dateShort = rev.created_at
-                      ? new Date(rev.created_at).toLocaleDateString(undefined, {
+                    const isLatest = rev.revision_number === maxRev
+                    const created = rev.created_at ? new Date(rev.created_at) : null
+                    const dateShort = created
+                      ? created.toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
+                        })
+                      : ""
+                    const timeShort = created
+                      ? created.toLocaleTimeString(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
                         })
                       : ""
                     return (
@@ -351,17 +367,20 @@ export function QuoteFormLayout({
                         type="button"
                         onClick={() => loadRevision(rev.revision_number)}
                         className={cn(
-                          "group relative shrink-0 px-3.5 py-2 rounded-t-lg border-2 border-b-0 transition-all text-left min-w-[110px]",
+                          "group relative shrink-0 flex flex-col items-start text-left",
+                          "px-4 py-3 min-w-[160px] rounded-t-lg transition-all",
+                          "border-2 border-b-0",
                           isActive
-                            ? "bg-card border-foreground shadow-sm -mb-[2px] z-10"
-                            : "bg-muted/40 border-transparent hover:bg-muted/70 hover:border-border"
+                            ? "bg-card border-foreground shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.08)] -mb-[2px] z-10"
+                            : "bg-muted/50 border-transparent hover:bg-muted hover:border-border/60"
                         )}
-                        title={`Switch to Revision ${rev.revision_number}`}
+                        title={`Open Revision ${rev.revision_number}${isLatest ? " (latest)" : ""}`}
                       >
-                        <div className="flex items-center gap-1.5 mb-0.5">
+                        {/* Top row: Rev N + Latest badge */}
+                        <div className="flex items-center gap-2 w-full">
                           <span
                             className={cn(
-                              "text-[10px] font-bold uppercase tracking-wider leading-none",
+                              "text-[11px] font-bold uppercase tracking-[0.1em] leading-none",
                               isActive ? "text-foreground" : "text-muted-foreground"
                             )}
                           >
@@ -370,7 +389,7 @@ export function QuoteFormLayout({
                           {isLatest && (
                             <span
                               className={cn(
-                                "text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded leading-none",
+                                "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none",
                                 isActive
                                   ? "bg-emerald-600 text-white"
                                   : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
@@ -379,20 +398,38 @@ export function QuoteFormLayout({
                               Latest
                             </span>
                           )}
-                          {dateShort && (
-                            <span className="text-[9px] text-muted-foreground leading-none ml-auto">
-                              {dateShort}
+                          {isActive && !isLatest && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none bg-amber-500 text-white ml-auto">
+                              Editing
                             </span>
                           )}
                         </div>
+                        {/* Middle: total in large mono type */}
                         <div
                           className={cn(
-                            "text-sm font-mono font-bold tabular-nums leading-none",
-                            isActive ? "text-foreground" : "text-muted-foreground"
+                            "mt-2 text-lg font-mono font-bold tabular-nums leading-none",
+                            isActive ? "text-foreground" : "text-muted-foreground/80"
                           )}
                         >
                           {formatCurrency(rev.total || 0)}
                         </div>
+                        {/* Bottom row: saved date + time */}
+                        {dateShort && (
+                          <div
+                            className={cn(
+                              "mt-1.5 flex items-center gap-1.5 text-[10px] leading-none",
+                              isActive ? "text-muted-foreground" : "text-muted-foreground/60"
+                            )}
+                          >
+                            <span className="font-semibold">{dateShort}</span>
+                            {timeShort && (
+                              <>
+                                <span className="opacity-40">·</span>
+                                <span className="tabular-nums">{timeShort}</span>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </button>
                     )
                   })}
@@ -638,21 +675,25 @@ export function QuoteFormLayout({
                 {/* Save: primary when there are unsaved changes, muted otherwise. */}
                 <Button
                   onClick={saveQuote}
-                  disabled={isSaving || !hasUnsavedChanges || itemCount === 0 || !isViewingLatest}
+                  disabled={isSaving || !hasUnsavedChanges || itemCount === 0}
                   title={
-                    !isViewingLatest
-                      ? "Switch to the latest revision to make edits"
+                    !isViewingLatest && hasUnsavedChanges
+                      ? `Save as new revision (Rev ${maxRev + 1})`
                       : undefined
                   }
                   className={cn(
                     "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
-                    hasUnsavedChanges && itemCount > 0 && isViewingLatest
-                      ? "bg-green-600 hover:bg-green-700 text-white"
+                    hasUnsavedChanges && itemCount > 0
+                      ? isViewingLatest
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : "bg-amber-600 hover:bg-amber-700 text-white"
                       : "bg-muted text-muted-foreground hover:bg-muted"
                   )}
                 >
                   {isSaving ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                  ) : !isViewingLatest && hasUnsavedChanges ? (
+                    <><Save className="h-4 w-4" /> Save as Rev {maxRev + 1}</>
                   ) : (
                     <><Save className="h-4 w-4" /> Save</>
                   )}
