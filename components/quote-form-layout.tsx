@@ -1,29 +1,33 @@
 "use client"
 
 /**
- * PostageQuoteFormView
- * 
- * A QuickBooks-style quote form view that can be toggled on the Postage page.
- * Shows the quote as a large, document-like form taking center stage,
- * with the USPS Postage calculator options on the right side.
- * 
- * This does NOT replace the standard calculator - it's an OPTIONAL alternative view
- * accessible via a toggle button on the USPS Postage step.
+ * QuoteFormLayout
+ *
+ * App-wide QuickBooks-style quote form view. Wraps any step's tool/calculator
+ * in a layout where the QUOTE DOCUMENT is the main focus (center) and the
+ * current step's options live in a side panel on the right.
+ *
+ * This is OPTIONAL - toggled globally via the header button. The classic
+ * calculator views still work as before when the toggle is off.
+ *
+ * Active across ALL pricing steps: envelope, postage, printing, booklet,
+ * spiral, perfect, pad, labor, ohp.
  */
 
-import { useState } from "react"
+import type { ReactNode } from "react"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2,
-  Calendar, User, Hash, ChevronLeft, Clock,
+  Calendar, Hash, ChevronLeft, Clock,
 } from "lucide-react"
 
-type QuoteCategory = "printing" | "booklet" | "spiral" | "perfect" | "pad" | "envelope" | "usps" | "labor" | "item" | "shipping"
+type QuoteCategory =
+  | "printing" | "booklet" | "spiral" | "perfect" | "pad"
+  | "envelope" | "usps" | "labor" | "item" | "shipping"
 
 const CATEGORY_LABELS: Record<QuoteCategory, string> = {
   printing: "Printing",
@@ -43,11 +47,38 @@ const CATEGORY_ORDER: QuoteCategory[] = [
   "usps", "labor", "item", "shipping",
 ]
 
-interface PostageQuoteFormViewProps {
+// Which quote categories are primarily affected by each step - used to highlight
+// the category rows that the current step is adding/editing.
+const STEP_CATEGORY_HINTS: Record<string, QuoteCategory[]> = {
+  envelope: ["envelope"],
+  usps: ["usps"],
+  labor: ["labor", "item"],
+  printing: ["printing"],
+  booklet: ["booklet"],
+  spiral: ["spiral"],
+  perfect: ["perfect"],
+  pad: ["pad"],
+  ohp: ["printing", "booklet", "spiral", "perfect", "pad"],
+}
+
+export interface QuoteFormLayoutProps {
+  /** The current step's calculator/tool that renders inside the right side panel */
+  children: ReactNode
+  /** Display name of the current step (e.g., "USPS Postage") */
+  stepTitle: string
+  /** Short tagline describing what the step does */
+  stepDescription?: string
+  /** Icon to show next to the step title in the side panel header */
+  stepIcon?: ReactNode
+  /** Current step id - used to highlight the active category in the quote */
+  stepId?: string
+  /** Exit handler - turns quote form view off */
   onExit: () => void
 }
 
-export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
+export function QuoteFormLayout({
+  children, stepTitle, stepDescription, stepIcon, stepId, onExit,
+}: QuoteFormLayoutProps) {
   const {
     items,
     projectName,
@@ -69,8 +100,9 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
 
   const total = getTotal()
   const itemCount = items.length
+  const activeCategories = stepId ? STEP_CATEGORY_HINTS[stepId] || [] : []
 
-  // Format last saved time
+  // "Saved X ago" label
   const lastSavedLabel = (() => {
     if (!lastSavedAt) return "Not saved yet"
     const seconds = Math.floor((Date.now() - lastSavedAt) / 1000)
@@ -91,10 +123,10 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
 
   return (
     <div className="flex h-full overflow-hidden bg-muted/30">
-      {/* ═══════════ LEFT: QUOTE FORM (center stage, QuickBooks style) ═══════════ */}
+      {/* ═══════════ LEFT: QUOTE DOCUMENT (center stage, QuickBooks style) ═══════════ */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-6">
-          {/* Exit toggle button */}
+          {/* Top bar: exit + save status */}
           <div className="flex items-center justify-between mb-4">
             <Button
               variant="ghost"
@@ -103,10 +135,9 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
               className="gap-1.5 text-xs h-8"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
-              Back to Calculator View
+              Back to Classic View
             </Button>
 
-            {/* Save status indicator */}
             <div className="flex items-center gap-2">
               {hasUnsavedChanges ? (
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
@@ -124,7 +155,7 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
 
           {/* ═══ Quote Document ═══ */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-            {/* Document Header */}
+            {/* Document header */}
             <div className="px-8 py-6 border-b border-border bg-gradient-to-br from-secondary/40 to-transparent">
               <div className="flex items-start justify-between mb-6">
                 <div>
@@ -158,7 +189,7 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
                 </div>
               </div>
 
-              {/* Project Details */}
+              {/* Project details */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
@@ -204,9 +235,8 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
               </div>
             </div>
 
-            {/* Line Items Table */}
+            {/* Line items table */}
             <div className="px-8 py-6">
-              {/* Table Header */}
               <div className="flex items-center gap-3 px-3 py-2 border-b-2 border-foreground/10 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 <span className="w-24">Category</span>
                 <span className="flex-1">Description</span>
@@ -215,13 +245,12 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
                 <span className="w-8" />
               </div>
 
-              {/* Items by category */}
               {itemCount === 0 ? (
                 <div className="py-16 text-center">
                   <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">No items on this quote yet</p>
                   <p className="text-xs text-muted-foreground/70 mt-1">
-                    Use the calculator on the right to add postage
+                    Use <span className="font-semibold text-foreground">{stepTitle}</span> on the right to add line items
                   </p>
                 </div>
               ) : (
@@ -230,19 +259,19 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
                     const catItems = items.filter((i) => i.category === cat)
                     if (catItems.length === 0) return null
 
-                    return catItems.map((item, idx) => {
-                      const isUSPS = item.category === "usps"
+                    return catItems.map((item) => {
+                      const isActive = activeCategories.includes(cat)
                       return (
                         <div
                           key={item.id}
                           className={cn(
                             "flex items-center gap-3 px-3 py-3 group hover:bg-secondary/30 transition-colors",
-                            isUSPS && "bg-blue-50/30 dark:bg-blue-950/10"
+                            isActive && "bg-blue-50/40 dark:bg-blue-950/10"
                           )}
                         >
                           <span className={cn(
                             "w-24 shrink-0 text-[10px] font-bold uppercase tracking-wide",
-                            isUSPS ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+                            isActive ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
                           )}>
                             {CATEGORY_LABELS[cat]}
                           </span>
@@ -266,6 +295,7 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
                             onClick={() => removeItem(item.id)}
                             className="w-8 h-8 rounded-md text-muted-foreground/30 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
                             title="Remove item"
+                            aria-label={`Remove ${item.label}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -276,7 +306,7 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
                 </div>
               )}
 
-              {/* Totals */}
+              {/* Total */}
               {itemCount > 0 && (
                 <div className="mt-4 pt-4 border-t-2 border-foreground/10">
                   <div className="flex items-center justify-end gap-6">
@@ -293,7 +323,7 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
               )}
             </div>
 
-            {/* Document Footer - Save action */}
+            {/* Save action footer */}
             {hasUnsavedChanges && itemCount > 0 && (
               <div className="px-8 py-5 border-t border-border bg-amber-50/40 dark:bg-amber-950/10">
                 <div className="flex items-center justify-between gap-4">
@@ -319,27 +349,26 @@ export function PostageQuoteFormView({ onExit }: PostageQuoteFormViewProps) {
               </div>
             )}
           </div>
-
-          {/* Helpful tip */}
-          <p className="text-[11px] text-muted-foreground text-center mt-4">
-            Use the <span className="font-semibold text-foreground">USPS Postage Calculator</span> on the right to add postage line items to this quote.
-          </p>
         </div>
       </div>
 
-      {/* ═══════════ RIGHT: USPS Postage Calculator (side panel) ═══════════ */}
+      {/* ═══════════ RIGHT: STEP TOOL (side panel) ═══════════ */}
       <aside className="hidden lg:flex flex-col w-[420px] xl:w-[480px] shrink-0 border-l border-border bg-background overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-card shrink-0">
-          <div className="h-7 w-7 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
-            <FileText className="h-3.5 w-3.5 text-blue-600" />
-          </div>
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-card shrink-0">
+          {stepIcon && (
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              {stepIcon}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-foreground">USPS Postage</p>
-            <p className="text-[10px] text-muted-foreground">Add postage items to the quote</p>
+            <p className="text-sm font-bold text-foreground truncate">{stepTitle}</p>
+            {stepDescription && (
+              <p className="text-[11px] text-muted-foreground truncate">{stepDescription}</p>
+            )}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <USPSPostageCalculator />
+          {children}
         </div>
       </aside>
     </div>

@@ -7,7 +7,7 @@ import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
 import { PadCalculator } from "@/components/pad/pad-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
-import { PostageQuoteFormView } from "@/components/postage-quote-form-view"
+import { QuoteFormLayout } from "@/components/quote-form-layout"
 import { ServiceBuilder } from "@/components/service-builder"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { MailPiecePlanner } from "@/components/mail-piece-planner"
@@ -174,8 +174,23 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
   const [calcViewMode, setCalcViewMode] = useState<"detailed" | "quick">("detailed")
-  // NEW: Optional QuickBooks-style quote form view for Postage page only
-  const [postageFormView, setPostageFormView] = useState(false)
+  // Optional QuickBooks-style quote form view - active across ALL pricing steps when on
+  const [quoteFormView, setQuoteFormViewRaw] = useState(false)
+  // Load persisted preference on mount
+  useEffect(() => {
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem("quoteFormView") : null
+      if (stored === "1") setQuoteFormViewRaw(true)
+    } catch { /* ignore */ }
+  }, [])
+  const setQuoteFormView = useCallback((on: boolean) => {
+    setQuoteFormViewRaw(on)
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("quoteFormView", on ? "1" : "0")
+      }
+    } catch { /* ignore */ }
+  }, [])
   const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
@@ -345,44 +360,58 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
 const renderStep = () => {
   // Map view mode: "quick" -> "compact" for the calculator forms
   const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
-  
+
   // SIMPLE MODE: "printing" step shows SimplePrintingEntry with ALL pieces
+  // (Simple mode has its own custom full-width layout - skip the form layout here)
   if (appConfig.simple_mode && currentStep === "printing") {
     return <SimplePrintingEntry />
   }
-  
-  switch (currentStep) {
-    case "envelope": return <EnvelopeTab />
-    case "usps":
-      // Optional QuickBooks-style quote form view (toggled by user)
-      if (postageFormView) {
-        return <PostageQuoteFormView onExit={() => setPostageFormView(false)} />
-      }
-      return (
-        <div>
-          {/* Toggle button to switch to Quote Form View */}
-          <div className="mb-4 flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPostageFormView(true)}
-              className="gap-1.5 h-8 text-xs rounded-lg"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Switch to Quote Form View
-            </Button>
-          </div>
-          <USPSPostageCalculator />
-        </div>
-      )
-    case "labor":    return <ServiceBuilder />
-    case "printing": return <PrintingCalculator viewMode={viewMode} />
-    case "booklet":  return <BookletCalculator viewMode={viewMode} />
-    case "spiral":   return <SpiralCalculator viewMode={viewMode} />
-    case "perfect":  return <PerfectCalculator viewMode={viewMode} />
-    case "pad":      return <PadCalculator viewMode={viewMode} />
-    case "ohp":      return <VendorBidTab />
+
+  // Render the raw step tool (classic calculator content)
+  const stepContent = (() => {
+    switch (currentStep) {
+      case "envelope": return <EnvelopeTab />
+      case "usps":     return <USPSPostageCalculator />
+      case "labor":    return <ServiceBuilder />
+      case "printing": return <PrintingCalculator viewMode={viewMode} />
+      case "booklet":  return <BookletCalculator viewMode={viewMode} />
+      case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+      case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+      case "pad":      return <PadCalculator viewMode={viewMode} />
+      case "ohp":      return <VendorBidTab />
+      default:         return null
+    }
+  })()
+
+  // When the QuickBooks-style quote form view is ON, wrap every step's tool
+  // in the shared QuoteFormLayout so the quote document stays center stage.
+  if (quoteFormView) {
+    const stepMeta = ALL_STEPS.find(s => s.id === currentStep)
+    const descriptions: Record<string, string> = {
+      envelope: "Add envelope line items",
+      usps: "Calculate postage rates",
+      labor: "Add services & supplies",
+      printing: "Price flat printing",
+      booklet: "Price saddle-stitch booklets",
+      spiral: "Price spiral-bound booklets",
+      perfect: "Price perfect-bound booklets",
+      pad: "Price padded items",
+      ohp: "Vendor bids for outside help",
+    }
+    return (
+      <QuoteFormLayout
+        stepTitle={stepMeta?.label || "Step"}
+        stepDescription={descriptions[currentStep] || ""}
+        stepIcon={stepMeta?.icon}
+        stepId={currentStep}
+        onExit={() => setQuoteFormView(false)}
+      >
+        {stepContent}
+      </QuoteFormLayout>
+    )
   }
+
+  return stepContent
 }
 
   const isJobView = section === "job"
@@ -755,6 +784,41 @@ const renderStep = () => {
                     </button>
                     {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
                     <div className="w-px h-3 bg-border shrink-0" />
+                    {/* Global Quote Form View toggle - QuickBooks-style experience across ALL pricing steps */}
+                    {jobPhase === "pricing" && (
+                      <>
+                        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-background/80 border border-border shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setQuoteFormView(false)}
+                            className={cn(
+                              "px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
+                              !quoteFormView
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title="Classic calculator view"
+                          >
+                            Classic
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuoteFormView(true)}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
+                              quoteFormView
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title="QuickBooks-style quote form view"
+                          >
+                            <FileText className="h-3 w-3" />
+                            Quote Form
+                          </button>
+                        </div>
+                        <div className="w-px h-3 bg-border shrink-0" />
+                      </>
+                    )}
                     {/* View toggle for calculators */}
                     {["printing", "booklet", "spiral", "perfect", "pad"].includes(currentStep) && (
                       <>
@@ -807,9 +871,8 @@ const renderStep = () => {
                 <div className="flex-1 flex min-h-0 overflow-hidden">
                   <div className={cn(
                     "flex-1 min-w-0 overflow-auto",
-                    // Full-width layouts: simple printing mode, and postage quote form view
-                    (appConfig.simple_mode && currentStep === "printing") ||
-                    (currentStep === "usps" && postageFormView)
+                    // Full-width layouts: simple printing mode, and the QuickBooks quote form view
+                    (appConfig.simple_mode && currentStep === "printing") || quoteFormView
                       ? "px-0 pt-0 pb-0"
                       : "max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-8"
                   )}>
@@ -819,8 +882,8 @@ const renderStep = () => {
                       </StepErrorBoundary>
                     </div>
                   </div>
-                  {/* In Postage Quote Form View, hide the right sidebar since the quote is center-stage */}
-                  {currentStep === "usps" && postageFormView ? null : rightOpen ? (
+                  {/* In QuickBooks Quote Form View, hide the right sidebar - the quote is already center-stage in the form layout */}
+                  {quoteFormView ? null : rightOpen ? (
                     <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-l border-border overflow-y-auto bg-card/50">
                       <QuoteSidebar
                         onGoToExport={() => setSection("export-qb")}
