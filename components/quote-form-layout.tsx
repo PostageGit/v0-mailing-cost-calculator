@@ -354,15 +354,40 @@ export function QuoteFormLayout({
                     Q-{quoteNumber}
                   </span>
                 )}
-                {/* When the user has loaded an older revision, show a pill
-                    clearly communicating that edits here will create a NEW
-                    revision on save (the backend handles this automatically
-                    by snapshotting the current row before updating). */}
+                {/* Viewing-older-revision pill. Two states:
+                      - clean view (no edits)   → neutral "Viewing Rev N"
+                      - user has edited fields  → amber "Editing Rev N ·
+                                                    Save creates Rev N+1"
+                    The neutral state lets users freely click between
+                    revision tabs without any "unsaved changes" friction. */}
                 {revisions.length >= 2 && !isViewingLatest && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700">
-                    <Clock className="h-3 w-3 text-amber-700 dark:text-amber-400" />
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                      Editing Rev {currentRevision} · Save creates Rev {maxRev + 1}
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border",
+                      hasUnsavedChanges
+                        ? "bg-amber-100 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700"
+                        : "bg-muted/60 border-border/60"
+                    )}
+                  >
+                    <Clock
+                      className={cn(
+                        "h-3 w-3",
+                        hasUnsavedChanges
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-muted-foreground"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-wide",
+                        hasUnsavedChanges
+                          ? "text-amber-800 dark:text-amber-300"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {hasUnsavedChanges
+                        ? `Editing Rev ${currentRevision} · Save creates Rev ${maxRev + 1}`
+                        : `Viewing Rev ${currentRevision}`}
                     </span>
                   </span>
                 )}
