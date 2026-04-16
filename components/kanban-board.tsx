@@ -2683,8 +2683,9 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onAr
    MAIN KANBAN BOARD
    ════════════════════════════════════��═══════════════ */
 
-export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote }: {
+export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote, appSimpleMode = false }: {
   boardType?: "quote" | "job"; viewMode?: "board" | "list" | "sidebar"; onLoadQuote: (quoteId: string) => void;
+  appSimpleMode?: boolean;  // Global app Simple Mode - hides extra toggles
 }) {
   const isJob = boardType === "job"
   const colsUrl = `/api/board-columns?type=${boardType}`
@@ -3029,35 +3030,37 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Simple/Full View Toggle */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
-            <button
-              onClick={() => setSimpleView(true)}
-              className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
-                simpleView
-                  ? "bg-background shadow-sm text-foreground border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="Simple table view"
-            >
-              <List className="h-3 w-3" />
-              Simple
-            </button>
-            <button
-              onClick={() => setSimpleView(false)}
-              className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
-                !simpleView
-                  ? "bg-background shadow-sm text-foreground border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="Full kanban view"
-            >
-              <LayoutGrid className="h-3 w-3" />
-              Full
-            </button>
-          </div>
+          {/* Simple/Full View Toggle - only show in Full app mode */}
+          {!appSimpleMode && (
+            <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
+              <button
+                onClick={() => setSimpleView(true)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                  simpleView
+                    ? "bg-background shadow-sm text-foreground border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Simple table view"
+              >
+                <List className="h-3 w-3" />
+                Simple
+              </button>
+              <button
+                onClick={() => setSimpleView(false)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                  !simpleView
+                    ? "bg-background shadow-sm text-foreground border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Full kanban view"
+              >
+                <LayoutGrid className="h-3 w-3" />
+                Full
+              </button>
+            </div>
+          )}
           <button onClick={() => setShowHistory(!showHistory)}
             className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showHistory ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
             <Clock className="h-3.5 w-3.5" />
