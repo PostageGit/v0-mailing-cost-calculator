@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import useSWR from "swr"
 import { useQuote } from "@/lib/quote-context"
-import { useMailing, PIECE_TYPE_META, FOLD_OPTIONS, getFlatSize, type MailPiece } from "@/lib/mailing-context"
+import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -41,18 +41,23 @@ const FLAT_COLOR_OPTIONS = [
   { value: "1/0", label: "1/0 (Black Front)" },
 ]
 
-// BOOKLET COVER colors (full color options)
+// BOOKLET COVER colors - matches ALL_SIDES from booklet-pricing.ts
 const BOOKLET_COVER_COLOR_OPTIONS = [
   { value: "4/4", label: "4/4 (Color Both)" },
   { value: "4/0", label: "4/0 (Color Front)" },
+  { value: "4/1", label: "4/1 (Color/Black)" },
   { value: "1/1", label: "1/1 (Black Both)" },
   { value: "1/0", label: "1/0 (Black Front)" },
-]
-
-// BOOKLET INSIDE colors (double-sided / single-sided only)
-const BOOKLET_INSIDE_COLOR_OPTIONS = [
   { value: "D/S", label: "D/S (Double-Sided)" },
   { value: "S/S", label: "S/S (Single-Sided)" },
+]
+
+// BOOKLET INSIDE colors - matches INSIDE_SIDES from booklet-pricing.ts
+// For saddle-stitch, inside pages are ALWAYS printed on both sides (folded signatures)
+const BOOKLET_INSIDE_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "D/S", label: "D/S (Double-Sided)" },
 ]
 
 // SPIRAL / PERFECT / PAD colors (all options)
@@ -75,8 +80,8 @@ const LAMINATION_OPTIONS = [
   { value: "linen", label: "Linen" },
 ]
 
-// FOLD options for flat printing
-const FOLD_OPTIONS = [
+// FOLD options for flat printing (renamed to avoid conflict with mailing-context import)
+const FLAT_FOLD_OPTIONS = [
   { value: "", label: "No Fold" },
   { value: "half", label: "Half Fold" },
   { value: "tri", label: "Tri-Fold" },
@@ -87,11 +92,10 @@ const FOLD_OPTIONS = [
   { value: "roll", label: "Roll Fold" },
 ]
 
-// BINDING options for booklet
+// BINDING options for booklet (saddle stitch) - matches booklet-form.tsx
 const BINDING_OPTIONS = [
-  { value: "staple", label: "Saddle Stitch (Staple)" },
-  { value: "fold", label: "Fold Only" },
-  { value: "perfect", label: "Perfect Bound" },
+  { value: "staple", label: "Staple (Saddle Stitch)" },
+  { value: "fold", label: "Fold Only (No Staple)" },
 ]
 
 interface PieceSpecs {
@@ -171,7 +175,7 @@ function buildSpecsText(specs: PieceSpecs): string {
   if (specs.pages) parts.push(`${specs.pages}pp`)
   if (specs.paper) parts.push(specs.paper)
   if (specs.colors) parts.push(specs.colors)
-  if (specs.fold) parts.push(FOLD_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
+  if (specs.fold) parts.push(FLAT_FOLD_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
   if (specs.lamination) parts.push(LAMINATION_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
   // Booklet/spiral specific
   if (specs.coverPaper) parts.push(`Cover: ${specs.coverPaper}`)
@@ -890,7 +894,7 @@ export function SimplePrintingEntry() {
                       <SelectTrigger className={selectFilled}>
                         <SelectValue placeholder="No Fold" />
                       </SelectTrigger>
-                      <SelectContent>{FOLD_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FLAT_FOLD_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
