@@ -3,13 +3,13 @@
 /**
  * QuoteFormLayout
  *
- * QuickBooks-style view:
- *  - LEFT:  the step's tool / calculator (main work area)
- *  - RIGHT: the quote document (live summary of line items)
+ * QuickBooks-style view — the QUOTE is the main document you are working on.
  *
- * No page-level scrolling. Each column scrolls independently only when
- * its own content overflows. Line items are rendered as simple neat
- * item rows - like an invoice line list.
+ *  - LEFT (main, flex-1):  the QUOTE DOCUMENT — center of attention.
+ *  - RIGHT (helper ~460px): the current step's tool — labeled as a helper
+ *                           whose only job is to help you price and add lines.
+ *
+ * No page-level scrolling. Each column scrolls only its own content.
  */
 
 import type { ReactNode } from "react"
@@ -20,18 +20,17 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
-  FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock, Hash,
+  FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
+  Calendar, Wrench,
 } from "lucide-react"
 
 // Render order for categories inside the quote.
-// Must use the real QuoteCategory values from quote-types.ts.
 const CATEGORY_ORDER: QuoteCategory[] = [
   "flat", "booklet", "spiral", "perfect", "pad",
   "envelope", "postage", "listwork", "item", "ohp",
 ]
 
 // Map each workflow step to the QuoteCategory values it contributes to.
-// Used to highlight the line items that belong to the current step.
 const STEP_CATEGORY_HINTS: Record<string, QuoteCategory[]> = {
   envelope: ["envelope"],
   usps: ["postage"],
@@ -50,9 +49,6 @@ export interface QuoteFormLayoutProps {
   stepDescription?: string
   stepIcon?: ReactNode
   stepId?: string
-  /** Called when user exits this view. Not used inside the layout itself -
-   *  the main app provides a Classic/Quote Form toggle in the top bar -
-   *  but kept on the props for API compatibility. */
   onExit?: () => void
 }
 
@@ -81,6 +77,9 @@ export function QuoteFormLayout({
   const total = getTotal()
   const itemCount = items.length
   const activeCategories = stepId ? STEP_CATEGORY_HINTS[stepId] || [] : []
+  const today = new Date().toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  })
 
   const lastSavedLabel = (() => {
     if (!lastSavedAt) return "Not saved yet"
@@ -96,142 +95,155 @@ export function QuoteFormLayout({
 
   return (
     // Full-height, no page scroll. Each column scrolls only its own content.
-    <div className="flex h-full overflow-hidden bg-muted/20">
-      {/* ═══════════ LEFT: STEP TOOL (main work area) ═══════════ */}
+    <div className="flex h-full overflow-hidden bg-muted/30">
+      {/* ═══════════ LEFT: QUOTE DOCUMENT — the main thing ═══════════ */}
       <section className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {/* Tool header */}
-        <header className="shrink-0 flex items-center gap-3 px-6 py-3 border-b border-border bg-card">
-          {stepIcon && (
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-              {stepIcon}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-foreground truncate">{stepTitle}</p>
-            {stepDescription && (
-              <p className="text-[11px] text-muted-foreground truncate">{stepDescription}</p>
-            )}
-          </div>
-        </header>
-        {/* Tool content - only this area scrolls if its content overflows */}
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="p-6">
-            {children}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════ RIGHT: QUOTE DOCUMENT ═══════════ */}
-      {/* Hidden on small screens; on lg+ the quote panel always shows. */}
-      <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] shrink-0 border-l border-border bg-card overflow-hidden">
-        {/* Document header - fixed, compact */}
-        <div className="shrink-0 px-5 py-4 border-b border-border">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold tracking-tight text-foreground leading-tight">Quote</h2>
-              <p className="text-[11px] text-muted-foreground">
-                {itemCount} {itemCount === 1 ? "line item" : "line items"}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              {quoteNumber && (
-                <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-foreground">
-                  <Hash className="h-3 w-3 text-muted-foreground" />
-                  Q-{quoteNumber}
-                </div>
-              )}
-              {currentRevision > 0 && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                  <Clock className="h-2.5 w-2.5 text-amber-600" />
-                  <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                    Rev {currentRevision}
-                    {revisions.length > 1 && ` · ${revisions.length}`}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Project / customer - compact */}
-          <div className="flex flex-col gap-2">
-            <Input
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              placeholder="Project name"
-              className="h-8 text-xs font-semibold"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="Customer"
-                className="h-8 text-xs"
-              />
-              <Input
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-                placeholder="Reference #"
-                className="h-8 text-xs font-mono"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Save status strip */}
-        <div className="shrink-0 px-5 py-2 border-b border-border/60 bg-muted/40">
-          {hasUnsavedChanges ? (
-            <div className="flex items-center gap-1.5">
-              <AlertCircle className="h-3 w-3 text-amber-600 shrink-0" />
-              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                Unsaved changes
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <Check className="h-3 w-3 text-green-600 shrink-0" />
-              <span className="text-[11px] text-muted-foreground">Saved {lastSavedLabel}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Line items table header */}
-        <div className="shrink-0 px-5 py-2 border-b border-border bg-muted/30 flex items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          <span className="flex-1">Item</span>
-          <span className="text-right">Amount</span>
-        </div>
-
-        {/* Line items list - ONLY this scrolls if too many items */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {itemCount === 0 ? (
-            <div className="p-8 text-center">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted mb-3">
-                <FileText className="h-4 w-4 text-muted-foreground/50" />
-              </div>
-              <p className="text-xs font-medium text-foreground mb-0.5">No items yet</p>
-              <p className="text-[11px] text-muted-foreground">
-                Add items from <span className="font-semibold text-foreground">{stepTitle}</span>
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border/50">
-              {CATEGORY_ORDER.flatMap((cat) => {
-                const catItems = items.filter((i) => i.category === cat)
-                if (catItems.length === 0) return []
-                return catItems.map((item) => {
-                  const isActive = activeCategories.includes(cat)
-                  return (
-                    <li
-                      key={item.id}
-                      className={cn(
-                        "group flex items-center gap-2 px-5 py-2.5 hover:bg-secondary/40 transition-colors",
-                        isActive && "bg-blue-50/60 dark:bg-blue-950/20"
+          {/* Document paper */}
+          <div className="max-w-4xl mx-auto px-6 lg:px-10 py-8">
+            <article className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+              {/* ─── Document header ─── */}
+              <header className="px-10 pt-10 pb-6 border-b border-border/60">
+                <div className="flex items-start justify-between gap-8 mb-8">
+                  <div className="min-w-0">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-none mb-1">
+                      Quote
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      {itemCount} {itemCount === 1 ? "line item" : "line items"}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right space-y-2">
+                    {quoteNumber && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
+                          Quote #
+                        </p>
+                        <p className="text-base font-mono font-bold text-foreground">
+                          Q-{quoteNumber}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {currentRevision > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                          <Clock className="h-3 w-3 text-amber-600" />
+                          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                            Rev {currentRevision}
+                            {revisions.length > 1 && ` of ${revisions.length}`}
+                          </span>
+                        </span>
                       )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {today}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Project / customer fields - feel like the top of a QB form */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="md:col-span-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Project
+                    </label>
+                    <Input
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                      placeholder="Project name"
+                      className="h-10 text-sm font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Customer
+                    </label>
+                    <Input
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      placeholder="Customer name"
+                      className="h-10 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Reference #
+                    </label>
+                    <Input
+                      value={referenceNumber}
+                      onChange={(e) => setReferenceNumber(e.target.value)}
+                      placeholder="PO / Ref"
+                      className="h-10 text-sm font-mono"
+                    />
+                  </div>
+                </div>
+              </header>
+
+              {/* ─── Save-status strip ─── */}
+              <div className={cn(
+                "px-10 py-2 border-b border-border/60",
+                hasUnsavedChanges
+                  ? "bg-amber-50/60 dark:bg-amber-950/20"
+                  : "bg-muted/40"
+              )}>
+                {hasUnsavedChanges ? (
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                      You have unsaved changes — Save to create a new revision
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                    <span className="text-xs text-muted-foreground">
+                      All changes saved · {lastSavedLabel}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* ─── Line items ─── */}
+              {/* Column header */}
+              <div className="px-10 py-3 bg-muted/30 border-b border-border flex items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="w-20 shrink-0">Category</span>
+                <span className="flex-1 min-w-0">Description</span>
+                <span className="w-32 text-right shrink-0">Amount</span>
+                <span className="w-8 shrink-0" aria-hidden />
+              </div>
+
+              {itemCount === 0 ? (
+                <div className="px-10 py-16 text-center">
+                  <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
+                    <FileText className="h-6 w-6 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-base font-semibold text-foreground mb-1">
+                    No items yet
+                  </p>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                    Use the <span className="font-semibold text-foreground">{stepTitle}</span>{" "}
+                    helper on the right to price items and add them to this quote.
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border/50">
+                  {CATEGORY_ORDER.flatMap((cat) => {
+                    const catItems = items.filter((i) => i.category === cat)
+                    if (catItems.length === 0) return []
+                    return catItems.map((item) => {
+                      const isActive = activeCategories.includes(cat)
+                      return (
+                        <li
+                          key={item.id}
+                          className={cn(
+                            "group flex items-center gap-4 px-10 py-3.5 hover:bg-secondary/30 transition-colors",
+                            isActive && "bg-blue-50/50 dark:bg-blue-950/15"
+                          )}
+                        >
                           <span
                             className={cn(
-                              "text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap",
+                              "w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded text-center",
                               isActive
                                 ? "bg-blue-600 text-white"
                                 : "bg-muted text-muted-foreground"
@@ -239,74 +251,108 @@ export function QuoteFormLayout({
                           >
                             {getCategoryLabel(cat)}
                           </span>
-                          <p className="text-xs font-semibold text-foreground truncate min-w-0">
-                            {item.label}
-                          </p>
-                        </div>
-                        {item.description && (
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {item.description.split("\n")[0]}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-xs font-mono font-bold tabular-nums text-foreground shrink-0 ml-1">
-                        {formatCurrency(item.amount)}
-                      </span>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="w-6 h-6 rounded text-muted-foreground/30 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center shrink-0"
-                        title="Remove"
-                        aria-label={`Remove ${item.label}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </li>
-                  )
-                })
-              })}
-            </ul>
-          )}
-        </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {item.label}
+                            </p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {item.description.split("\n")[0]}
+                              </p>
+                            )}
+                          </div>
+                          <span className="w-32 text-right text-sm font-mono font-bold tabular-nums text-foreground shrink-0">
+                            {formatCurrency(item.amount)}
+                          </span>
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="w-8 h-8 rounded-md text-muted-foreground/30 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center shrink-0"
+                            title="Remove line"
+                            aria-label={`Remove ${item.label}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      )
+                    })
+                  })}
+                </ul>
+              )}
 
-        {/* Total + Save - fixed footer, always visible */}
-        <div className="shrink-0 border-t-2 border-foreground/10 bg-card">
-          {itemCount > 0 && (
-            <div className="px-5 py-3 flex items-center justify-between border-b border-border/60">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Total
-              </span>
-              <span className="text-xl font-bold font-mono tabular-nums text-foreground">
-                {formatCurrency(total)}
-              </span>
-            </div>
-          )}
-          {hasUnsavedChanges && itemCount > 0 ? (
-            <div className="p-3">
-              <Button
-                onClick={saveQuote}
-                disabled={isSaving}
-                className="w-full gap-2 h-10 rounded-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm"
-              >
-                {isSaving ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
-                ) : (
-                  <><Save className="h-4 w-4" /> Save Quote</>
-                )}
-              </Button>
-            </div>
-          ) : itemCount === 0 ? null : (
-            <div className="p-3">
-              <div className="w-full h-10 rounded-lg border border-dashed border-border flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                <Check className="h-3 w-3 text-green-600" /> All changes saved
+              {/* ─── Total ─── */}
+              {itemCount > 0 && (
+                <div className="px-10 py-6 border-t-2 border-foreground/10 bg-muted/20">
+                  <div className="flex items-center justify-end gap-8">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Quote Total
+                    </span>
+                    <span className="text-3xl font-bold font-mono tabular-nums text-foreground">
+                      {formatCurrency(total)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </article>
+
+            {/* Save action - below the document, like a QB action bar */}
+            {hasUnsavedChanges && itemCount > 0 && (
+              <div className="mt-4 flex items-center justify-end gap-3">
+                <span className="text-xs text-muted-foreground">
+                  Saving creates a new revision snapshot
+                </span>
+                <Button
+                  onClick={saveQuote}
+                  disabled={isSaving}
+                  className="gap-2 h-11 px-6 rounded-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                >
+                  {isSaving ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                  ) : (
+                    <><Save className="h-4 w-4" /> Save Quote</>
+                  )}
+                </Button>
               </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════ RIGHT: STEP TOOL — the helper ═══════════ */}
+      <aside className="hidden lg:flex flex-col w-[440px] xl:w-[480px] shrink-0 border-l border-border bg-card overflow-hidden">
+        {/* Helper header - makes role very clear */}
+        <header className="shrink-0 px-5 py-4 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Wrench className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Pricing Helper
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {stepIcon && (
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                {stepIcon}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">{stepTitle}</p>
+              {stepDescription && (
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {stepDescription}
+                </p>
+              )}
             </div>
-          )}
+          </div>
+        </header>
+
+        {/* Tool content - only area that scrolls in the right column */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="p-4">
+            {children}
+          </div>
         </div>
       </aside>
 
-      {/* ═══════════ MOBILE: compact collapsed quote summary ═══════════ */}
-      {/* On small screens the aside is hidden. Show a bottom bar with the total
-          and a Save button so the quote context is never fully lost. */}
+      {/* ═══════════ MOBILE bottom save bar (when right aside is hidden) ═══ */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-2 flex items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -334,6 +380,7 @@ export function QuoteFormLayout({
           </Button>
         )}
       </div>
+
     </div>
   )
 }
