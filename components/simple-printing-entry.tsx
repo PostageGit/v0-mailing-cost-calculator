@@ -535,8 +535,7 @@ export function SimplePrintingEntry() {
     console.log("[v0] Rebuilt vendor calcState:", item.calcState)
     console.log("[v0] Rebuilt vendor calcState.inputs:", item.calcState?.inputs)
     
-    // Find matching print item by calcType
-    const calcType = (item.category || item.metadata?.calcType || "flat") as CalcType
+    // Find matching print item by calcType (calcType already defined above)
     const existingPrintItem = printItems.find(pi => pi.calcType === calcType)
     console.log("[v0] Looking for calcType:", calcType, "Found:", existingPrintItem?.id)
     
