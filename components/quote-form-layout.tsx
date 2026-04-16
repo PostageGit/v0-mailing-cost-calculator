@@ -133,6 +133,18 @@ const STEP_CATEGORY_HINTS: Record<string, QuoteCategory[]> = {
   ohp: ["ohp"],
 }
 
+// Inverse lookup: which workflow step (helper screen) owns each category.
+// Used to jump from a line item's category badge straight to the helper
+// that produced it, so users can tweak it in one click.  Derived from
+// STEP_CATEGORY_HINTS so the two never drift apart.
+const CATEGORY_STEP: Partial<Record<QuoteCategory, string>> = (() => {
+  const out: Partial<Record<QuoteCategory, string>> = {}
+  for (const [stepId, cats] of Object.entries(STEP_CATEGORY_HINTS)) {
+    for (const c of cats) if (!out[c]) out[c] = stepId
+  }
+  return out
+})()
+
 export interface QuoteFormLayoutProps {
   children: ReactNode
   stepTitle: string
@@ -149,11 +161,14 @@ export interface QuoteFormLayoutProps {
   onClose?: () => void
   /** Jump back to the Planner step (where customer/project/ref are set up) */
   onGoToPlanner?: () => void
+  /** Jump to a specific pricing step (fires when a line item's category
+   *  badge is tapped — takes the user to the helper that produced it). */
+  onGoToStep?: (stepId: string) => void
 }
 
 export function QuoteFormLayout({
   children, stepTitle, stepDescription, stepIcon, stepId,
-  stepNumber, totalSteps, onClose, onGoToPlanner,
+  stepNumber, totalSteps, onClose, onGoToPlanner, onGoToStep,
 }: QuoteFormLayoutProps) {
   const {
     items,
@@ -588,16 +603,40 @@ export function QuoteFormLayout({
                         isActive && "bg-blue-50/40 dark:bg-blue-950/10"
                       )}
                     >
-                      <span
-                        className={cn(
-                          "w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-center",
+                      {/* Category badge — clickable shortcut to the helper
+                          screen that owns this category. A tap on the badge
+                          opens that step so the user can tweak the inputs
+                          (paper, qty, class, etc.) that produced this line
+                          without hunting for the step in the sidebar.
+                          Falls back to a plain span if no handler is wired
+                          or no step owns the category. */}
+                      {(() => {
+                        const jumpTo = CATEGORY_STEP[item.category]
+                        const canJump = Boolean(onGoToStep && jumpTo)
+                        const classes = cn(
+                          "w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-center leading-tight",
                           isActive
                             ? "bg-blue-600 text-white"
-                            : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {getCategoryLabel(item.category)}
-                      </span>
+                            : "bg-muted text-muted-foreground",
+                          canJump &&
+                            "cursor-pointer hover:ring-2 hover:ring-foreground/30 hover:shadow-sm transition-all",
+                          canJump && !isActive && "hover:bg-muted/80"
+                        )
+                        return canJump ? (
+                          <button
+                            type="button"
+                            onClick={() => onGoToStep!(jumpTo!)}
+                            className={classes}
+                            title={`Edit in ${getCategoryLabel(item.category)} helper`}
+                          >
+                            {getCategoryLabel(item.category)}
+                          </button>
+                        ) : (
+                          <span className={classes}>
+                            {getCategoryLabel(item.category)}
+                          </span>
+                        )
+                      })()}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate leading-tight">
                           {item.label}

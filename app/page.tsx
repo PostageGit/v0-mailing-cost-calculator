@@ -696,6 +696,13 @@ const qbStepDescriptions: Record<string, string> = {
                   stepIcon={<Layers className="h-3.5 w-3.5" />}
                   stepId="planner"
                   onClose={() => setSection("quotes-board")}
+                  onGoToStep={(id) => {
+                    // Let users jump straight from a quote line's badge
+                    // into the right pricing helper, even when they're on
+                    // the planner screen.
+                    setJobPhase("pricing")
+                    setCurrentStep(id as StepId)
+                  }}
                 >
                   <MailPiecePlanner onContinue={handleContinueToPricing} qbMode />
                 </QuoteFormLayout>
@@ -916,6 +923,14 @@ const qbStepDescriptions: Record<string, string> = {
                             onExit={() => setQuoteFormView(false)}
                             onClose={() => setSection("quotes-board")}
                             onGoToPlanner={() => setJobPhase("planner")}
+                            onGoToStep={(id) => {
+                              // Tapping a line's category badge jumps to the
+                              // helper step that produced it. If we're still
+                              // on the planner, flip into pricing first so
+                              // the step actually renders.
+                              setJobPhase("pricing")
+                              setCurrentStep(id as StepId)
+                            }}
                           >
                             <div key={currentStep} className="h-full">
                               <StepErrorBoundary stepId={currentStep}>
