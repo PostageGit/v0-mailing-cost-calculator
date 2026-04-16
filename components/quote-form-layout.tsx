@@ -49,11 +49,16 @@ export interface QuoteFormLayoutProps {
   stepDescription?: string
   stepIcon?: ReactNode
   stepId?: string
+  /** 1-based index of the current step in the workflow (for progress display) */
+  stepNumber?: number
+  /** Total visible steps in the workflow (for progress display) */
+  totalSteps?: number
   onExit?: () => void
 }
 
 export function QuoteFormLayout({
   children, stepTitle, stepDescription, stepIcon, stepId,
+  stepNumber, totalSteps,
 }: QuoteFormLayoutProps) {
   const {
     items,
@@ -289,31 +294,60 @@ export function QuoteFormLayout({
 
       {/* ═══════════ RIGHT: STEP TOOL — "Pricing Helper" ═══════════ */}
       <aside className="hidden lg:flex flex-col w-[440px] xl:w-[500px] 2xl:w-[560px] shrink-0 border-l border-border bg-card overflow-hidden">
-        {/* Helper header */}
-        <header className="shrink-0 px-5 py-3 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Wrench className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Pricing Helper
-            </span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            {stepIcon && (
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                {stepIcon}
+        {/* Helper header - substantial, clear "you are here" indicator.
+            Keyed on stepId so only THIS strip animates when the step changes
+            (the quote document beside it stays rock-stable). */}
+        <header
+          key={stepId}
+          className="shrink-0 border-b-2 border-border bg-gradient-to-b from-muted/40 to-card animate-in fade-in slide-in-from-right-2 duration-300"
+        >
+          {/* Top strip: "Pricing Helper" label + step progress */}
+          <div className="px-5 pt-3 pb-1.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5">
+              <Wrench className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Pricing Helper
+              </span>
+            </div>
+            {typeof stepNumber === "number" && typeof totalSteps === "number" && (
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="tabular-nums">Step {stepNumber} / {totalSteps}</span>
               </div>
             )}
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-foreground truncate leading-tight">
+          </div>
+
+          {/* Main: big numbered badge + bold title + description */}
+          <div className="px-5 pb-3 flex items-center gap-3">
+            {typeof stepNumber === "number" ? (
+              <div className="h-11 w-11 rounded-xl bg-foreground text-background flex items-center justify-center shrink-0 shadow-sm font-bold text-lg tabular-nums">
+                {stepNumber}
+              </div>
+            ) : stepIcon ? (
+              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                {stepIcon}
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-bold text-foreground truncate leading-tight">
                 {stepTitle}
               </p>
               {stepDescription && (
-                <p className="text-[11px] text-muted-foreground truncate leading-tight">
+                <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
                   {stepDescription}
                 </p>
               )}
             </div>
           </div>
+
+          {/* Progress bar - fills proportionally to step position */}
+          {typeof stepNumber === "number" && typeof totalSteps === "number" && totalSteps > 0 && (
+            <div className="h-1 w-full bg-border/50 overflow-hidden">
+              <div
+                className="h-full bg-foreground transition-all duration-500 ease-out"
+                style={{ width: `${(stepNumber / totalSteps) * 100}%` }}
+              />
+            </div>
+          )}
         </header>
 
         {/* Tool content — only area that scrolls in the right column.

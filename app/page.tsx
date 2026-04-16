@@ -902,19 +902,26 @@ const qbStepDescriptions: Record<string, string> = {
                       // QB MODE: QuoteFormLayout is mounted ONCE and persists
                       // across every step. Only the helper child remounts on
                       // step change - the quote document stays rock-solid.
-                      <QuoteFormLayout
-                        stepTitle={qbStepMeta?.label || "Step"}
-                        stepDescription={qbStepDescriptions[currentStep] || ""}
-                        stepIcon={qbStepMeta?.icon}
-                        stepId={currentStep}
-                        onExit={() => setQuoteFormView(false)}
-                      >
-                        <div key={currentStep} className="h-full">
-                          <StepErrorBoundary stepId={currentStep}>
-                            {renderStepHelper()}
-                          </StepErrorBoundary>
-                        </div>
-                      </QuoteFormLayout>
+                      (() => {
+                        const qbIdx = visibleSteps.findIndex(s => s.id === currentStep)
+                        return (
+                          <QuoteFormLayout
+                            stepTitle={qbStepMeta?.label || "Step"}
+                            stepDescription={qbStepDescriptions[currentStep] || ""}
+                            stepIcon={qbStepMeta?.icon}
+                            stepId={currentStep}
+                            stepNumber={qbIdx >= 0 ? qbIdx + 1 : undefined}
+                            totalSteps={visibleSteps.length}
+                            onExit={() => setQuoteFormView(false)}
+                          >
+                            <div key={currentStep} className="h-full">
+                              <StepErrorBoundary stepId={currentStep}>
+                                {renderStepHelper()}
+                              </StepErrorBoundary>
+                            </div>
+                          </QuoteFormLayout>
+                        )
+                      })()
                     ) : (
                       <div key={currentStep} className="step-enter h-full">
                         <StepErrorBoundary stepId={currentStep}>
@@ -946,101 +953,140 @@ const qbStepDescriptions: Record<string, string> = {
                   )}
                 </div>
 
-                {/* QB MODE: Bold bottom action bar - simple, confident, QuickBooks-style */}
+                {/* QB MODE: Substantial, clear bottom action bar.
+                    A progress bar + step counter + prev/next makes the user
+                    always feel exactly where they are in the workflow. */}
                 {quoteFormView && jobPhase === "pricing" && (() => {
                   const idx = visibleSteps.findIndex(s => s.id === currentStep)
                   const prev = idx > 0 ? visibleSteps[idx - 1] : null
                   const next = idx < visibleSteps.length - 1 ? visibleSteps[idx + 1] : null
                   const canGoNext = isEditingExisting || getStepStatus(currentStep) !== "pending"
+                  const progressPct = visibleSteps.length > 0 ? ((idx + 1) / visibleSteps.length) * 100 : 0
                   return (
-                    <div className="shrink-0 border-t-2 border-border bg-white dark:bg-neutral-950">
-                      <div className="flex items-center justify-between px-4 sm:px-8 py-3 gap-4">
-                        {/* Previous */}
+                    <div className="shrink-0 border-t-2 border-border bg-white dark:bg-neutral-950 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+                      {/* Full-width progress bar on top edge */}
+                      <div className="h-1 w-full bg-border/40 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-foreground to-foreground/80 transition-all duration-500 ease-out"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-stretch justify-between gap-4 px-4 sm:px-8">
+                        {/* LEFT: Previous */}
                         {prev ? (
                           <button
                             onClick={() => setCurrentStep(prev.id)}
-                            className="group flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary transition-colors"
+                            className="group flex items-center gap-3 py-4 pr-6 -ml-2 pl-3 hover:bg-secondary/50 transition-colors border-r border-border"
                           >
-                            <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                            <div className="text-left hidden sm:block">
-                              <div className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Previous</div>
-                              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5">{prev.label}</div>
+                            <div className="h-9 w-9 rounded-lg border-2 border-border group-hover:border-foreground bg-card flex items-center justify-center transition-colors shrink-0">
+                              <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                             </div>
-                            <span className="sm:hidden text-xs font-semibold text-foreground">{prev.label}</span>
+                            <div className="text-left hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">Previous</div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1 truncate">{prev.label}</div>
+                            </div>
                           </button>
                         ) : (
                           <button
                             onClick={() => setJobPhase("planner")}
-                            className="group flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-secondary transition-colors"
+                            className="group flex items-center gap-3 py-4 pr-6 -ml-2 pl-3 hover:bg-secondary/50 transition-colors border-r border-border"
                           >
-                            <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                            <div className="text-left hidden sm:block">
-                              <div className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Back to</div>
-                              <div className="text-xs font-semibold text-foreground leading-tight mt-0.5">Planner</div>
+                            <div className="h-9 w-9 rounded-lg border-2 border-border group-hover:border-foreground bg-card flex items-center justify-center transition-colors shrink-0">
+                              <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                             </div>
-                            <span className="sm:hidden text-xs font-semibold text-foreground">Planner</span>
+                            <div className="text-left hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">Back to</div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1">Planner</div>
+                            </div>
                           </button>
                         )}
 
-                        {/* Center: compact step dots indicator */}
-                        <div className="hidden md:flex items-center gap-1.5">
-                          {visibleSteps.map((s, i) => {
-                            const st = getStepStatus(s.id)
-                            const isActive = s.id === currentStep
-                            const reachable = canNavigateTo(i)
-                            return (
-                              <button
-                                key={s.id}
-                                onClick={() => reachable && setCurrentStep(s.id)}
-                                disabled={!reachable}
-                                title={s.label}
-                                className={cn(
-                                  "transition-all rounded-full shrink-0",
-                                  isActive
-                                    ? "w-8 h-2 bg-foreground"
-                                    : st === "done"
-                                      ? "w-2 h-2 bg-emerald-500 hover:w-4"
-                                      : st === "skipped"
-                                        ? "w-2 h-2 bg-amber-400 hover:w-4"
-                                        : reachable
-                                          ? "w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
-                                          : "w-2 h-2 bg-muted-foreground/20 cursor-not-allowed"
-                                )}
-                              />
-                            )
-                          })}
-                          <span className="ml-3 text-[11px] font-mono text-muted-foreground tabular-nums">
-                            {idx + 1}/{visibleSteps.length}
-                          </span>
+                        {/* CENTER: Substantial step indicator - big number + label + dots */}
+                        <div className="flex-1 min-w-0 flex items-center justify-center py-3 gap-4">
+                          {/* Big "Step 3 of 7" display */}
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="h-10 w-10 rounded-xl bg-foreground text-background flex items-center justify-center font-bold text-base tabular-nums shadow-sm">
+                              {idx + 1}
+                            </div>
+                            <div className="hidden md:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">
+                                Step {idx + 1} of {visibleSteps.length}
+                              </div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1 truncate max-w-[160px]">
+                                {qbStepMeta?.label || currentStep}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Step dots - clickable navigation */}
+                          <div className="hidden lg:flex items-center gap-1.5 pl-4 border-l border-border">
+                            {visibleSteps.map((s, i) => {
+                              const st = getStepStatus(s.id)
+                              const isActive = s.id === currentStep
+                              const reachable = canNavigateTo(i)
+                              return (
+                                <button
+                                  key={s.id}
+                                  onClick={() => reachable && setCurrentStep(s.id)}
+                                  disabled={!reachable}
+                                  title={`${i + 1}. ${s.label}`}
+                                  className={cn(
+                                    "transition-all rounded-full shrink-0",
+                                    isActive
+                                      ? "w-10 h-2.5 bg-foreground"
+                                      : st === "done"
+                                        ? "w-2.5 h-2.5 bg-emerald-500 hover:w-5"
+                                        : st === "skipped"
+                                          ? "w-2.5 h-2.5 bg-amber-400 hover:w-5"
+                                          : reachable
+                                            ? "w-2.5 h-2.5 bg-muted-foreground/25 hover:bg-muted-foreground/60"
+                                            : "w-2.5 h-2.5 bg-muted-foreground/15 cursor-not-allowed"
+                                  )}
+                                />
+                              )
+                            })}
+                          </div>
                         </div>
 
-                        {/* Next - bold primary action */}
+                        {/* RIGHT: Next - large, bold, clear primary action */}
                         {next ? (
                           <button
                             onClick={handleNextStep}
                             disabled={!canGoNext}
                             className={cn(
-                              "group flex items-center gap-2.5 px-4 py-2.5 rounded-lg font-semibold transition-all shadow-sm",
+                              "group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 transition-all border-l border-border",
                               canGoNext
-                                ? "bg-foreground text-background hover:bg-foreground/90 hover:shadow"
-                                : "bg-muted text-muted-foreground cursor-not-allowed"
+                                ? "bg-foreground text-background hover:bg-foreground/95"
+                                : "bg-muted/30 text-muted-foreground cursor-not-allowed"
                             )}
                             title={!canGoNext ? "Complete or skip this step first" : undefined}
                           >
                             <div className="text-right hidden sm:block">
-                              <div className="text-[9px] uppercase tracking-widest font-semibold leading-none opacity-70">Next</div>
-                              <div className="text-xs font-bold leading-tight mt-0.5">{next.label}</div>
+                              <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-70">
+                                {canGoNext ? "Continue to" : "Complete first"}
+                              </div>
+                              <div className="text-sm font-bold leading-tight mt-1 truncate">{next.label}</div>
                             </div>
-                            <span className="sm:hidden text-xs font-bold">{next.label}</span>
-                            <ChevronRight className="h-4 w-4" />
+                            <div className={cn(
+                              "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                              canGoNext ? "bg-background/15 group-hover:bg-background/25" : "bg-muted"
+                            )}>
+                              <ChevronRight className="h-4 w-4" />
+                            </div>
                           </button>
                         ) : (
                           <button
                             onClick={() => setSection("export-qb")}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+                            className="group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 bg-emerald-600 text-white hover:bg-emerald-700 transition-all border-l border-border"
                           >
-                            Finish
-                            <Check className="h-4 w-4" />
+                            <div className="text-right hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-80">All Done</div>
+                              <div className="text-sm font-bold leading-tight mt-1">Finish Quote</div>
+                            </div>
+                            <div className="h-9 w-9 rounded-lg bg-white/15 group-hover:bg-white/25 flex items-center justify-center shrink-0 transition-colors">
+                              <Check className="h-4 w-4" />
+                            </div>
                           </button>
                         )}
                       </div>
