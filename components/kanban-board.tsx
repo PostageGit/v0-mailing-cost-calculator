@@ -151,7 +151,7 @@ function getJobNextStep(q: Quote): NextStepResult | null {
     }
   }
   
-  // ══�� PRIORITY 7: All done! (GREEN) ═══
+  // ══��� PRIORITY 7: All done! (GREEN) ═══
   return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
@@ -1455,13 +1455,25 @@ function QuoteCard({
         </div>
 
         <div className="pl-7 pr-4 pt-3.5 pb-3">
-          {/* Row 1: Title + expand/notes actions */}
+          {/* Row 1: Title + OPEN QUOTE primary action + secondary icons.
+              "Open Quote" is the single most important action on a card so
+              it's rendered as a substantial pill button with label + icon,
+              always visible.  The small notes/expand icons stay compact
+              beside it. */}
           <div className="flex items-start gap-2 mb-0.5 relative">
             <p className="text-base font-extrabold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
+                className="group/open flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full bg-foreground text-background hover:bg-foreground/90 font-bold text-[11px] tracking-wide shadow-sm hover:shadow transition-all active:scale-[0.97]"
+                title="Open this quote"
+              >
+                <Pencil className="h-3 w-3" />
+                <span>Open</span>
+              </button>
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
-                className={cn("relative h-6 w-6 flex items-center justify-center rounded transition-colors",
-                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/30 hover:text-foreground"
+                className={cn("relative h-7 w-7 flex items-center justify-center rounded-full transition-colors",
+                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/40 hover:text-foreground hover:bg-secondary/60"
                 )} title="Quick Notes">
                 <NotepadText className="h-3.5 w-3.5" />
                 {(meta.quick_notes || quote.notes) && !showQuickNotes && (
@@ -1469,7 +1481,7 @@ function QuoteCard({
                 )}
               </button>
               <button onClick={() => setOpen(!open)}
-                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground transition-colors" title="Expand">
+                className="h-7 w-7 flex items-center justify-center rounded-full text-muted-foreground/40 hover:text-foreground hover:bg-secondary/60 transition-colors" title="Expand">
                 <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
               </button>
             </div>
@@ -1790,10 +1802,8 @@ function QuoteCard({
                 className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Files">
                 <Paperclip className="h-3.5 w-3.5" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
-                className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Edit Quote">
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
+              {/* Edit pencil removed - replaced by the prominent "Open" button
+                  in the card's title row (row 1). */}
               {!isArchived && (
                 <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
                   className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-background border border-transparent hover:border-border" title="Archive">
@@ -2159,7 +2169,7 @@ function QuoteCard({
   )
 }
 
-/* ═══════════════════════════════════��════════════════
+/* ══════════════════════════════════�����════════════════
    COLUMN SETTINGS
    ════════════════════════════════════════════════════ */
 
