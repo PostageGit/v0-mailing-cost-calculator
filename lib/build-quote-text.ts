@@ -67,6 +67,18 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
 
   // 3b. Cover paper (booklet/perfect)
   if (m.coverPaper) parts.push(`Cover: ${String(m.coverPaper)}${m.coverSides ? `, ${String(m.coverSides)}` : ""}`)
+  
+  // 3c. Binding type (booklet/perfect/spiral)
+  if (m.bindingType && m.bindingType !== "none") {
+    const bindingLabels: Record<string, string> = { 
+      staple: "Saddle Stitch", 
+      perfect: "Perfect Bound", 
+      spiral: "Spiral Bound",
+      coil: "Coil Bound",
+      wire: "Wire-O Bound"
+    }
+    parts.push(bindingLabels[String(m.bindingType)] || String(m.bindingType))
+  }
 
   // 4. Color / sides -- only as separate line when NO cover (flat prints etc.)
   if (m.sides && !m.coverPaper) parts.push(String(m.sides))

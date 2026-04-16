@@ -332,7 +332,7 @@ export function SimplePrintingEntry() {
       specs: { ...activeItem.specs },
       // Calculator state for reopening with same inputs
       calcState: selected.calcState,
-      // Metadata includes specs for email text builder
+      // Metadata includes specs for email text builder (buildCustomerSpecs)
       metadata: { 
         // Pricing info
         baseCost: selected.cost, 
@@ -341,18 +341,26 @@ export function SimplePrintingEntry() {
         isInternal: selected.isInternal,
         calcType: activeItem.calcType,
         pieceName: activeItem.pieceLabel,
-        // Specs for email/PDF generation (buildCustomerSpecs uses these)
+        // Core specs for email/PDF generation
         pieceDimensions: `${activeItem.specs.width}x${activeItem.specs.height}`,
-        hasBleed: activeItem.specs.hasBleed,
+        hasBleed: activeItem.specs.hasBleed || activeItem.specs.insideBleed || activeItem.specs.coverBleed,
         pageCount: activeItem.specs.pages,
-        paperName: activeItem.specs.paper,
-        sides: activeItem.specs.colors,
+        // Paper: for flat use specs.paper, for booklets use insidePaper
+        paperName: activeItem.specs.paper || activeItem.specs.insidePaper,
+        // Sides/colors: for flat use specs.colors, for booklets use insideColors  
+        sides: activeItem.specs.colors || activeItem.specs.insideColors,
+        // Fold (flat prints)
         foldType: activeItem.specs.fold,
-        laminationEnabled: activeItem.specs.lamination && activeItem.specs.lamination !== "none" && activeItem.specs.lamination !== "",
+        // Lamination
+        laminationEnabled: !!(activeItem.specs.lamination && activeItem.specs.lamination !== "none" && activeItem.specs.lamination !== ""),
         laminationType: activeItem.specs.lamination,
-        // Booklet-specific
+        // Booklet-specific cover info
         coverPaper: activeItem.specs.coverPaper,
         coverSides: activeItem.specs.coverColors,
+        // Binding type for booklets (saddle stitch, perfect bound, etc.)
+        bindingType: activeItem.specs.bindingType,
+        // Pad-specific
+        sheetsPerPad: activeItem.specs.sheetsPerPad,
       }
     })
     setPrintItems(prev => prev.map(i => i.id === activeItemId ? { ...i, addedToQuote: true } : i))
