@@ -7,6 +7,7 @@ import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
 import { PadCalculator } from "@/components/pad/pad-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
+import { PostageQuoteFormView } from "@/components/postage-quote-form-view"
 import { ServiceBuilder } from "@/components/service-builder"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { MailPiecePlanner } from "@/components/mail-piece-planner"
@@ -173,6 +174,8 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
   const [calcViewMode, setCalcViewMode] = useState<"detailed" | "quick">("detailed")
+  // NEW: Optional QuickBooks-style quote form view for Postage page only
+  const [postageFormView, setPostageFormView] = useState(false)
   const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
@@ -350,7 +353,28 @@ const renderStep = () => {
   
   switch (currentStep) {
     case "envelope": return <EnvelopeTab />
-    case "usps":     return <USPSPostageCalculator />
+    case "usps":
+      // Optional QuickBooks-style quote form view (toggled by user)
+      if (postageFormView) {
+        return <PostageQuoteFormView onExit={() => setPostageFormView(false)} />
+      }
+      return (
+        <div>
+          {/* Toggle button to switch to Quote Form View */}
+          <div className="mb-4 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPostageFormView(true)}
+              className="gap-1.5 h-8 text-xs rounded-lg"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Switch to Quote Form View
+            </Button>
+          </div>
+          <USPSPostageCalculator />
+        </div>
+      )
     case "labor":    return <ServiceBuilder />
     case "printing": return <PrintingCalculator viewMode={viewMode} />
     case "booklet":  return <BookletCalculator viewMode={viewMode} />
@@ -783,8 +807,9 @@ const renderStep = () => {
                 <div className="flex-1 flex min-h-0 overflow-hidden">
                   <div className={cn(
                     "flex-1 min-w-0 overflow-auto",
-                    // Simple mode printing uses full width, other steps use centered max-w
-                    appConfig.simple_mode && currentStep === "printing"
+                    // Full-width layouts: simple printing mode, and postage quote form view
+                    (appConfig.simple_mode && currentStep === "printing") ||
+                    (currentStep === "usps" && postageFormView)
                       ? "px-0 pt-0 pb-0"
                       : "max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-8"
                   )}>
@@ -794,7 +819,8 @@ const renderStep = () => {
                       </StepErrorBoundary>
                     </div>
                   </div>
-                  {rightOpen ? (
+                  {/* In Postage Quote Form View, hide the right sidebar since the quote is center-stage */}
+                  {currentStep === "usps" && postageFormView ? null : rightOpen ? (
                     <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-l border-border overflow-y-auto bg-card/50">
                       <QuoteSidebar
                         onGoToExport={() => setSection("export-qb")}
