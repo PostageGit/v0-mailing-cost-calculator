@@ -72,7 +72,7 @@ const FULL_COLOR_OPTIONS = [
 
 // LAMINATION options
 const LAMINATION_OPTIONS = [
-  { value: "", label: "None" },
+  { value: "none", label: "None" },
   { value: "gloss", label: "Gloss" },
   { value: "matte", label: "Matte" },
   { value: "silk", label: "Silk" },
@@ -82,7 +82,7 @@ const LAMINATION_OPTIONS = [
 
 // FOLD options for flat printing (renamed to avoid conflict with mailing-context import)
 const FLAT_FOLD_OPTIONS = [
-  { value: "", label: "No Fold" },
+  { value: "none", label: "No Fold" },
   { value: "half", label: "Half Fold" },
   { value: "tri", label: "Tri-Fold" },
   { value: "z", label: "Z-Fold" },
@@ -175,8 +175,8 @@ function buildSpecsText(specs: PieceSpecs): string {
   if (specs.pages) parts.push(`${specs.pages}pp`)
   if (specs.paper) parts.push(specs.paper)
   if (specs.colors) parts.push(specs.colors)
-  if (specs.fold) parts.push(FLAT_FOLD_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
-  if (specs.lamination) parts.push(LAMINATION_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
+  if (specs.fold && specs.fold !== "none") parts.push(FLAT_FOLD_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
+  if (specs.lamination && specs.lamination !== "none") parts.push(LAMINATION_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
   // Booklet/spiral specific
   if (specs.coverPaper) parts.push(`Cover: ${specs.coverPaper}`)
   if (specs.coverColors) parts.push(specs.coverColors)
