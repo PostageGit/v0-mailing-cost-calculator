@@ -690,9 +690,24 @@ const renderStep = () => {
 
           {/* == JOB VIEW (Planner) == */}
           {isJobView && jobPhase === "planner" && (
-            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-8">
-              <MailPiecePlanner onContinue={handleContinueToPricing} />
-            </div>
+            quoteFormView ? (
+              /* In QB Quote Form mode, the planner also becomes a helper beside
+                 the live quote document - so the quote is visible beginning-to-end. */
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <QuoteFormLayout
+                  stepTitle="Planner"
+                  stepDescription="Define the mail pieces in this job"
+                  stepIcon={<Layers className="h-3.5 w-3.5" />}
+                  stepId="planner"
+                >
+                  <MailPiecePlanner onContinue={handleContinueToPricing} />
+                </QuoteFormLayout>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-8">
+                <MailPiecePlanner onContinue={handleContinueToPricing} />
+              </div>
+            )
           )}
 
           {/* == JOB VIEW (Pricing / Calculator) == */}
