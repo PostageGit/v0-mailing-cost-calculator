@@ -3,13 +3,13 @@
 /**
  * QuoteFormLayout
  *
- * QuickBooks-style view — the QUOTE is the main document you are working on.
+ * QuickBooks-style view — the QUOTE is the main document.
  *
- *  - LEFT (main, flex-1):  the QUOTE DOCUMENT — center of attention.
- *  - RIGHT (helper ~460px): the current step's tool — labeled as a helper
- *                           whose only job is to help you price and add lines.
+ *  - LEFT (main):  QUOTE DOCUMENT — locked header + footer, only items scroll.
+ *  - RIGHT (helper): current step's calculator — labeled as "Pricing Helper".
  *
- * No page-level scrolling. Each column scrolls only its own content.
+ * No page-level scrolling. Each column only scrolls its own middle region so
+ * the total, save action, and step header are always visible at a glance.
  */
 
 import type { ReactNode } from "react"
@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
-  Calendar, Wrench,
+  Wrench,
 } from "lucide-react"
 
 // Render order for categories inside the quote.
@@ -77,12 +77,9 @@ export function QuoteFormLayout({
   const total = getTotal()
   const itemCount = items.length
   const activeCategories = stepId ? STEP_CATEGORY_HINTS[stepId] || [] : []
-  const today = new Date().toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  })
 
   const lastSavedLabel = (() => {
-    if (!lastSavedAt) return "Not saved yet"
+    if (!lastSavedAt) return "Not saved"
     const seconds = Math.floor((Date.now() - lastSavedAt) / 1000)
     if (seconds < 10) return "just now"
     if (seconds < 60) return `${seconds}s ago`
@@ -93,250 +90,225 @@ export function QuoteFormLayout({
     return new Date(lastSavedAt).toLocaleDateString()
   })()
 
+  // Flatten items in category order (nothing rendered if empty).
+  const orderedItems = CATEGORY_ORDER.flatMap((cat) =>
+    items.filter((i) => i.category === cat)
+  )
+
   return (
-    // Full-height, no page scroll. Each column scrolls only its own content.
+    // Full-height, no page-level scroll.
     <div className="flex h-full overflow-hidden bg-muted/30">
-      {/* ═══════════ LEFT: QUOTE DOCUMENT — the main thing ═══════════ */}
-      <section className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {/* Document paper */}
-          <div className="max-w-4xl mx-auto px-6 lg:px-10 py-8">
-            <article className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-              {/* ─── Document header ─── */}
-              <header className="px-10 pt-10 pb-6 border-b border-border/60">
-                <div className="flex items-start justify-between gap-8 mb-8">
-                  <div className="min-w-0">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground leading-none mb-1">
-                      Quote
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                      {itemCount} {itemCount === 1 ? "line item" : "line items"}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right space-y-2">
-                    {quoteNumber && (
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">
-                          Quote #
-                        </p>
-                        <p className="text-base font-mono font-bold text-foreground">
-                          Q-{quoteNumber}
-                        </p>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-end gap-2">
-                      {currentRevision > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                          <Clock className="h-3 w-3 text-amber-600" />
-                          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                            Rev {currentRevision}
-                            {revisions.length > 1 && ` of ${revisions.length}`}
-                          </span>
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {today}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {/* ═══════════ LEFT: QUOTE DOCUMENT ═══════════ */}
+      <section className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 lg:p-6">
+        <article className="flex-1 min-h-0 flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden mx-auto w-full max-w-4xl">
 
-                {/* Project / customer fields - feel like the top of a QB form */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div className="md:col-span-1">
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                      Project
-                    </label>
-                    <Input
-                      value={projectName}
-                      onChange={(e) => setProjectName(e.target.value)}
-                      placeholder="Project name"
-                      className="h-10 text-sm font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                      Customer
-                    </label>
-                    <Input
-                      value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      placeholder="Customer name"
-                      className="h-10 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                      Reference #
-                    </label>
-                    <Input
-                      value={referenceNumber}
-                      onChange={(e) => setReferenceNumber(e.target.value)}
-                      placeholder="PO / Ref"
-                      className="h-10 text-sm font-mono"
-                    />
-                  </div>
-                </div>
-              </header>
-
-              {/* ─── Save-status strip ─── */}
-              <div className={cn(
-                "px-10 py-2 border-b border-border/60",
-                hasUnsavedChanges
-                  ? "bg-amber-50/60 dark:bg-amber-950/20"
-                  : "bg-muted/40"
-              )}>
-                {hasUnsavedChanges ? (
-                  <div className="flex items-center gap-1.5">
-                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                      You have unsaved changes — Save to create a new revision
+          {/* ─── LOCKED HEADER ─── */}
+          <header className="shrink-0 border-b border-border/60">
+            {/* Row 1: title + quote number + rev + date  (single compact row) */}
+            <div className="flex items-baseline justify-between gap-4 px-6 pt-5 pb-3">
+              <div className="flex items-baseline gap-3 min-w-0">
+                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">
+                  Quote
+                </h1>
+                {quoteNumber && (
+                  <span className="text-sm font-mono font-semibold text-muted-foreground">
+                    Q-{quoteNumber}
+                  </span>
+                )}
+                {currentRevision > 0 && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <Clock className="h-2.5 w-2.5 text-amber-600" />
+                    <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                      R{currentRevision}
+                      {revisions.length > 1 && `/${revisions.length}`}
                     </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                    <span className="text-xs text-muted-foreground">
-                      All changes saved · {lastSavedLabel}
-                    </span>
-                  </div>
+                  </span>
                 )}
               </div>
+              <span className="text-[11px] text-muted-foreground shrink-0">
+                {itemCount} {itemCount === 1 ? "line" : "lines"}
+              </span>
+            </div>
 
-              {/* ─── Line items ─── */}
-              {/* Column header */}
-              <div className="px-10 py-3 bg-muted/30 border-b border-border flex items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                <span className="w-20 shrink-0">Category</span>
-                <span className="flex-1 min-w-0">Description</span>
-                <span className="w-32 text-right shrink-0">Amount</span>
-                <span className="w-8 shrink-0" aria-hidden />
-              </div>
+            {/* Row 2: Project / Customer / Ref inputs — one tight row */}
+            <div className="px-6 pb-4 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_0.8fr] gap-2">
+              <LabeledField label="Project">
+                <Input
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Project name"
+                  className="h-8 text-sm font-semibold border-transparent bg-muted/50 hover:bg-muted focus:bg-background focus-visible:ring-1"
+                />
+              </LabeledField>
+              <LabeledField label="Customer">
+                <Input
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  placeholder="Customer"
+                  className="h-8 text-sm border-transparent bg-muted/50 hover:bg-muted focus:bg-background focus-visible:ring-1"
+                />
+              </LabeledField>
+              <LabeledField label="Ref">
+                <Input
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                  placeholder="PO"
+                  className="h-8 text-sm font-mono border-transparent bg-muted/50 hover:bg-muted focus:bg-background focus-visible:ring-1"
+                />
+              </LabeledField>
+            </div>
 
-              {itemCount === 0 ? (
-                <div className="px-10 py-16 text-center">
-                  <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
-                    <FileText className="h-6 w-6 text-muted-foreground/50" />
+            {/* Row 3: Table column header */}
+            <div className="px-6 py-2 bg-muted/40 border-t border-border/60 flex items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="w-20 shrink-0">Category</span>
+              <span className="flex-1 min-w-0">Description</span>
+              <span className="w-28 text-right shrink-0">Amount</span>
+              <span className="w-7 shrink-0" aria-hidden />
+            </div>
+          </header>
+
+          {/* ─── SCROLLING LINE-ITEM BODY (the only thing that scrolls) ─── */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {itemCount === 0 ? (
+              <div className="h-full flex items-center justify-center px-6 py-10">
+                <div className="text-center max-w-xs">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+                    <FileText className="h-5 w-5 text-muted-foreground/50" />
                   </div>
-                  <p className="text-base font-semibold text-foreground mb-1">
+                  <p className="text-sm font-semibold text-foreground mb-1">
                     No items yet
                   </p>
-                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                  <p className="text-xs text-muted-foreground">
                     Use the <span className="font-semibold text-foreground">{stepTitle}</span>{" "}
                     helper on the right to price items and add them to this quote.
                   </p>
                 </div>
-              ) : (
-                <ul className="divide-y divide-border/50">
-                  {CATEGORY_ORDER.flatMap((cat) => {
-                    const catItems = items.filter((i) => i.category === cat)
-                    if (catItems.length === 0) return []
-                    return catItems.map((item) => {
-                      const isActive = activeCategories.includes(cat)
-                      return (
-                        <li
-                          key={item.id}
-                          className={cn(
-                            "group flex items-center gap-4 px-10 py-3.5 hover:bg-secondary/30 transition-colors",
-                            isActive && "bg-blue-50/50 dark:bg-blue-950/15"
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded text-center",
-                              isActive
-                                ? "bg-blue-600 text-white"
-                                : "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {getCategoryLabel(cat)}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">
-                              {item.label}
-                            </p>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                {item.description.split("\n")[0]}
-                              </p>
-                            )}
-                          </div>
-                          <span className="w-32 text-right text-sm font-mono font-bold tabular-nums text-foreground shrink-0">
-                            {formatCurrency(item.amount)}
-                          </span>
-                          <button
-                            onClick={() => removeItem(item.id)}
-                            className="w-8 h-8 rounded-md text-muted-foreground/30 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center shrink-0"
-                            title="Remove line"
-                            aria-label={`Remove ${item.label}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </li>
-                      )
-                    })
-                  })}
-                </ul>
-              )}
-
-              {/* ─── Total ─── */}
-              {itemCount > 0 && (
-                <div className="px-10 py-6 border-t-2 border-foreground/10 bg-muted/20">
-                  <div className="flex items-center justify-end gap-8">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Quote Total
-                    </span>
-                    <span className="text-3xl font-bold font-mono tabular-nums text-foreground">
-                      {formatCurrency(total)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </article>
-
-            {/* Save action - below the document, like a QB action bar */}
-            {hasUnsavedChanges && itemCount > 0 && (
-              <div className="mt-4 flex items-center justify-end gap-3">
-                <span className="text-xs text-muted-foreground">
-                  Saving creates a new revision snapshot
-                </span>
-                <Button
-                  onClick={saveQuote}
-                  disabled={isSaving}
-                  className="gap-2 h-11 px-6 rounded-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                >
-                  {isSaving ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
-                  ) : (
-                    <><Save className="h-4 w-4" /> Save Quote</>
-                  )}
-                </Button>
               </div>
+            ) : (
+              <ul className="divide-y divide-border/40">
+                {orderedItems.map((item) => {
+                  const isActive = activeCategories.includes(item.category)
+                  return (
+                    <li
+                      key={item.id}
+                      className={cn(
+                        "group flex items-center gap-3 px-6 py-2.5 hover:bg-secondary/40 transition-colors",
+                        isActive && "bg-blue-50/40 dark:bg-blue-950/10"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-center",
+                          isActive
+                            ? "bg-blue-600 text-white"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {getCategoryLabel(item.category)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate leading-tight">
+                          {item.label}
+                        </p>
+                        {item.description && (
+                          <p className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
+                            {item.description.split("\n")[0]}
+                          </p>
+                        )}
+                      </div>
+                      <span className="w-28 text-right text-sm font-mono font-bold tabular-nums text-foreground shrink-0">
+                        {formatCurrency(item.amount)}
+                      </span>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="w-7 h-7 rounded-md text-muted-foreground/30 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center shrink-0"
+                        title="Remove line"
+                        aria-label={`Remove ${item.label}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </div>
-        </div>
+
+          {/* ─── LOCKED FOOTER: total + save action + status ─── */}
+          <footer className="shrink-0 border-t border-border bg-card">
+            {/* Status strip */}
+            <div className={cn(
+              "px-6 py-1.5 border-b border-border/40 flex items-center gap-1.5 text-[11px]",
+              hasUnsavedChanges
+                ? "bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300"
+                : "bg-muted/30 text-muted-foreground"
+            )}>
+              {hasUnsavedChanges ? (
+                <>
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  <span className="font-medium">Unsaved changes — save to create a new revision</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3 text-green-600 shrink-0" />
+                  <span>Saved · {lastSavedLabel}</span>
+                </>
+              )}
+            </div>
+
+            {/* Total + primary action */}
+            <div className="px-6 py-3 flex items-center justify-between gap-4">
+              <div className="flex items-baseline gap-3 min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Quote Total
+                </span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-foreground leading-none">
+                  {formatCurrency(total)}
+                </span>
+              </div>
+              <Button
+                onClick={saveQuote}
+                disabled={isSaving || !hasUnsavedChanges || itemCount === 0}
+                className={cn(
+                  "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
+                  hasUnsavedChanges && itemCount > 0
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {isSaving ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                ) : (
+                  <><Save className="h-4 w-4" /> Save Quote</>
+                )}
+              </Button>
+            </div>
+          </footer>
+        </article>
       </section>
 
-      {/* ═══════════ RIGHT: STEP TOOL — the helper ═══════════ */}
-      <aside className="hidden lg:flex flex-col w-[440px] xl:w-[480px] shrink-0 border-l border-border bg-card overflow-hidden">
-        {/* Helper header - makes role very clear */}
-        <header className="shrink-0 px-5 py-4 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-1.5 mb-2">
+      {/* ═══════════ RIGHT: STEP TOOL — "Pricing Helper" ═══════════ */}
+      <aside className="hidden lg:flex flex-col w-[440px] xl:w-[500px] 2xl:w-[560px] shrink-0 border-l border-border bg-card overflow-hidden">
+        {/* Helper header */}
+        <header className="shrink-0 px-5 py-3 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-1.5 mb-1.5">
             <Wrench className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Pricing Helper
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {stepIcon && (
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                 {stepIcon}
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-sm font-bold text-foreground truncate">{stepTitle}</p>
+              <p className="text-sm font-bold text-foreground truncate leading-tight">
+                {stepTitle}
+              </p>
               {stepDescription && (
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-[11px] text-muted-foreground truncate leading-tight">
                   {stepDescription}
                 </p>
               )}
@@ -344,10 +316,8 @@ export function QuoteFormLayout({
           </div>
         </header>
 
-        {/* Tool content - only area that scrolls in the right column.
-            The `data-pricing-helper` attribute triggers the normalization
-            CSS scope in globals.css so every step's calculator looks
-            consistent end-to-end when used as a helper. */}
+        {/* Tool content — only area that scrolls in the right column.
+            `data-pricing-helper` triggers the normalization CSS scope. */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div data-pricing-helper className="p-4">
             {children}
@@ -355,7 +325,7 @@ export function QuoteFormLayout({
         </div>
       </aside>
 
-      {/* ═══════════ MOBILE bottom save bar (when right aside is hidden) ═══ */}
+      {/* ═══════════ MOBILE bottom save bar ═══════════ */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-2 flex items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-2 min-w-0">
           <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -383,7 +353,18 @@ export function QuoteFormLayout({
           </Button>
         )}
       </div>
+    </div>
+  )
+}
 
+/** Tiny labeled-field helper for the document header row. */
+function LabeledField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <label className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+        {label}
+      </label>
+      {children}
     </div>
   )
 }
