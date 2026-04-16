@@ -967,7 +967,12 @@ export function SimplePrintingEntry() {
               )}
 
               {/* SAVE BUTTONS - different for new vs edit mode */}
-              {activeItem.selectedVendorId && activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price !== 0 && (
+              {(() => {
+                const selectedVendor = activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)
+                const hasValidPrice = selectedVendor && selectedVendor.price > 0
+                const canSave = activeItem.selectedVendorId && hasValidPrice
+                
+                return (
                 <div className="mt-4 space-y-2">
                   {editingQuoteItemId ? (
                     // EDIT MODE: Show Update + Save as New Version
@@ -978,14 +983,16 @@ export function SimplePrintingEntry() {
                       <div className="flex gap-2">
                         <Button
                           onClick={handleUpdateQuoteItem}
-                          className="flex-1 h-12 gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base"
+                          disabled={!canSave}
+                          className="flex-1 h-12 gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base disabled:opacity-50"
                         >
                           <Check className="h-5 w-5" />
-                          Update - {formatCurrency(activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price || 0)}
+                          Update - {formatCurrency(selectedVendor?.price || 0)}
                         </Button>
                       </div>
                       <Button
                         onClick={handleSaveAsNewVersion}
+                        disabled={!canSave}
                         variant="outline"
                         className="w-full h-10 gap-2 rounded-xl font-semibold text-sm"
                       >
@@ -1004,10 +1011,11 @@ export function SimplePrintingEntry() {
                     // NEW MODE: Show Add to Quote
                     <Button
                       onClick={handleAddToQuote}
-                      className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base"
+                      disabled={!canSave}
+                      className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base disabled:opacity-50"
                     >
                       <Check className="h-5 w-5" />
-                      Add to Quote - {formatCurrency(activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price || 0)}
+                      Add to Quote - {formatCurrency(selectedVendor?.price || 0)}
                     </Button>
                   ) : (
                     // ALREADY ADDED: Show Edit option
@@ -1031,7 +1039,8 @@ export function SimplePrintingEntry() {
                     </Button>
                   )}
                 </div>
-              )}
+                )
+              })()}
             </div>
           </div>
         )}
