@@ -15,6 +15,7 @@
 import type { ReactNode } from "react"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
+import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,38 +23,25 @@ import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock, Hash,
 } from "lucide-react"
 
-type QuoteCategory =
-  | "printing" | "booklet" | "spiral" | "perfect" | "pad"
-  | "envelope" | "usps" | "labor" | "item" | "shipping"
-
-const CATEGORY_LABELS: Record<QuoteCategory, string> = {
-  printing: "Printing",
-  booklet: "Booklets",
-  spiral: "Spiral",
-  perfect: "Perfect Bound",
-  pad: "Pads",
-  envelope: "Envelopes",
-  usps: "Postage",
-  labor: "Services",
-  item: "Items",
-  shipping: "Shipping",
-}
-
+// Render order for categories inside the quote.
+// Must use the real QuoteCategory values from quote-types.ts.
 const CATEGORY_ORDER: QuoteCategory[] = [
-  "printing", "booklet", "spiral", "perfect", "pad", "envelope",
-  "usps", "labor", "item", "shipping",
+  "flat", "booklet", "spiral", "perfect", "pad",
+  "envelope", "postage", "listwork", "item", "ohp",
 ]
 
+// Map each workflow step to the QuoteCategory values it contributes to.
+// Used to highlight the line items that belong to the current step.
 const STEP_CATEGORY_HINTS: Record<string, QuoteCategory[]> = {
   envelope: ["envelope"],
-  usps: ["usps"],
-  labor: ["labor", "item"],
-  printing: ["printing"],
+  usps: ["postage"],
+  labor: ["listwork", "item"],
+  printing: ["flat"],
   booklet: ["booklet"],
   spiral: ["spiral"],
   perfect: ["perfect"],
   pad: ["pad"],
-  ohp: ["printing", "booklet", "spiral", "perfect", "pad"],
+  ohp: ["ohp"],
 }
 
 export interface QuoteFormLayoutProps {
@@ -62,7 +50,10 @@ export interface QuoteFormLayoutProps {
   stepDescription?: string
   stepIcon?: ReactNode
   stepId?: string
-  onExit: () => void
+  /** Called when user exits this view. Not used inside the layout itself -
+   *  the main app provides a Classic/Quote Form toggle in the top bar -
+   *  but kept on the props for API compatibility. */
+  onExit?: () => void
 }
 
 export function QuoteFormLayout({
@@ -131,17 +122,18 @@ export function QuoteFormLayout({
       </section>
 
       {/* ═══════════ RIGHT: QUOTE DOCUMENT ═══════════ */}
-      <aside className="hidden lg:flex flex-col w-[400px] xl:w-[440px] shrink-0 border-l border-border bg-card overflow-hidden">
+      {/* Hidden on small screens; on lg+ the quote panel always shows. */}
+      <aside className="hidden lg:flex flex-col w-[380px] xl:w-[420px] shrink-0 border-l border-border bg-card overflow-hidden">
         {/* Document header - fixed, compact */}
         <div className="shrink-0 px-5 py-4 border-b border-border">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h2 className="text-lg font-bold tracking-tight text-foreground">Quote</h2>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold tracking-tight text-foreground leading-tight">Quote</h2>
               <p className="text-[11px] text-muted-foreground">
                 {itemCount} {itemCount === 1 ? "line item" : "line items"}
               </p>
             </div>
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-end gap-1 shrink-0">
               {quoteNumber && (
                 <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-foreground">
                   <Hash className="h-3 w-3 text-muted-foreground" />
@@ -160,26 +152,28 @@ export function QuoteFormLayout({
             </div>
           </div>
 
-          {/* Project / customer - compact 2-col grid */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Project / customer - compact */}
+          <div className="flex flex-col gap-2">
             <Input
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="Project name"
-              className="h-8 text-xs font-semibold col-span-2"
+              className="h-8 text-xs font-semibold"
             />
-            <Input
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-              placeholder="Customer"
-              className="h-8 text-xs"
-            />
-            <Input
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              placeholder="Reference #"
-              className="h-8 text-xs font-mono"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                placeholder="Customer"
+                className="h-8 text-xs"
+              />
+              <Input
+                value={referenceNumber}
+                onChange={(e) => setReferenceNumber(e.target.value)}
+                placeholder="Reference #"
+                className="h-8 text-xs font-mono"
+              />
+            </div>
           </div>
         </div>
 
@@ -188,7 +182,9 @@ export function QuoteFormLayout({
           {hasUnsavedChanges ? (
             <div className="flex items-center gap-1.5">
               <AlertCircle className="h-3 w-3 text-amber-600 shrink-0" />
-              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Unsaved changes</span>
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                Unsaved changes
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
@@ -199,8 +195,8 @@ export function QuoteFormLayout({
         </div>
 
         {/* Line items table header */}
-        <div className="shrink-0 px-5 py-2 border-b border-border bg-muted/30 grid grid-cols-[1fr_auto] items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          <span>Item</span>
+        <div className="shrink-0 px-5 py-2 border-b border-border bg-muted/30 flex items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <span className="flex-1">Item</span>
           <span className="text-right">Amount</span>
         </div>
 
@@ -227,33 +223,33 @@ export function QuoteFormLayout({
                     <li
                       key={item.id}
                       className={cn(
-                        "group flex items-center gap-3 px-5 py-2.5 hover:bg-secondary/40 transition-colors",
-                        isActive && "bg-blue-50/50 dark:bg-blue-950/10"
+                        "group flex items-center gap-2 px-5 py-2.5 hover:bg-secondary/40 transition-colors",
+                        isActive && "bg-blue-50/60 dark:bg-blue-950/20"
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span
                             className={cn(
-                              "text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0",
+                              "text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap",
                               isActive
                                 ? "bg-blue-600 text-white"
                                 : "bg-muted text-muted-foreground"
                             )}
                           >
-                            {CATEGORY_LABELS[cat]}
+                            {getCategoryLabel(cat)}
                           </span>
-                          <p className="text-xs font-semibold text-foreground truncate">
+                          <p className="text-xs font-semibold text-foreground truncate min-w-0">
                             {item.label}
                           </p>
                         </div>
                         {item.description && (
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5 pl-0">
-                            {item.description}
+                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                            {item.description.split("\n")[0]}
                           </p>
                         )}
                       </div>
-                      <span className="text-xs font-mono font-bold tabular-nums text-foreground shrink-0">
+                      <span className="text-xs font-mono font-bold tabular-nums text-foreground shrink-0 ml-1">
                         {formatCurrency(item.amount)}
                       </span>
                       <button
@@ -276,7 +272,9 @@ export function QuoteFormLayout({
         <div className="shrink-0 border-t-2 border-foreground/10 bg-card">
           {itemCount > 0 && (
             <div className="px-5 py-3 flex items-center justify-between border-b border-border/60">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Total
+              </span>
               <span className="text-xl font-bold font-mono tabular-nums text-foreground">
                 {formatCurrency(total)}
               </span>
@@ -305,6 +303,37 @@ export function QuoteFormLayout({
           )}
         </div>
       </aside>
+
+      {/* ═══════════ MOBILE: compact collapsed quote summary ═══════════ */}
+      {/* On small screens the aside is hidden. Show a bottom bar with the total
+          and a Save button so the quote context is never fully lost. */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-2 flex items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              {itemCount} {itemCount === 1 ? "item" : "items"}
+            </p>
+            <p className="text-sm font-bold font-mono tabular-nums truncate">
+              {formatCurrency(total)}
+            </p>
+          </div>
+        </div>
+        {hasUnsavedChanges && itemCount > 0 && (
+          <Button
+            onClick={saveQuote}
+            disabled={isSaving}
+            size="sm"
+            className="gap-1.5 h-8 rounded-lg font-bold bg-green-600 hover:bg-green-700 text-white shrink-0"
+          >
+            {isSaving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <><Save className="h-3.5 w-3.5" /> Save</>
+            )}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
