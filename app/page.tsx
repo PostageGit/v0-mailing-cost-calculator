@@ -357,67 +357,60 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
   [visibleSteps, completedSteps])
 
-const renderStep = () => {
-  // Map view mode: "quick" -> "compact" for the calculator forms
+// Builds just the helper tool for the current step (the right-side content
+// that swaps with each step). Rendered inside QuoteFormLayout in QB mode.
+const renderStepHelper = () => {
   const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
+  if (appConfig.simple_mode && currentStep === "printing") {
+    return <SimplePrintingEntry qbMode />
+  }
+  switch (currentStep) {
+    case "envelope": return <EnvelopeTab />
+    case "usps":     return <USPSPostageCalculator />
+    case "labor":    return <ServiceBuilder />
+    case "printing": return <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return <PadCalculator viewMode={viewMode} />
+    case "ohp":      return <VendorBidTab />
+    default:         return null
+  }
+}
 
-  // SIMPLE MODE printing: when QB Quote Form view is OFF, keep the original
-  // custom full-width SimplePrintingEntry layout. When it's ON, fall through
-  // so SimplePrintingEntry is wrapped in QuoteFormLayout like every other
-  // step - the quote document stays visible beginning-to-end.
-  if (appConfig.simple_mode && currentStep === "printing" && !quoteFormView) {
+// Classic (non-QB) mode: returns the raw calculator content with no wrapper.
+const renderStep = () => {
+  const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
+  if (appConfig.simple_mode && currentStep === "printing") {
     return <SimplePrintingEntry />
   }
-
-  // Render the raw step tool (classic calculator content)
-  const stepContent = (() => {
-    // In QB Quote Form view with simple mode, SimplePrintingEntry is the helper
-    if (appConfig.simple_mode && currentStep === "printing") {
-      return <SimplePrintingEntry qbMode />
-    }
-    switch (currentStep) {
-      case "envelope": return <EnvelopeTab />
-      case "usps":     return <USPSPostageCalculator />
-      case "labor":    return <ServiceBuilder />
-      case "printing": return <PrintingCalculator viewMode={viewMode} />
-      case "booklet":  return <BookletCalculator viewMode={viewMode} />
-      case "spiral":   return <SpiralCalculator viewMode={viewMode} />
-      case "perfect":  return <PerfectCalculator viewMode={viewMode} />
-      case "pad":      return <PadCalculator viewMode={viewMode} />
-      case "ohp":      return <VendorBidTab />
-      default:         return null
-    }
-  })()
-
-  // When the QuickBooks-style quote form view is ON, wrap every step's tool
-  // in the shared QuoteFormLayout so the quote document stays center stage.
-  if (quoteFormView) {
-    const stepMeta = ALL_STEPS.find(s => s.id === currentStep)
-    const descriptions: Record<string, string> = {
-      envelope: "Add envelope line items",
-      usps: "Calculate postage rates",
-      labor: "Add services & supplies",
-      printing: "Price flat printing",
-      booklet: "Price saddle-stitch booklets",
-      spiral: "Price spiral-bound booklets",
-      perfect: "Price perfect-bound booklets",
-      pad: "Price padded items",
-      ohp: "Vendor bids for outside help",
-    }
-    return (
-      <QuoteFormLayout
-        stepTitle={stepMeta?.label || "Step"}
-        stepDescription={descriptions[currentStep] || ""}
-        stepIcon={stepMeta?.icon}
-        stepId={currentStep}
-        onExit={() => setQuoteFormView(false)}
-      >
-        {stepContent}
-      </QuoteFormLayout>
-    )
+  switch (currentStep) {
+    case "envelope": return <EnvelopeTab />
+    case "usps":     return <USPSPostageCalculator />
+    case "labor":    return <ServiceBuilder />
+    case "printing": return <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return <PadCalculator viewMode={viewMode} />
+    case "ohp":      return <VendorBidTab />
+    default:         return null
   }
+}
 
-  return stepContent
+// Metadata used by QuoteFormLayout's top strip (shows the active step
+// label on the helper side). Doesn't affect the quote document at all.
+const qbStepMeta = ALL_STEPS.find(s => s.id === currentStep)
+const qbStepDescriptions: Record<string, string> = {
+  envelope: "Add envelope line items",
+  usps: "Calculate postage rates",
+  labor: "Add services & supplies",
+  printing: "Price flat printing",
+  booklet: "Price saddle-stitch booklets",
+  spiral: "Price spiral-bound booklets",
+  perfect: "Price perfect-bound booklets",
+  pad: "Price padded items",
+  ohp: "Vendor bids for outside help",
 }
 
   const isJobView = section === "job"
@@ -905,11 +898,30 @@ const renderStep = () => {
                       ? "px-0 pt-0 pb-0"
                       : "max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-8"
                   )}>
-                    <div key={currentStep} className="step-enter h-full">
-                      <StepErrorBoundary stepId={currentStep}>
-                        {renderStep()}
-                      </StepErrorBoundary>
-                    </div>
+                    {quoteFormView ? (
+                      // QB MODE: QuoteFormLayout is mounted ONCE and persists
+                      // across every step. Only the helper child remounts on
+                      // step change - the quote document stays rock-solid.
+                      <QuoteFormLayout
+                        stepTitle={qbStepMeta?.label || "Step"}
+                        stepDescription={qbStepDescriptions[currentStep] || ""}
+                        stepIcon={qbStepMeta?.icon}
+                        stepId={currentStep}
+                        onExit={() => setQuoteFormView(false)}
+                      >
+                        <div key={currentStep} className="h-full">
+                          <StepErrorBoundary stepId={currentStep}>
+                            {renderStepHelper()}
+                          </StepErrorBoundary>
+                        </div>
+                      </QuoteFormLayout>
+                    ) : (
+                      <div key={currentStep} className="step-enter h-full">
+                        <StepErrorBoundary stepId={currentStep}>
+                          {renderStep()}
+                        </StepErrorBoundary>
+                      </div>
+                    )}
                   </div>
                   {/* In QuickBooks Quote Form View, hide the right sidebar - the quote is already center-stage in the form layout */}
                   {quoteFormView ? null : rightOpen ? (
