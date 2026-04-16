@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { RevisionDiffPopover } from "@/components/revision-diff-popover"
 
 /** Lightweight customer shape - matches `/api/customers` response for the
  *  fields we actually use here (name resolution). */
@@ -427,6 +428,25 @@ export function QuoteFormLayout({
                   <span className="text-[10px] text-muted-foreground/60">
                     {revisions.length} total — click any to open &amp; edit
                   </span>
+                  {/* Diff popover: compares the ACTIVE revision against the
+                      one immediately before it, so customer service can see
+                      at a glance what actually changed. Only renders when a
+                      prior revision exists — keeps the header uncluttered
+                      on brand-new quotes and on Rev 1. */}
+                  {(() => {
+                    const active = revisions.find(
+                      (r) => r.revision_number === currentRevision,
+                    )
+                    const prior = revisions.find(
+                      (r) => r.revision_number === currentRevision - 1,
+                    )
+                    if (!active || !prior) return null
+                    return (
+                      <span className="ml-auto">
+                        <RevisionDiffPopover before={prior} after={active} />
+                      </span>
+                    )
+                  })()}
                 </div>
                 <div className="flex items-stretch gap-2 overflow-x-auto pb-0 -mb-px">
                   {sortedRevisions.map((rev) => {
