@@ -332,14 +332,27 @@ export function SimplePrintingEntry() {
       specs: { ...activeItem.specs },
       // Calculator state for reopening with same inputs
       calcState: selected.calcState,
-      // Legacy metadata
+      // Metadata includes specs for email text builder
       metadata: { 
+        // Pricing info
         baseCost: selected.cost, 
         shipping: selected.shipping, 
         markupPercent: selected.markupPercent, 
         isInternal: selected.isInternal,
         calcType: activeItem.calcType,
         pieceName: activeItem.pieceLabel,
+        // Specs for email/PDF generation (buildCustomerSpecs uses these)
+        pieceDimensions: `${activeItem.specs.width}x${activeItem.specs.height}`,
+        hasBleed: activeItem.specs.hasBleed,
+        pageCount: activeItem.specs.pages,
+        paperName: activeItem.specs.paper,
+        sides: activeItem.specs.colors,
+        foldType: activeItem.specs.fold,
+        laminationEnabled: activeItem.specs.lamination && activeItem.specs.lamination !== "none" && activeItem.specs.lamination !== "",
+        laminationType: activeItem.specs.lamination,
+        // Booklet-specific
+        coverPaper: activeItem.specs.coverPaper,
+        coverSides: activeItem.specs.coverColors,
       }
     })
     setPrintItems(prev => prev.map(i => i.id === activeItemId ? { ...i, addedToQuote: true } : i))

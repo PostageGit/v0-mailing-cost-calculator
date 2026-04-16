@@ -236,10 +236,29 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   }
 
   // --- MAIL WORK (consolidated: "item" + "listwork" under one header) ---
+  // Split list rentals from other mail work for better presentation
   const mailWorkItems = items.filter((i) => MAIL_WORK_CATS.includes(i.category))
-  if (mailWorkItems.length > 0) {
+  const listRentalItems = mailWorkItems.filter((i) => i.label.toLowerCase().includes("list rental"))
+  const otherMailWork = mailWorkItems.filter((i) => !i.label.toLowerCase().includes("list rental"))
+  
+  // Show list rentals first with proper formatting
+  if (listRentalItems.length > 0) {
+    lines.push("LIST RENTALS")
+    listRentalItems.forEach((item) => {
+      // Label has "List Rental - Monsey" format, description has "13,800 names @ $50/M"
+      const listName = item.label.replace(/^List Rental\s*[-–]\s*/i, "").trim()
+      // Build a nice customer line: "Monsey - 13,800 names @ $50/M"
+      const custLine = item.description ? `${listName} - ${item.description}` : listName
+      lines.push(custLine)
+      lines.push(formatCurrency(item.amount))
+    })
+    lines.push(divider)
+  }
+  
+  if (otherMailWork.length > 0) {
     lines.push("MAIL WORK")
-    mailWorkItems.forEach((item) => {
+    otherMailWork.forEach((item) => {
+      if (item.label) lines.push(item.label)
       if (item.description) lines.push(item.description)
       lines.push(formatCurrency(item.amount))
     })
