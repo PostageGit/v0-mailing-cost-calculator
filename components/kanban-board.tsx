@@ -151,7 +151,7 @@ function getJobNextStep(q: Quote): NextStepResult | null {
     }
   }
   
-  // ═══ PRIORITY 7: All done! (GREEN) ═══
+  // ══�� PRIORITY 7: All done! (GREEN) ═══
   return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
@@ -2159,7 +2159,7 @@ function QuoteCard({
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ═══════════════════════════════════��════════════════
    COLUMN SETTINGS
    ════════════════════════════════════════════════════ */
 
@@ -2683,9 +2683,9 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onAr
    MAIN KANBAN BOARD
    ════════════════════════════════════��═══════════════ */
 
-export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote, simpleView: simpleViewProp, onSimpleViewChange }: {
+export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote, simpleView: simpleViewProp }: {
   boardType?: "quote" | "job"; viewMode?: "board" | "list" | "sidebar"; onLoadQuote: (quoteId: string) => void;
-  simpleView?: boolean; onSimpleViewChange?: (value: boolean) => void;
+  simpleView?: boolean;
 }) {
   const isJob = boardType === "job"
   const colsUrl = `/api/board-columns?type=${boardType}`
@@ -2705,10 +2705,10 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
   const [userFilter, setUserFilter] = useState<string>("all")
-  // Use prop if provided, otherwise use local state
+  // Use prop if provided, otherwise use local state (for standalone usage)
   const [simpleViewLocal, setSimpleViewLocal] = useState(false)
   const simpleView = simpleViewProp ?? simpleViewLocal
-  const setSimpleView = onSimpleViewChange ?? setSimpleViewLocal
+  const setSimpleView = setSimpleViewLocal
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null; showTimeline?: boolean }>>({})
