@@ -423,21 +423,27 @@ export function SimplePrintingEntry() {
     setEditingQuoteItemId(null)
   }
   
-  // UPDATE: Overwrites the existing quote line item (no new revision)
+  // UPDATE: Overwrites the existing quote line item
   const handleUpdateQuoteItem = () => {
-    if (!editingQuoteItemId) return
     const data = buildQuoteItemData()
     if (!data) return
-    updateItem(editingQuoteItemId, data)
-    setPrintItems(prev => prev.map(i => i.id === activeItemId ? { ...i, addedToQuote: true } : i))
-    setEditingQuoteItemId(null)
-  }
-  
-  // SAVE AS NEW VERSION: Keeps old item, adds new one (user explicitly chose new version)
-  const handleSaveAsNewVersion = () => {
-    const data = buildQuoteItemData()
-    if (!data) return
-    addItem(data)
+    
+    // Find the quote item ID to update - either from editingQuoteItemId or by matching specs
+    let itemIdToUpdate = editingQuoteItemId
+    if (!itemIdToUpdate && activeItem) {
+      // Find matching quote item by specs
+      const matchingItem = quoteItems.find(qi => 
+        qi.category === activeItem.calcType &&
+        qi.specs?.width === activeItem.specs.width &&
+        qi.specs?.height === activeItem.specs.height &&
+        qi.specs?.quantity === activeItem.specs.quantity
+      )
+      itemIdToUpdate = matchingItem?.id || null
+    }
+    
+    if (itemIdToUpdate) {
+      updateItem(itemIdToUpdate, data)
+    }
     setPrintItems(prev => prev.map(i => i.id === activeItemId ? { ...i, addedToQuote: true } : i))
     setEditingQuoteItemId(null)
   }
@@ -445,19 +451,17 @@ export function SimplePrintingEntry() {
   // Load an existing quote item for editing
   const handleEditQuoteItem = (quoteItemId: number) => {
     const item = quoteItems.find(i => i.id === quoteItemId)
-    console.log("[v0] handleEditQuoteItem called with quoteItemId:", quoteItemId)
-    console.log("[v0] Found quote item:", item)
+
     
     if (!item) {
-      console.log("[v0] No item found, returning")
+  
       return
     }
     
     // Build specs from calcState.inputs (FULL calculator data) when available
     const inputs = item.calcState?.inputs as Record<string, unknown> | undefined
     const calcType = item.category || item.metadata?.calcType || "flat"
-    console.log("[v0] calcState.inputs:", inputs)
-    console.log("[v0] calcType:", calcType)
+
     
     let savedSpecs: PieceSpecs
     
@@ -576,7 +580,7 @@ export function SimplePrintingEntry() {
         sheetsPerPad: item.specs?.sheetsPerPad || 0,
       }
     }
-    console.log("[v0] Rebuilt savedSpecs:", savedSpecs)
+
     
     // Build vendor quote from saved data - MUST include calcState with full inputs
     const savedVendorQuote: VendorQuote | null = item.vendor && item.vendorId ? {
@@ -590,13 +594,11 @@ export function SimplePrintingEntry() {
       priceOverride: false,
       calcState: item.calcState,  // THIS is where the full inputs are stored
     } : null
-    console.log("[v0] Rebuilt vendor quote:", savedVendorQuote)
-    console.log("[v0] Rebuilt vendor calcState:", item.calcState)
-    console.log("[v0] Rebuilt vendor calcState.inputs:", item.calcState?.inputs)
+
     
     // Find matching print item by calcType (calcType already defined above)
     const existingPrintItem = printItems.find(pi => pi.calcType === calcType)
-    console.log("[v0] Looking for calcType:", calcType, "Found:", existingPrintItem?.id)
+
     
     if (existingPrintItem) {
       // Update existing print item with ALL saved data
@@ -612,7 +614,7 @@ export function SimplePrintingEntry() {
           : pi
       ))
       setActiveItemId(existingPrintItem.id)
-      console.log("[v0] Updated print item, set activeItemId:", existingPrintItem.id)
+
     } else {
       // Create a new print item for this quote item
       const newId = `edit-${quoteItemId}-${Date.now()}`
@@ -628,11 +630,11 @@ export function SimplePrintingEntry() {
       }
       setPrintItems(prev => [...prev, newPrintItem])
       setActiveItemId(newId)
-      console.log("[v0] Created new print item:", newId)
+
     }
     
     setEditingQuoteItemId(quoteItemId)
-    console.log("[v0] Set editingQuoteItemId:", quoteItemId)
+
   }
   
   const getCheapestId = (item: PrintItem) => {
@@ -659,102 +661,44 @@ export function SimplePrintingEntry() {
     <div className="h-full">
       {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content */}
       <div className="flex h-full">
-        {/* LEFT SIDEBAR - Pieces List */}
+        {/* LEFT SIDEBAR - Simple list of all items */}
         <div className="w-56 shrink-0 border-r bg-muted/30 p-4 overflow-y-auto">
-          {/* SAVED QUOTE ITEMS - Items already in quote that can be edited */}
-          {(() => {
-            const printingCategories = ["flat", "booklet", "spiral", "perfect", "pad", "envelope"]
-            const savedPrintItems = quoteItems.filter(qi => printingCategories.includes(qi.category))
-            if (savedPrintItems.length === 0) return null
-            
-            return (
-              <div className="mb-6">
-                <h3 className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider mb-1">Saved to Quote</h3>
-                <p className="text-[10px] text-muted-foreground mb-2">Click to edit</p>
-                <div className="space-y-1.5">
-                  {savedPrintItems.map((qi) => {
-                    const isEditing = editingQuoteItemId === qi.id
-                    return (
-                      <button
-                        key={qi.id}
-                        onClick={() => handleEditQuoteItem(qi.id)}
-                        className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all border",
-                          isEditing
-                            ? "bg-amber-500 text-white border-amber-500 ring-2 ring-amber-300"
-                            : "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/50"
-                        )}
-                      >
-                        {isEditing ? (
-                          <Pencil className="h-3.5 w-3.5 shrink-0 text-white" />
-                        ) : (
-                          <Check className="h-3.5 w-3.5 shrink-0 text-green-600" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className={cn("text-xs font-bold truncate", isEditing ? "text-white" : "text-foreground")}>
-                            {isEditing ? "EDITING: " : ""}{qi.label}
-                          </div>
-                          <div className={cn("text-[10px]", isEditing ? "text-white/80" : "text-green-700 dark:text-green-400")}>
-                            {formatCurrency(qi.amount)}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
-          
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Mail Pieces</h3>
-              <Badge variant="outline" className="text-[10px] h-5 font-semibold">
-                {printItems.filter(i => i.addedToQuote).length}/{printItems.length}
-              </Badge>
-            </div>
-            <p className="text-[10px] text-muted-foreground">Get pricing for each piece</p>
-          </div>
           <div className="space-y-1.5">
-            {printItems
-              // When editing a quote item, hide the temporary edit item from this list
-              // (it shows in "Saved to Quote" section above with EDITING label)
-              .filter(item => {
-                // If we're editing a quote item and this item is that edit, hide it
-                if (editingQuoteItemId && item.id.startsWith('edit-')) return false
-                return true
-              })
-              .map((item, idx) => {
+            {printItems.map((item) => {
               const isActive = item.id === activeItemId
               const selectedVendor = item.vendorQuotes.find(vq => vq.vendorId === item.selectedVendorId)
+              const isSaved = item.addedToQuote
+              
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveItemId(item.id)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all",
+                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all",
                     isActive 
                       ? "bg-foreground text-background shadow-md" 
-                      : item.addedToQuote 
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                      : isSaved 
+                        ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800"
                         : "bg-background hover:bg-muted border border-border/50"
                   )}
                 >
-                  <span className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                    item.addedToQuote ? "bg-green-600 text-white" : isActive ? "bg-background/20 text-background" : "bg-muted-foreground/10 text-muted-foreground"
-                  )}>
-                    {item.addedToQuote ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-                  </span>
+                  {/* Status icon */}
+                  {isSaved ? (
+                    <Check className={cn("h-4 w-4 shrink-0", isActive ? "text-background" : "text-green-600")} />
+                  ) : (
+                    <div className={cn("w-4 h-4 rounded-full border-2 shrink-0", isActive ? "border-background/50" : "border-muted-foreground/30")} />
+                  )}
+                  
+                  {/* Label and price */}
                   <div className="min-w-0 flex-1">
-                    <div className={cn("font-semibold text-sm truncate", isActive && "text-background")}>{item.pieceLabel}</div>
-                    {selectedVendor && selectedVendor.price > 0 ? (
-                      <div className={cn("text-xs truncate", isActive ? "text-background/70" : "text-muted-foreground")}>
-                        {formatCurrency(selectedVendor.price)}
-                      </div>
-                    ) : (
-                      <div className={cn("text-xs", isActive ? "text-background/50" : "text-muted-foreground/50")}>No price yet</div>
-                    )}
+                    <div className={cn("font-semibold text-sm truncate", isActive && "text-background")}>
+                      {item.pieceLabel}
+                    </div>
+                    <div className={cn("text-xs", isActive ? "text-background/70" : "text-muted-foreground")}>
+                      {selectedVendor && selectedVendor.price > 0 
+                        ? formatCurrency(selectedVendor.price) 
+                        : "No price yet"}
+                    </div>
                   </div>
                 </button>
               )
@@ -1474,42 +1418,18 @@ export function SimplePrintingEntry() {
                 const canSave = activeItem.selectedVendorId && hasValidPrice
                 
                 return (
-                <div className="mt-4 space-y-2">
-                  {editingQuoteItemId ? (
-                    // EDIT MODE: Show Update + Save as New Version
-                    <>
-                      <div className="text-xs text-amber-600 font-medium text-center mb-2 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg">
-                        Editing existing quote item
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleUpdateQuoteItem}
-                          disabled={!canSave}
-                          className="flex-1 h-12 gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base disabled:opacity-50"
-                        >
-                          <Check className="h-5 w-5" />
-                          Update - {formatCurrency(selectedVendor?.price || 0)}
-                        </Button>
-                      </div>
-                      <Button
-                        onClick={handleSaveAsNewVersion}
-                        disabled={!canSave}
-                        variant="outline"
-                        className="w-full h-10 gap-2 rounded-xl font-semibold text-sm"
-                      >
-                        <Copy className="h-4 w-4" />
-                        Save as New Version
-                      </Button>
-                      <Button
-                        onClick={() => setEditingQuoteItemId(null)}
-                        variant="ghost"
-                        className="w-full h-8 text-xs text-muted-foreground"
-                      >
-                        Cancel Edit
-                      </Button>
-                    </>
-                  ) : !activeItem.addedToQuote ? (
-                    // NEW MODE: Show Add to Quote
+                <div className="mt-4">
+                  {/* Single save button - Updates if already saved, Adds if new */}
+                  {activeItem.addedToQuote ? (
+                    <Button
+                      onClick={handleUpdateQuoteItem}
+                      disabled={!canSave}
+                      className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base disabled:opacity-50"
+                    >
+                      <Check className="h-5 w-5" />
+                      Save Changes - {formatCurrency(selectedVendor?.price || 0)}
+                    </Button>
+                  ) : (
                     <Button
                       onClick={handleAddToQuote}
                       disabled={!canSave}
@@ -1517,26 +1437,6 @@ export function SimplePrintingEntry() {
                     >
                       <Check className="h-5 w-5" />
                       Add to Quote - {formatCurrency(selectedVendor?.price || 0)}
-                    </Button>
-                  ) : (
-                    // ALREADY ADDED: Show Edit option
-                    <Button
-                      onClick={() => {
-                        // Find the matching quote item to edit
-                        const matchingItem = quoteItems.find(qi => 
-                          qi.category === activeItem.calcType &&
-                          qi.specs?.width === activeItem.specs.width &&
-                          qi.specs?.height === activeItem.specs.height
-                        )
-                        if (matchingItem) {
-                          setEditingQuoteItemId(matchingItem.id)
-                        }
-                      }}
-                      variant="outline"
-                      className="w-full h-10 gap-2 rounded-xl font-semibold"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit Quote Item
                     </Button>
                   )}
                 </div>
@@ -1554,9 +1454,7 @@ export function SimplePrintingEntry() {
         const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
         const savedInputs = vendorQuote?.calcState?.inputs
         
-        console.log("[v0] Calculator Dialog - calcVendorId:", calcVendorId)
-        console.log("[v0] Calculator Dialog - vendorQuote:", vendorQuote)
-        console.log("[v0] Calculator Dialog - savedInputs from calcState:", savedInputs)
+
         
         // Map colors string to sidesValue: "4/4" → "D/S", "4/0" → "S/S"
         const colorsToSides = (colors: string | undefined): string => {
@@ -1714,8 +1612,7 @@ export function SimplePrintingEntry() {
         
         // Use saved inputs first, then fall back to specs-derived inputs
         const initialInputs = savedInputs || specsToInputs
-        console.log("[v0] Calculator Dialog - FINAL initialInputs:", initialInputs)
-        console.log("[v0] Calculator Dialog - Using savedInputs?", !!savedInputs, "specsToInputs?", !!specsToInputs)
+
         
         // Key forces remount when specs change
         const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper || activeItem.specs.coverPaper}-${activeItem.specs.colors || activeItem.specs.coverColors}-${activeItem.specs.insidePaper}-${activeItem.specs.pages}` : "empty"
