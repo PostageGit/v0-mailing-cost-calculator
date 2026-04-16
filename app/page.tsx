@@ -1049,46 +1049,64 @@ const qbStepDescriptions: Record<string, string> = {
                           </div>
                         </div>
 
-                        {/* RIGHT: Next - large, bold, clear primary action */}
-                        {next ? (
+                        {/* RIGHT-SIDE ACTIONS: Close + Next/Finish */}
+                        <div className="flex items-stretch">
+                          {/* Close - exits the quote workflow back to Quotes board */}
                           <button
-                            onClick={handleNextStep}
-                            disabled={!canGoNext}
-                            className={cn(
-                              "group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 transition-all border-l border-border",
-                              canGoNext
-                                ? "bg-foreground text-background hover:bg-foreground/95"
-                                : "bg-muted/30 text-muted-foreground cursor-not-allowed"
-                            )}
-                            title={!canGoNext ? "Complete or skip this step first" : undefined}
+                            onClick={() => setSection("quotes")}
+                            className="group flex items-center gap-2 py-4 px-3 hover:bg-secondary/50 transition-colors border-l border-border"
+                            title="Close and return to Quotes"
                           >
-                            <div className="text-right hidden sm:block">
-                              <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-70">
-                                {canGoNext ? "Continue to" : "Complete first"}
+                            <div className="h-9 w-9 rounded-lg border-2 border-border group-hover:border-red-500 bg-card flex items-center justify-center transition-colors shrink-0">
+                              <X className="h-4 w-4 text-muted-foreground group-hover:text-red-600" />
+                            </div>
+                            <div className="text-left hidden md:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">Exit</div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1">Close</div>
+                            </div>
+                          </button>
+
+                          {/* Next - large, bold, clear primary action */}
+                          {next ? (
+                            <button
+                              onClick={handleNextStep}
+                              disabled={!canGoNext}
+                              className={cn(
+                                "group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 transition-all border-l border-border",
+                                canGoNext
+                                  ? "bg-foreground text-background hover:bg-foreground/95"
+                                  : "bg-muted/30 text-muted-foreground cursor-not-allowed"
+                              )}
+                              title={!canGoNext ? "Complete or skip this step first" : undefined}
+                            >
+                              <div className="text-right hidden sm:block">
+                                <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-70">
+                                  {canGoNext ? "Continue to" : "Complete first"}
+                                </div>
+                                <div className="text-sm font-bold leading-tight mt-1 truncate">{next.label}</div>
                               </div>
-                              <div className="text-sm font-bold leading-tight mt-1 truncate">{next.label}</div>
-                            </div>
-                            <div className={cn(
-                              "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                              canGoNext ? "bg-background/15 group-hover:bg-background/25" : "bg-muted"
-                            )}>
-                              <ChevronRight className="h-4 w-4" />
-                            </div>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setSection("export-qb")}
-                            className="group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 bg-emerald-600 text-white hover:bg-emerald-700 transition-all border-l border-border"
-                          >
-                            <div className="text-right hidden sm:block">
-                              <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-80">All Done</div>
-                              <div className="text-sm font-bold leading-tight mt-1">Finish Quote</div>
-                            </div>
-                            <div className="h-9 w-9 rounded-lg bg-white/15 group-hover:bg-white/25 flex items-center justify-center shrink-0 transition-colors">
-                              <Check className="h-4 w-4" />
-                            </div>
-                          </button>
-                        )}
+                              <div className={cn(
+                                "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                                canGoNext ? "bg-background/15 group-hover:bg-background/25" : "bg-muted"
+                              )}>
+                                <ChevronRight className="h-4 w-4" />
+                              </div>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setSection("export-qb")}
+                              className="group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 bg-emerald-600 text-white hover:bg-emerald-700 transition-all border-l border-border"
+                            >
+                              <div className="text-right hidden sm:block">
+                                <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-80">All Done</div>
+                                <div className="text-sm font-bold leading-tight mt-1">Finish Quote</div>
+                              </div>
+                              <div className="h-9 w-9 rounded-lg bg-white/15 group-hover:bg-white/25 flex items-center justify-center shrink-0 transition-colors">
+                                <Check className="h-4 w-4" />
+                              </div>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )

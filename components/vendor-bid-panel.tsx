@@ -534,7 +534,7 @@ function BidCard({ bid, vendors, quote, ohpPieces, qty, getInhouseCost, onUpdate
             </div>
             <button onClick={handlePushToQuote} disabled={pushed}
               className="h-11 px-5 rounded-xl bg-background text-foreground text-sm font-black flex items-center justify-center gap-2 hover:bg-background/90 disabled:opacity-50 transition-all w-full sm:w-auto min-h-[44px]">
-              {pushed ? <><Check className="h-4 w-4" /> Added</> : <><ShoppingCart className="h-4 w-4" /> Add to Quote</>}
+              {pushed ? <><Check className="h-4 w-4" /> Added</> : <><Plus className="h-4 w-4" /> Add to Quote</>}
             </button>
           </div>
         </div>

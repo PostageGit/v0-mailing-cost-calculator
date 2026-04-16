@@ -1481,7 +1481,7 @@ export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps
                       disabled={!canSave}
                       className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base disabled:opacity-50"
                     >
-                      <Check className="h-5 w-5" />
+                      <Plus className="h-5 w-5" />
                       Add to Quote - {formatCurrency(selectedVendor?.price || 0)}
                     </Button>
                   )}

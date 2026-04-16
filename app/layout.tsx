@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
-import { ChatBubble } from '@/components/chat-bubble'
 import { ChatProvider } from '@/lib/chat-context'
 import { PapersProvider } from '@/lib/papers-context'
 import { AppConfigProvider } from '@/lib/app-config-context'
@@ -37,7 +36,6 @@ export default function RootLayout({
           <PapersProvider>
             <ChatProvider>
               {children}
-              <ChatBubble />
             </ChatProvider>
           </PapersProvider>
         </AppConfigProvider>

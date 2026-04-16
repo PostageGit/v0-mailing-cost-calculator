@@ -12,7 +12,7 @@
  * the total, save action, and step header are always visible at a glance.
  */
 
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
-  Wrench,
+  Wrench, Plus, X,
 } from "lucide-react"
 
 // Render order for categories inside the quote.
@@ -74,10 +74,31 @@ export function QuoteFormLayout({
     saveQuote,
     getTotal,
     removeItem,
+    addItem,
     setProjectName,
     setContactName,
     setReferenceNumber,
   } = useQuote()
+
+  // Inline custom-line editor state
+  const [customDraft, setCustomDraft] = useState<{ label: string; amount: string } | null>(null)
+
+  const commitCustomLine = () => {
+    if (!customDraft) return
+    const label = customDraft.label.trim()
+    const amount = parseFloat(customDraft.amount) || 0
+    if (label.length === 0) {
+      setCustomDraft(null)
+      return
+    }
+    addItem({
+      category: "item",
+      label,
+      description: "",
+      amount,
+    })
+    setCustomDraft(null)
+  }
 
   const total = getTotal()
   const itemCount = items.length
@@ -174,7 +195,7 @@ export function QuoteFormLayout({
 
           {/* ─── SCROLLING LINE-ITEM BODY (the only thing that scrolls) ─── */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            {itemCount === 0 ? (
+            {itemCount === 0 && !customDraft ? (
               <div className="h-full flex items-center justify-center px-6 py-10">
                 <div className="text-center max-w-xs">
                   <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
@@ -183,10 +204,17 @@ export function QuoteFormLayout({
                   <p className="text-sm font-semibold text-foreground mb-1">
                     No items yet
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Use the <span className="font-semibold text-foreground">{stepTitle}</span>{" "}
-                    helper on the right to price items and add them to this quote.
+                    helper on the right to price items, or add a custom line below.
                   </p>
+                  <button
+                    onClick={() => setCustomDraft({ label: "", amount: "" })}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-foreground bg-muted hover:bg-muted/70 border border-border transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add custom line
+                  </button>
                 </div>
               </div>
             ) : (
@@ -235,6 +263,67 @@ export function QuoteFormLayout({
                     </li>
                   )
                 })}
+
+                {/* Inline custom-line editor - commits on Enter or the green check */}
+                {customDraft && (
+                  <li className="flex items-center gap-3 px-6 py-2 bg-amber-50/40 dark:bg-amber-950/10">
+                    <span className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-center bg-foreground text-background">
+                      Custom
+                    </span>
+                    <Input
+                      autoFocus
+                      value={customDraft.label}
+                      onChange={(e) => setCustomDraft({ ...customDraft, label: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCustomLine()
+                        if (e.key === "Escape") setCustomDraft(null)
+                      }}
+                      placeholder="Line description…"
+                      className="flex-1 min-w-0 h-8 text-sm font-semibold bg-background"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={customDraft.amount}
+                      onChange={(e) => setCustomDraft({ ...customDraft, amount: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCustomLine()
+                        if (e.key === "Escape") setCustomDraft(null)
+                      }}
+                      placeholder="0.00"
+                      className="w-28 h-8 text-sm font-mono tabular-nums text-right bg-background"
+                    />
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={commitCustomLine}
+                        className="w-7 h-7 rounded-md text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 flex items-center justify-center"
+                        title="Save line (Enter)"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setCustomDraft(null)}
+                        className="w-7 h-7 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-center"
+                        title="Cancel (Esc)"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                )}
+
+                {/* Add custom line button - always at end of list */}
+                {!customDraft && (
+                  <li className="px-6 py-2">
+                    <button
+                      onClick={() => setCustomDraft({ label: "", amount: "" })}
+                      className="w-full inline-flex items-center gap-2 px-2 py-2 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-dashed border-border hover:border-foreground/40 transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add custom line
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
           </div>
