@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
   FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, Send,
-  AlertCircle, SkipForward, CheckCircle2, List, LayoutGrid, Search, X,
+  AlertCircle, SkipForward, CheckCircle2, List, LayoutGrid, Search, X, Save,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -237,6 +237,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote, ensureSaved,
     contactName, referenceNumber, quantity,
     currentRevision, revisions, fetchRevisions, loadRevision,
+    hasUnsavedChanges, saveQuote,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
@@ -668,6 +669,30 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* SAVE BUTTON - Creates a new revision */}
+          {hasUnsavedChanges && items.length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                  You have unsaved changes
+                </span>
+              </div>
+              <Button
+                size="sm"
+                className="w-full gap-2 text-sm h-11 rounded-xl font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                onClick={saveQuote}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                ) : (
+                  <><Check className="h-4 w-4" /> Save Quote (New Revision)</>
+                )}
+              </Button>
             </div>
           )}
 
