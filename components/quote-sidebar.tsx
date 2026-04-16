@@ -341,14 +341,20 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                       }
                     }}
                     className={cn(
-                      "text-[11px] font-mono font-semibold px-2 py-0.5 rounded border transition-colors",
+                      "flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors",
                       revisions.length > 1 
                         ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40"
                         : "bg-secondary/60 text-muted-foreground border-border/50 hover:bg-secondary"
                     )}
-                    title="View version history"
+                    title="View all revisions - each change is saved as a complete version"
                   >
-                    Rev {currentRevision}
+                    <Clock className="h-3 w-3" />
+                    <span className="font-mono">R{currentRevision}</span>
+                    {revisions.length > 1 && (
+                      <span className="text-[9px] bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1 py-0.5 rounded-full font-bold">
+                        {revisions.length}
+                      </span>
+                    )}
                   </button>
                 )}
               </div>
