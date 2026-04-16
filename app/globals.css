@@ -127,69 +127,13 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ============================================================
-   PRICING HELPER NORMALIZATION SCOPE
-   When a calculator is rendered inside the Quote Form's right-hand
-   "Pricing Helper" panel, these rules normalize its appearance so
-   every step feels the same end-to-end.
-   ============================================================ */
+/* Pricing Helper scope: minimal, tag-only normalization (safe for Tailwind v4 parser) */
 [data-pricing-helper] {
-  /* Uniform body type inside the helper */
   font-size: 13px;
 }
-
-/* Flatten the first-level card wrappers that calculators normally
-   paint on their own. The helper panel already provides the chrome,
-   so nested cards create a cramped card-in-card look. */
-[data-pricing-helper] > div > div.rounded-2xl.border,
-[data-pricing-helper] > div > div.rounded-xl.border,
-[data-pricing-helper] > div.rounded-2xl.border,
-[data-pricing-helper] > div.rounded-xl.border {
-  border: none !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-}
-
-/* Reduce aggressive padding on secondary cards one level deep */
-[data-pricing-helper] .bg-card.rounded-2xl,
-[data-pricing-helper] .bg-card.rounded-xl {
-  border-radius: 0.75rem;
-}
-
-/* Uniform section label typography */
-[data-pricing-helper] label.text-xs.font-bold.uppercase {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: hsl(var(--muted-foreground));
-  margin-bottom: 0.5rem;
-}
-
-/* Tighten vertical gaps so the helper doesn't feel sparse */
-[data-pricing-helper] .flex.flex-col.gap-5 {
-  gap: 1rem;
-}
-[data-pricing-helper] .flex.flex-col.gap-6 {
-  gap: 1.25rem;
-}
-
-/* Dividers between sections become subtle lines instead of hard rules */
-[data-pricing-helper] hr.border-border {
-  border-color: hsl(var(--border) / 0.5);
+[data-pricing-helper] hr {
+  border-color: hsl(var(--border));
+  opacity: 0.5;
   margin: 0.25rem 0;
-}
-
-/* Inputs & selects: consistent height and radius */
-[data-pricing-helper] input[type="text"],
-[data-pricing-helper] input[type="number"],
-[data-pricing-helper] input[type="search"],
-[data-pricing-helper] select,
-[data-pricing-helper] [role="combobox"] {
-  border-radius: 0.5rem;
-}
-
-/* Primary action buttons inside helpers: consistent rounded treatment */
-[data-pricing-helper] button.rounded-full {
-  border-radius: 0.5rem;
 }
 
