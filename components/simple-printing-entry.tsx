@@ -385,41 +385,89 @@ export function SimplePrintingEntry() {
   // Load an existing quote item for editing
   const handleEditQuoteItem = (quoteItemId: number) => {
     const item = quoteItems.find(i => i.id === quoteItemId)
-    if (!item || !item.specs) return
+    console.log("[v0] handleEditQuoteItem called with quoteItemId:", quoteItemId)
+    console.log("[v0] Found quote item:", item)
     
-    // Find matching print item or create one
-    const existingPrintItem = printItems.find(pi => 
-      pi.calcType === item.category && 
-      pi.specs.width === item.specs?.width && 
-      pi.specs.height === item.specs?.height
-    )
+    if (!item) {
+      console.log("[v0] No item found, returning")
+      return
+    }
+    
+    // Build the full specs from saved data
+    const savedSpecs: PieceSpecs = {
+      quantity: item.specs?.quantity || item.quantity || 0,
+      width: item.specs?.width || 0,
+      height: item.specs?.height || 0,
+      paper: item.specs?.paper || "",
+      colors: item.specs?.colors || "",
+      hasBleed: item.specs?.hasBleed || false,
+      fold: item.specs?.fold || "",
+      lamination: item.specs?.lamination || "",
+      notes: item.specs?.notes || "",
+      pages: item.specs?.pages || 0,
+      coverPaper: item.specs?.coverPaper || "",
+      coverColors: item.specs?.coverColors || "",
+      coverBleed: item.specs?.coverBleed || false,
+      insidePaper: item.specs?.insidePaper || "",
+      insideColors: item.specs?.insideColors || "",
+      insideBleed: item.specs?.insideBleed || false,
+      bindingType: item.specs?.bindingType || "",
+      sheetsPerPad: item.specs?.sheetsPerPad || 0,
+    }
+    console.log("[v0] Rebuilt specs:", savedSpecs)
+    
+    // Build vendor quote from saved data
+    const savedVendorQuote: VendorQuote | null = item.vendor && item.vendorId ? {
+      vendorId: item.vendorId,
+      vendorName: item.vendor,
+      isInternal: item.metadata?.isInternal || false,
+      cost: item.metadata?.baseCost || 0,
+      shipping: item.metadata?.shipping || 0,
+      markupPercent: item.metadata?.markupPercent || 30,
+      price: item.amount,
+      calcState: item.calcState,
+    } : null
+    console.log("[v0] Rebuilt vendor quote:", savedVendorQuote)
+    
+    // Find matching print item by calcType
+    const calcType = (item.category || item.metadata?.calcType || "flat") as CalcType
+    const existingPrintItem = printItems.find(pi => pi.calcType === calcType)
+    console.log("[v0] Looking for calcType:", calcType, "Found:", existingPrintItem?.id)
     
     if (existingPrintItem) {
-      // Update existing print item with saved specs
+      // Update existing print item with ALL saved data
       setPrintItems(prev => prev.map(pi => 
         pi.id === existingPrintItem.id 
           ? { 
               ...pi, 
-              specs: { ...item.specs } as PieceSpecs,
-              vendorQuotes: item.vendor && item.vendorId ? [{
-                vendorId: item.vendorId,
-                vendorName: item.vendor,
-                isInternal: item.metadata?.isInternal || false,
-                cost: item.metadata?.baseCost || 0,
-                shipping: item.metadata?.shipping || 0,
-                markupPercent: item.metadata?.markupPercent || 30,
-                price: item.amount,
-                calcState: item.calcState,
-              }] : pi.vendorQuotes,
+              specs: savedSpecs,
+              vendorQuotes: savedVendorQuote ? [savedVendorQuote] : [],
               selectedVendorId: item.vendorId || null,
               addedToQuote: true,
             }
           : pi
       ))
       setActiveItemId(existingPrintItem.id)
+      console.log("[v0] Updated print item, set activeItemId:", existingPrintItem.id)
+    } else {
+      // Create a new print item for this quote item
+      const newId = `edit-${quoteItemId}-${Date.now()}`
+      const newPrintItem: PrintItem = {
+        id: newId,
+        pieceLabel: item.label || item.metadata?.pieceName || "Print Item",
+        calcType: calcType,
+        specs: savedSpecs,
+        vendorQuotes: savedVendorQuote ? [savedVendorQuote] : [],
+        selectedVendorId: item.vendorId || null,
+        addedToQuote: true,
+      }
+      setPrintItems(prev => [...prev, newPrintItem])
+      setActiveItemId(newId)
+      console.log("[v0] Created new print item:", newId)
     }
     
     setEditingQuoteItemId(quoteItemId)
+    console.log("[v0] Set editingQuoteItemId:", quoteItemId)
   }
   
   const getCheapestId = (item: PrintItem) => {
@@ -447,7 +495,43 @@ export function SimplePrintingEntry() {
       {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content */}
       <div className="flex h-full">
         {/* LEFT SIDEBAR - Pieces List */}
-        <div className="w-56 shrink-0 border-r bg-muted/30 p-4">
+        <div className="w-56 shrink-0 border-r bg-muted/30 p-4 overflow-y-auto">
+          {/* SAVED QUOTE ITEMS - Items already in quote that can be edited */}
+          {(() => {
+            const printingCategories = ["flat", "booklet", "spiral", "perfect", "pad", "envelope"]
+            const savedPrintItems = quoteItems.filter(qi => printingCategories.includes(qi.category))
+            if (savedPrintItems.length === 0) return null
+            
+            return (
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">In Quote</h3>
+                <div className="space-y-1.5">
+                  {savedPrintItems.map((qi) => (
+                    <button
+                      key={qi.id}
+                      onClick={() => handleEditQuoteItem(qi.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all border",
+                        editingQuoteItemId === qi.id
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/50"
+                      )}
+                    >
+                      <Check className={cn("h-3.5 w-3.5 shrink-0", editingQuoteItemId === qi.id ? "text-white" : "text-green-600")} />
+                      <div className="flex-1 min-w-0">
+                        <div className={cn("text-xs font-bold truncate", editingQuoteItemId === qi.id ? "text-white" : "text-foreground")}>{qi.label}</div>
+                        <div className={cn("text-[10px]", editingQuoteItemId === qi.id ? "text-white/70" : "text-green-700 dark:text-green-400")}>
+                          {formatCurrency(qi.amount)}
+                        </div>
+                      </div>
+                      <Pencil className={cn("h-3 w-3 shrink-0", editingQuoteItemId === qi.id ? "text-white/70" : "text-muted-foreground")} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+          
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Pieces</h3>
             <Badge variant="outline" className="text-[10px] h-5 font-semibold">
