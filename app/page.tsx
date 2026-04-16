@@ -522,10 +522,14 @@ const renderStep = () => {
                 <h1 className="text-lg font-bold tracking-tight text-foreground">Quotes</h1>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center bg-secondary rounded-lg p-0.5">
-                    <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
-                    {/* List and Sidebar only available in Full mode */}
+                    {/* Simple mode: Board only */}
+                    {quoteSimpleView && (
+                      <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                    )}
+                    {/* Full mode: All views available */}
                     {!quoteSimpleView && (
                       <>
+                        <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
                         <button onClick={() => setQuoteView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
                         <button onClick={() => setQuoteView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
                       </>
@@ -548,10 +552,14 @@ const renderStep = () => {
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
                 <h1 className="text-lg font-bold tracking-tight text-foreground">Jobs</h1>
                 <div className="flex items-center bg-secondary rounded-lg p-0.5">
-                  <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
-                  {/* List and Sidebar only available in Full mode */}
+                  {/* Simple mode: Board only */}
+                  {jobSimpleView && (
+                    <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                  )}
+                  {/* Full mode: All views available */}
                   {!jobSimpleView && (
                     <>
+                      <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
                       <button onClick={() => setJobView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
                       <button onClick={() => setJobView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
                     </>
