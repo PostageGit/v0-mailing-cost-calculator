@@ -151,7 +151,7 @@ function getJobNextStep(q: Quote): NextStepResult | null {
     }
   }
   
-  // ══��� PRIORITY 7: All done! (GREEN) ═══
+  // ══���� PRIORITY 7: All done! (GREEN) ═══
   return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
@@ -1366,7 +1366,7 @@ function MailDatePicker({ value, onChange }: { value: string; onChange: (v: stri
    ════════════════════════════════════════════════════ */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn, defaultExpanded,
+  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onOpen, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn, defaultExpanded,
   }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
@@ -1374,6 +1374,9 @@ function QuoteCard({
   onArchive: (id: string) => void
   onRestore: (id: string) => void
   onEdit: (id: string) => void
+  /** Opens the full Quote Builder form (not the tiny summary modal).
+   *  Wired to the prominent "Open" button in the card's title row. */
+  onOpen: (id: string) => void
   onConvertToJob?: (id: string) => void
   onPatch: (id: string, patch: Record<string, unknown>) => void
   onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void
@@ -1464,9 +1467,9 @@ function QuoteCard({
             <p className="text-base font-extrabold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
               <button
-                onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
+                onClick={(e) => { e.stopPropagation(); onOpen(quote.id) }}
                 className="group/open flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full bg-foreground text-background hover:bg-foreground/90 font-bold text-[11px] tracking-wide shadow-sm hover:shadow transition-all active:scale-[0.97]"
-                title="Open this quote"
+                title="Open full quote form"
               >
                 <Pencil className="h-3 w-3" />
                 <span>Open</span>
@@ -2643,10 +2646,11 @@ function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, bo
   )
 }
 
-function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType }: {
+function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onOpen, onConvertToJob, onPatch, onReorder, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void; onVoid: (id: string, reason?: string) => void
   onArchive: (id: string) => void; onRestore: (id: string) => void; onEdit: (id: string) => void
+  onOpen: (id: string) => void
   onConvertToJob?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void
   onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void; boardType: "quote" | "job"
 }) {
@@ -2681,7 +2685,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onAr
   ) : quotes.map((q) => (
   <QuoteCard key={q.id} quote={q} columns={allColumns}
   onColumnChange={onColumnChange} onVoid={onVoid} onArchive={onArchive}
-  onRestore={onRestore} onEdit={onEdit} onConvertToJob={onConvertToJob}
+  onRestore={onRestore} onEdit={onEdit} onOpen={onOpen} onConvertToJob={onConvertToJob}
   onPatch={onPatch} onReorder={onReorder} boardType={boardType} />
   ))}
       </div>
@@ -3232,6 +3236,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
                       onRestore={handleRestore} onPatch={handlePatch}
                       onEdit={(id) => { const found = doneQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+                      onOpen={onLoadQuote}
                       onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                       boardType={boardType} />
                   ))}
@@ -3665,6 +3670,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} />
               )
@@ -3684,6 +3690,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} listColumn={col} />
             )
@@ -3776,6 +3783,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} />
                     ))}
@@ -3804,6 +3812,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} />
               ))}
@@ -3894,6 +3903,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     onPatch={(id, data) => { handlePatch(id, data); setFullCardModalQuote(prev => prev ? { ...prev, ...data } : null) }}
                     onReorder={handleReorder}
                     onEdit={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                    onOpen={(id) => { setFullCardModalQuote(null); onLoadQuote(id) }}
                     onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
                     boardType={boardType}
                     defaultExpanded={true}
