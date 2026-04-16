@@ -361,10 +361,13 @@ const renderStep = () => {
   // Map view mode: "quick" -> "compact" for the calculator forms
   const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
 
-  // SIMPLE MODE: "printing" step shows SimplePrintingEntry with ALL pieces
-  // (Simple mode has its own custom full-width layout - skip the form layout here)
+  // SIMPLE MODE printing: always full-width. SimplePrintingEntry is itself
+  // a specialized quote-building UI (pieces sidebar + detail panel) and
+  // will not fit inside the narrow Quote Form helper panel. Instead we
+  // pass `qbMode` so its chrome matches the Quote Form visual language
+  // for end-to-end continuity.
   if (appConfig.simple_mode && currentStep === "printing") {
-    return <SimplePrintingEntry />
+    return <SimplePrintingEntry qbMode={quoteFormView} />
   }
 
   // Render the raw step tool (classic calculator content)

@@ -187,7 +187,13 @@ function buildSpecsText(specs: PieceSpecs): string {
   return parts.join(" | ")
 }
 
-export function SimplePrintingEntry() {
+interface SimplePrintingEntryProps {
+  /** When true, match the Quote Form (QuickBooks-style) visual language
+   *  so navigating from other pricing steps feels continuous. */
+  qbMode?: boolean
+}
+
+export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps = {}) {
   const { addItem, updateItem, items: quoteItems } = useQuote()
   const { pieces, printQty } = useMailing()
   const { data: vendors, isLoading: vendorsLoading } = useSWR<Vendor[]>("/api/vendors", fetcher)
@@ -658,11 +664,17 @@ export function SimplePrintingEntry() {
   }
 
   return (
-    <div className="h-full">
+    <div className={cn("h-full", qbMode && "bg-neutral-100 dark:bg-neutral-900 p-4")}>
       {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content */}
-      <div className="flex h-full">
+      <div className={cn(
+        "flex h-full",
+        qbMode && "bg-white dark:bg-neutral-950 rounded-xl shadow-sm border border-border overflow-hidden"
+      )}>
         {/* LEFT SIDEBAR - Simple list of all items */}
-        <div className="w-56 shrink-0 border-r bg-muted/30 p-4 overflow-y-auto">
+        <div className={cn(
+          "w-56 shrink-0 border-r p-4 overflow-y-auto",
+          qbMode ? "bg-neutral-50/80 dark:bg-neutral-900/40" : "bg-muted/30"
+        )}>
           <div className="space-y-1.5">
             {printItems.map((item) => {
               const isActive = item.id === activeItemId
@@ -1226,7 +1238,7 @@ export function SimplePrintingEntry() {
                 </div>
               )}
               
-              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* ═══════════════════════════════════════════════���═══════════════ */}
               {/* PAD SPECS */}
               {/* ═══════════════════════════════════════════════════════════════ */}
               {activeItem.calcType === "pad" && (
