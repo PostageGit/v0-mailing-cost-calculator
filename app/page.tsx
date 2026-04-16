@@ -519,16 +519,14 @@ const renderStep = () => {
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
                 <h1 className="text-lg font-bold tracking-tight text-foreground">Quotes</h1>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-secondary rounded-lg p-0.5">
-                    <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
-                    {/* List and Sidebar only available in Full mode (not Simple Mode) */}
-                    {!appConfig.simple_mode && (
-                      <>
-                        <button onClick={() => setQuoteView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
-                        <button onClick={() => setQuoteView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
-                      </>
-                    )}
-                  </div>
+                  {/* View toggle only in Full mode */}
+                  {!appConfig.simple_mode && (
+                    <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                      <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                      <button onClick={() => setQuoteView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
+                      <button onClick={() => setQuoteView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
+                    </div>
+                  )}
                   <Button onClick={handleNewJob} size="sm" className="gap-1.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-8 text-xs font-semibold">
                     <Plus className="h-3.5 w-3.5" /> New Quote
                   </Button>
@@ -545,16 +543,14 @@ const renderStep = () => {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
                 <h1 className="text-lg font-bold tracking-tight text-foreground">Jobs</h1>
-                <div className="flex items-center bg-secondary rounded-lg p-0.5">
-                  <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
-                  {/* List and Sidebar only available in Full mode (not Simple Mode) */}
-                  {!appConfig.simple_mode && (
-                    <>
-                      <button onClick={() => setJobView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
-                      <button onClick={() => setJobView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
-                    </>
-                  )}
-                </div>
+                {/* View toggle only in Full mode */}
+                {!appConfig.simple_mode && (
+                  <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                    <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                    <button onClick={() => setJobView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
+                    <button onClick={() => setJobView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
+                  </div>
+                )}
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
                 <KanbanBoard boardType="job" viewMode={jobView} onLoadQuote={handleLoadQuote} simpleView={appConfig.simple_mode} />
