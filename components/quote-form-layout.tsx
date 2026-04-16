@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
-  Wrench, Plus, X, Copy, Mail, CheckCircle2,
+  Wrench, Plus, X, Mail, CheckCircle2, Layers,
 } from "lucide-react"
 
 // Render order for categories inside the quote.
@@ -57,11 +57,13 @@ export interface QuoteFormLayoutProps {
   onExit?: () => void
   /** Close the quote entirely and return to the Quotes board */
   onClose?: () => void
+  /** Jump back to the Planner step (where customer/project/ref are set up) */
+  onGoToPlanner?: () => void
 }
 
 export function QuoteFormLayout({
   children, stepTitle, stepDescription, stepIcon, stepId,
-  stepNumber, totalSteps, onClose,
+  stepNumber, totalSteps, onClose, onGoToPlanner,
 }: QuoteFormLayoutProps) {
   const {
     items,
@@ -78,9 +80,6 @@ export function QuoteFormLayout({
     getTotal,
     removeItem,
     addItem,
-    setProjectName,
-    setContactName,
-    setReferenceNumber,
   } = useQuote()
 
   // Inline custom-line editor state
@@ -208,32 +207,28 @@ export function QuoteFormLayout({
               </span>
             </div>
 
-            {/* Row 2: Project / Customer / Ref inputs — one tight row */}
-            <div className="px-6 pb-4 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_0.8fr] gap-2">
-              <LabeledField label="Project">
-                <Input
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="Project name"
-                  className="h-8 text-sm font-semibold border-transparent bg-muted/50 hover:bg-muted focus:bg-background focus-visible:ring-1"
-                />
-              </LabeledField>
-              <LabeledField label="Customer">
-                <Input
-                  value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Customer"
-                  className="h-8 text-sm border-transparent bg-muted/50 hover:bg-muted focus:bg-background focus-visible:ring-1"
-                />
-              </LabeledField>
-              <LabeledField label="Ref">
-                <Input
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  placeholder="PO"
-                  className="h-8 text-sm font-mono border-transparent bg-muted/50 hover:bg-muted focus:bg-background focus-visible:ring-1"
-                />
-              </LabeledField>
+            {/* Row 2: Project / Customer / Ref summary — READ-ONLY in QB mode.
+                The Planner is the single source of truth for these fields
+                (it has the richer database-backed customer lookup + contact
+                picker + quantity). This strip just reflects that data and
+                offers a one-click jump back to the Planner to edit. */}
+            <div className="px-6 pb-4 flex items-center gap-2">
+              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_0.8fr] gap-3">
+                <SummaryField label="Project" value={projectName} emptyText="Not set" />
+                <SummaryField label="Customer" value={contactName} emptyText="No customer" />
+                <SummaryField label="Ref" value={referenceNumber} emptyText="—" mono />
+              </div>
+              {onGoToPlanner && stepId !== "planner" && (
+                <button
+                  type="button"
+                  onClick={onGoToPlanner}
+                  className="shrink-0 flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent hover:border-border transition-all"
+                  title="Edit customer, project and job details in the Planner"
+                >
+                  <Layers className="h-3 w-3" />
+                  Edit in Planner
+                </button>
+              )}
             </div>
 
             {/* Row 3: Table column header */}
@@ -578,14 +573,30 @@ export function QuoteFormLayout({
   )
 }
 
-/** Tiny labeled-field helper for the document header row. */
-function LabeledField({ label, children }: { label: string; children: ReactNode }) {
+/** Read-only summary field for the document header row.
+ *  Replaces the old LabeledField inputs now that customer/project/ref are
+ *  entered solely in the Planner (single source of truth). */
+function SummaryField({
+  label, value, emptyText, mono,
+}: { label: string; value: string; emptyText: string; mono?: boolean }) {
+  const isEmpty = !value || value.trim().length === 0
   return (
     <div className="min-w-0">
-      <label className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
         {label}
-      </label>
-      {children}
+      </div>
+      <div
+        className={cn(
+          "text-sm leading-tight truncate",
+          isEmpty
+            ? "text-muted-foreground/60 italic font-normal"
+            : "text-foreground font-semibold",
+          mono && !isEmpty && "font-mono"
+        )}
+        title={isEmpty ? emptyText : value}
+      >
+        {isEmpty ? emptyText : value}
+      </div>
     </div>
   )
 }

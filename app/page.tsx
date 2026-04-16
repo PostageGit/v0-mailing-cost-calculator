@@ -692,11 +692,12 @@ const qbStepDescriptions: Record<string, string> = {
               <div className="flex-1 min-h-0 overflow-hidden">
                 <QuoteFormLayout
                   stepTitle="Planner"
-                  stepDescription="Define the mail pieces in this job"
+                  stepDescription="Set up customer, job info & mail pieces"
                   stepIcon={<Layers className="h-3.5 w-3.5" />}
                   stepId="planner"
+                  onClose={() => setSection("quotes-board")}
                 >
-                  <MailPiecePlanner onContinue={handleContinueToPricing} />
+                  <MailPiecePlanner onContinue={handleContinueToPricing} qbMode />
                 </QuoteFormLayout>
               </div>
             ) : (
@@ -914,6 +915,7 @@ const qbStepDescriptions: Record<string, string> = {
                             totalSteps={visibleSteps.length}
                             onExit={() => setQuoteFormView(false)}
                             onClose={() => setSection("quotes-board")}
+                            onGoToPlanner={() => setJobPhase("planner")}
                           >
                             <div key={currentStep} className="h-full">
                               <StepErrorBoundary stepId={currentStep}>
