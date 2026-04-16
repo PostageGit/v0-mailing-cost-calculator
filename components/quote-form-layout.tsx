@@ -32,6 +32,75 @@ type CustomerRow = {
 
 const customersFetcher = (url: string): Promise<CustomerRow[]> =>
   fetch(url).then((r) => r.json())
+
+/** Read-only summary field for the document header row.
+ *  Replaces the old LabeledField inputs now that customer/project/ref are
+ *  entered solely in the Planner (single source of truth).
+ *  Declared above QuoteFormLayout so React Fast Refresh always sees it. */
+function SummaryField({
+  label, value, emptyText, mono,
+}: { label: string; value: string; emptyText: string; mono?: boolean }) {
+  const isEmpty = !value || value.trim().length === 0
+  return (
+    <div className="min-w-0">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "text-sm leading-tight truncate",
+          isEmpty
+            ? "text-muted-foreground/60 italic font-normal"
+            : "text-foreground font-semibold",
+          mono && !isEmpty && "font-mono"
+        )}
+        title={isEmpty ? emptyText : value}
+      >
+        {isEmpty ? emptyText : value}
+      </div>
+    </div>
+  )
+}
+
+/** Two-line customer summary: Company (primary) with Contact underneath.
+ *  Fixes the old ambiguity where picking a company in the Planner but not a
+ *  contact left the header looking empty. Now the company lights up instantly
+ *  and the contact slots in as a secondary detail when added. */
+function CustomerSummary({
+  company, contact, hasCustomer,
+}: { company: string; contact: string; hasCustomer: boolean }) {
+  const primary = company || (hasCustomer ? "Customer selected" : "")
+  const hasPrimary = primary.length > 0
+  return (
+    <div className="min-w-0">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+        Customer
+      </div>
+      {hasPrimary ? (
+        <div className="min-w-0">
+          <div
+            className="text-sm font-semibold text-foreground leading-tight truncate"
+            title={primary}
+          >
+            {primary}
+          </div>
+          {contact && (
+            <div
+              className="text-[11px] text-muted-foreground leading-tight truncate mt-0.5"
+              title={contact}
+            >
+              {contact}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground/60 italic font-normal leading-tight truncate">
+          No customer
+        </div>
+      )}
+    </div>
+  )
+}
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
   Wrench, Plus, X, Mail, CheckCircle2, Layers,
@@ -623,70 +692,3 @@ export function QuoteFormLayout({
   )
 }
 
-/** Read-only summary field for the document header row.
- *  Replaces the old LabeledField inputs now that customer/project/ref are
- *  entered solely in the Planner (single source of truth). */
-function SummaryField({
-  label, value, emptyText, mono,
-}: { label: string; value: string; emptyText: string; mono?: boolean }) {
-  const isEmpty = !value || value.trim().length === 0
-  return (
-    <div className="min-w-0">
-      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "text-sm leading-tight truncate",
-          isEmpty
-            ? "text-muted-foreground/60 italic font-normal"
-            : "text-foreground font-semibold",
-          mono && !isEmpty && "font-mono"
-        )}
-        title={isEmpty ? emptyText : value}
-      >
-        {isEmpty ? emptyText : value}
-      </div>
-    </div>
-  )
-}
-
-/** Two-line customer summary: Company (primary) with Contact underneath.
- *  Fixes the old ambiguity where picking a company in the Planner but not a
- *  contact left the header looking empty. Now the company lights up instantly
- *  and the contact slots in as a secondary detail when added. */
-function CustomerSummary({
-  company, contact, hasCustomer,
-}: { company: string; contact: string; hasCustomer: boolean }) {
-  const primary = company || (hasCustomer ? "Customer selected" : "")
-  const hasPrimary = primary.length > 0
-  return (
-    <div className="min-w-0">
-      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
-        Customer
-      </div>
-      {hasPrimary ? (
-        <div className="min-w-0">
-          <div
-            className="text-sm font-semibold text-foreground leading-tight truncate"
-            title={primary}
-          >
-            {primary}
-          </div>
-          {contact && (
-            <div
-              className="text-[11px] text-muted-foreground leading-tight truncate mt-0.5"
-              title={contact}
-            >
-              {contact}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="text-sm text-muted-foreground/60 italic font-normal leading-tight truncate">
-          No customer
-        </div>
-      )}
-    </div>
-  )
-}
