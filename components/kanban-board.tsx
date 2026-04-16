@@ -2704,7 +2704,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
   const [userFilter, setUserFilter] = useState<string>("all")
-  const [simpleView, setSimpleView] = useState(true)
+  const [simpleView, setSimpleView] = useState(false)  // Default to Full view
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null; showTimeline?: boolean }>>({})
