@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2,
-  Calendar, Hash, ChevronLeft, Clock,
+  Calendar, Hash, Clock,
 } from "lucide-react"
 
 type QuoteCategory =
@@ -116,30 +116,22 @@ export function QuoteFormLayout({
       {/* Fluid ~55% width with a reasonable minimum so both panes always breathe. */}
       <div className="flex-[1.2] min-w-[520px] overflow-y-auto">
         <div className="max-w-2xl mx-auto px-8 py-6">
-          {/* Top bar */}
-          <div className="flex items-center justify-between mb-5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onExit}
-              className="gap-1.5 text-xs h-8 -ml-2"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Back to Classic View
-            </Button>
-
-            {hasUnsavedChanges ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <AlertCircle className="h-3 w-3 text-amber-600" />
-                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Unsaved changes</span>
-              </div>
-            ) : lastSavedAt ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                <Check className="h-3 w-3 text-green-600" />
-                <span className="text-[11px] font-medium text-green-700 dark:text-green-300">Saved {lastSavedLabel}</span>
-              </div>
-            ) : null}
-          </div>
+          {/* Save status indicator - right-aligned, minimal */}
+          {(hasUnsavedChanges || lastSavedAt) && (
+            <div className="flex items-center justify-end mb-4">
+              {hasUnsavedChanges ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                  <AlertCircle className="h-3 w-3 text-amber-600" />
+                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Unsaved changes</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                  <Check className="h-3 w-3 text-green-600" />
+                  <span className="text-[11px] font-medium text-green-700 dark:text-green-300">Saved {lastSavedLabel}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ═══ Quote Document ═══ */}
           <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
