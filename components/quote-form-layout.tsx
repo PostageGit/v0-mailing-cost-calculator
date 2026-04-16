@@ -157,6 +157,7 @@ export function QuoteFormLayout({
     quoteNumber,
     currentRevision,
     revisions,
+    loadRevision,
     isSaving,
     lastSavedAt,
     hasUnsavedChanges,
@@ -165,6 +166,17 @@ export function QuoteFormLayout({
     removeItem,
     addItem,
   } = useQuote()
+
+  // Sorted newest → oldest so the latest revision sits on the left (primary
+  // position) in the tab strip. This matches how users naturally read tabs
+  // and puts the most-relevant revision first.
+  const sortedRevisions = [...revisions].sort(
+    (a, b) => b.revision_number - a.revision_number,
+  )
+  const maxRev = revisions.length
+    ? Math.max(...revisions.map((r) => r.revision_number))
+    : 0
+  const isViewingLatest = currentRevision === 0 || currentRevision === maxRev
 
   // Resolve the selected customer's company name for display.
   // We always fetch (cheap, SWR-cached) so the quote header reflects any
@@ -287,7 +299,7 @@ export function QuoteFormLayout({
 
           {/* ─── LOCKED HEADER ─── */}
           <header className="shrink-0 border-b border-border/60">
-            {/* Row 1: title + quote number + rev + date  (single compact row) */}
+            {/* Row 1: title + quote number + viewing-older banner + line count */}
             <div className="flex items-baseline justify-between gap-4 px-6 pt-5 pb-3">
               <div className="flex items-baseline gap-3 min-w-0">
                 <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">
@@ -298,12 +310,14 @@ export function QuoteFormLayout({
                     Q-{quoteNumber}
                   </span>
                 )}
-                {currentRevision > 0 && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                    <Clock className="h-2.5 w-2.5 text-amber-600" />
-                    <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                      R{currentRevision}
-                      {revisions.length > 1 && `/${revisions.length}`}
+                {/* Only show the amber "historical revision" pill when the
+                    user has actually navigated to a past revision.  Latest
+                    revision = normal editing, no noisy warning. */}
+                {revisions.length >= 2 && !isViewingLatest && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700">
+                    <Clock className="h-3 w-3 text-amber-700 dark:text-amber-400" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                      Viewing Older Revision — Read Only
                     </span>
                   </span>
                 )}
@@ -312,6 +326,79 @@ export function QuoteFormLayout({
                 {itemCount} {itemCount === 1 ? "line" : "lines"}
               </span>
             </div>
+
+            {/* Revision tabs — shown whenever the quote has 2+ revisions.
+                Substantial, clickable tabs so the user can flip between
+                saved revisions instantly. Active tab is bold black with the
+                total; inactive tabs show rev number + date + total. */}
+            {revisions.length >= 2 && (
+              <div className="px-6 pb-2 border-b border-border/40 bg-muted/20">
+                <div className="flex items-stretch gap-1 overflow-x-auto -mb-px">
+                  {sortedRevisions.map((rev) => {
+                    const isActive = rev.revision_number === currentRevision
+                    const isLatest =
+                      rev.revision_number ===
+                      Math.max(...revisions.map((r) => r.revision_number))
+                    const dateShort = rev.created_at
+                      ? new Date(rev.created_at).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : ""
+                    return (
+                      <button
+                        key={rev.revision_number}
+                        type="button"
+                        onClick={() => loadRevision(rev.revision_number)}
+                        className={cn(
+                          "group relative shrink-0 px-3.5 py-2 rounded-t-lg border-2 border-b-0 transition-all text-left min-w-[110px]",
+                          isActive
+                            ? "bg-card border-foreground shadow-sm -mb-[2px] z-10"
+                            : "bg-muted/40 border-transparent hover:bg-muted/70 hover:border-border"
+                        )}
+                        title={`Switch to Revision ${rev.revision_number}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold uppercase tracking-wider leading-none",
+                              isActive ? "text-foreground" : "text-muted-foreground"
+                            )}
+                          >
+                            Rev {rev.revision_number}
+                          </span>
+                          {isLatest && (
+                            <span
+                              className={cn(
+                                "text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded leading-none",
+                                isActive
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                              )}
+                            >
+                              Latest
+                            </span>
+                          )}
+                          {dateShort && (
+                            <span className="text-[9px] text-muted-foreground leading-none ml-auto">
+                              {dateShort}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className={cn(
+                            "text-sm font-mono font-bold tabular-nums leading-none",
+                            isActive ? "text-foreground" : "text-muted-foreground"
+                          )}
+                        >
+                          {formatCurrency(rev.total || 0)}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Row 2: Customer / Project / Qty / Ref summary — READ-ONLY.
                 The Planner is the single source of truth for these fields
@@ -551,10 +638,15 @@ export function QuoteFormLayout({
                 {/* Save: primary when there are unsaved changes, muted otherwise. */}
                 <Button
                   onClick={saveQuote}
-                  disabled={isSaving || !hasUnsavedChanges || itemCount === 0}
+                  disabled={isSaving || !hasUnsavedChanges || itemCount === 0 || !isViewingLatest}
+                  title={
+                    !isViewingLatest
+                      ? "Switch to the latest revision to make edits"
+                      : undefined
+                  }
                   className={cn(
                     "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
-                    hasUnsavedChanges && itemCount > 0
+                    hasUnsavedChanges && itemCount > 0 && isViewingLatest
                       ? "bg-green-600 hover:bg-green-700 text-white"
                       : "bg-muted text-muted-foreground hover:bg-muted"
                   )}
