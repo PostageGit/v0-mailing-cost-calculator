@@ -416,7 +416,7 @@ export function SimplePrintingEntry() {
     }
     console.log("[v0] Rebuilt specs:", savedSpecs)
     
-    // Build vendor quote from saved data
+    // Build vendor quote from saved data - MUST include calcState with full inputs
     const savedVendorQuote: VendorQuote | null = item.vendor && item.vendorId ? {
       vendorId: item.vendorId,
       vendorName: item.vendor,
@@ -425,9 +425,12 @@ export function SimplePrintingEntry() {
       shipping: item.metadata?.shipping || 0,
       markupPercent: item.metadata?.markupPercent || 30,
       price: item.amount,
-      calcState: item.calcState,
+      priceOverride: false,
+      calcState: item.calcState,  // THIS is where the full inputs are stored
     } : null
     console.log("[v0] Rebuilt vendor quote:", savedVendorQuote)
+    console.log("[v0] Rebuilt vendor calcState:", item.calcState)
+    console.log("[v0] Rebuilt vendor calcState.inputs:", item.calcState?.inputs)
     
     // Find matching print item by calcType
     const calcType = (item.category || item.metadata?.calcType || "flat") as CalcType
@@ -926,7 +929,7 @@ export function SimplePrintingEntry() {
               
               {/* ═══════════════════════════════════════════════════════════════ */}
               {/* ENVELOPE SPECS */}
-              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* ═══��═══════════════════════════════════════════════════════════ */}
               {activeItem.calcType === "envelope" && (
                 <div className="flex flex-wrap items-end gap-5">
                   <div className="min-w-[185px]">
@@ -1137,6 +1140,10 @@ export function SimplePrintingEntry() {
         const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
         const savedInputs = vendorQuote?.calcState?.inputs
         
+        console.log("[v0] Calculator Dialog - calcVendorId:", calcVendorId)
+        console.log("[v0] Calculator Dialog - vendorQuote:", vendorQuote)
+        console.log("[v0] Calculator Dialog - savedInputs from calcState:", savedInputs)
+        
         // Map colors string to sidesValue: "4/4" → "D/S", "4/0" → "S/S"
         const colorsToSides = (colors: string | undefined): string => {
           if (!colors) return "S/S"
@@ -1293,6 +1300,8 @@ export function SimplePrintingEntry() {
         
         // Use saved inputs first, then fall back to specs-derived inputs
         const initialInputs = savedInputs || specsToInputs
+        console.log("[v0] Calculator Dialog - FINAL initialInputs:", initialInputs)
+        console.log("[v0] Calculator Dialog - Using savedInputs?", !!savedInputs, "specsToInputs?", !!specsToInputs)
         
         // Key forces remount when specs change
         const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper || activeItem.specs.coverPaper}-${activeItem.specs.colors || activeItem.specs.coverColors}-${activeItem.specs.insidePaper}-${activeItem.specs.pages}` : "empty"
