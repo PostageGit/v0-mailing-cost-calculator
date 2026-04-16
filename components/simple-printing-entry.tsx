@@ -32,30 +32,66 @@ const PAPER_OPTIONS = [
   "60# Offset Text", "24# Bond", "28# Bond"
 ]
 
-// Standardized color options for ALL print types (flat, cover, inside)
-const COLOR_OPTIONS = [
-  { value: "4/4", label: "4/4 (Color Both Sides)" },
-  { value: "4/0", label: "4/0 (Color One Side)" },
+// FLAT PRINTING colors
+const FLAT_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "4/0", label: "4/0 (Color Front)" },
   { value: "4/1", label: "4/1 (Color / Black)" },
-  { value: "1/1", label: "1/1 (Black Both Sides)" },
-  { value: "1/0", label: "1/0 (Black One Side)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "1/0", label: "1/0 (Black Front)" },
 ]
 
-const FOLD_TYPE_OPTIONS = [
-  { value: "none", label: "Flat (No Fold)" },
+// BOOKLET COVER colors (full color options)
+const BOOKLET_COVER_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "4/0", label: "4/0 (Color Front)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "1/0", label: "1/0 (Black Front)" },
+]
+
+// BOOKLET INSIDE colors (double-sided / single-sided only)
+const BOOKLET_INSIDE_COLOR_OPTIONS = [
+  { value: "D/S", label: "D/S (Double-Sided)" },
+  { value: "S/S", label: "S/S (Single-Sided)" },
+]
+
+// SPIRAL / PERFECT / PAD colors (all options)
+const FULL_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "4/0", label: "4/0 (Color Front)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "1/0", label: "1/0 (Black Front)" },
+  { value: "D/S", label: "D/S (Double-Sided)" },
+  { value: "S/S", label: "S/S (Single-Sided)" },
+]
+
+// LAMINATION options
+const LAMINATION_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "gloss", label: "Gloss" },
+  { value: "matte", label: "Matte" },
+  { value: "silk", label: "Silk" },
+  { value: "leather", label: "Leather" },
+  { value: "linen", label: "Linen" },
+]
+
+// FOLD options for flat printing
+const FOLD_OPTIONS = [
+  { value: "", label: "No Fold" },
   { value: "half", label: "Half Fold" },
   { value: "tri", label: "Tri-Fold" },
   { value: "z", label: "Z-Fold" },
   { value: "gate", label: "Gate Fold" },
+  { value: "double_parallel", label: "Double Parallel" },
+  { value: "accordion", label: "Accordion" },
+  { value: "roll", label: "Roll Fold" },
 ]
 
-const LAM_OPTIONS = [
-  { value: "none", label: "None" },
-  { value: "gloss_one", label: "Gloss 1-Side" },
-  { value: "gloss_both", label: "Gloss 2-Side" },
-  { value: "matte_one", label: "Matte 1-Side" },
-  { value: "matte_both", label: "Matte 2-Side" },
-  { value: "soft_touch", label: "Soft Touch" },
+// BINDING options for booklet
+const BINDING_OPTIONS = [
+  { value: "staple", label: "Saddle Stitch (Staple)" },
+  { value: "fold", label: "Fold Only" },
+  { value: "perfect", label: "Perfect Bound" },
 ]
 
 interface PieceSpecs {
@@ -67,23 +103,36 @@ interface PieceSpecs {
   
   // Flat printing fields (postcards, letters, self-mailers)
   paper: string
-  colors: string        // "4/4", "4/0", "1/1", "1/0"
+  colors: string        // "4/4", "4/0", "4/1", "1/1", "1/0"
   hasBleed: boolean
-  fold: string
-  lamination: string
+  fold: string          // "half", "tri", "z", "gate", "double_parallel", "accordion", "roll"
+  lamination: string    // "Gloss", "Matte", "Silk", "Leather", "Linen"
+  laminationSides?: string  // "S/S", "D/S"
   
-  // Booklet/Spiral specific fields
+  // Booklet specific fields
   pages?: number
+  separateCover?: boolean   // Booklet: has separate cover? (Yes/No toggle)
   coverPaper?: string
-  coverColors?: string  // "4/4", "4/0"
+  coverColors?: string      // Booklet: "4/4", "4/0", "1/1", "1/0"
   coverBleed?: boolean
+  coverLamination?: string  // "none", "gloss", "matte", "silk", "leather"
   insidePaper?: string
-  insideColors?: string // "D/S", "S/S"
+  insideColors?: string     // Booklet: "D/S", "S/S" | Others: "4/4", "4/0", etc
   insideBleed?: boolean
-  bindingType?: string  // "staple", "spiral", "perfect"
+  bindingType?: string      // "staple", "fold", "perfect", "spiral"
+  
+  // Spiral specific fields
+  useFrontCover?: boolean   // Has front cover? (Yes/No toggle)
+  useBackCover?: boolean    // Has back cover? (Yes/No toggle)
+  backCoverPaper?: string
+  backCoverColors?: string
+  backCoverBleed?: boolean
+  clearPlastic?: boolean    // Clear plastic cover option
+  blackVinyl?: boolean      // Black vinyl cover option
   
   // Pad specific
   sheetsPerPad?: number
+  useChipBoard?: boolean    // Has chip board backing? (Yes/No toggle)
 }
 
 interface VendorQuote {
@@ -122,8 +171,14 @@ function buildSpecsText(specs: PieceSpecs): string {
   if (specs.pages) parts.push(`${specs.pages}pp`)
   if (specs.paper) parts.push(specs.paper)
   if (specs.colors) parts.push(specs.colors)
-  if (specs.fold && specs.fold !== "none") parts.push(FOLD_TYPE_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
-  if (specs.lamination && specs.lamination !== "none") parts.push(LAM_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
+  if (specs.fold) parts.push(FOLD_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
+  if (specs.lamination) parts.push(LAMINATION_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
+  // Booklet/spiral specific
+  if (specs.coverPaper) parts.push(`Cover: ${specs.coverPaper}`)
+  if (specs.coverColors) parts.push(specs.coverColors)
+  if (specs.insidePaper) parts.push(`Inside: ${specs.insidePaper}`)
+  if (specs.insideColors) parts.push(specs.insideColors)
+  if (specs.bindingType) parts.push(BINDING_OPTIONS.find(b => b.value === specs.bindingType)?.label || specs.bindingType)
   if (specs.notes) parts.push(specs.notes)
   return parts.join(" | ")
 }
@@ -817,7 +872,7 @@ export function SimplePrintingEntry() {
                     </Select>
                   </div>
                   
-                  <div className="min-w-[185px]">
+                  <div className="min-w-[170px]">
                     <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
                       Colors {!isColorsFilled && <span className="text-amber-500">*</span>}
                     </label>
@@ -825,31 +880,27 @@ export function SimplePrintingEntry() {
                       <SelectTrigger className={isColorsFilled ? selectFilled : selectUnfilled}>
                         <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
-                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FLAT_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
-                  <div className="min-w-[145px]">
-                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isFoldFilled ? "text-muted-foreground" : "text-amber-600")}>
-                      Fold Type {!isFoldFilled && <span className="text-amber-500">*</span>}
-                    </label>
-                    <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={isFoldFilled ? selectFilled : selectUnfilled}>
-                        <SelectValue placeholder="— Select —" />
+                  <div className="min-w-[160px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold</label>
+                    <Select value={activeItem.specs.fold || ""} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className={selectFilled}>
+                        <SelectValue placeholder="No Fold" />
                       </SelectTrigger>
-                      <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FOLD_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
-                  <div className="min-w-[145px]">
-                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isLamFilled ? "text-muted-foreground" : "text-amber-600")}>
-                      Lamination {!isLamFilled && <span className="text-amber-500">*</span>}
-                    </label>
-                    <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={isLamFilled ? selectFilled : selectUnfilled}>
-                        <SelectValue placeholder="— Select —" />
+                  <div className="min-w-[130px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
+                    <Select value={activeItem.specs.lamination || ""} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className={selectFilled}>
+                        <SelectValue placeholder="None" />
                       </SelectTrigger>
-                      <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{LAMINATION_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
@@ -871,68 +922,96 @@ export function SimplePrintingEntry() {
               )}
               
               {/* ═══════════════════════════════════════════════════════════════ */}
-              {/* BOOKLET / SPIRAL SPECS - Cover + Inside sections */}
+              {/* BOOKLET SPECS - Saddle Stitch / Perfect Bound */}
               {/* ═══════════════════════════════════════════════════════════════ */}
-              {(isBooklet || activeItem.calcType === "spiral") && (
+              {isBooklet && (
                 <div className="space-y-4">
-                  {/* COVER */}
-                  <div className="p-4 bg-muted/30 rounded-xl">
-                    <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
-                      Cover {!isCoverPaperFilled && <span className="text-amber-500">— needs paper selection</span>}
-                    </h5>
-                    <div className="flex flex-wrap items-end gap-4">
-                      <div className="min-w-[185px]">
-                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
-                          Cover Paper {!isCoverPaperFilled && <span className="text-amber-500">*</span>}
-                        </label>
-                        <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={isCoverPaperFilled ? selectFilled : selectUnfilled}>
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="min-w-[185px]">
-                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
-                          Cover Colors {!isCoverColorsFilled && <span className="text-amber-500">*</span>}
-                        </label>
-                        <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={isCoverColorsFilled ? selectFilled : selectUnfilled}>
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <button 
-                        type="button"
-                        onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
-                        disabled={activeItem.addedToQuote}
-                        className={cn(
-                          "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
-                          activeItem.specs.coverBleed 
-                            ? "bg-foreground text-background border-foreground" 
-                            : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
-                        )}
-                      >
-                        {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
-                        Bleed
-                      </button>
-                      
-                      <div className="min-w-[145px]">
-                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isLamFilled ? "text-muted-foreground" : "text-amber-600")}>
-                          Cover Lam {!isLamFilled && <span className="text-amber-500">*</span>}
-                        </label>
-                        <Select value={activeItem.specs.lamination || ""} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={isLamFilled ? selectFilled : selectUnfilled}>
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
+                  {/* SEPARATE COVER TOGGLE */}
+                  <div className="flex items-center gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ separateCover: !activeItem.specs.separateCover })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.separateCover 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.separateCover && <Check className="h-4 w-4" />}
+                      Separate Cover
+                    </button>
+                    
+                    <div className="min-w-[180px]">
+                      <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Binding</label>
+                      <Select value={activeItem.specs.bindingType || "staple"} onValueChange={(v) => updateSpecs({ bindingType: v })} disabled={activeItem.addedToQuote}>
+                        <SelectTrigger className={selectFilled}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>{BINDING_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                   </div>
+                  
+                  {/* COVER - Only show if separateCover is true */}
+                  {activeItem.specs.separateCover && (
+                    <div className="p-4 bg-muted/30 rounded-xl">
+                      <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                        Cover {!isCoverPaperFilled && <span className="text-amber-500">— needs paper selection</span>}
+                      </h5>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="min-w-[185px]">
+                          <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                            Cover Paper {!isCoverPaperFilled && <span className="text-amber-500">*</span>}
+                          </label>
+                          <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={isCoverPaperFilled ? selectFilled : selectUnfilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="min-w-[170px]">
+                          <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                            Cover Colors {!isCoverColorsFilled && <span className="text-amber-500">*</span>}
+                          </label>
+                          <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={isCoverColorsFilled ? selectFilled : selectUnfilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{BOOKLET_COVER_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <button 
+                          type="button"
+                          onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
+                          disabled={activeItem.addedToQuote}
+                          className={cn(
+                            "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                            activeItem.specs.coverBleed 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
+                          Bleed
+                        </button>
+                        
+                        <div className="min-w-[130px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Lam</label>
+                          <Select value={activeItem.specs.coverLamination || ""} onValueChange={(v) => updateSpecs({ coverLamination: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="None" />
+                            </SelectTrigger>
+                            <SelectContent>{LAMINATION_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* INSIDE PAGES */}
                   <div className="p-4 bg-muted/30 rounded-xl">
@@ -952,7 +1031,7 @@ export function SimplePrintingEntry() {
                         </Select>
                       </div>
                       
-                      <div className="min-w-[185px]">
+                      <div className="min-w-[170px]">
                         <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsideColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
                           Inside Colors {!isInsideColorsFilled && <span className="text-amber-500">*</span>}
                         </label>
@@ -960,7 +1039,203 @@ export function SimplePrintingEntry() {
                           <SelectTrigger className={isInsideColorsFilled ? selectFilled : selectUnfilled}>
                             <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
-                          <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          <SelectContent>{BOOKLET_INSIDE_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <button 
+                        type="button"
+                        onClick={() => !activeItem.addedToQuote && updateSpecs({ insideBleed: !activeItem.specs.insideBleed })}
+                        disabled={activeItem.addedToQuote}
+                        className={cn(
+                          "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                          activeItem.specs.insideBleed 
+                            ? "bg-foreground text-background border-foreground" 
+                            : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                        )}
+                      >
+                        {activeItem.specs.insideBleed && <Check className="h-4 w-4" />}
+                        Bleed
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* SPIRAL SPECS - Front/Back Cover Toggles + Inside */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {activeItem.calcType === "spiral" && (
+                <div className="space-y-4">
+                  {/* COVER TOGGLES */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ useFrontCover: !activeItem.specs.useFrontCover })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.useFrontCover 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.useFrontCover && <Check className="h-4 w-4" />}
+                      Front Cover
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ useBackCover: !activeItem.specs.useBackCover })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.useBackCover 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.useBackCover && <Check className="h-4 w-4" />}
+                      Back Cover
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ clearPlastic: !activeItem.specs.clearPlastic })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.clearPlastic 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.clearPlastic && <Check className="h-4 w-4" />}
+                      Clear Plastic
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ blackVinyl: !activeItem.specs.blackVinyl })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.blackVinyl 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.blackVinyl && <Check className="h-4 w-4" />}
+                      Black Vinyl
+                    </button>
+                  </div>
+                  
+                  {/* FRONT COVER - Only show if useFrontCover is true */}
+                  {activeItem.specs.useFrontCover && (
+                    <div className="p-4 bg-muted/30 rounded-xl">
+                      <h5 className="text-[11px] font-bold uppercase tracking-wide mb-3 text-muted-foreground">Front Cover</h5>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="min-w-[185px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper</label>
+                          <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-[170px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                          <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
+                          disabled={activeItem.addedToQuote}
+                          className={cn(
+                            "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                            activeItem.specs.coverBleed 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
+                          Bleed
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* BACK COVER - Only show if useBackCover is true */}
+                  {activeItem.specs.useBackCover && (
+                    <div className="p-4 bg-muted/30 rounded-xl">
+                      <h5 className="text-[11px] font-bold uppercase tracking-wide mb-3 text-muted-foreground">Back Cover</h5>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="min-w-[185px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper</label>
+                          <Select value={activeItem.specs.backCoverPaper || ""} onValueChange={(v) => updateSpecs({ backCoverPaper: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-[170px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                          <Select value={activeItem.specs.backCoverColors || ""} onValueChange={(v) => updateSpecs({ backCoverColors: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => !activeItem.addedToQuote && updateSpecs({ backCoverBleed: !activeItem.specs.backCoverBleed })}
+                          disabled={activeItem.addedToQuote}
+                          className={cn(
+                            "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                            activeItem.specs.backCoverBleed 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          {activeItem.specs.backCoverBleed && <Check className="h-4 w-4" />}
+                          Bleed
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* INSIDE PAGES */}
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isInsidePaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Inside Pages {!isInsidePaperFilled && <span className="text-amber-500">— needs paper selection</span>}
+                    </h5>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="min-w-[185px]">
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsidePaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Inside Paper {!isInsidePaperFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.insidePaper || ""} onValueChange={(v) => updateSpecs({ insidePaper: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isInsidePaperFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
+                          </SelectTrigger>
+                          <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="min-w-[170px]">
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsideColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Inside Colors {!isInsideColorsFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.insideColors || ""} onValueChange={(v) => updateSpecs({ insideColors: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isInsideColorsFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
+                          </SelectTrigger>
+                          <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       
@@ -1000,13 +1275,13 @@ export function SimplePrintingEntry() {
                     </Select>
                   </div>
                   
-                  <div className="min-w-[185px]">
+                  <div className="min-w-[170px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
                     <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
                       <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
@@ -1024,6 +1299,21 @@ export function SimplePrintingEntry() {
                     {activeItem.specs.hasBleed && <Check className="h-4 w-4" />}
                     Bleed
                   </button>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => !activeItem.addedToQuote && updateSpecs({ useChipBoard: !activeItem.specs.useChipBoard })}
+                    disabled={activeItem.addedToQuote}
+                    className={cn(
+                      "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                      activeItem.specs.useChipBoard 
+                        ? "bg-foreground text-background border-foreground" 
+                        : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                    )}
+                  >
+                    {activeItem.specs.useChipBoard && <Check className="h-4 w-4" />}
+                    Chip Board
+                  </button>
                 </div>
               )}
               
@@ -1038,7 +1328,7 @@ export function SimplePrintingEntry() {
                       <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FLAT_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
