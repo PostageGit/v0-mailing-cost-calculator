@@ -13,12 +13,25 @@
  */
 
 import { useState, type ReactNode } from "react"
+import useSWR from "swr"
 import { useQuote } from "@/lib/quote-context"
 import { formatCurrency } from "@/lib/pricing"
 import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+
+/** Lightweight customer shape - matches `/api/customers` response for the
+ *  fields we actually use here (name resolution). */
+type CustomerRow = {
+  id: string
+  company_name?: string
+  name?: string
+  contact_name?: string
+}
+
+const customersFetcher = (url: string): Promise<CustomerRow[]> =>
+  fetch(url).then((r) => r.json())
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
   Wrench, Plus, X, Mail, CheckCircle2, Layers,
@@ -68,8 +81,10 @@ export function QuoteFormLayout({
   const {
     items,
     projectName,
+    customerId,
     contactName,
     referenceNumber,
+    quantity,
     quoteNumber,
     currentRevision,
     revisions,
@@ -81,6 +96,22 @@ export function QuoteFormLayout({
     removeItem,
     addItem,
   } = useQuote()
+
+  // Resolve the selected customer's company name for display.
+  // We always fetch (cheap, SWR-cached) so the quote header reflects any
+  // selection made in the Planner, even before it's saved to the server.
+  const { data: customers } = useSWR<CustomerRow[]>(
+    "/api/customers",
+    customersFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  )
+  const selectedCustomer = customerId
+    ? customers?.find((c) => c.id === customerId)
+    : null
+  const companyName =
+    selectedCustomer?.company_name ||
+    selectedCustomer?.name ||
+    ""
 
   // Inline custom-line editor state
   const [customDraft, setCustomDraft] = useState<{ label: string; amount: string } | null>(null)
@@ -97,7 +128,13 @@ export function QuoteFormLayout({
     const revLabel = currentRevision ? ` (Revision ${currentRevision})` : ""
     const lines: string[] = []
     lines.push(`${header} — ${quoteRef}${revLabel}`)
-    if (contactName) lines.push(`Customer: ${contactName}`)
+    // Customer line combines company + contact when both are present so the
+    // email summary matches exactly what the user sees in the quote header.
+    const customerPieces = [companyName, contactName].filter(Boolean)
+    if (customerPieces.length > 0) {
+      lines.push(`Customer: ${customerPieces.join(" · ")}`)
+    }
+    if (quantity > 0) lines.push(`Quantity: ${quantity.toLocaleString()}`)
     if (referenceNumber) lines.push(`Reference: ${referenceNumber}`)
     lines.push("")
     lines.push("LINE ITEMS")
@@ -207,22 +244,35 @@ export function QuoteFormLayout({
               </span>
             </div>
 
-            {/* Row 2: Project / Customer / Ref summary — READ-ONLY in QB mode.
+            {/* Row 2: Customer / Project / Qty / Ref summary — READ-ONLY.
                 The Planner is the single source of truth for these fields
-                (it has the richer database-backed customer lookup + contact
-                picker + quantity). This strip just reflects that data and
-                offers a one-click jump back to the Planner to edit. */}
-            <div className="px-6 pb-4 flex items-center gap-2">
-              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-[1.4fr_1fr_0.8fr] gap-3">
+                (richer database-backed customer lookup + contact picker +
+                quantity). This strip just reflects that data live and offers
+                a one-click jump back to the Planner to edit.
+                Customer cell shows Company (primary) with Contact underneath
+                so picking a company in the Planner immediately lights up here
+                even before a contact is assigned. */}
+            <div className="px-6 pb-4 flex items-start gap-2">
+              <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-[1.3fr_1.3fr_0.6fr_0.8fr] gap-3">
+                <CustomerSummary
+                  company={companyName}
+                  contact={contactName}
+                  hasCustomer={!!customerId}
+                />
                 <SummaryField label="Project" value={projectName} emptyText="Not set" />
-                <SummaryField label="Customer" value={contactName} emptyText="No customer" />
+                <SummaryField
+                  label="Qty"
+                  value={quantity > 0 ? quantity.toLocaleString() : ""}
+                  emptyText="—"
+                  mono
+                />
                 <SummaryField label="Ref" value={referenceNumber} emptyText="—" mono />
               </div>
               {onGoToPlanner && stepId !== "planner" && (
                 <button
                   type="button"
                   onClick={onGoToPlanner}
-                  className="shrink-0 flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent hover:border-border transition-all"
+                  className="shrink-0 flex items-center gap-1.5 h-8 px-2.5 mt-3 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent hover:border-border transition-all"
                   title="Edit customer, project and job details in the Planner"
                 >
                   <Layers className="h-3 w-3" />
@@ -597,6 +647,46 @@ function SummaryField({
       >
         {isEmpty ? emptyText : value}
       </div>
+    </div>
+  )
+}
+
+/** Two-line customer summary: Company (primary) with Contact underneath.
+ *  Fixes the old ambiguity where picking a company in the Planner but not a
+ *  contact left the header looking empty. Now the company lights up instantly
+ *  and the contact slots in as a secondary detail when added. */
+function CustomerSummary({
+  company, contact, hasCustomer,
+}: { company: string; contact: string; hasCustomer: boolean }) {
+  const primary = company || (hasCustomer ? "Customer selected" : "")
+  const hasPrimary = primary.length > 0
+  return (
+    <div className="min-w-0">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+        Customer
+      </div>
+      {hasPrimary ? (
+        <div className="min-w-0">
+          <div
+            className="text-sm font-semibold text-foreground leading-tight truncate"
+            title={primary}
+          >
+            {primary}
+          </div>
+          {contact && (
+            <div
+              className="text-[11px] text-muted-foreground leading-tight truncate mt-0.5"
+              title={contact}
+            >
+              {contact}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground/60 italic font-normal leading-tight truncate">
+          No customer
+        </div>
+      )}
     </div>
   )
 }
