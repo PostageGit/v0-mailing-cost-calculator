@@ -62,12 +62,23 @@ const EMPTY_INPUTS: PrintingInputs = {
   },
 }
 
+interface PrintingCalculatorResult {
+  cost: number
+  price: number
+  inputs: PrintingInputs
+  description: string
+}
+
 interface PrintingCalculatorProps {
   viewMode?: "detailed" | "compact"
   standalone?: boolean
+  /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
+  onResult?: (result: PrintingCalculatorResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: PrintingInputs
 }
 
-export function PrintingCalculator({ viewMode = "detailed", standalone = false }: PrintingCalculatorProps) {
+export function PrintingCalculator({ viewMode = "detailed", standalone = false, onResult, initialInputs }: PrintingCalculatorProps) {
   const quote = useQuote()
   const mailing = useMailing()
   const { sendToChat } = useGlobalChat()
@@ -118,8 +129,26 @@ export function PrintingCalculator({ viewMode = "detailed", standalone = false }
     return { ...EMPTY_INPUTS, ...restored }
   }, [hasSavedFlat, savedFlatItem])
 
-  // Local form state
-  const [localInputs, setLocalInputs] = useState<PrintingInputs>(EMPTY_INPUTS)
+  // Local form state - load from initialInputs if provided
+  const [localInputs, setLocalInputs] = useState<PrintingInputs>(() => {
+    console.log("[v0] PrintingCalculator initial mount, initialInputs:", initialInputs)
+    if (initialInputs && typeof initialInputs === 'object') {
+      // Merge with EMPTY_INPUTS to ensure all fields exist
+      return { ...EMPTY_INPUTS, ...initialInputs }
+    }
+    return EMPTY_INPUTS
+  })
+  
+  // Reset to initialInputs when it changes (for re-opening saved calculations)
+  useEffect(() => {
+    console.log("[v0] PrintingCalculator useEffect, initialInputs changed:", initialInputs)
+    if (initialInputs && typeof initialInputs === 'object' && Object.keys(initialInputs).length > 0) {
+      // Merge with EMPTY_INPUTS to ensure all fields exist
+      const merged = { ...EMPTY_INPUTS, ...initialInputs }
+      console.log("[v0] Setting localInputs to:", merged)
+      setLocalInputs(merged)
+    }
+  }, [initialInputs])
   
   // Calculation state
   const [sheetOptions, setSheetOptions] = useState<SheetOptionRow[]>([])
@@ -786,9 +815,24 @@ export function PrintingCalculator({ viewMode = "detailed", standalone = false }
                 />
               )}
 
-              {/* Add to Quote + Compare with Chat + Shipping */}
+              {/* Add to Quote OR Use This Price (for Simple Mode) + Compare with Chat + Shipping */}
               <div className="flex gap-2 mt-4">
-              {!standalone && (
+              {onResult ? (
+                // Simple Mode: return price to parent instead of adding to quote
+                <Button
+                  onClick={() => {
+                    const desc = `${inputs.paperName}, ${inputs.sidesValue}${inputs.hasBleed ? ", Bleed" : ""}`
+                    const price = effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal
+                    const cost = fullResult.baseCost + fullResult.finishingCost + fullResult.lamCost
+                    onResult({ cost, price, inputs, description: desc })
+                  }}
+                  className="flex-1 gap-2 rounded-full bg-green-600 text-white hover:bg-green-700"
+                  size="lg"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                  Use This Price - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
+                </Button>
+              ) : !standalone && (
               <Button
                 onClick={handleAddToQuote}
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
@@ -798,7 +842,7 @@ export function PrintingCalculator({ viewMode = "detailed", standalone = false }
                 Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : fullResult.grandTotal)}
               </Button>
               )}
-              {!standalone && (
+              {!standalone && !onResult && (
               <>
               <ShippingCalcButton
                 pieceWidth={inputs.width}

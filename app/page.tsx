@@ -29,6 +29,8 @@ import WorkflowPage from "@/app/workflow/page"
 import { CalculatorsHub } from "@/components/calculators-hub"
 import { PDFBatchTool } from "@/components/pdf-batch-tool"
 import { PDFImposeTool } from "@/components/pdf-impose-tool"
+import { SimplePrintingEntry } from "@/components/simple-printing-entry"
+import { useAppConfig } from "@/lib/app-config-context"
 
 // UberDeliveryCalculator hidden until API access is approved - see components/uber-delivery-calculator.tsx
 import { Button } from "@/components/ui/button"
@@ -84,18 +86,20 @@ type Section =
   | "nonprofit-lookup" | "workflow" | "calculators" | "pdf-tools"
   | "job"
 
-interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools" }
+interface NavItem { id: Section; label: string; icon: ReactNode; group: "dashboards" | "data" | "tools"; simpleMode?: boolean }
 const NAV_ITEMS: NavItem[] = [
-  { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards" },
-  { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards" },
+  // simpleMode: true = show in simple mode, false/undefined = show only in full mode
+  // In SIMPLE MODE: only Quotes and Production are visible
+  { id: "quotes-board", label: "Quotes",     icon: <LayoutDashboard className="h-4 w-4" />, group: "dashboards", simpleMode: true },
+  { id: "jobs-board",   label: "Production",  icon: <Briefcase className="h-4 w-4" />,       group: "dashboards", simpleMode: true },
   { id: "deliveries",   label: "Deliveries",   icon: <Package className="h-4 w-4" />,         group: "dashboards" },
   { id: "billing",      label: "Billing",      icon: <DollarSign className="h-4 w-4" />,      group: "dashboards" },
-  { id: "ohp-bids",     label: "OHP Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
-  { id: "chat-quotes",  label: "Chat Quotes", icon: <MessageSquare className="h-4 w-4" />,   group: "dashboards" },
+  { id: "ohp-bids",     label: "Shop Bids",     icon: <Send className="h-4 w-4" />,            group: "dashboards" },
+  { id: "chat-quotes",  label: "Quote Cats", icon: <MessageSquare className="h-4 w-4" />,   group: "dashboards" },
   { id: "customers",    label: "Customers",   icon: <Users className="h-4 w-4" />,            group: "data" },
   { id: "invoices",     label: "Invoices",    icon: <Receipt className="h-4 w-4" />,          group: "data" },
   { id: "export-qb",    label: "Export to QB", icon: <Download className="h-4 w-4" />,         group: "data" },
-  { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools" },
+  { id: "nonprofit-lookup", label: "Nonprofit Lookup", icon: <Building2 className="h-4 w-4" />, group: "tools", simpleMode: true },
   { id: "workflow", label: "Workflow Guide", icon: <GitBranch className="h-4 w-4" />, group: "tools" },
   { id: "calculators", label: "Calculators", icon: <Stamp className="h-4 w-4" />, group: "tools" },
   { id: "pdf-tools", label: "PDF Tools", icon: <FileStack className="h-4 w-4" />, group: "tools" },
@@ -158,8 +162,9 @@ function PDFToolsSection() {
 }
 
 function AppContent() {
+const { config: appConfig } = useAppConfig()
   const [section, setSection] = useState<Section>("quotes-board")
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+const [sidebarOpen, setSidebarOpen] = useState(true)
   const [quoteView, setQuoteView] = useState<"board" | "list" | "sidebar">("board")
   const [jobView, setJobView] = useState<"board" | "list" | "sidebar">("board")
   const [showSettings, setShowSettings] = useState(false)
@@ -187,6 +192,28 @@ function AppContent() {
   }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
   const visibleSteps = useMemo(() => {
+    // In SIMPLE MODE: consolidate all printing into one "Printing" step
+    // Hide envelope, booklet, spiral, perfect, pad, ohp - all handled by SimplePrintingEntry
+    if (appConfig.simple_mode) {
+      const hasAnyPrinting = mailing.needsEnvelope || mailing.needsPrinting || mailing.needsBooklet || 
+                            mailing.needsSpiral || mailing.needsPerfect || mailing.needsPad || mailing.needsOHP
+      return ALL_STEPS.filter((step) => {
+        // Only show: Postage, Services, and ONE "Printing" step
+        if (step.id === "usps") return true
+        if (step.id === "labor") return true
+        if (step.id === "printing") return hasAnyPrinting // This becomes the unified printing step
+        // Hide all other printing calculators in simple mode
+        if (step.id === "envelope") return false
+        if (step.id === "booklet") return false
+        if (step.id === "spiral") return false
+        if (step.id === "perfect") return false
+        if (step.id === "pad") return false
+        if (step.id === "ohp") return false
+        return true
+      })
+    }
+    
+    // FULL MODE: show individual steps as before
     return ALL_STEPS.filter((step) => {
       if (step.id === "envelope" && !mailing.needsEnvelope) return false
       if (step.id === "printing" && !mailing.needsPrinting) return false
@@ -197,7 +224,7 @@ function AppContent() {
       if (step.id === "ohp" && !mailing.needsOHP) return false
       return true
     })
-  }, [mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP])
+  }, [appConfig.simple_mode, mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP])
 
   useEffect(() => {
     if (jobPhase === "pricing" && !visibleSteps.find((s) => s.id === currentStep)) {
@@ -312,21 +339,27 @@ function AppContent() {
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
   [visibleSteps, completedSteps])
 
-  const renderStep = () => {
-    // Map view mode: "quick" -> "compact" for the calculator forms
-    const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
-    switch (currentStep) {
-      case "envelope": return <EnvelopeTab />
-      case "usps":     return <USPSPostageCalculator />
-      case "labor":    return <ServiceBuilder />
-      case "printing": return <PrintingCalculator viewMode={viewMode} />
-      case "booklet":  return <BookletCalculator viewMode={viewMode} />
-      case "spiral":   return <SpiralCalculator viewMode={viewMode} />
-      case "perfect":  return <PerfectCalculator viewMode={viewMode} />
-      case "pad":      return <PadCalculator viewMode={viewMode} />
-      case "ohp":      return <VendorBidTab />
-    }
+const renderStep = () => {
+  // Map view mode: "quick" -> "compact" for the calculator forms
+  const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
+  
+  // SIMPLE MODE: "printing" step shows SimplePrintingEntry with ALL pieces
+  if (appConfig.simple_mode && currentStep === "printing") {
+    return <SimplePrintingEntry />
   }
+  
+  switch (currentStep) {
+    case "envelope": return <EnvelopeTab />
+    case "usps":     return <USPSPostageCalculator />
+    case "labor":    return <ServiceBuilder />
+    case "printing": return <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return <PadCalculator viewMode={viewMode} />
+    case "ohp":      return <VendorBidTab />
+  }
+}
 
   const isJobView = section === "job"
 
@@ -386,7 +419,10 @@ function AppContent() {
             "flex-1 pt-2 pb-4 flex flex-col gap-4 overflow-y-auto overflow-x-hidden",
             sidebarOpen ? "px-3" : "px-[7px]"
           )} style={{ scrollbarWidth: "none", scrollbarGutter: "stable" }}>
-            {(["dashboards", "data", "tools"] as const).map((group) => (
+            {(["dashboards", "data", "tools"] as const).map((group) => {
+              const groupItems = NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode))
+              if (groupItems.length === 0) return null // Hide empty groups in simple mode
+              return (
               <div key={group}>
                 {sidebarOpen && (
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1 px-3">
@@ -394,10 +430,10 @@ function AppContent() {
                   </p>
                 )}
                 <div className="flex flex-col gap-0.5">
-                  {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
-                    const active = section === nav.id
-                    return (
-                      <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
+{groupItems.map((nav) => {
+  const active = section === nav.id
+  return (
+  <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(true) }}
                         className={cn(
                           "flex items-center rounded-lg transition-all w-full",
                           sidebarOpen ? "gap-2.5 px-3 py-2 text-sm min-h-[40px]" : "h-10 justify-center",
@@ -413,7 +449,7 @@ function AppContent() {
                   })}
                 </div>
               </div>
-            ))}
+            )})}
           </nav>
 
           {/* Settings footer */}
@@ -439,16 +475,19 @@ function AppContent() {
               </Button>
             </div>
             <nav className="flex-1 overflow-y-auto px-3 pt-2 pb-4 flex flex-col gap-4">
-              {(["dashboards", "data", "tools"] as const).map((group) => (
+              {(["dashboards", "data", "tools"] as const).map((group) => {
+                const groupItems = NAV_ITEMS.filter((n) => n.group === group && (!appConfig.simple_mode || n.simpleMode))
+                if (groupItems.length === 0) return null
+                return (
                 <div key={group}>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">
                     {group === "dashboards" ? "Boards" : group === "data" ? "Manage" : "Tools"}
                   </p>
                   <div className="flex flex-col gap-0.5">
-                    {NAV_ITEMS.filter((n) => n.group === group).map((nav) => {
-                      const active = section === nav.id
-                      return (
-                        <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(false) }}
+{groupItems.map((nav) => {
+  const active = section === nav.id
+  return (
+  <button key={nav.id} onClick={() => { setSection(nav.id); setSidebarOpen(false) }}
                           className={cn(
                             "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all min-h-[44px] w-full",
                             active ? "bg-foreground text-background font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -460,7 +499,7 @@ function AppContent() {
                     })}
                   </div>
                 </div>
-              ))}
+              )})}
             </nav>
             <div className="px-2 pb-3 border-t border-border pt-2">
               <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
@@ -735,9 +774,15 @@ function AppContent() {
                 </div>
 
                 {/* Content + Quote Sidebar */}
-                <div className="flex-1 flex min-h-0 overflow-hidden justify-center">
-                  <div className="flex-1 min-w-0 max-w-4xl overflow-auto px-4 sm:px-6 pt-4 pb-8">
-                    <div key={currentStep} className="step-enter">
+                <div className="flex-1 flex min-h-0 overflow-hidden">
+                  <div className={cn(
+                    "flex-1 min-w-0 overflow-auto",
+                    // Simple mode printing uses full width, other steps use centered max-w
+                    appConfig.simple_mode && currentStep === "printing"
+                      ? "px-0 pt-0 pb-0"
+                      : "max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-8"
+                  )}>
+                    <div key={currentStep} className="step-enter h-full">
                       <StepErrorBoundary stepId={currentStep}>
                         {renderStep()}
                       </StepErrorBoundary>

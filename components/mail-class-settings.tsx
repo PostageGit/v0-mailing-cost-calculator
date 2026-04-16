@@ -26,6 +26,7 @@ import { FoldScoreSettingsTab } from "@/components/fold-score-settings"
 import { SaddleStitchSettingsTab } from "@/components/saddle-stitch-settings"
 import { PerfectBindingSettingsTab } from "@/components/perfect-binding-settings"
 import { VendorList } from "@/components/vendor-list"
+import { AppSettingsPanel } from "@/components/app-settings-panel"
 
 import { PapersSettings } from "@/components/papers-settings"
 import {
@@ -130,6 +131,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 // ---------- nav config ----------
 type SettingsTab =
+  | "app-mode"
   | "pricing" | "papers" | "paper-weights" | "finishings" | "finishing-calcs" | "fold-score" | "saddle-stitch" | "perfect-binding"
   | "labor" | "departments" | "envelopes" | "addressing" | "sort-mix" | "dont-forget"
   | "items" | "supplies" | "box-sizes" | "steps" | "vendors"
@@ -178,6 +180,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
   {
     label: "System",
     items: [
+      { id: "app-mode", label: "App Mode", icon: <Settings className="h-4 w-4" />, description: "Company mode, Simple Printing Mode" },
       { id: "fields", label: "Custom Fields", icon: <ListPlus className="h-4 w-4" />, description: "Customer & contact fields" },
       { id: "terms", label: "Payment Terms", icon: <CreditCard className="h-4 w-4" />, description: "Net terms, due dates" },
       { id: "team", label: "Team", icon: <Users className="h-4 w-4" />, description: "Team members and roles" },
@@ -187,6 +190,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
 ]
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => React.ReactNode> = {
+  "app-mode": () => <AppSettingsPanel />,
   pricing: () => <PricingSettingsTab />,
   papers: () => <PapersSettings />,
   "paper-weights": () => <PaperWeightsSettingsTab />,

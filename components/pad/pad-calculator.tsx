@@ -21,12 +21,23 @@ import { usePapersContext } from "@/lib/papers-context"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
+interface PadCalculatorResult {
+  cost: number
+  price: number
+  description: string
+  inputs: PadInputs
+}
+
 interface PadCalculatorProps {
   viewMode?: "detailed" | "compact"
   standalone?: boolean
+  /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
+  onResult?: (result: PadCalculatorResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: PadInputs
 }
 
-export function PadCalculator({ viewMode = "detailed", standalone = false }: PadCalculatorProps) {
+export function PadCalculator({ viewMode = "detailed", standalone = false, onResult, initialInputs }: PadCalculatorProps) {
   const quote = useQuote()
   const { paperDataLookup } = usePapersContext()
 
@@ -45,7 +56,15 @@ export function PadCalculator({ viewMode = "detailed", standalone = false }: Pad
     }
   }, [settingsData])
 
-  const [inputs, setInputs] = useState<PadInputs>(defaultPadInputs())
+  const [inputs, setInputs] = useState<PadInputs>(initialInputs || defaultPadInputs())
+  
+  // Reset to initialInputs when it changes
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs(initialInputs)
+    }
+  }, [initialInputs])
+  
   const [calcResult, setCalcResult] = useState<PadCalcResult | null>(null)
   const [multiQtyResults, setMultiQtyResults] = useState<GenericQtyRow<PadCalcResult>[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -138,6 +157,19 @@ export function PadCalculator({ viewMode = "detailed", standalone = false }: Pad
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const desc = `${calcResult.insideResult.paper}, ${calcResult.insideResult.sides}${inputs.useChipBoard ? ", Chip Board" : ""}`
+    const totalPrice = effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal
+    
+    // If onResult callback provided, call it instead of adding to quote
+    if (onResult) {
+      onResult({
+        cost: calcResult.totalCost || totalPrice * 0.7,
+        price: totalPrice,
+        description: `${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad ${inputs.pageWidth}x${inputs.pageHeight}, ${desc}`,
+        inputs: inputs
+      })
+      return
+    }
+    
     quote.addItem({
       category: "pad",
       label: `${inputs.padQty.toLocaleString()} - ${inputs.pagesPerPad}pg Pad ${inputs.pageWidth}x${inputs.pageHeight}`,
@@ -225,12 +257,15 @@ export function PadCalculator({ viewMode = "detailed", standalone = false }: Pad
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                 size="lg"
               >
-                <Plus className="h-4 w-4" />
-                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}
-              </Button>
+                  <Plus className="h-4 w-4" />
+                  {onResult 
+                    ? `Use This Price - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}`
+                    : `Add to Quote - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.grandTotal)}`
+                  }
+                </Button>
               )}
-              {!standalone && (
-              <ShippingCalcButton
+              {!standalone && !onResult && (
+                <ShippingCalcButton
                 pieceWidth={inputs.pageWidth}
                 pieceHeight={inputs.pageHeight}
                 quantity={inputs.padQty}

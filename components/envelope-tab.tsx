@@ -79,12 +79,29 @@ function matchPlannerEnvelope(
   return null
 }
 
-export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {}) {
+interface EnvelopeResult {
+  cost: number
+  price: number
+  description: string
+  inputs: EnvelopeInputs
+}
+
+interface EnvelopeTabProps {
+  standalone?: boolean
+  /** When provided, shows "Use This Price" button instead of "Add to Quote" and calls this with result */
+  onResult?: (result: EnvelopeResult) => void
+  /** Initial inputs to load (for editing saved calculations) */
+  initialInputs?: EnvelopeInputs
+}
+
+export function EnvelopeTab({ standalone = false, onResult, initialInputs }: EnvelopeTabProps = {}) {
   const quote = useQuote()
   const mailing = useMailing()
   const v = useFormValidation()
 
   const [inputs, setInputs] = useState<EnvelopeInputs>(() => {
+    // If initialInputs provided (re-editing), use those
+    if (initialInputs) return initialInputs
     const def = defaultEnvelopeInputs()
     // Pre-fill amount from planner printQty (mailing qty + 50 overage)
     if (mailing.printQty > 0) def.amount = mailing.printQty
@@ -101,6 +118,14 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
     }
     return def
   })
+  
+  // Reset to initialInputs when it changes (for re-opening saved calculations)
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs(initialInputs)
+    }
+  }, [initialInputs])
+  
   const [calcResult, setCalcResult] = useState<EnvelopeCalcResult | null>(null)
   const [error, setError] = useState("")
   const [effectiveTotal, setEffectiveTotal] = useState(0)
@@ -161,6 +186,19 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
   const handleAddToQuote = useCallback(() => {
     if (!calcResult) return
     const finalAmount = effectiveTotal > 0 ? effectiveTotal : calcResult.price
+    const desc = `${inputs.inkType} ${inputs.printType}${inputs.hasBleed ? " + Bleed" : ""}, ${inputs.customerType}`
+    
+    // If onResult callback provided, call it instead of adding to quote
+    if (onResult) {
+      onResult({
+        cost: calcResult.cost || finalAmount * 0.7,
+        price: finalAmount,
+        description: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}, ${desc}`,
+        inputs: inputs
+      })
+      return
+    }
+    
     quote.addItem({
       category: "envelope",
       label: `${calcResult.quantity.toLocaleString()} Envelopes - ${inputs.itemName}`,
@@ -421,12 +459,20 @@ export function EnvelopeTab({ standalone = false }: { standalone?: boolean } = {
                 className="flex-1 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
                 size="sm"
               >
-                <Plus className="h-4 w-4" />
-                Add to Quote - {formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}
-              </Button>
-              )}
-              {!standalone && (() => {
-                const dims = envDims[inputs.itemName]
+                      <Plus className="h-4 w-4" />
+                      {onResult 
+                        ? `Use This Price - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}`
+                        : `Add to Quote - ${formatCurrency(effectiveTotal > 0 ? effectiveTotal : calcResult.price)}`
+                      }
+                    </Button>
+                  )}
+                  {!standalone && !onResult && (() => {
+                // Get envelope dimensions from settings items
+                const envItem = settings.items.find(i => i.name === inputs.itemName)
+                if (!envItem) return null
+                // Parse dimensions from envelope name (e.g. "9x12" or "#10")
+                const dimMatch = envItem.name.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i)
+                const dims = dimMatch ? [parseFloat(dimMatch[1]), parseFloat(dimMatch[2])] : null
                 if (!dims) return null
                 return (
                   <ShippingCalcButton
