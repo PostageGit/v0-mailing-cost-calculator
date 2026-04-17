@@ -250,6 +250,24 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
     }
   }, [visibleSteps, currentStep, jobPhase])
 
+  // Resolve a requested step id to a step that's actually visible.
+  // In simple mode, envelope / booklet / spiral / perfect / pad / ohp are
+  // all rolled up into the unified "printing" step — so tapping an
+  // envelope or booklet category badge should land on "printing", NOT get
+  // silently bounced to "usps" by the visibility effect. In full mode the
+  // requested step usually exists as-is; only fall back if it truly isn't.
+  const resolveStepForJump = useCallback((requested: StepId): StepId => {
+    const isVisible = visibleSteps.some((s) => s.id === requested)
+    if (isVisible) return requested
+    const PRINTING_FAMILY: StepId[] = ["envelope", "booklet", "spiral", "perfect", "pad", "ohp", "printing"]
+    if (appConfig.simple_mode && PRINTING_FAMILY.includes(requested)) {
+      // Simple mode consolidates all printing-family helpers into one step.
+      const unified = visibleSteps.find((s) => s.id === "printing")
+      if (unified) return "printing"
+    }
+    return (visibleSteps[0]?.id || "usps") as StepId
+  }, [visibleSteps, appConfig.simple_mode])
+
   const handleLoadQuote = useCallback(
     async (quoteId: string, step?: string) => {
       const mailingSnap = await loadQuote(quoteId)
@@ -699,9 +717,10 @@ const qbStepDescriptions: Record<string, string> = {
                   onGoToStep={(id) => {
                     // Let users jump straight from a quote line's badge
                     // into the right pricing helper, even when they're on
-                    // the planner screen.
+                    // the planner screen. Resolved so simple-mode printing
+                    // family categories end up on the unified printing step.
                     setJobPhase("pricing")
-                    setCurrentStep(id as StepId)
+                    setCurrentStep(resolveStepForJump(id as StepId))
                   }}
                 >
                   <MailPiecePlanner onContinue={handleContinueToPricing} qbMode />
@@ -925,11 +944,13 @@ const qbStepDescriptions: Record<string, string> = {
                             onGoToPlanner={() => setJobPhase("planner")}
                             onGoToStep={(id) => {
                               // Tapping a line's category badge jumps to the
-                              // helper step that produced it. If we're still
-                              // on the planner, flip into pricing first so
-                              // the step actually renders.
+                              // helper step that produced it. Resolve through
+                              // resolveStepForJump so simple-mode printing
+                              // family categories (envelope, booklet, etc.)
+                              // land on the unified "printing" step instead
+                              // of being silently bounced to Postage.
                               setJobPhase("pricing")
-                              setCurrentStep(id as StepId)
+                              setCurrentStep(resolveStepForJump(id as StepId))
                             }}
                           >
                             <div key={currentStep} className="h-full">

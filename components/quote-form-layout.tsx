@@ -440,29 +440,37 @@ export function QuoteFormLayout({
                 revision automatically creates a new revision in the API. */}
             {revisions.length >= 2 && (
               <div className="px-6 pt-1 pb-0 bg-gradient-to-b from-muted/30 to-transparent">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     Revisions
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">
                     {revisions.length} total — click any to open &amp; edit, or name one to mark it as an option
                   </span>
-                  {/* Diff popover: compares the ACTIVE revision against the
-                      one immediately before it, so customer service can see
-                      at a glance what actually changed. Only renders when a
-                      prior revision exists — keeps the header uncluttered
-                      on brand-new quotes and on Rev 1. */}
+                  {/* PROMINENT "What changed?" pill.  Compares the active
+                      revision against its nearest-lower predecessor
+                      (handles non-sequential rev numbers after deletes).
+                      Amber with change count & $ delta when anything
+                      differs — neutral & muted when identical, so the eye
+                      is drawn to it exactly when something actually
+                      changed without becoming a permanent distraction. */}
                   {(() => {
                     const active = revisions.find(
                       (r) => r.revision_number === currentRevision,
                     )
-                    const prior = revisions.find(
-                      (r) => r.revision_number === currentRevision - 1,
-                    )
-                    if (!active || !prior) return null
+                    if (!active) return null
+                    // Nearest predecessor by revision_number (robust to gaps).
+                    const prior = [...revisions]
+                      .filter((r) => r.revision_number < active.revision_number)
+                      .sort((a, b) => b.revision_number - a.revision_number)[0]
+                    if (!prior) return null
                     return (
                       <span className="ml-auto">
-                        <RevisionDiffPopover before={prior} after={active} />
+                        <RevisionDiffPopover
+                          before={prior}
+                          after={active}
+                          size="prominent"
+                        />
                       </span>
                     )
                   })()}

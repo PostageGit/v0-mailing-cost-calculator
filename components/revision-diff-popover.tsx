@@ -24,6 +24,10 @@ type Props = {
   before: QuoteRevision | null | undefined
   /** Optional button label override. Defaults to "What changed?" */
   label?: string
+  /** Visual size of the trigger button. "compact" = small pill for dense
+   *  toolbars.  "prominent" = larger, color-coded pill that also shows the
+   *  total delta so customer service can spot change direction at a glance. */
+  size?: "compact" | "prominent"
 }
 
 /**
@@ -36,7 +40,7 @@ type Props = {
  *   Field changes:  "Project name: A → B"
  *   Line changes:   grouped by added / removed / modified with amounts
  */
-export function RevisionDiffPopover({ before, after, label = "What changed?" }: Props) {
+export function RevisionDiffPopover({ before, after, label = "What changed?", size = "compact" }: Props) {
   const diff = useMemo(() => diffRevisions(before, after), [before, after])
 
   if (!before || !after) return null
@@ -53,26 +57,62 @@ export function RevisionDiffPopover({ before, after, label = "What changed?" }: 
   const removed = diff.lineChanges.filter((c): c is Extract<LineChange, { kind: "removed" }> => c.kind === "removed")
   const modified = diff.lineChanges.filter((c): c is Extract<LineChange, { kind: "modified" }> => c.kind === "modified")
 
+  const changeCount = diff.fieldChanges.length + diff.lineChanges.length
+  const hasChange = diff.hasAnyChange
+  // "Prominent" variant: bigger, clearly labeled pill.  It tints amber
+  // when there ARE changes (draws the eye) and stays neutral when Rev N
+  // equals Rev N-1 (identical save). Always shows the delta so reps can
+  // eyeball direction before even opening the popover.
+  const isProminent = size === "prominent"
+
+  const deltaText =
+    Math.abs(delta) < 0.005
+      ? "No price change"
+      : `${delta > 0 ? "+" : ""}${formatCurrency(delta)}`
+
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[10px] font-semibold",
-            "text-muted-foreground hover:text-foreground",
-            "border border-border/60 hover:border-border hover:bg-muted/60 transition-colors",
-          )}
-          title={`Compare Rev ${before.revision_number} vs Rev ${after.revision_number}`}
-        >
-          <GitCompare className="h-3 w-3" />
-          <span>{label}</span>
-          {diff.hasAnyChange && (
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[14px] px-1 rounded-full bg-foreground text-background text-[9px] font-bold leading-none tabular-nums">
-              {diff.fieldChanges.length + diff.lineChanges.length}
+        {isProminent ? (
+          <button
+            type="button"
+            className={cn(
+              "inline-flex items-center gap-2 h-9 pl-3 pr-3.5 rounded-full font-bold text-[12px] transition-all shadow-sm hover:shadow",
+              hasChange
+                ? "bg-amber-500 text-white hover:bg-amber-600"
+                : "bg-muted text-muted-foreground hover:bg-muted/80 border border-border",
+            )}
+            title={`Compare Rev ${before.revision_number} vs Rev ${after.revision_number}`}
+          >
+            <GitCompare className="h-3.5 w-3.5" />
+            <span>
+              {hasChange ? `${changeCount} change${changeCount === 1 ? "" : "s"} vs Rev ${before.revision_number}` : `Identical to Rev ${before.revision_number}`}
             </span>
-          )}
-        </button>
+            {hasChange && (
+              <span className="tabular-nums font-mono pl-1 border-l border-white/40 ml-1 text-[11px]">
+                {deltaText}
+              </span>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={cn(
+              "inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[10px] font-semibold",
+              "text-muted-foreground hover:text-foreground",
+              "border border-border/60 hover:border-border hover:bg-muted/60 transition-colors",
+            )}
+            title={`Compare Rev ${before.revision_number} vs Rev ${after.revision_number}`}
+          >
+            <GitCompare className="h-3 w-3" />
+            <span>{label}</span>
+            {hasChange && (
+              <span className="inline-flex items-center justify-center min-w-[16px] h-[14px] px-1 rounded-full bg-foreground text-background text-[9px] font-bold leading-none tabular-nums">
+                {changeCount}
+              </span>
+            )}
+          </button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[380px] p-0 overflow-hidden">
         {/* Header: Rev A → Rev B with total delta */}
