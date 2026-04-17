@@ -210,11 +210,23 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
   }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
   const visibleSteps = useMemo(() => {
+    // Detect printing-family lines already on the quote.  When editing an
+    // existing quote whose planner flags weren't restored, the mailing
+    // needs* booleans may all be false even though the quote clearly has
+    // envelope / printing / booklet etc. lines.  In that case the
+    // corresponding helper step must still be reachable so the user can
+    // edit those lines — without this, tapping a category badge lands on
+    // the wrong step.
+    const PRINTING_CATS = new Set(["envelope", "flat", "booklet", "spiral", "perfect", "pad", "ohp"])
+    const itemsHavePrinting = items.some((it) => PRINTING_CATS.has(it.category as string))
+    const itemCats = new Set(items.map((it) => it.category as string))
+
     // In SIMPLE MODE: consolidate all printing into one "Printing" step
     // Hide envelope, booklet, spiral, perfect, pad, ohp - all handled by SimplePrintingEntry
     if (appConfig.simple_mode) {
       const hasAnyPrinting = mailing.needsEnvelope || mailing.needsPrinting || mailing.needsBooklet || 
-                            mailing.needsSpiral || mailing.needsPerfect || mailing.needsPad || mailing.needsOHP
+                            mailing.needsSpiral || mailing.needsPerfect || mailing.needsPad || mailing.needsOHP ||
+                            itemsHavePrinting
       return ALL_STEPS.filter((step) => {
         // Only show: Postage, Services, and ONE "Printing" step
         if (step.id === "usps") return true
@@ -231,18 +243,21 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
       })
     }
     
-    // FULL MODE: show individual steps as before
+    // FULL MODE: show a step if its planner flag is set OR if the quote
+    // already has a line in that step's category (envelope cat -> envelope
+    // step, flat cat -> printing step, etc.) so users can always edit
+    // existing lines regardless of planner state.
     return ALL_STEPS.filter((step) => {
-      if (step.id === "envelope" && !mailing.needsEnvelope) return false
-      if (step.id === "printing" && !mailing.needsPrinting) return false
-      if (step.id === "booklet" && !mailing.needsBooklet) return false
-      if (step.id === "spiral" && !mailing.needsSpiral) return false
-      if (step.id === "perfect" && !mailing.needsPerfect) return false
-      if (step.id === "pad" && !mailing.needsPad) return false
-      if (step.id === "ohp" && !mailing.needsOHP) return false
+      if (step.id === "envelope" && !mailing.needsEnvelope && !itemCats.has("envelope")) return false
+      if (step.id === "printing" && !mailing.needsPrinting && !itemCats.has("flat")) return false
+      if (step.id === "booklet" && !mailing.needsBooklet && !itemCats.has("booklet")) return false
+      if (step.id === "spiral" && !mailing.needsSpiral && !itemCats.has("spiral")) return false
+      if (step.id === "perfect" && !mailing.needsPerfect && !itemCats.has("perfect")) return false
+      if (step.id === "pad" && !mailing.needsPad && !itemCats.has("pad")) return false
+      if (step.id === "ohp" && !mailing.needsOHP && !itemCats.has("ohp")) return false
       return true
     })
-  }, [appConfig.simple_mode, mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP])
+  }, [appConfig.simple_mode, mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP, items])
 
   useEffect(() => {
     if (jobPhase === "pricing" && !visibleSteps.find((s) => s.id === currentStep)) {
