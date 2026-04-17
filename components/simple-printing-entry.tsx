@@ -252,6 +252,96 @@ export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps
       if (items.length > 0) setActiveItemId(items[0].id)
     }
   }, [printablePieces, printItems.length, printQty])
+
+  /**
+   * Fallback hydration for EDITING a saved quote.
+   *
+   * When a user opens a saved quote, `mailing.pieces` is typically empty
+   * (the planner state isn't restored), so `printablePieces` is []. That
+   * means the primary hydration effect above never runs and the user
+   * sees "No Printable Pieces" — even though the quote clearly has
+   * envelope / flat / booklet / pad / spiral / perfect / ohp line items.
+   *
+   * This effect recovers by synthesizing one PrintItem per existing
+   * printing-family quote line, using whatever spec data is already on
+   * the item (item.specs + item.metadata). It labels each item from the
+   * PIECE_TYPE_META map when available, falling back to a sensible
+   * default. When the user taps one and starts editing, the deeper
+   * calcState-based hydration inside `handleEditQuoteItem` takes over.
+   */
+  useEffect(() => {
+    if (printablePieces.length > 0) return
+    if (printItems.length > 0) return
+
+    const PRINTING_CATS: ReadonlyArray<string> = [
+      "flat", "envelope", "booklet", "spiral", "perfect", "pad", "ohp",
+    ]
+    const printingQuoteItems = quoteItems.filter(
+      (it) => PRINTING_CATS.includes(it.category as string),
+    )
+    if (printingQuoteItems.length === 0) return
+
+    const CAT_LABEL: Record<string, string> = {
+      flat: "Flat Print",
+      envelope: "Envelope",
+      booklet: "Booklet",
+      spiral: "Spiral Book",
+      perfect: "Perfect Book",
+      pad: "Pad",
+      ohp: "OHP",
+    }
+
+    const synthesized: PrintItem[] = printingQuoteItems.map((it) => {
+      const calcType = (it.category || (it.metadata as Record<string, unknown> | undefined)?.calcType || "flat") as string
+      const specs: PieceSpecs = {
+        quantity: it.specs?.quantity || it.quantity || 0,
+        width: it.specs?.width || 0,
+        height: it.specs?.height || 0,
+        paper: it.specs?.paper || "",
+        colors: it.specs?.colors || "",
+        hasBleed: it.specs?.hasBleed || false,
+        fold: it.specs?.fold || "",
+        lamination: it.specs?.lamination || "",
+        notes: it.specs?.notes || "",
+        pages: it.specs?.pages || 0,
+        coverPaper: it.specs?.coverPaper || "",
+        coverColors: it.specs?.coverColors || "",
+        coverBleed: it.specs?.coverBleed || false,
+        insidePaper: it.specs?.insidePaper || "",
+        insideColors: it.specs?.insideColors || "",
+        insideBleed: it.specs?.insideBleed || false,
+        bindingType: it.specs?.bindingType || "",
+        sheetsPerPad: it.specs?.sheetsPerPad || 0,
+      }
+      const meta = it.metadata as Record<string, unknown> | undefined
+      const savedVendorQuote: VendorQuote | null = it.vendor && it.vendorId
+        ? {
+            vendorId: it.vendorId,
+            vendorName: it.vendor,
+            isInternal: (meta?.isInternal as boolean) || false,
+            cost: (meta?.baseCost as number) || 0,
+            shipping: (meta?.shipping as number) || 0,
+            markupPercent: (meta?.markupPercent as number) || 30,
+            price: it.amount,
+            priceOverride: false,
+            calcState: it.calcState,
+          }
+        : null
+      return {
+        id: `quote-line-${it.id}`,
+        pieceId: `quote-line-${it.id}`,
+        pieceLabel: CAT_LABEL[calcType] || calcType,
+        calcType,
+        specs,
+        vendorQuotes: savedVendorQuote ? [savedVendorQuote] : [],
+        selectedVendorId: it.vendorId || null,
+        addedToQuote: true,
+      }
+    })
+
+    setPrintItems(synthesized)
+    if (synthesized.length > 0) setActiveItemId(synthesized[0].id)
+  }, [printablePieces.length, printItems.length, quoteItems])
   
   const activeItem = printItems.find(i => i.id === activeItemId)
   
@@ -651,7 +741,13 @@ export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps
   
   const isBooklet = activeItem && ["booklet", "spiral", "perfect"].includes(activeItem.calcType)
 
-  if (printablePieces.length === 0) {
+  // Show the empty state ONLY if there are no pieces AND no hydrated
+  // print items from existing quote lines. The fallback hydration above
+  // synthesizes items from any existing envelope / flat / booklet / etc.
+  // quote lines when the planner state wasn't restored, so this message
+  // should only appear on a brand-new quote that hasn't added any
+  // printing-family pieces yet.
+  if (printablePieces.length === 0 && printItems.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-center">
         <div>
