@@ -112,7 +112,7 @@ function CustomerSummary({
 }
 import {
   FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
-  Wrench, Plus, X, Mail, CheckCircle2, Layers,
+  Wrench, Plus, X, Mail, CheckCircle2, Layers, Pencil, Tag,
 } from "lucide-react"
 
 // Render order for categories inside the quote.
@@ -182,6 +182,7 @@ export function QuoteFormLayout({
     currentRevision,
     revisions,
     loadRevision,
+    renameRevision,
     isSaving,
     lastSavedAt,
     hasUnsavedChanges,
@@ -228,6 +229,24 @@ export function QuoteFormLayout({
   // edits, we stash the requested revision number here and pop a confirm
   // dialog. Three outcomes: save-then-switch, discard-then-switch, cancel.
   const [pendingRevisionSwitch, setPendingRevisionSwitch] = useState<number | null>(null)
+
+  // Inline-rename state for revision tabs.  When non-null, the tab with
+  // this revision number renders an <input> in place of its label row.
+  // Enter / blur commits, Escape cancels.
+  const [renamingRev, setRenamingRev] = useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = useState("")
+  const commitRename = async () => {
+    if (renamingRev === null) return
+    const target = renamingRev
+    const value = renameDraft
+    setRenamingRev(null)
+    setRenameDraft("")
+    await renameRevision(target, value)
+  }
+  const cancelRename = () => {
+    setRenamingRev(null)
+    setRenameDraft("")
+  }
 
   /** Guarded revision switch. If there are unsaved changes, defers to the
    *  confirmation dialog. Otherwise switches immediately. */
@@ -426,7 +445,7 @@ export function QuoteFormLayout({
                     Revisions
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">
-                    {revisions.length} total — click any to open &amp; edit
+                    {revisions.length} total — click any to open &amp; edit, or name one to mark it as an option
                   </span>
                   {/* Diff popover: compares the ACTIVE revision against the
                       one immediately before it, so customer service can see
@@ -452,6 +471,7 @@ export function QuoteFormLayout({
                   {sortedRevisions.map((rev) => {
                     const isActive = rev.revision_number === currentRevision
                     const isLatest = rev.revision_number === maxRev
+                    const isRenaming = renamingRev === rev.revision_number
                     const created = rev.created_at ? new Date(rev.created_at) : null
                     const dateShort = created
                       ? created.toLocaleDateString(undefined, {
@@ -466,75 +486,171 @@ export function QuoteFormLayout({
                         })
                       : ""
                     return (
-                      <button
+                      <div
                         key={rev.revision_number}
-                        type="button"
-                        onClick={() => requestRevisionSwitch(rev.revision_number)}
                         className={cn(
                           "group relative shrink-0 flex flex-col items-start text-left",
-                          "px-4 py-3 min-w-[160px] rounded-t-lg transition-all",
+                          "px-4 py-3 min-w-[180px] max-w-[220px] rounded-t-lg transition-all",
                           "border-2 border-b-0",
                           isActive
                             ? "bg-card border-foreground shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.08)] -mb-[2px] z-10"
                             : "bg-muted/50 border-transparent hover:bg-muted hover:border-border/60"
                         )}
-                        title={`Open Revision ${rev.revision_number}${isLatest ? " (latest)" : ""}`}
                       >
-                        {/* Top row: Rev N + Latest badge */}
-                        <div className="flex items-center gap-2 w-full">
-                          <span
+                        {/* Rename pencil — appears on hover, always visible
+                            on the active tab. Clicking it opens the inline
+                            editor below. */}
+                        {!isRenaming && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRenamingRev(rev.revision_number)
+                              setRenameDraft(rev.name || "")
+                            }}
                             className={cn(
-                              "text-[11px] font-bold uppercase tracking-[0.1em] leading-none",
-                              isActive ? "text-foreground" : "text-muted-foreground"
+                              "absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded-md transition-all",
+                              "hover:bg-foreground hover:text-background",
+                              isActive
+                                ? "opacity-60 hover:opacity-100 text-muted-foreground"
+                                : "opacity-0 group-hover:opacity-60 text-muted-foreground"
                             )}
+                            title={rev.name ? "Rename revision" : "Name this revision (e.g. Premium option)"}
+                            aria-label="Rename revision"
                           >
-                            Rev {rev.revision_number}
-                          </span>
-                          {isLatest && (
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+
+                        {/* Main clickable area: tapping opens this revision.
+                            Wrapped as a span with role=button so the tab
+                            still feels like one surface, but the rename
+                            pencil & inline input can live alongside it
+                            without nesting <button> elements. */}
+                        <div
+                          role={isRenaming ? undefined : "button"}
+                          tabIndex={isRenaming ? undefined : 0}
+                          onClick={() => {
+                            if (isRenaming) return
+                            requestRevisionSwitch(rev.revision_number)
+                          }}
+                          onKeyDown={(e) => {
+                            if (isRenaming) return
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              requestRevisionSwitch(rev.revision_number)
+                            }
+                          }}
+                          className={cn(
+                            "w-full flex flex-col items-start outline-none",
+                            !isRenaming && "cursor-pointer focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1 rounded-sm",
+                          )}
+                          title={
+                            isRenaming
+                              ? undefined
+                              : `Open Revision ${rev.revision_number}${isLatest ? " (latest)" : ""}${rev.name ? ` — ${rev.name}` : ""}`
+                          }
+                        >
+                          {/* Top row: Rev N + Latest / Editing badge */}
+                          <div className="flex items-center gap-2 w-full pr-6">
                             <span
                               className={cn(
-                                "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none",
-                                isActive
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                "text-[11px] font-bold uppercase tracking-[0.1em] leading-none",
+                                isActive ? "text-foreground" : "text-muted-foreground"
                               )}
                             >
-                              Latest
+                              Rev {rev.revision_number}
                             </span>
-                          )}
-                          {isActive && !isLatest && (
-                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none bg-amber-500 text-white ml-auto">
-                              Editing
-                            </span>
-                          )}
-                        </div>
-                        {/* Middle: total in large mono type */}
-                        <div
-                          className={cn(
-                            "mt-2 text-lg font-mono font-bold tabular-nums leading-none",
-                            isActive ? "text-foreground" : "text-muted-foreground/80"
-                          )}
-                        >
-                          {formatCurrency(rev.total || 0)}
-                        </div>
-                        {/* Bottom row: saved date + time */}
-                        {dateShort && (
-                          <div
-                            className={cn(
-                              "mt-1.5 flex items-center gap-1.5 text-[10px] leading-none",
-                              isActive ? "text-muted-foreground" : "text-muted-foreground/60"
+                            {isLatest && (
+                              <span
+                                className={cn(
+                                  "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none",
+                                  isActive
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                )}
+                              >
+                                Latest
+                              </span>
                             )}
-                          >
-                            <span className="font-semibold">{dateShort}</span>
-                            {timeShort && (
-                              <>
-                                <span className="opacity-40">·</span>
-                                <span className="tabular-nums">{timeShort}</span>
-                              </>
+                            {isActive && !isLatest && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none bg-amber-500 text-white">
+                                Editing
+                              </span>
                             )}
                           </div>
-                        )}
-                      </button>
+
+                          {/* Revision name line — inline input while renaming,
+                              otherwise the saved name, otherwise a subtle
+                              "Add name" prompt on the active tab only. */}
+                          {isRenaming ? (
+                            <input
+                              autoFocus
+                              value={renameDraft}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                              onBlur={commitRename}
+                              onKeyDown={(e) => {
+                                e.stopPropagation()
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  commitRename()
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelRename()
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="e.g. Premium paper option"
+                              maxLength={40}
+                              className="mt-1.5 w-full text-[12px] font-semibold leading-tight bg-transparent border-b border-foreground/40 focus:border-foreground outline-none py-0.5 text-foreground placeholder:text-muted-foreground/50 placeholder:font-normal"
+                            />
+                          ) : rev.name ? (
+                            <div
+                              className={cn(
+                                "mt-1.5 flex items-center gap-1 text-[12px] font-semibold leading-tight truncate w-full",
+                                isActive ? "text-foreground" : "text-muted-foreground/90"
+                              )}
+                              title={rev.name}
+                            >
+                              <Tag className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                              <span className="truncate">{rev.name}</span>
+                            </div>
+                          ) : isActive ? (
+                            <div className="mt-1.5 text-[11px] italic text-muted-foreground/50 leading-tight">
+                              Click&nbsp;
+                              <Pencil className="inline h-2.5 w-2.5 -mt-0.5" />
+                              &nbsp;to name this option
+                            </div>
+                          ) : null}
+
+                          {/* Middle: total in large mono type */}
+                          <div
+                            className={cn(
+                              "mt-2 text-lg font-mono font-bold tabular-nums leading-none",
+                              isActive ? "text-foreground" : "text-muted-foreground/80"
+                            )}
+                          >
+                            {formatCurrency(rev.total || 0)}
+                          </div>
+                          {/* Bottom row: saved date + time */}
+                          {dateShort && (
+                            <div
+                              className={cn(
+                                "mt-1.5 flex items-center gap-1.5 text-[10px] leading-none",
+                                isActive ? "text-muted-foreground" : "text-muted-foreground/60"
+                              )}
+                            >
+                              <span className="font-semibold">{dateShort}</span>
+                              {timeShort && (
+                                <>
+                                  <span className="opacity-40">·</span>
+                                  <span className="tabular-nums">{timeShort}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )
                   })}
                 </div>

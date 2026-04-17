@@ -74,6 +74,10 @@ interface QuoteContextValue {
   fetchRevisions: () => Promise<void>
   /** Load a specific revision */
   loadRevision: (revisionNumber: number) => void
+  /** Rename a revision (e.g. "Premium paper option").  Pass an empty
+   *  string to clear the name. Persists via PATCH and refreshes local
+   *  revision list so tabs update instantly. */
+  renameRevision: (revisionNumber: number, name: string) => Promise<void>
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
@@ -403,6 +407,39 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }, [])
   
+  /** Rename (or un-name) a revision. Persists via PATCH and does an
+   *  optimistic local update so the UI feels instant. Empty string clears
+   *  the name.  When the active revision is renamed and it's the current
+   *  row (is_current), we also update the current row label locally so
+   *  the tab reflects the change without a full fetch round-trip. */
+  const renameRevision = useCallback(async (revisionNumber: number, name: string) => {
+    const quoteId = savedIdRef.current
+    if (!quoteId) return
+    const trimmed = name.trim()
+    // Optimistic: update local list so the tab updates immediately.
+    setRevisions((prev) =>
+      prev.map((r) =>
+        r.revision_number === revisionNumber ? { ...r, name: trimmed || undefined } : r,
+      ),
+    )
+    try {
+      const res = await fetch(
+        `/api/quotes/${quoteId}/revisions/${revisionNumber}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        },
+      )
+      if (!res.ok) {
+        // Roll back on server failure — refetch to reconcile.
+        await fetchRevisions()
+      }
+    } catch {
+      await fetchRevisions()
+    }
+  }, [fetchRevisions])
+
   const loadRevision = useCallback((revisionNumber: number) => {
     const rev = revisions.find(r => r.revision_number === revisionNumber)
     if (!rev) return
@@ -463,6 +500,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         revisions,
         fetchRevisions,
         loadRevision,
+        renameRevision,
       }}
     >
       {children}

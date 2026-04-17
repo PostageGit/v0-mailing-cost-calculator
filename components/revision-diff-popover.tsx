@@ -82,14 +82,28 @@ export function RevisionDiffPopover({ before, after, label = "What changed?" }: 
             <span>Compare revisions</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-mono font-bold text-muted-foreground">
-              Rev {before.revision_number}
-            </span>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
-            <span className="text-sm font-mono font-bold text-foreground">
-              Rev {after.revision_number}
-            </span>
-            <span className={cn("ml-auto text-sm font-mono font-bold tabular-nums", deltaColor)}>
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="text-sm font-mono font-bold text-muted-foreground">
+                Rev {before.revision_number}
+              </span>
+              {before.name && (
+                <span className="text-[10px] font-semibold text-muted-foreground/80 truncate max-w-[110px]" title={before.name}>
+                  {before.name}
+                </span>
+              )}
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="text-sm font-mono font-bold text-foreground">
+                Rev {after.revision_number}
+              </span>
+              {after.name && (
+                <span className="text-[10px] font-semibold text-foreground/80 truncate max-w-[110px]" title={after.name}>
+                  {after.name}
+                </span>
+              )}
+            </div>
+            <span className={cn("ml-auto text-sm font-mono font-bold tabular-nums shrink-0", deltaColor)}>
               {delta > 0 ? "+" : delta < 0 ? "" : ""}
               {formatCurrency(delta)}
             </span>
