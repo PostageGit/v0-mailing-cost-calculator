@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { 
-  Calculator, FileText, BookOpen, Mail, Layers, 
+  import React, { useState } from "react"
+  import {
+  Calculator, FileText, BookOpen, Mail, Layers,
   Package, Scissors, Settings, Database, ChevronLeft,
   Truck, Stamp, StickyNote, Disc3, BookMarked,
-  Printer, LayoutGrid
+  Printer, LayoutGrid, Check, AlertCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -84,65 +84,107 @@ const CALCULATORS = [
   },
 ]
 
-// Settings definitions
-const SETTINGS_CATEGORIES = [
+// Tag tones used to tell the user, at a glance, whether a settings screen
+// is the AUTHORITATIVE place to edit a given price ("price") or whether it
+// is reference data that does NOT affect pricing ("reference"). A neutral
+// "info" tone is used for screens that own their own specific rates.
+type SettingTagTone = "price" | "reference" | "info"
+
+// Settings definitions. Each entry carries an explicit `tag` so users know
+// which screen is the right place to change a value — and which screens are
+// NOT where prices are set — to avoid editing in the wrong place.
+const SETTINGS_CATEGORIES: {
+  id: string
+  name: string
+  description: string
+  icon: typeof Layers
+  component: React.ComponentType<{ readOnly?: boolean }>
+  tag: string
+  tagTone: SettingTagTone
+}[] = [
   {
     id: "papers",
     name: "Paper Stocks",
-    description: "Manage paper types, sizes, and prices",
+    description: "Edit paper types, sizes, and the per-sheet PRICE. This is the one place that controls paper pricing everywhere.",
     icon: Layers,
     component: PapersSettings,
+    tag: "Paper prices set here",
+    tagTone: "price",
   },
   {
     id: "paper-weights",
     name: "Paper Weights",
-    description: "Weight reference tables",
+    description: "Weight reference tables only. Changing these does NOT change any prices — edit prices in Paper Stocks.",
     icon: Database,
     component: PaperWeightsSettingsTab,
+    tag: "Reference only — not prices",
+    tagTone: "reference",
   },
   {
     id: "finishing",
     name: "Finishing Options",
-    description: "Lamination, coating, scoring, folding",
+    description: "Lamination & coating rates, labor and markup used by the calculators. This is where finishing prices are set.",
     icon: Scissors,
     component: FinishingCalculatorsSettingsTab,
+    tag: "Finishing prices set here",
+    tagTone: "price",
   },
   {
     id: "fold-score",
     name: "Fold & Score",
-    description: "Folding and scoring rates",
+    description: "Folding & scoring labor rates only. For lamination or coating use Finishing Options instead.",
     icon: LayoutGrid,
     component: FoldScoreSettingsTab,
+    tag: "Fold / score rates only",
+    tagTone: "info",
   },
   {
     id: "saddle-stitch",
     name: "Saddle Stitch",
-    description: "Booklet binding settings",
+    description: "Saddle stitch (booklet) binding rates. This is the right place for booklet binding pricing.",
     icon: BookOpen,
     component: SaddleStitchSettingsTab,
+    tag: "Booklet binding rates",
+    tagTone: "info",
   },
   {
     id: "perfect-binding",
     name: "Perfect Binding",
-    description: "Perfect binding settings",
+    description: "Perfect binding rates. This is the right place for perfect-bound book pricing.",
     icon: BookMarked,
     component: PerfectBindingSettingsTab,
+    tag: "Perfect binding rates",
+    tagTone: "info",
   },
   {
     id: "boxes",
     name: "Shipping Boxes",
-    description: "Box sizes and inventory",
+    description: "Box sizes and inventory used for shipping. No print or paper pricing here.",
     icon: Package,
     component: BoxSizesSettings,
+    tag: "Box sizes & inventory",
+    tagTone: "info",
   },
   {
     id: "suppliers",
     name: "Suppliers & Supplies",
-    description: "Vendor catalog and supply items",
+    description: "Vendor catalog and supply item prices. This is where supply / vendor pricing is set.",
     icon: Truck,
     component: SuppliersSettings,
+    tag: "Supply prices set here",
+    tagTone: "price",
   },
 ]
+
+// Small helper: visual styles for each tag tone.
+const SETTING_TAG_STYLES: Record<SettingTagTone, string> = {
+  // Green = authoritative place to edit this kind of price.
+  price: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+  // Amber = NOT where prices are set; reference only. Draws caution.
+  reference: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+  // Neutral = owns its own specific rates, no confusion risk.
+  info: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+}
 
 interface CalculatorsHubProps {
   /** If true, Settings are read-only and require password to edit */
@@ -405,10 +447,24 @@ export function CalculatorsHub({
                   <setting.icon className="h-6 w-6 text-slate-600 dark:text-slate-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
-                    {setting.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
+                      {setting.name}
+                    </h3>
+                    {/* Guidance badge: tells the user whether THIS is the
+                        right place to set a price, or reference-only. */}
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide leading-none",
+                        SETTING_TAG_STYLES[setting.tagTone],
+                      )}
+                    >
+                      {setting.tagTone === "price" && <Check className="h-2.5 w-2.5" />}
+                      {setting.tagTone === "reference" && <AlertCircle className="h-2.5 w-2.5" />}
+                      {setting.tag}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1.5 line-clamp-3">
                     {setting.description}
                   </p>
                 </div>
