@@ -5,7 +5,8 @@
   Calculator, FileText, BookOpen, Mail, Layers,
   Package, Scissors, Settings, Database, ChevronLeft,
   Truck, Stamp, StickyNote, Disc3, BookMarked,
-  Printer, LayoutGrid, Check, AlertCircle
+  Printer, LayoutGrid, Check, AlertCircle,
+  CheckCircle2, Info, ArrowRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -101,6 +102,12 @@ const SETTINGS_CATEGORIES: {
   component: React.ComponentType<{ readOnly?: boolean }>
   tag: string
   tagTone: SettingTagTone
+  /** Short, plain-language assurance shown in a banner INSIDE the screen
+   *  so the user knows at a glance whether they're in the right place. */
+  assurance: string
+  /** For "reference"/"info" screens that are NOT the price source: where
+   *  the user SHOULD go to change prices. Renders a jump button. */
+  redirectTo?: { id: string; name: string }
 }[] = [
   {
     id: "papers",
@@ -110,6 +117,7 @@ const SETTINGS_CATEGORIES: {
     component: PapersSettings,
     tag: "Paper prices set here",
     tagTone: "price",
+    assurance: "You're in the right place. Paper prices you set here apply to every calculator across the whole app.",
   },
   {
     id: "paper-weights",
@@ -119,6 +127,8 @@ const SETTINGS_CATEGORIES: {
     component: PaperWeightsSettingsTab,
     tag: "Reference only — not prices",
     tagTone: "reference",
+    assurance: "This is NOT where prices are set. Editing weights here will NOT change any quote pricing. To change paper prices, go to Paper Stocks.",
+    redirectTo: { id: "papers", name: "Paper Stocks" },
   },
   {
     id: "finishing",
@@ -128,6 +138,7 @@ const SETTINGS_CATEGORIES: {
     component: FinishingCalculatorsSettingsTab,
     tag: "Finishing prices set here",
     tagTone: "price",
+    assurance: "You're in the right place. Lamination, coating and other finishing prices are set here and used by the calculators.",
   },
   {
     id: "fold-score",
@@ -137,6 +148,8 @@ const SETTINGS_CATEGORIES: {
     component: FoldScoreSettingsTab,
     tag: "Fold / score rates only",
     tagTone: "info",
+    assurance: "This screen sets ONLY folding & scoring labor rates. Looking for lamination or coating? Those live in Finishing Options.",
+    redirectTo: { id: "finishing", name: "Finishing Options" },
   },
   {
     id: "saddle-stitch",
@@ -146,6 +159,7 @@ const SETTINGS_CATEGORIES: {
     component: SaddleStitchSettingsTab,
     tag: "Booklet binding rates",
     tagTone: "info",
+    assurance: "You're in the right place for saddle stitch (booklet) binding rates. Perfect-bound books are priced under Perfect Binding.",
   },
   {
     id: "perfect-binding",
@@ -155,6 +169,7 @@ const SETTINGS_CATEGORIES: {
     component: PerfectBindingSettingsTab,
     tag: "Perfect binding rates",
     tagTone: "info",
+    assurance: "You're in the right place for perfect-bound book binding rates. Saddle-stitched booklets are priced under Saddle Stitch.",
   },
   {
     id: "boxes",
@@ -164,6 +179,7 @@ const SETTINGS_CATEGORIES: {
     component: BoxSizesSettings,
     tag: "Box sizes & inventory",
     tagTone: "info",
+    assurance: "This screen manages shipping box sizes and inventory only. There is no print or paper pricing here.",
   },
   {
     id: "suppliers",
@@ -173,6 +189,7 @@ const SETTINGS_CATEGORIES: {
     component: SuppliersSettings,
     tag: "Supply prices set here",
     tagTone: "price",
+    assurance: "You're in the right place for vendor and supply item prices. Paper prices live in Paper Stocks, finishing in Finishing Options.",
   },
 ]
 
@@ -319,7 +336,67 @@ export function CalculatorsHub({
             </p>
           </div>
         )}
-        
+
+        {/* "Right place vs wrong place" assurance banner.
+            - price tone  → green  : confirms this IS the source of truth.
+            - reference   → red    : warns this is NOT where prices live.
+            - info tone   → blue   : clarifies exactly what this screen owns.
+            Keeps the user from editing in the wrong place. */}
+        {setting && (
+          <div
+            className={cn(
+              "mx-6 mt-4 flex items-start gap-3 p-4 rounded-xl border-2",
+              setting.tagTone === "price" &&
+                "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-800",
+              setting.tagTone === "reference" &&
+                "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-800",
+              setting.tagTone === "info" &&
+                "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-800",
+            )}
+          >
+            <div className="shrink-0 mt-0.5">
+              {setting.tagTone === "price" && (
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              )}
+              {setting.tagTone === "reference" && (
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              )}
+              {setting.tagTone === "info" && (
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p
+                className={cn(
+                  "text-sm font-bold leading-snug",
+                  setting.tagTone === "price" &&
+                    "text-emerald-800 dark:text-emerald-200",
+                  setting.tagTone === "reference" &&
+                    "text-red-800 dark:text-red-200",
+                  setting.tagTone === "info" &&
+                    "text-blue-800 dark:text-blue-200",
+                )}
+              >
+                {setting.assurance}
+              </p>
+              {setting.redirectTo && (
+                <button
+                  onClick={() => setActiveSetting(setting.redirectTo!.id)}
+                  className={cn(
+                    "mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                    setting.tagTone === "reference"
+                      ? "bg-red-600 text-white hover:bg-red-700"
+                      : "bg-blue-600 text-white hover:bg-blue-700",
+                  )}
+                >
+                  Go to {setting.redirectTo.name}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Setting content */}
         <div className={cn(
           "flex-1 overflow-auto p-6",
