@@ -28,13 +28,29 @@ interface PapersContextValue {
 
 const PapersContext = createContext<PapersContextValue | null>(null)
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const fetcher = async (url: string): Promise<Paper[]> => {
+  const res = await fetch(url)
+  // On a non-OK response (e.g. 401 from the site password gate) don't try
+  // to coerce an error body into papers — return an empty list instead.
+  if (!res.ok) return []
+  const json = await res.json().catch(() => [])
+  if (Array.isArray(json)) return json
+  if (Array.isArray(json?.papers)) return json.papers
+  return []
+}
 
 export function PapersProvider({ children }: { children: ReactNode }) {
   // Fetch all active papers
   const { data: papers, error, isLoading, mutate } = useSWR<Paper[]>("/api/papers?active=true", fetcher)
   
-  const allPapers = papers || []
+  // Defensive: the API may respond with a non-array payload (e.g. an
+  // { error } object, a { papers: [...] } wrapper, or a 401 body from the
+  // auth gate). Normalize to an array so `.filter()` never throws.
+  const allPapers: Paper[] = Array.isArray(papers)
+    ? papers
+    : Array.isArray((papers as { papers?: Paper[] } | undefined)?.papers)
+      ? (papers as { papers: Paper[] }).papers
+      : []
   
   // Filter papers by usage - MUST be defined before useEffect that references them
   const flatPrintingPapers = allPapers.filter((p) => p.use_in_flat_printing)
