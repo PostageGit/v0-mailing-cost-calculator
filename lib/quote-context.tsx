@@ -37,6 +37,8 @@ interface QuoteContextValue {
   isSaving: boolean
   lastSavedAt: number | null
   activityLog: ActivityLogEntry[]
+  /** TRUE if there are unsaved changes since last save */
+  hasUnsavedChanges: boolean
   setProjectName: (name: string) => void
   setCustomerId: (id: string | null) => void
   setContactName: (name: string) => void
@@ -49,6 +51,8 @@ interface QuoteContextValue {
   clearAll: () => void
   getTotal: () => number
   getCategoryTotal: (cat: QuoteCategory) => number
+  /** EXPLICIT SAVE - Creates a new revision. User must click to save. */
+  saveQuote: () => Promise<string | null>
   /** Force an immediate save (creates if needed). Returns the saved ID. */
   ensureSaved: () => Promise<string>
   loadQuote: (quoteId: string) => Promise<MailingSnapshot | null>
@@ -70,11 +74,13 @@ interface QuoteContextValue {
   fetchRevisions: () => Promise<void>
   /** Load a specific revision */
   loadRevision: (revisionNumber: number) => void
+  /** Rename a revision (e.g. "Premium paper option").  Pass an empty
+   *  string to clear the name. Persists via PATCH and refreshes local
+   *  revision list so tabs update instantly. */
+  renameRevision: (revisionNumber: number, name: string) => Promise<void>
 }
 
 const QuoteContext = createContext<QuoteContextValue | null>(null)
-
-const AUTO_SAVE_DELAY = 1500
 
 export function QuoteProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<QuoteLineItem[]>([])
@@ -93,6 +99,8 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   const mailingSnapshotRef = useRef<MailingSnapshot | null>(null)
   const [currentRevision, setCurrentRevision] = useState(1)
   const [revisions, setRevisions] = useState<QuoteRevision[]>([])
+  // NEW: Track unsaved changes - user must explicitly save to create revision
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const setMailingSnapshot = useCallback((snap: MailingSnapshot) => {
     mailingSnapshotRef.current = snap
@@ -184,84 +192,70 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
   useEffect(() => { quantityRef.current = quantity }, [quantity])
   useEffect(() => { skippedStepsRef.current = skippedSteps }, [skippedSteps])
 
-  // Schedule auto-save
-  const scheduleSave = useCallback(() => {
+  // Mark as having unsaved changes (NO auto-save - user must explicitly save)
+  const markDirty = useCallback(() => {
     dirtyRef.current = true
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      persistNow()
-    }, AUTO_SAVE_DELAY)
-  }, [persistNow])
+    setHasUnsavedChanges(true)
+  }, [])
 
-  // Wrapped setters that trigger auto-save
+  // Wrapped setters that mark dirty (no auto-save)
   const setProjectName = useCallback((name: string) => {
     setProjectNameRaw(name)
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const setCustomerId = useCallback((id: string | null) => {
     setCustomerIdRaw(id)
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const setContactName = useCallback((name: string) => {
     setContactNameRaw(name)
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const setReferenceNumber = useCallback((ref: string) => {
     setReferenceNumberRaw(ref)
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const setQuantity = useCallback((qty: number) => {
     setQuantityRaw(qty)
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const setSkippedSteps = useCallback((steps: string[]) => {
     setSkippedStepsRaw(steps)
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const addItem = useCallback((item: Omit<QuoteLineItem, "id">) => {
     const newItem: QuoteLineItem = { ...item, id: Date.now() + Math.random() }
     setItems((prev) => [...prev, newItem])
-    scheduleSave()
-    // Log after save completes (async, non-blocking)
-    setTimeout(() => {
-      const id = savedIdRef.current
-      if (id) {
-        fetch(`/api/quotes/${id}/log`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ event: "item_added", detail: item.label }),
-        }).catch(() => {})
-      }
-    }, AUTO_SAVE_DELAY + 500)
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const removeItem = useCallback((id: number) => {
     setItems((prev) => prev.filter((item) => item.id !== id))
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const updateItem = useCallback((id: number, updates: Partial<Omit<QuoteLineItem, "id">>) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
     )
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const clearCategory = useCallback((cat: QuoteCategory) => {
     setItems((prev) => prev.filter((item) => item.category !== cat))
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const clearAll = useCallback(() => {
     setItems([])
-    scheduleSave()
-  }, [scheduleSave])
+    markDirty()
+  }, [markDirty])
 
   const getTotal = useCallback(() => {
     return items.reduce((sum, item) => sum + item.amount, 0)
@@ -274,10 +268,30 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     [items]
   )
 
-  /** Force immediate save, returns the quote ID */
+  /** EXPLICIT SAVE - User clicked Save, creates a revision */
+  const saveQuote = useCallback(async (): Promise<string | null> => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    const id = await persistNow()
+    if (id) {
+      setHasUnsavedChanges(false)
+      // Refresh revisions to get the new one
+      try {
+        const res = await fetch(`/api/quotes/${id}/revisions`)
+        const data = await res.json()
+        if (data.revisions) {
+          setRevisions(data.revisions)
+          setCurrentRevision(data.current_revision || data.revisions.length)
+        }
+      } catch { /* ignore */ }
+    }
+    return id
+  }, [persistNow])
+
+  /** Force immediate save, returns the quote ID (legacy, prefer saveQuote) */
   const ensureSaved = useCallback(async (): Promise<string> => {
     if (timerRef.current) clearTimeout(timerRef.current)
     const id = await persistNow()
+    if (id) setHasUnsavedChanges(false)
     return id || ""
   }, [persistNow])
 
@@ -312,6 +326,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         mailingSnapshotRef.current = mailingState
       }
       dirtyRef.current = false
+      setHasUnsavedChanges(false)
       setLastSavedAt(Date.now())
       // Set current revision from job_meta
       const revNum = data.job_meta?.current_revision || 1
@@ -392,16 +407,56 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }, [])
   
+  /** Rename (or un-name) a revision. Persists via PATCH and does an
+   *  optimistic local update so the UI feels instant. Empty string clears
+   *  the name.  When the active revision is renamed and it's the current
+   *  row (is_current), we also update the current row label locally so
+   *  the tab reflects the change without a full fetch round-trip. */
+  const renameRevision = useCallback(async (revisionNumber: number, name: string) => {
+    const quoteId = savedIdRef.current
+    if (!quoteId) return
+    const trimmed = name.trim()
+    // Optimistic: update local list so the tab updates immediately.
+    setRevisions((prev) =>
+      prev.map((r) =>
+        r.revision_number === revisionNumber ? { ...r, name: trimmed || undefined } : r,
+      ),
+    )
+    try {
+      const res = await fetch(
+        `/api/quotes/${quoteId}/revisions/${revisionNumber}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        },
+      )
+      if (!res.ok) {
+        // Roll back on server failure — refetch to reconcile.
+        await fetchRevisions()
+      }
+    } catch {
+      await fetchRevisions()
+    }
+  }, [fetchRevisions])
+
   const loadRevision = useCallback((revisionNumber: number) => {
     const rev = revisions.find(r => r.revision_number === revisionNumber)
-    if (rev && !rev.is_current) {
-      // Load the old revision data into current state
-      setItems(rev.items || [])
-      setProjectNameRaw(rev.project_name || "")
-      if (rev.quantity) setQuantityRaw(rev.quantity)
-      setCurrentRevision(revisionNumber)
-      dirtyRef.current = true // Mark as dirty since we're reverting
-    }
+    if (!rev) return
+    // Load the old revision data into current state as a CLEAN view.
+    // We intentionally do NOT mark this as dirty — the user has only
+    // navigated, not edited.  The wrapped setters (setProjectName, addItem,
+    // removeItem, etc.) will flip hasUnsavedChanges=true as soon as they
+    // actually modify anything, at which point a save will correctly
+    // create a new revision via the existing persistNow() path.
+    setItems(rev.items || [])
+    setProjectNameRaw(rev.project_name || "")
+    if (rev.quantity !== undefined) setQuantityRaw(rev.quantity)
+    setCurrentRevision(revisionNumber)
+    // Explicitly clear any stale dirty flag so moving between revisions
+    // without editing never triggers the "unsaved changes" guard.
+    dirtyRef.current = false
+    setHasUnsavedChanges(false)
   }, [revisions])
 
   return (
@@ -418,6 +473,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         isSaving,
         lastSavedAt,
         activityLog,
+        hasUnsavedChanges,
         setProjectName,
         setCustomerId,
         setContactName,
@@ -430,6 +486,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         clearAll,
         getTotal,
         getCategoryTotal,
+        saveQuote,
         ensureSaved,
         loadQuote,
         newQuote,
@@ -443,6 +500,7 @@ export function QuoteProvider({ children }: { children: ReactNode }) {
         revisions,
         fetchRevisions,
         loadRevision,
+        renameRevision,
       }}
     >
       {children}

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react"
 import useSWR from "swr"
 import { useQuote } from "@/lib/quote-context"
-import { useMailing, PIECE_TYPE_META, FOLD_OPTIONS, getFlatSize, type MailPiece } from "@/lib/mailing-context"
+import { useMailing, PIECE_TYPE_META, getFlatSize, type MailPiece } from "@/lib/mailing-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 
 import { 
-  Calculator, Plus, Trophy, Check, Building2, Trash2, RefreshCw
+  Calculator, Plus, Trophy, Check, Building2, Trash2, RefreshCw, Copy, Pencil, Package
 } from "lucide-react"
 import { PrintingCalculator } from "@/components/printing/printing-calculator"
 import { BookletCalculator } from "@/components/booklet/booklet-calculator"
@@ -32,29 +32,70 @@ const PAPER_OPTIONS = [
   "60# Offset Text", "24# Bond", "28# Bond"
 ]
 
-const COLOR_OPTIONS = [
-  { value: "4/4", label: "4/4 Full Color Both" },
-  { value: "4/0", label: "4/0 Full Color Front" },
-  { value: "4/1", label: "4/1 Color/Black" },
-  { value: "1/1", label: "1/1 Black Both" },
-  { value: "1/0", label: "1/0 Black Front" },
+// FLAT PRINTING colors
+const FLAT_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "4/0", label: "4/0 (Color Front)" },
+  { value: "4/1", label: "4/1 (Color / Black)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "1/0", label: "1/0 (Black Front)" },
 ]
 
-const FOLD_TYPE_OPTIONS = [
-  { value: "none", label: "Flat (No Fold)" },
+// BOOKLET COVER colors - matches ALL_SIDES from booklet-pricing.ts
+const BOOKLET_COVER_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "4/0", label: "4/0 (Color Front)" },
+  { value: "4/1", label: "4/1 (Color/Black)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "1/0", label: "1/0 (Black Front)" },
+  { value: "D/S", label: "D/S (Double-Sided)" },
+  { value: "S/S", label: "S/S (Single-Sided)" },
+]
+
+// BOOKLET INSIDE colors - matches INSIDE_SIDES from booklet-pricing.ts
+// For saddle-stitch, inside pages are ALWAYS printed on both sides (folded signatures)
+const BOOKLET_INSIDE_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "D/S", label: "D/S (Double-Sided)" },
+]
+
+// SPIRAL / PERFECT / PAD colors (all options)
+const FULL_COLOR_OPTIONS = [
+  { value: "4/4", label: "4/4 (Color Both)" },
+  { value: "4/0", label: "4/0 (Color Front)" },
+  { value: "1/1", label: "1/1 (Black Both)" },
+  { value: "1/0", label: "1/0 (Black Front)" },
+  { value: "D/S", label: "D/S (Double-Sided)" },
+  { value: "S/S", label: "S/S (Single-Sided)" },
+]
+
+// LAMINATION options
+const LAMINATION_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "gloss", label: "Gloss" },
+  { value: "matte", label: "Matte" },
+  { value: "silk", label: "Silk" },
+  { value: "leather", label: "Leather" },
+  { value: "linen", label: "Linen" },
+]
+
+// FOLD options for flat printing (renamed to avoid conflict with mailing-context import)
+const FLAT_FOLD_OPTIONS = [
+  { value: "none", label: "No Fold" },
   { value: "half", label: "Half Fold" },
   { value: "tri", label: "Tri-Fold" },
   { value: "z", label: "Z-Fold" },
   { value: "gate", label: "Gate Fold" },
+  { value: "double_parallel", label: "Double Parallel" },
+  { value: "accordion", label: "Accordion" },
+  { value: "roll", label: "Roll Fold" },
 ]
 
-const LAM_OPTIONS = [
-  { value: "none", label: "None" },
-  { value: "gloss_one", label: "Gloss 1-Side" },
-  { value: "gloss_both", label: "Gloss 2-Side" },
-  { value: "matte_one", label: "Matte 1-Side" },
-  { value: "matte_both", label: "Matte 2-Side" },
-  { value: "soft_touch", label: "Soft Touch" },
+// BINDING options for booklet (saddle stitch) - matches booklet-form.tsx
+const BINDING_OPTIONS = [
+  { value: "staple", label: "Staple (Saddle Stitch)" },
+  { value: "fold", label: "Fold Only (No Staple)" },
 ]
 
 interface PieceSpecs {
@@ -66,23 +107,36 @@ interface PieceSpecs {
   
   // Flat printing fields (postcards, letters, self-mailers)
   paper: string
-  colors: string        // "4/4", "4/0", "1/1", "1/0"
+  colors: string        // "4/4", "4/0", "4/1", "1/1", "1/0"
   hasBleed: boolean
-  fold: string
-  lamination: string
+  fold: string          // "half", "tri", "z", "gate", "double_parallel", "accordion", "roll"
+  lamination: string    // "Gloss", "Matte", "Silk", "Leather", "Linen"
+  laminationSides?: string  // "S/S", "D/S"
   
-  // Booklet/Spiral specific fields
+  // Booklet specific fields
   pages?: number
+  separateCover?: boolean   // Booklet: has separate cover? (Yes/No toggle)
   coverPaper?: string
-  coverColors?: string  // "4/4", "4/0"
+  coverColors?: string      // Booklet: "4/4", "4/0", "1/1", "1/0"
   coverBleed?: boolean
+  coverLamination?: string  // "none", "gloss", "matte", "silk", "leather"
   insidePaper?: string
-  insideColors?: string // "D/S", "S/S"
+  insideColors?: string     // Booklet: "D/S", "S/S" | Others: "4/4", "4/0", etc
   insideBleed?: boolean
-  bindingType?: string  // "staple", "spiral", "perfect"
+  bindingType?: string      // "staple", "fold", "perfect", "spiral"
+  
+  // Spiral specific fields
+  useFrontCover?: boolean   // Has front cover? (Yes/No toggle)
+  useBackCover?: boolean    // Has back cover? (Yes/No toggle)
+  backCoverPaper?: string
+  backCoverColors?: string
+  backCoverBleed?: boolean
+  clearPlastic?: boolean    // Clear plastic cover option
+  blackVinyl?: boolean      // Black vinyl cover option
   
   // Pad specific
   sheetsPerPad?: number
+  useChipBoard?: boolean    // Has chip board backing? (Yes/No toggle)
 }
 
 interface VendorQuote {
@@ -121,14 +175,26 @@ function buildSpecsText(specs: PieceSpecs): string {
   if (specs.pages) parts.push(`${specs.pages}pp`)
   if (specs.paper) parts.push(specs.paper)
   if (specs.colors) parts.push(specs.colors)
-  if (specs.fold && specs.fold !== "none") parts.push(FOLD_TYPE_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
-  if (specs.lamination && specs.lamination !== "none") parts.push(LAM_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
+  if (specs.fold && specs.fold !== "none") parts.push(FLAT_FOLD_OPTIONS.find(f => f.value === specs.fold)?.label || specs.fold)
+  if (specs.lamination && specs.lamination !== "none") parts.push(LAMINATION_OPTIONS.find(l => l.value === specs.lamination)?.label || specs.lamination)
+  // Booklet/spiral specific
+  if (specs.coverPaper) parts.push(`Cover: ${specs.coverPaper}`)
+  if (specs.coverColors) parts.push(specs.coverColors)
+  if (specs.insidePaper) parts.push(`Inside: ${specs.insidePaper}`)
+  if (specs.insideColors) parts.push(specs.insideColors)
+  if (specs.bindingType) parts.push(BINDING_OPTIONS.find(b => b.value === specs.bindingType)?.label || specs.bindingType)
   if (specs.notes) parts.push(specs.notes)
   return parts.join(" | ")
 }
 
-export function SimplePrintingEntry() {
-  const { addItem } = useQuote()
+interface SimplePrintingEntryProps {
+  /** When true, match the Quote Form (QuickBooks-style) visual language
+   *  so navigating from other pricing steps feels continuous. */
+  qbMode?: boolean
+}
+
+export function SimplePrintingEntry({ qbMode = false }: SimplePrintingEntryProps = {}) {
+  const { addItem, updateItem, items: quoteItems } = useQuote()
   const { pieces, printQty } = useMailing()
   const { data: vendors, isLoading: vendorsLoading } = useSWR<Vendor[]>("/api/vendors", fetcher)
   
@@ -136,6 +202,10 @@ export function SimplePrintingEntry() {
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [showCalc, setShowCalc] = useState(false)
   const [calcVendorId, setCalcVendorId] = useState<string | null>(null)
+  
+  // Edit mode: when editing an existing quote line item
+  // editingQuoteItemId = the quote line item ID being edited (for Update)
+  const [editingQuoteItemId, setEditingQuoteItemId] = useState<number | null>(null)
   
   const printablePieces = useMemo(() => {
     return pieces.filter(piece => {
@@ -182,6 +252,96 @@ export function SimplePrintingEntry() {
       if (items.length > 0) setActiveItemId(items[0].id)
     }
   }, [printablePieces, printItems.length, printQty])
+
+  /**
+   * Fallback hydration for EDITING a saved quote.
+   *
+   * When a user opens a saved quote, `mailing.pieces` is typically empty
+   * (the planner state isn't restored), so `printablePieces` is []. That
+   * means the primary hydration effect above never runs and the user
+   * sees "No Printable Pieces" — even though the quote clearly has
+   * envelope / flat / booklet / pad / spiral / perfect / ohp line items.
+   *
+   * This effect recovers by synthesizing one PrintItem per existing
+   * printing-family quote line, using whatever spec data is already on
+   * the item (item.specs + item.metadata). It labels each item from the
+   * PIECE_TYPE_META map when available, falling back to a sensible
+   * default. When the user taps one and starts editing, the deeper
+   * calcState-based hydration inside `handleEditQuoteItem` takes over.
+   */
+  useEffect(() => {
+    if (printablePieces.length > 0) return
+    if (printItems.length > 0) return
+
+    const PRINTING_CATS: ReadonlyArray<string> = [
+      "flat", "envelope", "booklet", "spiral", "perfect", "pad", "ohp",
+    ]
+    const printingQuoteItems = quoteItems.filter(
+      (it) => PRINTING_CATS.includes(it.category as string),
+    )
+    if (printingQuoteItems.length === 0) return
+
+    const CAT_LABEL: Record<string, string> = {
+      flat: "Flat Print",
+      envelope: "Envelope",
+      booklet: "Booklet",
+      spiral: "Spiral Book",
+      perfect: "Perfect Book",
+      pad: "Pad",
+      ohp: "OHP",
+    }
+
+    const synthesized: PrintItem[] = printingQuoteItems.map((it) => {
+      const calcType = (it.category || (it.metadata as Record<string, unknown> | undefined)?.calcType || "flat") as string
+      const specs: PieceSpecs = {
+        quantity: it.specs?.quantity || it.quantity || 0,
+        width: it.specs?.width || 0,
+        height: it.specs?.height || 0,
+        paper: it.specs?.paper || "",
+        colors: it.specs?.colors || "",
+        hasBleed: it.specs?.hasBleed || false,
+        fold: it.specs?.fold || "",
+        lamination: it.specs?.lamination || "",
+        notes: it.specs?.notes || "",
+        pages: it.specs?.pages || 0,
+        coverPaper: it.specs?.coverPaper || "",
+        coverColors: it.specs?.coverColors || "",
+        coverBleed: it.specs?.coverBleed || false,
+        insidePaper: it.specs?.insidePaper || "",
+        insideColors: it.specs?.insideColors || "",
+        insideBleed: it.specs?.insideBleed || false,
+        bindingType: it.specs?.bindingType || "",
+        sheetsPerPad: it.specs?.sheetsPerPad || 0,
+      }
+      const meta = it.metadata as Record<string, unknown> | undefined
+      const savedVendorQuote: VendorQuote | null = it.vendor && it.vendorId
+        ? {
+            vendorId: it.vendorId,
+            vendorName: it.vendor,
+            isInternal: (meta?.isInternal as boolean) || false,
+            cost: (meta?.baseCost as number) || 0,
+            shipping: (meta?.shipping as number) || 0,
+            markupPercent: (meta?.markupPercent as number) || 30,
+            price: it.amount,
+            priceOverride: false,
+            calcState: it.calcState,
+          }
+        : null
+      return {
+        id: `quote-line-${it.id}`,
+        pieceId: `quote-line-${it.id}`,
+        pieceLabel: CAT_LABEL[calcType] || calcType,
+        calcType,
+        specs,
+        vendorQuotes: savedVendorQuote ? [savedVendorQuote] : [],
+        selectedVendorId: it.vendorId || null,
+        addedToQuote: true,
+      }
+    })
+
+    setPrintItems(synthesized)
+    if (synthesized.length > 0) setActiveItemId(synthesized[0].id)
+  }, [printablePieces.length, printItems.length, quoteItems])
   
   const activeItem = printItems.find(i => i.id === activeItemId)
   
@@ -304,35 +464,29 @@ export function SimplePrintingEntry() {
     setCalcVendorId(null)
   }
   
-  const handleAddToQuote = () => {
-    if (!activeItem || !activeItem.selectedVendorId) return
+  // Build the quote line item data (reused by add, update, and save-as-new)
+  const buildQuoteItemData = () => {
+    if (!activeItem || !activeItem.selectedVendorId) return null
     const selected = activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)
-    if (!selected || selected.price <= 0) return
+    if (!selected || selected.price <= 0) return null
     
-    // Build label like "550 - 6x9 Envelope" 
     const sizeStr = activeItem.specs.width && activeItem.specs.height 
       ? `${activeItem.specs.width}x${activeItem.specs.height}` 
       : ""
     const label = `${activeItem.specs.quantity.toLocaleString()} - ${sizeStr} ${activeItem.pieceLabel}`.trim()
     
-    addItem({
-      // id is auto-generated by addItem
+    return {
       category: activeItem.calcType as "flat" | "booklet" | "spiral" | "perfect" | "pad" | "envelope",
       label: label,
       description: buildSpecsText(activeItem.specs),
       amount: selected.price,
-      // Vendor info
       vendor: selected.vendorName,
       vendorId: selected.vendorId,
-      // Pricing breakdown
       quantity: activeItem.specs.quantity,
       unitCost: (selected.cost + selected.shipping) / activeItem.specs.quantity,
       unitPrice: selected.price / activeItem.specs.quantity,
-      // Full specs for reopening/editing
       specs: { ...activeItem.specs },
-      // Calculator state for reopening with same inputs
       calcState: selected.calcState,
-      // Legacy metadata
       metadata: { 
         baseCost: selected.cost, 
         shipping: selected.shipping, 
@@ -340,9 +494,243 @@ export function SimplePrintingEntry() {
         isInternal: selected.isInternal,
         calcType: activeItem.calcType,
         pieceName: activeItem.pieceLabel,
+        pieceDimensions: `${activeItem.specs.width}x${activeItem.specs.height}`,
+        hasBleed: activeItem.specs.hasBleed || activeItem.specs.insideBleed || activeItem.specs.coverBleed,
+        pageCount: activeItem.specs.pages,
+        paperName: activeItem.specs.paper || activeItem.specs.insidePaper,
+        sides: activeItem.specs.colors || activeItem.specs.insideColors,
+        foldType: activeItem.specs.fold,
+        laminationEnabled: !!(activeItem.specs.lamination && activeItem.specs.lamination !== "none" && activeItem.specs.lamination !== ""),
+        laminationType: activeItem.specs.lamination,
+        coverPaper: activeItem.specs.coverPaper,
+        coverSides: activeItem.specs.coverColors,
+        bindingType: activeItem.specs.bindingType,
+        sheetsPerPad: activeItem.specs.sheetsPerPad,
       }
-    })
+    }
+  }
+  
+  // ADD NEW: Creates a new quote line item
+  const handleAddToQuote = () => {
+    const data = buildQuoteItemData()
+    if (!data) return
+    addItem(data)
     setPrintItems(prev => prev.map(i => i.id === activeItemId ? { ...i, addedToQuote: true } : i))
+    setEditingQuoteItemId(null)
+  }
+  
+  // UPDATE: Overwrites the existing quote line item
+  const handleUpdateQuoteItem = () => {
+    const data = buildQuoteItemData()
+    if (!data) return
+    
+    // Find the quote item ID to update - either from editingQuoteItemId or by matching specs
+    let itemIdToUpdate = editingQuoteItemId
+    if (!itemIdToUpdate && activeItem) {
+      // Find matching quote item by specs
+      const matchingItem = quoteItems.find(qi => 
+        qi.category === activeItem.calcType &&
+        qi.specs?.width === activeItem.specs.width &&
+        qi.specs?.height === activeItem.specs.height &&
+        qi.specs?.quantity === activeItem.specs.quantity
+      )
+      itemIdToUpdate = matchingItem?.id || null
+    }
+    
+    if (itemIdToUpdate) {
+      updateItem(itemIdToUpdate, data)
+    }
+    setPrintItems(prev => prev.map(i => i.id === activeItemId ? { ...i, addedToQuote: true } : i))
+    setEditingQuoteItemId(null)
+  }
+  
+  // Load an existing quote item for editing
+  const handleEditQuoteItem = (quoteItemId: number) => {
+    const item = quoteItems.find(i => i.id === quoteItemId)
+
+    
+    if (!item) {
+  
+      return
+    }
+    
+    // Build specs from calcState.inputs (FULL calculator data) when available
+    const inputs = item.calcState?.inputs as Record<string, unknown> | undefined
+    const calcType = item.category || item.metadata?.calcType || "flat"
+
+    
+    let savedSpecs: PieceSpecs
+    
+    if (inputs) {
+      // Use FULL calculator inputs - this has ALL the fields the calculator needs
+      if (calcType === "booklet" || calcType === "perfect") {
+        savedSpecs = {
+          quantity: (inputs.bookQty as number) || item.quantity || 0,
+          width: (inputs.pageWidth as number) || 0,
+          height: (inputs.pageHeight as number) || 0,
+          pages: (inputs.pagesPerBook as number) || 0,
+          coverPaper: (inputs.coverPaper as string) || "",
+          coverColors: (inputs.coverSides as string) || "",
+          coverBleed: (inputs.coverBleed as boolean) || false,
+          insidePaper: (inputs.insidePaper as string) || "",
+          insideColors: (inputs.insideSides as string) || "",
+          insideBleed: (inputs.insideBleed as boolean) || false,
+          bindingType: (inputs.bindingType as string) || "",
+          lamination: (inputs.laminationType as string) || "",
+          paper: "",
+          colors: "",
+          hasBleed: false,
+          fold: "",
+          notes: item.specs?.notes || "",
+          sheetsPerPad: 0,
+        }
+      } else if (calcType === "spiral") {
+        const inside = inputs.inside as Record<string, unknown> | undefined
+        const front = inputs.front as Record<string, unknown> | undefined
+        savedSpecs = {
+          quantity: (inputs.bookQty as number) || item.quantity || 0,
+          width: (inputs.pageWidth as number) || 0,
+          height: (inputs.pageHeight as number) || 0,
+          pages: (inputs.pagesPerBook as number) || 0,
+          insidePaper: (inside?.paperName as string) || "",
+          insideColors: (inside?.sides as string) || "",
+          insideBleed: (inside?.hasBleed as boolean) || false,
+          coverPaper: (front?.paperName as string) || "",
+          coverColors: (front?.sides as string) || "",
+          coverBleed: (front?.hasBleed as boolean) || false,
+          bindingType: "spiral",
+          lamination: "",
+          paper: "",
+          colors: "",
+          hasBleed: false,
+          fold: "",
+          notes: item.specs?.notes || "",
+          sheetsPerPad: 0,
+        }
+      } else if (calcType === "pad") {
+        const inside = inputs.inside as Record<string, unknown> | undefined
+        savedSpecs = {
+          quantity: (inputs.padQty as number) || item.quantity || 0,
+          width: (inputs.pageWidth as number) || 0,
+          height: (inputs.pageHeight as number) || 0,
+          sheetsPerPad: (inputs.pagesPerPad as number) || 0,
+          paper: (inside?.paperName as string) || "",
+          colors: (inside?.sides as string) || "",
+          hasBleed: (inside?.hasBleed as boolean) || false,
+          pages: 0,
+          coverPaper: "",
+          coverColors: "",
+          coverBleed: false,
+          insidePaper: "",
+          insideColors: "",
+          insideBleed: false,
+          bindingType: "",
+          lamination: "",
+          fold: "",
+          notes: item.specs?.notes || "",
+        }
+      } else {
+        // Flat / envelope
+        const lam = inputs.lamination as Record<string, unknown> | undefined
+        savedSpecs = {
+          quantity: (inputs.qty as number) || (inputs.amount as number) || item.quantity || 0,
+          width: (inputs.width as number) || 0,
+          height: (inputs.height as number) || 0,
+          paper: (inputs.paperName as string) || "",
+          colors: (inputs.sidesValue as string) || "",
+          hasBleed: (inputs.hasBleed as boolean) || false,
+          fold: "",
+          lamination: (lam?.type as string) || "",
+          notes: item.specs?.notes || "",
+          pages: 0,
+          coverPaper: "",
+          coverColors: "",
+          coverBleed: false,
+          insidePaper: "",
+          insideColors: "",
+          insideBleed: false,
+          bindingType: "",
+          sheetsPerPad: 0,
+        }
+      }
+    } else {
+      // Fallback to item.specs if no calcState.inputs
+      savedSpecs = {
+        quantity: item.specs?.quantity || item.quantity || 0,
+        width: item.specs?.width || 0,
+        height: item.specs?.height || 0,
+        paper: item.specs?.paper || "",
+        colors: item.specs?.colors || "",
+        hasBleed: item.specs?.hasBleed || false,
+        fold: item.specs?.fold || "",
+        lamination: item.specs?.lamination || "",
+        notes: item.specs?.notes || "",
+        pages: item.specs?.pages || 0,
+        coverPaper: item.specs?.coverPaper || "",
+        coverColors: item.specs?.coverColors || "",
+        coverBleed: item.specs?.coverBleed || false,
+        insidePaper: item.specs?.insidePaper || "",
+        insideColors: item.specs?.insideColors || "",
+        insideBleed: item.specs?.insideBleed || false,
+        bindingType: item.specs?.bindingType || "",
+        sheetsPerPad: item.specs?.sheetsPerPad || 0,
+      }
+    }
+
+    
+    // Build vendor quote from saved data - MUST include calcState with full inputs
+    const savedVendorQuote: VendorQuote | null = item.vendor && item.vendorId ? {
+      vendorId: item.vendorId,
+      vendorName: item.vendor,
+      isInternal: item.metadata?.isInternal || false,
+      cost: item.metadata?.baseCost || 0,
+      shipping: item.metadata?.shipping || 0,
+      markupPercent: item.metadata?.markupPercent || 30,
+      price: item.amount,
+      priceOverride: false,
+      calcState: item.calcState,  // THIS is where the full inputs are stored
+    } : null
+
+    
+    // Find matching print item by calcType (calcType already defined above)
+    const existingPrintItem = printItems.find(pi => pi.calcType === calcType)
+
+    
+    if (existingPrintItem) {
+      // Update existing print item with ALL saved data
+      setPrintItems(prev => prev.map(pi => 
+        pi.id === existingPrintItem.id 
+          ? { 
+              ...pi, 
+              specs: savedSpecs,
+              vendorQuotes: savedVendorQuote ? [savedVendorQuote] : [],
+              selectedVendorId: item.vendorId || null,
+              addedToQuote: true,
+            }
+          : pi
+      ))
+      setActiveItemId(existingPrintItem.id)
+
+    } else {
+      // Create a new print item for this quote item
+      const newId = `edit-${quoteItemId}-${Date.now()}`
+      const newPrintItem: PrintItem = {
+        id: newId,
+        pieceId: `quote-${quoteItemId}`,
+        pieceLabel: item.label || item.metadata?.pieceName || "Print Item",
+        calcType: calcType,
+        specs: savedSpecs,
+        vendorQuotes: savedVendorQuote ? [savedVendorQuote] : [],
+        selectedVendorId: item.vendorId || null,
+        addedToQuote: true,
+      }
+      setPrintItems(prev => [...prev, newPrintItem])
+      setActiveItemId(newId)
+
+    }
+    
+    setEditingQuoteItemId(quoteItemId)
+
   }
   
   const getCheapestId = (item: PrintItem) => {
@@ -353,7 +741,13 @@ export function SimplePrintingEntry() {
   
   const isBooklet = activeItem && ["booklet", "spiral", "perfect"].includes(activeItem.calcType)
 
-  if (printablePieces.length === 0) {
+  // Show the empty state ONLY if there are no pieces AND no hydrated
+  // print items from existing quote lines. The fallback hydration above
+  // synthesizes items from any existing envelope / flat / booklet / etc.
+  // quote lines when the planner state wasn't restored, so this message
+  // should only appear on a brand-new quote that hasn't added any
+  // printing-family pieces yet.
+  if (printablePieces.length === 0 && printItems.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-center">
         <div>
@@ -366,49 +760,53 @@ export function SimplePrintingEntry() {
   }
 
   return (
-    <div className="h-full">
-      {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content */}
+    <div className={cn("h-full", !qbMode && "h-full")}>
+      {/* TWO-COLUMN LAYOUT - Pieces sidebar + Main content
+          In qbMode the quote document (on the left, outside this component)
+          already lists every piece, so we hide the inner sidebar and let
+          the editor use the full helper width. */}
       <div className="flex h-full">
-        {/* LEFT SIDEBAR - Pieces List */}
-        <div className="w-56 shrink-0 border-r bg-muted/30 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Pieces</h3>
-            <Badge variant="outline" className="text-[10px] h-5 font-semibold">
-              {printItems.filter(i => i.addedToQuote).length}/{printItems.length}
-            </Badge>
-          </div>
+        {/* LEFT SIDEBAR - hidden in qbMode since the quote document shows items */}
+        <div className={cn(
+          "w-56 shrink-0 border-r p-4 overflow-y-auto bg-muted/30",
+          qbMode && "hidden"
+        )}>
           <div className="space-y-1.5">
-            {printItems.map((item, idx) => {
+            {printItems.map((item) => {
               const isActive = item.id === activeItemId
               const selectedVendor = item.vendorQuotes.find(vq => vq.vendorId === item.selectedVendorId)
+              const isSaved = item.addedToQuote
+              
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveItemId(item.id)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all",
+                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all",
                     isActive 
                       ? "bg-foreground text-background shadow-md" 
-                      : item.addedToQuote 
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                      : isSaved 
+                        ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800"
                         : "bg-background hover:bg-muted border border-border/50"
                   )}
                 >
-                  <span className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                    item.addedToQuote ? "bg-green-600 text-white" : isActive ? "bg-background/20 text-background" : "bg-muted-foreground/10 text-muted-foreground"
-                  )}>
-                    {item.addedToQuote ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-                  </span>
+                  {/* Status icon */}
+                  {isSaved ? (
+                    <Check className={cn("h-4 w-4 shrink-0", isActive ? "text-background" : "text-green-600")} />
+                  ) : (
+                    <div className={cn("w-4 h-4 rounded-full border-2 shrink-0", isActive ? "border-background/50" : "border-muted-foreground/30")} />
+                  )}
+                  
+                  {/* Label and price */}
                   <div className="min-w-0 flex-1">
-                    <div className={cn("font-semibold text-sm truncate", isActive && "text-background")}>{item.pieceLabel}</div>
-                    {selectedVendor && selectedVendor.price > 0 ? (
-                      <div className={cn("text-xs truncate", isActive ? "text-background/70" : "text-muted-foreground")}>
-                        {formatCurrency(selectedVendor.price)}
-                      </div>
-                    ) : (
-                      <div className={cn("text-xs", isActive ? "text-background/50" : "text-muted-foreground/50")}>No price yet</div>
-                    )}
+                    <div className={cn("font-semibold text-sm truncate", isActive && "text-background")}>
+                      {item.pieceLabel}
+                    </div>
+                    <div className={cn("text-xs", isActive ? "text-background/70" : "text-muted-foreground")}>
+                      {selectedVendor && selectedVendor.price > 0 
+                        ? formatCurrency(selectedVendor.price) 
+                        : "No price yet"}
+                    </div>
                   </div>
                 </button>
               )
@@ -418,12 +816,46 @@ export function SimplePrintingEntry() {
 
         {/* MAIN CONTENT AREA */}
         {activeItem && (
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className={cn("flex-1 overflow-y-auto", qbMode ? "p-4" : "p-6")}>
+            {/* QB MODE: Compact piece chip selector - replaces the hidden inner sidebar */}
+            {qbMode && printItems.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap mb-4 pb-3 border-b border-border">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mr-1">Piece:</span>
+                {printItems.map((item) => {
+                  const isActive = item.id === activeItemId
+                  const selectedVendor = item.vendorQuotes.find(vq => vq.vendorId === item.selectedVendorId)
+                  const isSaved = item.addedToQuote
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveItemId(item.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all",
+                        isActive
+                          ? "bg-foreground text-background"
+                          : isSaved
+                            ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 hover:bg-green-100"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent"
+                      )}
+                    >
+                      {isSaved && <Check className={cn("h-3 w-3 shrink-0", isActive ? "text-background" : "text-green-600")} />}
+                      <span className="truncate max-w-[140px]">{item.pieceLabel}</span>
+                      {selectedVendor && selectedVendor.price > 0 && (
+                        <span className={cn("text-[10px] font-mono", isActive ? "text-background/70" : "text-muted-foreground")}>
+                          {formatCurrency(selectedVendor.price)}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             {/* PIECE HEADER */}
-            <div className="flex items-center justify-between mb-6">
+            <div className={cn("flex items-center justify-between", qbMode ? "mb-4" : "mb-6")}>
               <div>
-                <h2 className="text-xl font-bold text-foreground">{activeItem.pieceLabel}</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">{buildSpecsText(activeItem.specs) || "Configure specifications below"}</p>
+                <h2 className={cn("font-bold text-foreground", qbMode ? "text-base" : "text-xl")}>{activeItem.pieceLabel}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{buildSpecsText(activeItem.specs) || "Configure specifications below"}</p>
               </div>
               {activeItem.addedToQuote && (
                 <Badge className="bg-green-600 text-white gap-1.5 px-3 py-1">
@@ -550,7 +982,7 @@ export function SimplePrintingEntry() {
                     </Select>
                   </div>
                   
-                  <div className="min-w-[185px]">
+                  <div className="min-w-[170px]">
                     <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
                       Colors {!isColorsFilled && <span className="text-amber-500">*</span>}
                     </label>
@@ -558,31 +990,27 @@ export function SimplePrintingEntry() {
                       <SelectTrigger className={isColorsFilled ? selectFilled : selectUnfilled}>
                         <SelectValue placeholder="— Select —" />
                       </SelectTrigger>
-                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FLAT_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
-                  <div className="min-w-[145px]">
-                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isFoldFilled ? "text-muted-foreground" : "text-amber-600")}>
-                      Fold Type {!isFoldFilled && <span className="text-amber-500">*</span>}
-                    </label>
-                    <Select value={activeItem.specs.fold} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={isFoldFilled ? selectFilled : selectUnfilled}>
-                        <SelectValue placeholder="— Select —" />
+                  <div className="min-w-[160px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Fold</label>
+                    <Select value={activeItem.specs.fold || ""} onValueChange={(v) => updateSpecs({ fold: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className={selectFilled}>
+                        <SelectValue placeholder="No Fold" />
                       </SelectTrigger>
-                      <SelectContent>{FOLD_TYPE_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FLAT_FOLD_OPTIONS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
-                  <div className="min-w-[145px]">
-                    <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isLamFilled ? "text-muted-foreground" : "text-amber-600")}>
-                      Lamination {!isLamFilled && <span className="text-amber-500">*</span>}
-                    </label>
-                    <Select value={activeItem.specs.lamination} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                      <SelectTrigger className={isLamFilled ? selectFilled : selectUnfilled}>
-                        <SelectValue placeholder="— Select —" />
+                  <div className="min-w-[130px]">
+                    <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Lamination</label>
+                    <Select value={activeItem.specs.lamination || ""} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
+                      <SelectTrigger className={selectFilled}>
+                        <SelectValue placeholder="None" />
                       </SelectTrigger>
-                      <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{LAMINATION_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
@@ -604,68 +1032,96 @@ export function SimplePrintingEntry() {
               )}
               
               {/* ═══════════════════════════════════════════════════════════════ */}
-              {/* BOOKLET / SPIRAL SPECS - Cover + Inside sections */}
+              {/* BOOKLET SPECS - Saddle Stitch / Perfect Bound */}
               {/* ═══════════════════════════════════════════════════════════════ */}
-              {(isBooklet || activeItem.calcType === "spiral") && (
+              {isBooklet && (
                 <div className="space-y-4">
-                  {/* COVER */}
-                  <div className="p-4 bg-muted/30 rounded-xl">
-                    <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
-                      Cover {!isCoverPaperFilled && <span className="text-amber-500">— needs paper selection</span>}
-                    </h5>
-                    <div className="flex flex-wrap items-end gap-4">
-                      <div className="min-w-[185px]">
-                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
-                          Cover Paper {!isCoverPaperFilled && <span className="text-amber-500">*</span>}
-                        </label>
-                        <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={isCoverPaperFilled ? selectFilled : selectUnfilled}>
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="min-w-[185px]">
-                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
-                          Cover Colors {!isCoverColorsFilled && <span className="text-amber-500">*</span>}
-                        </label>
-                        <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={isCoverColorsFilled ? selectFilled : selectUnfilled}>
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <button 
-                        type="button"
-                        onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
-                        disabled={activeItem.addedToQuote}
-                        className={cn(
-                          "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
-                          activeItem.specs.coverBleed 
-                            ? "bg-foreground text-background border-foreground" 
-                            : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
-                        )}
-                      >
-                        {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
-                        Bleed
-                      </button>
-                      
-                      <div className="min-w-[145px]">
-                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isLamFilled ? "text-muted-foreground" : "text-amber-600")}>
-                          Cover Lam {!isLamFilled && <span className="text-amber-500">*</span>}
-                        </label>
-                        <Select value={activeItem.specs.lamination || ""} onValueChange={(v) => updateSpecs({ lamination: v })} disabled={activeItem.addedToQuote}>
-                          <SelectTrigger className={isLamFilled ? selectFilled : selectUnfilled}>
-                            <SelectValue placeholder="— Select —" />
-                          </SelectTrigger>
-                          <SelectContent>{LAM_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
+                  {/* SEPARATE COVER TOGGLE */}
+                  <div className="flex items-center gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ separateCover: !activeItem.specs.separateCover })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.separateCover 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.separateCover && <Check className="h-4 w-4" />}
+                      Separate Cover
+                    </button>
+                    
+                    <div className="min-w-[180px]">
+                      <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Binding</label>
+                      <Select value={activeItem.specs.bindingType || "staple"} onValueChange={(v) => updateSpecs({ bindingType: v })} disabled={activeItem.addedToQuote}>
+                        <SelectTrigger className={selectFilled}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>{BINDING_OPTIONS.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                   </div>
+                  
+                  {/* COVER - Only show if separateCover is true */}
+                  {activeItem.specs.separateCover && (
+                    <div className="p-4 bg-muted/30 rounded-xl">
+                      <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                        Cover {!isCoverPaperFilled && <span className="text-amber-500">— needs paper selection</span>}
+                      </h5>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="min-w-[185px]">
+                          <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverPaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                            Cover Paper {!isCoverPaperFilled && <span className="text-amber-500">*</span>}
+                          </label>
+                          <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={isCoverPaperFilled ? selectFilled : selectUnfilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="min-w-[170px]">
+                          <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isCoverColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                            Cover Colors {!isCoverColorsFilled && <span className="text-amber-500">*</span>}
+                          </label>
+                          <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={isCoverColorsFilled ? selectFilled : selectUnfilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{BOOKLET_COVER_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <button 
+                          type="button"
+                          onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
+                          disabled={activeItem.addedToQuote}
+                          className={cn(
+                            "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                            activeItem.specs.coverBleed 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
+                          Bleed
+                        </button>
+                        
+                        <div className="min-w-[130px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Cover Lam</label>
+                          <Select value={activeItem.specs.coverLamination || ""} onValueChange={(v) => updateSpecs({ coverLamination: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="None" />
+                            </SelectTrigger>
+                            <SelectContent>{LAMINATION_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* INSIDE PAGES */}
                   <div className="p-4 bg-muted/30 rounded-xl">
@@ -685,7 +1141,7 @@ export function SimplePrintingEntry() {
                         </Select>
                       </div>
                       
-                      <div className="min-w-[145px]">
+                      <div className="min-w-[170px]">
                         <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsideColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
                           Inside Colors {!isInsideColorsFilled && <span className="text-amber-500">*</span>}
                         </label>
@@ -693,10 +1149,7 @@ export function SimplePrintingEntry() {
                           <SelectTrigger className={isInsideColorsFilled ? selectFilled : selectUnfilled}>
                             <SelectValue placeholder="— Select —" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="D/S">Double-Sided</SelectItem>
-                            <SelectItem value="S/S">Single-Sided</SelectItem>
-                          </SelectContent>
+                          <SelectContent>{BOOKLET_INSIDE_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       
@@ -720,6 +1173,202 @@ export function SimplePrintingEntry() {
               )}
               
               {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* SPIRAL SPECS - Front/Back Cover Toggles + Inside */}
+              {/* ═══════════════════════════════════════════════════════════════ */}
+              {activeItem.calcType === "spiral" && (
+                <div className="space-y-4">
+                  {/* COVER TOGGLES */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ useFrontCover: !activeItem.specs.useFrontCover })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.useFrontCover 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.useFrontCover && <Check className="h-4 w-4" />}
+                      Front Cover
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ useBackCover: !activeItem.specs.useBackCover })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.useBackCover 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.useBackCover && <Check className="h-4 w-4" />}
+                      Back Cover
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ clearPlastic: !activeItem.specs.clearPlastic })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.clearPlastic 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.clearPlastic && <Check className="h-4 w-4" />}
+                      Clear Plastic
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => !activeItem.addedToQuote && updateSpecs({ blackVinyl: !activeItem.specs.blackVinyl })}
+                      disabled={activeItem.addedToQuote}
+                      className={cn(
+                        "h-10 px-4 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2",
+                        activeItem.specs.blackVinyl 
+                          ? "bg-foreground text-background border-foreground" 
+                          : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                      )}
+                    >
+                      {activeItem.specs.blackVinyl && <Check className="h-4 w-4" />}
+                      Black Vinyl
+                    </button>
+                  </div>
+                  
+                  {/* FRONT COVER - Only show if useFrontCover is true */}
+                  {activeItem.specs.useFrontCover && (
+                    <div className="p-4 bg-muted/30 rounded-xl">
+                      <h5 className="text-[11px] font-bold uppercase tracking-wide mb-3 text-muted-foreground">Front Cover</h5>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="min-w-[185px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper</label>
+                          <Select value={activeItem.specs.coverPaper || ""} onValueChange={(v) => updateSpecs({ coverPaper: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-[170px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                          <Select value={activeItem.specs.coverColors || ""} onValueChange={(v) => updateSpecs({ coverColors: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => !activeItem.addedToQuote && updateSpecs({ coverBleed: !activeItem.specs.coverBleed })}
+                          disabled={activeItem.addedToQuote}
+                          className={cn(
+                            "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                            activeItem.specs.coverBleed 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          {activeItem.specs.coverBleed && <Check className="h-4 w-4" />}
+                          Bleed
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* BACK COVER - Only show if useBackCover is true */}
+                  {activeItem.specs.useBackCover && (
+                    <div className="p-4 bg-muted/30 rounded-xl">
+                      <h5 className="text-[11px] font-bold uppercase tracking-wide mb-3 text-muted-foreground">Back Cover</h5>
+                      <div className="flex flex-wrap items-end gap-4">
+                        <div className="min-w-[185px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Paper</label>
+                          <Select value={activeItem.specs.backCoverPaper || ""} onValueChange={(v) => updateSpecs({ backCoverPaper: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-[170px]">
+                          <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
+                          <Select value={activeItem.specs.backCoverColors || ""} onValueChange={(v) => updateSpecs({ backCoverColors: v })} disabled={activeItem.addedToQuote}>
+                            <SelectTrigger className={selectFilled}>
+                              <SelectValue placeholder="— Select —" />
+                            </SelectTrigger>
+                            <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => !activeItem.addedToQuote && updateSpecs({ backCoverBleed: !activeItem.specs.backCoverBleed })}
+                          disabled={activeItem.addedToQuote}
+                          className={cn(
+                            "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                            activeItem.specs.backCoverBleed 
+                              ? "bg-foreground text-background border-foreground" 
+                              : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                          )}
+                        >
+                          {activeItem.specs.backCoverBleed && <Check className="h-4 w-4" />}
+                          Bleed
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* INSIDE PAGES */}
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <h5 className={cn("text-[11px] font-bold uppercase tracking-wide mb-3", isInsidePaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                      Inside Pages {!isInsidePaperFilled && <span className="text-amber-500">— needs paper selection</span>}
+                    </h5>
+                    <div className="flex flex-wrap items-end gap-4">
+                      <div className="min-w-[185px]">
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsidePaperFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Inside Paper {!isInsidePaperFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.insidePaper || ""} onValueChange={(v) => updateSpecs({ insidePaper: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isInsidePaperFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
+                          </SelectTrigger>
+                          <SelectContent>{PAPER_OPTIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="min-w-[170px]">
+                        <label className={cn("block text-[11px] font-semibold uppercase tracking-wide mb-1.5", isInsideColorsFilled ? "text-muted-foreground" : "text-amber-600")}>
+                          Inside Colors {!isInsideColorsFilled && <span className="text-amber-500">*</span>}
+                        </label>
+                        <Select value={activeItem.specs.insideColors || ""} onValueChange={(v) => updateSpecs({ insideColors: v })} disabled={activeItem.addedToQuote}>
+                          <SelectTrigger className={isInsideColorsFilled ? selectFilled : selectUnfilled}>
+                            <SelectValue placeholder="— Select —" />
+                          </SelectTrigger>
+                          <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <button 
+                        type="button"
+                        onClick={() => !activeItem.addedToQuote && updateSpecs({ insideBleed: !activeItem.specs.insideBleed })}
+                        disabled={activeItem.addedToQuote}
+                        className={cn(
+                          "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                          activeItem.specs.insideBleed 
+                            ? "bg-foreground text-background border-foreground" 
+                            : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                        )}
+                      >
+                        {activeItem.specs.insideBleed && <Check className="h-4 w-4" />}
+                        Bleed
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* ═══════════════════════════════════════════════���═══════════════ */}
               {/* PAD SPECS */}
               {/* ═══════════════════════════════════════════════════════════════ */}
               {activeItem.calcType === "pad" && (
@@ -736,13 +1385,13 @@ export function SimplePrintingEntry() {
                     </Select>
                   </div>
                   
-                  <div className="min-w-[185px]">
+                  <div className="min-w-[170px]">
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Colors</label>
                     <Select value={activeItem.specs.colors} onValueChange={(v) => updateSpecs({ colors: v })} disabled={activeItem.addedToQuote}>
                       <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FULL_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   
@@ -760,12 +1409,27 @@ export function SimplePrintingEntry() {
                     {activeItem.specs.hasBleed && <Check className="h-4 w-4" />}
                     Bleed
                   </button>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => !activeItem.addedToQuote && updateSpecs({ useChipBoard: !activeItem.specs.useChipBoard })}
+                    disabled={activeItem.addedToQuote}
+                    className={cn(
+                      "h-11 px-5 rounded-xl text-sm font-semibold transition-all border-2 flex items-center gap-2 shadow-sm",
+                      activeItem.specs.useChipBoard 
+                        ? "bg-foreground text-background border-foreground" 
+                        : "bg-background text-muted-foreground border-border/60 hover:border-foreground/30"
+                    )}
+                  >
+                    {activeItem.specs.useChipBoard && <Check className="h-4 w-4" />}
+                    Chip Board
+                  </button>
                 </div>
               )}
               
               {/* ═══════════════════════════════════════════════════════════════ */}
               {/* ENVELOPE SPECS */}
-              {/* ═══════════════════════════════════════════════════════════════ */}
+              {/* ═══��═══════════════════════════════════════════════════════════ */}
               {activeItem.calcType === "envelope" && (
                 <div className="flex flex-wrap items-end gap-5">
                   <div className="min-w-[185px]">
@@ -774,7 +1438,7 @@ export function SimplePrintingEntry() {
                       <SelectTrigger className={selectFilled}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>{COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{FLAT_COLOR_OPTIONS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
@@ -889,17 +1553,37 @@ export function SimplePrintingEntry() {
                 </div>
               )}
 
-              {/* ADD TO QUOTE BUTTON */}
-              {!activeItem.addedToQuote && activeItem.selectedVendorId && (
-                <Button 
-                  onClick={handleAddToQuote} 
-                  className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base mt-4" 
-                  disabled={activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price === 0}
-                >
-                  <Check className="h-5 w-5" />
-                  Add to Quote - {formatCurrency(activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)?.price || 0)}
-                </Button>
-              )}
+              {/* SAVE BUTTONS - different for new vs edit mode */}
+              {(() => {
+                const selectedVendor = activeItem.vendorQuotes.find(vq => vq.vendorId === activeItem.selectedVendorId)
+                const hasValidPrice = selectedVendor && selectedVendor.price > 0
+                const canSave = activeItem.selectedVendorId && hasValidPrice
+                
+                return (
+                <div className="mt-4">
+                  {/* Single save button - Updates if already saved, Adds if new */}
+                  {activeItem.addedToQuote ? (
+                    <Button
+                      onClick={handleUpdateQuoteItem}
+                      disabled={!canSave}
+                      className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base disabled:opacity-50"
+                    >
+                      <Check className="h-5 w-5" />
+                      Save Changes - {formatCurrency(selectedVendor?.price || 0)}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleAddToQuote}
+                      disabled={!canSave}
+                      className="w-full h-12 gap-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base disabled:opacity-50"
+                    >
+                      <Plus className="h-5 w-5" />
+                      Add to Quote - {formatCurrency(selectedVendor?.price || 0)}
+                    </Button>
+                  )}
+                </div>
+                )
+              })()}
             </div>
           </div>
         )}
@@ -911,6 +1595,8 @@ export function SimplePrintingEntry() {
         // Get saved inputs from the vendor we're calculating for
         const vendorQuote = activeItem?.vendorQuotes.find(vq => vq.vendorId === calcVendorId)
         const savedInputs = vendorQuote?.calcState?.inputs
+        
+
         
         // Map colors string to sidesValue: "4/4" → "D/S", "4/0" → "S/S"
         const colorsToSides = (colors: string | undefined): string => {
@@ -1068,6 +1754,7 @@ export function SimplePrintingEntry() {
         
         // Use saved inputs first, then fall back to specs-derived inputs
         const initialInputs = savedInputs || specsToInputs
+
         
         // Key forces remount when specs change
         const specsKey = activeItem?.specs ? `${activeItem.specs.quantity}-${activeItem.specs.width}-${activeItem.specs.height}-${activeItem.specs.paper || activeItem.specs.coverPaper}-${activeItem.specs.colors || activeItem.specs.coverColors}-${activeItem.specs.insidePaper}-${activeItem.specs.pages}` : "empty"

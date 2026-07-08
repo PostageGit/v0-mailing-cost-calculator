@@ -1,7 +1,49 @@
 import { updateSession } from '@/lib/supabase/middleware'
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
+import {
+  GATE_COOKIE,
+  isGateConfigured,
+  isPublicGatePath,
+  isValidGateCookie,
+} from '@/lib/site-gate'
 
 export async function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl
+
+  // --- Site-wide password gate ---------------------------------------
+  // Every page (including the simple calculator tools) requires the shared
+  // site password. We let the unlock screen and its API through, then
+  // require a valid gate cookie for everything else.
+  if (!isPublicGatePath(pathname)) {
+    const cookie = request.cookies.get(GATE_COOKIE)?.value
+    const unlocked = await isValidGateCookie(cookie)
+
+    if (!unlocked) {
+      // If no password is configured yet, still send users to the gate so
+      // the app is never silently wide open. The gate page explains that
+      // SITE_PASSWORD must be set.
+      const url = request.nextUrl.clone()
+      url.pathname = '/gate'
+      // Preserve where the user was trying to go so we can send them back
+      // after a successful unlock.
+      url.search = ''
+      const next = `${pathname}${search || ''}`
+      if (next && next !== '/gate') url.searchParams.set('next', next)
+
+      // For API routes, return 401 JSON instead of an HTML redirect so
+      // fetch() callers get a clean, handleable error.
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { error: isGateConfigured() ? 'Locked' : 'Site password not configured' },
+          { status: 401 },
+        )
+      }
+
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Gate passed (or public path) — continue with Supabase session refresh.
   return await updateSession(request)
 }
 

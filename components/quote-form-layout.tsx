@@ -1,0 +1,1132 @@
+"use client"
+
+/**
+ * QuoteFormLayout
+ *
+ * QuickBooks-style view — the QUOTE is the main document.
+ *
+ *  - LEFT (main):  QUOTE DOCUMENT — locked header + footer, only items scroll.
+ *  - RIGHT (helper): current step's calculator — labeled as "Pricing Helper".
+ *
+ * No page-level scrolling. Each column only scrolls its own middle region so
+ * the total, save action, and step header are always visible at a glance.
+ */
+
+import { useState, type ReactNode } from "react"
+import useSWR from "swr"
+import { useQuote } from "@/lib/quote-context"
+import { formatCurrency } from "@/lib/pricing"
+import { getCategoryLabel, type QuoteCategory } from "@/lib/quote-types"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { RevisionDiffPopover } from "@/components/revision-diff-popover"
+
+/** Lightweight customer shape - matches `/api/customers` response for the
+ *  fields we actually use here (name resolution). */
+type CustomerRow = {
+  id: string
+  company_name?: string
+  name?: string
+  contact_name?: string
+}
+
+const customersFetcher = (url: string): Promise<CustomerRow[]> =>
+  fetch(url).then((r) => r.json())
+
+/** Read-only summary field for the document header row.
+ *  Replaces the old LabeledField inputs now that customer/project/ref are
+ *  entered solely in the Planner (single source of truth).
+ *  Declared above QuoteFormLayout so React Fast Refresh always sees it. */
+function SummaryField({
+  label, value, emptyText, mono,
+}: { label: string; value: string; emptyText: string; mono?: boolean }) {
+  const isEmpty = !value || value.trim().length === 0
+  return (
+    <div className="min-w-0">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "text-sm leading-tight truncate",
+          isEmpty
+            ? "text-muted-foreground/60 italic font-normal"
+            : "text-foreground font-semibold",
+          mono && !isEmpty && "font-mono"
+        )}
+        title={isEmpty ? emptyText : value}
+      >
+        {isEmpty ? emptyText : value}
+      </div>
+    </div>
+  )
+}
+
+/** Two-line customer summary: Company (primary) with Contact underneath.
+ *  Fixes the old ambiguity where picking a company in the Planner but not a
+ *  contact left the header looking empty. Now the company lights up instantly
+ *  and the contact slots in as a secondary detail when added. */
+function CustomerSummary({
+  company, contact, hasCustomer,
+}: { company: string; contact: string; hasCustomer: boolean }) {
+  const primary = company || (hasCustomer ? "Customer selected" : "")
+  const hasPrimary = primary.length > 0
+  return (
+    <div className="min-w-0">
+      <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-0.5">
+        Customer
+      </div>
+      {hasPrimary ? (
+        <div className="min-w-0">
+          <div
+            className="text-sm font-semibold text-foreground leading-tight truncate"
+            title={primary}
+          >
+            {primary}
+          </div>
+          {contact && (
+            <div
+              className="text-[11px] text-muted-foreground leading-tight truncate mt-0.5"
+              title={contact}
+            >
+              {contact}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-sm text-muted-foreground/60 italic font-normal leading-tight truncate">
+          No customer
+        </div>
+      )}
+    </div>
+  )
+}
+import {
+  FileText, Check, Loader2, Save, AlertCircle, Trash2, Clock,
+  Wrench, Plus, X, Mail, CheckCircle2, Layers, Pencil, Tag,
+} from "lucide-react"
+
+// Render order for categories inside the quote.
+const CATEGORY_ORDER: QuoteCategory[] = [
+  "flat", "booklet", "spiral", "perfect", "pad",
+  "envelope", "postage", "listwork", "item", "ohp",
+]
+
+// Map each workflow step to the QuoteCategory values it contributes to.
+const STEP_CATEGORY_HINTS: Record<string, QuoteCategory[]> = {
+  envelope: ["envelope"],
+  usps: ["postage"],
+  labor: ["listwork", "item"],
+  printing: ["flat"],
+  booklet: ["booklet"],
+  spiral: ["spiral"],
+  perfect: ["perfect"],
+  pad: ["pad"],
+  ohp: ["ohp"],
+}
+
+// Inverse lookup: which workflow step (helper screen) owns each category.
+// Used to jump from a line item's category badge straight to the helper
+// that produced it, so users can tweak it in one click.  Derived from
+// STEP_CATEGORY_HINTS so the two never drift apart.
+const CATEGORY_STEP: Partial<Record<QuoteCategory, string>> = (() => {
+  const out: Partial<Record<QuoteCategory, string>> = {}
+  for (const [stepId, cats] of Object.entries(STEP_CATEGORY_HINTS)) {
+    for (const c of cats) if (!out[c]) out[c] = stepId
+  }
+  return out
+})()
+
+export interface QuoteFormLayoutProps {
+  children: ReactNode
+  stepTitle: string
+  stepDescription?: string
+  stepIcon?: ReactNode
+  stepId?: string
+  /** 1-based index of the current step in the workflow (for progress display) */
+  stepNumber?: number
+  /** Total visible steps in the workflow (for progress display) */
+  totalSteps?: number
+  /** Exit the workflow from the helper header (e.g. leave QB view) */
+  onExit?: () => void
+  /** Close the quote entirely and return to the Quotes board */
+  onClose?: () => void
+  /** Jump back to the Planner step (where customer/project/ref are set up) */
+  onGoToPlanner?: () => void
+  /** Jump to a specific pricing step (fires when a line item's category
+   *  badge is tapped — takes the user to the helper that produced it). */
+  onGoToStep?: (stepId: string) => void
+}
+
+export function QuoteFormLayout({
+  children, stepTitle, stepDescription, stepIcon, stepId,
+  stepNumber, totalSteps, onClose, onGoToPlanner, onGoToStep,
+}: QuoteFormLayoutProps) {
+  const {
+    items,
+    projectName,
+    customerId,
+    contactName,
+    referenceNumber,
+    quantity,
+    quoteNumber,
+    currentRevision,
+    revisions,
+    loadRevision,
+    renameRevision,
+    isSaving,
+    lastSavedAt,
+    hasUnsavedChanges,
+    saveQuote,
+    getTotal,
+    removeItem,
+    addItem,
+  } = useQuote()
+
+  // Sorted newest → oldest so the latest revision sits on the left (primary
+  // position) in the tab strip. This matches how users naturally read tabs
+  // and puts the most-relevant revision first.
+  const sortedRevisions = [...revisions].sort(
+    (a, b) => b.revision_number - a.revision_number,
+  )
+  const maxRev = revisions.length
+    ? Math.max(...revisions.map((r) => r.revision_number))
+    : 0
+  const isViewingLatest = currentRevision === 0 || currentRevision === maxRev
+
+  // Resolve the selected customer's company name for display.
+  // We always fetch (cheap, SWR-cached) so the quote header reflects any
+  // selection made in the Planner, even before it's saved to the server.
+  const { data: customers } = useSWR<CustomerRow[]>(
+    "/api/customers",
+    customersFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  )
+  const selectedCustomer = customerId
+    ? customers?.find((c) => c.id === customerId)
+    : null
+  const companyName =
+    selectedCustomer?.company_name ||
+    selectedCustomer?.name ||
+    ""
+
+  // Inline custom-line editor state
+  const [customDraft, setCustomDraft] = useState<{ label: string; amount: string } | null>(null)
+
+  // Email copy feedback state
+  const [emailCopied, setEmailCopied] = useState(false)
+
+  // When the user clicks another revision tab WHILE they have unsaved
+  // edits, we stash the requested revision number here and pop a confirm
+  // dialog. Three outcomes: save-then-switch, discard-then-switch, cancel.
+  const [pendingRevisionSwitch, setPendingRevisionSwitch] = useState<number | null>(null)
+
+  // Inline-rename state for revision tabs.  When non-null, the tab with
+  // this revision number renders an <input> in place of its label row.
+  // Enter / blur commits, Escape cancels.
+  const [renamingRev, setRenamingRev] = useState<number | null>(null)
+  const [renameDraft, setRenameDraft] = useState("")
+  const commitRename = async () => {
+    if (renamingRev === null) return
+    const target = renamingRev
+    const value = renameDraft
+    setRenamingRev(null)
+    setRenameDraft("")
+    await renameRevision(target, value)
+  }
+  const cancelRename = () => {
+    setRenamingRev(null)
+    setRenameDraft("")
+  }
+
+  /** Guarded revision switch. If there are unsaved changes, defers to the
+   *  confirmation dialog. Otherwise switches immediately. */
+  const requestRevisionSwitch = (revisionNumber: number) => {
+    if (revisionNumber === currentRevision) return
+    if (hasUnsavedChanges && itemCount > 0) {
+      setPendingRevisionSwitch(revisionNumber)
+      return
+    }
+    loadRevision(revisionNumber)
+  }
+
+  /** Save current edits (creates new revision when on an older one), then
+   *  switch to the requested revision once the save settles. */
+  const handleSaveAndSwitch = async () => {
+    const target = pendingRevisionSwitch
+    if (target === null) return
+    setPendingRevisionSwitch(null)
+    await saveQuote()
+    // saveQuote refreshes the revisions list. Use a microtask so the new
+    // revision is in state before we navigate to the user's chosen one.
+    setTimeout(() => loadRevision(target), 0)
+  }
+
+  /** Throw away unsaved edits and jump to the requested revision. */
+  const handleDiscardAndSwitch = () => {
+    const target = pendingRevisionSwitch
+    if (target === null) return
+    setPendingRevisionSwitch(null)
+    loadRevision(target)
+  }
+
+  /** Build a plain-text email body representing the current quote.
+   *  Format is deliberately simple so it pastes cleanly into Gmail/Outlook. */
+  const buildQuoteEmail = () => {
+    const total = getTotal()
+    const header = projectName || "Quote"
+    const quoteRef = quoteNumber ? `Quote #${quoteNumber}` : "New Quote"
+    const revLabel = currentRevision ? ` (Revision ${currentRevision})` : ""
+    const lines: string[] = []
+    lines.push(`${header} — ${quoteRef}${revLabel}`)
+    // Customer line combines company + contact when both are present so the
+    // email summary matches exactly what the user sees in the quote header.
+    const customerPieces = [companyName, contactName].filter(Boolean)
+    if (customerPieces.length > 0) {
+      lines.push(`Customer: ${customerPieces.join(" · ")}`)
+    }
+    if (quantity > 0) lines.push(`Quantity: ${quantity.toLocaleString()}`)
+    if (referenceNumber) lines.push(`Reference: ${referenceNumber}`)
+    lines.push("")
+    lines.push("LINE ITEMS")
+    lines.push("─".repeat(48))
+    if (orderedItems.length === 0) {
+      lines.push("(no items)")
+    } else {
+      for (const it of orderedItems) {
+        const cat = getCategoryLabel(it.category)
+        const label = it.label || "—"
+        const amt = formatCurrency(it.amount)
+        lines.push(`• [${cat}] ${label}  —  ${amt}`)
+        if (it.description) {
+          const firstDescLine = it.description.split("\n")[0].trim()
+          if (firstDescLine) lines.push(`    ${firstDescLine}`)
+        }
+      }
+    }
+    lines.push("─".repeat(48))
+    lines.push(`TOTAL: ${formatCurrency(total)}`)
+    lines.push("")
+    lines.push("Please let us know if you'd like to proceed or adjust any of the above.")
+    return lines.join("\n")
+  }
+
+  const handleCopyForEmail = async () => {
+    try {
+      const text = buildQuoteEmail()
+      await navigator.clipboard.writeText(text)
+      setEmailCopied(true)
+      setTimeout(() => setEmailCopied(false), 2000)
+    } catch (err) {
+      console.log("[v0] Copy to clipboard failed:", err)
+    }
+  }
+
+  const commitCustomLine = () => {
+    if (!customDraft) return
+    const label = customDraft.label.trim()
+    const amount = parseFloat(customDraft.amount) || 0
+    if (label.length === 0) {
+      setCustomDraft(null)
+      return
+    }
+    addItem({
+      category: "item",
+      label,
+      description: "",
+      amount,
+    })
+    setCustomDraft(null)
+  }
+
+  const total = getTotal()
+  const itemCount = items.length
+  const activeCategories = stepId ? STEP_CATEGORY_HINTS[stepId] || [] : []
+
+  const lastSavedLabel = (() => {
+    if (!lastSavedAt) return "Not saved"
+    const seconds = Math.floor((Date.now() - lastSavedAt) / 1000)
+    if (seconds < 10) return "just now"
+    if (seconds < 60) return `${seconds}s ago`
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    return new Date(lastSavedAt).toLocaleDateString()
+  })()
+
+  // Flatten items in category order (nothing rendered if empty).
+  const orderedItems = CATEGORY_ORDER.flatMap((cat) =>
+    items.filter((i) => i.category === cat)
+  )
+
+  return (
+    // Full-height, no page-level scroll.
+    <div className="flex h-full overflow-hidden bg-muted/30">
+      {/* ═══════════ LEFT: QUOTE DOCUMENT ═══════════ */}
+      <section className="flex-1 min-w-0 flex flex-col overflow-hidden p-4 lg:p-6">
+        <article className="flex-1 min-h-0 flex flex-col bg-card border border-border rounded-xl shadow-sm overflow-hidden mx-auto w-full max-w-4xl">
+
+          {/* ─── LOCKED HEADER ─── */}
+          <header className="shrink-0 border-b border-border/60">
+            {/* Row 1: title + quote number + viewing-older banner + line count */}
+            <div className="flex items-baseline justify-between gap-4 px-6 pt-5 pb-3">
+              <div className="flex items-baseline gap-3 min-w-0">
+                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">
+                  Quote
+                </h1>
+                {quoteNumber && (
+                  <span className="text-sm font-mono font-semibold text-muted-foreground">
+                    Q-{quoteNumber}
+                  </span>
+                )}
+                {/* Viewing-older-revision pill. Two states:
+                      - clean view (no edits)   → neutral "Viewing Rev N"
+                      - user has edited fields  → amber "Editing Rev N ·
+                                                    Save creates Rev N+1"
+                    The neutral state lets users freely click between
+                    revision tabs without any "unsaved changes" friction. */}
+                {revisions.length >= 2 && !isViewingLatest && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border",
+                      hasUnsavedChanges
+                        ? "bg-amber-100 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700"
+                        : "bg-muted/60 border-border/60"
+                    )}
+                  >
+                    <Clock
+                      className={cn(
+                        "h-3 w-3",
+                        hasUnsavedChanges
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-muted-foreground"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-wide",
+                        hasUnsavedChanges
+                          ? "text-amber-800 dark:text-amber-300"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {hasUnsavedChanges
+                        ? `Editing Rev ${currentRevision} · Save creates Rev ${maxRev + 1}`
+                        : `Viewing Rev ${currentRevision}`}
+                    </span>
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-muted-foreground shrink-0">
+                {itemCount} {itemCount === 1 ? "line" : "lines"}
+              </span>
+            </div>
+
+            {/* Revision tabs — shown whenever the quote has 2+ revisions.
+                Substantial, roomy tabs: each tab is big enough to show the
+                revision number, a "Latest" badge, the saved date on its own
+                line, and the total in large mono type. Users can flip
+                between any revision, edit, and save — saving from an older
+                revision automatically creates a new revision in the API. */}
+            {revisions.length >= 2 && (
+              <div className="px-6 pt-1 pb-0 bg-gradient-to-b from-muted/30 to-transparent">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    Revisions
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {revisions.length} total — click any to open &amp; edit, or name one to mark it as an option
+                  </span>
+                  {/* PROMINENT "What changed?" pill.  Compares the active
+                      revision against its nearest-lower predecessor
+                      (handles non-sequential rev numbers after deletes).
+                      Amber with change count & $ delta when anything
+                      differs — neutral & muted when identical, so the eye
+                      is drawn to it exactly when something actually
+                      changed without becoming a permanent distraction. */}
+                  {(() => {
+                    const active = revisions.find(
+                      (r) => r.revision_number === currentRevision,
+                    )
+                    if (!active) return null
+                    // Nearest predecessor by revision_number (robust to gaps).
+                    const prior = [...revisions]
+                      .filter((r) => r.revision_number < active.revision_number)
+                      .sort((a, b) => b.revision_number - a.revision_number)[0]
+                    if (!prior) return null
+                    return (
+                      <span className="ml-auto">
+                        <RevisionDiffPopover
+                          before={prior}
+                          after={active}
+                          size="prominent"
+                        />
+                      </span>
+                    )
+                  })()}
+                </div>
+                <div className="flex items-stretch gap-2 overflow-x-auto pb-0 -mb-px">
+                  {sortedRevisions.map((rev) => {
+                    const isActive = rev.revision_number === currentRevision
+                    const isLatest = rev.revision_number === maxRev
+                    const isRenaming = renamingRev === rev.revision_number
+                    const created = rev.created_at ? new Date(rev.created_at) : null
+                    const dateShort = created
+                      ? created.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : ""
+                    const timeShort = created
+                      ? created.toLocaleTimeString(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : ""
+                    return (
+                      <div
+                        key={rev.revision_number}
+                        className={cn(
+                          "group relative shrink-0 flex flex-col items-start text-left",
+                          "px-4 py-3 min-w-[180px] max-w-[220px] rounded-t-lg transition-all",
+                          "border-2 border-b-0",
+                          isActive
+                            ? "bg-card border-foreground shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.08)] -mb-[2px] z-10"
+                            : "bg-muted/50 border-transparent hover:bg-muted hover:border-border/60"
+                        )}
+                      >
+                        {/* Rename pencil — appears on hover, always visible
+                            on the active tab. Clicking it opens the inline
+                            editor below. */}
+                        {!isRenaming && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setRenamingRev(rev.revision_number)
+                              setRenameDraft(rev.name || "")
+                            }}
+                            className={cn(
+                              "absolute top-1.5 right-1.5 h-6 w-6 flex items-center justify-center rounded-md transition-all",
+                              "hover:bg-foreground hover:text-background",
+                              isActive
+                                ? "opacity-60 hover:opacity-100 text-muted-foreground"
+                                : "opacity-0 group-hover:opacity-60 text-muted-foreground"
+                            )}
+                            title={rev.name ? "Rename revision" : "Name this revision (e.g. Premium option)"}
+                            aria-label="Rename revision"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+
+                        {/* Main clickable area: tapping opens this revision.
+                            Wrapped as a span with role=button so the tab
+                            still feels like one surface, but the rename
+                            pencil & inline input can live alongside it
+                            without nesting <button> elements. */}
+                        <div
+                          role={isRenaming ? undefined : "button"}
+                          tabIndex={isRenaming ? undefined : 0}
+                          onClick={() => {
+                            if (isRenaming) return
+                            requestRevisionSwitch(rev.revision_number)
+                          }}
+                          onKeyDown={(e) => {
+                            if (isRenaming) return
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              requestRevisionSwitch(rev.revision_number)
+                            }
+                          }}
+                          className={cn(
+                            "w-full flex flex-col items-start outline-none",
+                            !isRenaming && "cursor-pointer focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1 rounded-sm",
+                          )}
+                          title={
+                            isRenaming
+                              ? undefined
+                              : `Open Revision ${rev.revision_number}${isLatest ? " (latest)" : ""}${rev.name ? ` — ${rev.name}` : ""}`
+                          }
+                        >
+                          {/* Top row: Rev N + Latest / Editing badge */}
+                          <div className="flex items-center gap-2 w-full pr-6">
+                            <span
+                              className={cn(
+                                "text-[11px] font-bold uppercase tracking-[0.1em] leading-none",
+                                isActive ? "text-foreground" : "text-muted-foreground"
+                              )}
+                            >
+                              Rev {rev.revision_number}
+                            </span>
+                            {isLatest && (
+                              <span
+                                className={cn(
+                                  "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none",
+                                  isActive
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                )}
+                              >
+                                Latest
+                              </span>
+                            )}
+                            {isActive && !isLatest && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded leading-none bg-amber-500 text-white">
+                                Editing
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Revision name line — inline input while renaming,
+                              otherwise the saved name, otherwise a subtle
+                              "Add name" prompt on the active tab only. */}
+                          {isRenaming ? (
+                            <input
+                              autoFocus
+                              value={renameDraft}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                              onBlur={commitRename}
+                              onKeyDown={(e) => {
+                                e.stopPropagation()
+                                if (e.key === "Enter") {
+                                  e.preventDefault()
+                                  commitRename()
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  cancelRename()
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="e.g. Premium paper option"
+                              maxLength={40}
+                              className="mt-1.5 w-full text-[12px] font-semibold leading-tight bg-transparent border-b border-foreground/40 focus:border-foreground outline-none py-0.5 text-foreground placeholder:text-muted-foreground/50 placeholder:font-normal"
+                            />
+                          ) : rev.name ? (
+                            <div
+                              className={cn(
+                                "mt-1.5 flex items-center gap-1 text-[12px] font-semibold leading-tight truncate w-full",
+                                isActive ? "text-foreground" : "text-muted-foreground/90"
+                              )}
+                              title={rev.name}
+                            >
+                              <Tag className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                              <span className="truncate">{rev.name}</span>
+                            </div>
+                          ) : isActive ? (
+                            <div className="mt-1.5 text-[11px] italic text-muted-foreground/50 leading-tight">
+                              Click&nbsp;
+                              <Pencil className="inline h-2.5 w-2.5 -mt-0.5" />
+                              &nbsp;to name this option
+                            </div>
+                          ) : null}
+
+                          {/* Middle: total in large mono type */}
+                          <div
+                            className={cn(
+                              "mt-2 text-lg font-mono font-bold tabular-nums leading-none",
+                              isActive ? "text-foreground" : "text-muted-foreground/80"
+                            )}
+                          >
+                            {formatCurrency(rev.total || 0)}
+                          </div>
+                          {/* Bottom row: saved date + time */}
+                          {dateShort && (
+                            <div
+                              className={cn(
+                                "mt-1.5 flex items-center gap-1.5 text-[10px] leading-none",
+                                isActive ? "text-muted-foreground" : "text-muted-foreground/60"
+                              )}
+                            >
+                              <span className="font-semibold">{dateShort}</span>
+                              {timeShort && (
+                                <>
+                                  <span className="opacity-40">·</span>
+                                  <span className="tabular-nums">{timeShort}</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Row 2: Customer / Project / Qty / Ref summary — READ-ONLY.
+                The Planner is the single source of truth for these fields
+                (richer database-backed customer lookup + contact picker +
+                quantity). This strip just reflects that data live and offers
+                a one-click jump back to the Planner to edit.
+                Customer cell shows Company (primary) with Contact underneath
+                so picking a company in the Planner immediately lights up here
+                even before a contact is assigned. */}
+            <div className="px-6 pb-4 flex items-start gap-2">
+              <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-[1.3fr_1.3fr_0.6fr_0.8fr] gap-3">
+                <CustomerSummary
+                  company={companyName}
+                  contact={contactName}
+                  hasCustomer={!!customerId}
+                />
+                <SummaryField label="Project" value={projectName} emptyText="Not set" />
+                <SummaryField
+                  label="Qty"
+                  value={quantity > 0 ? quantity.toLocaleString() : ""}
+                  emptyText="—"
+                  mono
+                />
+                <SummaryField label="Ref" value={referenceNumber} emptyText="—" mono />
+              </div>
+              {onGoToPlanner && stepId !== "planner" && (
+                <button
+                  type="button"
+                  onClick={onGoToPlanner}
+                  className="shrink-0 flex items-center gap-1.5 h-8 px-2.5 mt-3 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent hover:border-border transition-all"
+                  title="Edit customer, project and job details in the Planner"
+                >
+                  <Layers className="h-3 w-3" />
+                  Edit in Planner
+                </button>
+              )}
+            </div>
+
+            {/* Row 3: Table column header */}
+            <div className="px-6 py-2 bg-muted/40 border-t border-border/60 flex items-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="w-20 shrink-0">Category</span>
+              <span className="flex-1 min-w-0">Description</span>
+              <span className="w-28 text-right shrink-0">Amount</span>
+              <span className="w-7 shrink-0" aria-hidden />
+            </div>
+          </header>
+
+          {/* ─── SCROLLING LINE-ITEM BODY (the only thing that scrolls) ─── */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {itemCount === 0 && !customDraft ? (
+              <div className="h-full flex items-center justify-center px-6 py-10">
+                <div className="text-center max-w-xs">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+                    <FileText className="h-5 w-5 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground mb-1">
+                    No items yet
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Use the <span className="font-semibold text-foreground">{stepTitle}</span>{" "}
+                    helper on the right to price items, or add a custom line below.
+                  </p>
+                  <button
+                    onClick={() => setCustomDraft({ label: "", amount: "" })}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-foreground bg-muted hover:bg-muted/70 border border-border transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add custom line
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border/40">
+                {orderedItems.map((item) => {
+                  const isActive = activeCategories.includes(item.category)
+                  return (
+                    <li
+                      key={item.id}
+                      className={cn(
+                        "group flex items-center gap-3 px-6 py-2.5 hover:bg-secondary/40 transition-colors",
+                        isActive && "bg-blue-50/40 dark:bg-blue-950/10"
+                      )}
+                    >
+                      {/* Category badge — clickable shortcut to the helper
+                          screen that owns this category. A tap on the badge
+                          opens that step so the user can tweak the inputs
+                          (paper, qty, class, etc.) that produced this line
+                          without hunting for the step in the sidebar.
+                          Falls back to a plain span if no handler is wired
+                          or no step owns the category. */}
+                      {(() => {
+                        const jumpTo = CATEGORY_STEP[item.category]
+                        const canJump = Boolean(onGoToStep && jumpTo)
+                        const classes = cn(
+                          "w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-center leading-tight",
+                          isActive
+                            ? "bg-blue-600 text-white"
+                            : "bg-muted text-muted-foreground",
+                          canJump &&
+                            "cursor-pointer hover:ring-2 hover:ring-foreground/30 hover:shadow-sm transition-all",
+                          canJump && !isActive && "hover:bg-muted/80"
+                        )
+                        return canJump ? (
+                          <button
+                            type="button"
+                            onClick={() => onGoToStep!(jumpTo!)}
+                            className={classes}
+                            title={`Edit in ${getCategoryLabel(item.category)} helper`}
+                          >
+                            {getCategoryLabel(item.category)}
+                          </button>
+                        ) : (
+                          <span className={classes}>
+                            {getCategoryLabel(item.category)}
+                          </span>
+                        )
+                      })()}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate leading-tight">
+                          {item.label}
+                        </p>
+                        {item.description && (
+                          <p className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
+                            {item.description.split("\n")[0]}
+                          </p>
+                        )}
+                      </div>
+                      <span className="w-28 text-right text-sm font-mono font-bold tabular-nums text-foreground shrink-0">
+                        {formatCurrency(item.amount)}
+                      </span>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        className="w-7 h-7 rounded-md text-muted-foreground/30 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center shrink-0"
+                        title="Remove line"
+                        aria-label={`Remove ${item.label}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  )
+                })}
+
+                {/* Inline custom-line editor - commits on Enter or the green check */}
+                {customDraft && (
+                  <li className="flex items-center gap-3 px-6 py-2 bg-amber-50/40 dark:bg-amber-950/10">
+                    <span className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded text-center bg-foreground text-background">
+                      Custom
+                    </span>
+                    <Input
+                      autoFocus
+                      value={customDraft.label}
+                      onChange={(e) => setCustomDraft({ ...customDraft, label: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCustomLine()
+                        if (e.key === "Escape") setCustomDraft(null)
+                      }}
+                      placeholder="Line description…"
+                      className="flex-1 min-w-0 h-8 text-sm font-semibold bg-background"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={customDraft.amount}
+                      onChange={(e) => setCustomDraft({ ...customDraft, amount: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCustomLine()
+                        if (e.key === "Escape") setCustomDraft(null)
+                      }}
+                      placeholder="0.00"
+                      className="w-28 h-8 text-sm font-mono tabular-nums text-right bg-background"
+                    />
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={commitCustomLine}
+                        className="w-7 h-7 rounded-md text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30 flex items-center justify-center"
+                        title="Save line (Enter)"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setCustomDraft(null)}
+                        className="w-7 h-7 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-center"
+                        title="Cancel (Esc)"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                )}
+
+                {/* Add custom line button - always at end of list */}
+                {!customDraft && (
+                  <li className="px-6 py-2">
+                    <button
+                      onClick={() => setCustomDraft({ label: "", amount: "" })}
+                      className="w-full inline-flex items-center gap-2 px-2 py-2 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-dashed border-border hover:border-foreground/40 transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add custom line
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+
+          {/* ─── LOCKED FOOTER: total + save action + status ─── */}
+          <footer className="shrink-0 border-t border-border bg-card">
+            {/* Status strip */}
+            <div className={cn(
+              "px-6 py-1.5 border-b border-border/40 flex items-center gap-1.5 text-[11px]",
+              hasUnsavedChanges
+                ? "bg-amber-50/70 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300"
+                : "bg-muted/30 text-muted-foreground"
+            )}>
+              {hasUnsavedChanges ? (
+                <>
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  <span className="font-medium">Unsaved changes — save to create a new revision</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3 text-green-600 shrink-0" />
+                  <span>Saved · {lastSavedLabel}</span>
+                </>
+              )}
+            </div>
+
+            {/* Total + action cluster. Visual priority flips based on state:
+                - Unsaved work: Save is the bold green primary.
+                - Clean/saved: Close becomes the bold primary ("all done, exit"). */}
+            <div className="px-6 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-baseline gap-3 min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Quote Total
+                </span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-foreground leading-none">
+                  {formatCurrency(total)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Copy-for-email: secondary, always available when there are items. */}
+                <Button
+                  variant="outline"
+                  onClick={handleCopyForEmail}
+                  disabled={itemCount === 0}
+                  className={cn(
+                    "gap-2 h-9 px-3 rounded-lg font-semibold text-xs border-border",
+                    emailCopied && "border-green-500 text-green-700 dark:text-green-400"
+                  )}
+                  title="Copy a plain-text quote summary for email"
+                >
+                  {emailCopied ? (
+                    <><CheckCircle2 className="h-4 w-4" /> Copied</>
+                  ) : (
+                    <><Mail className="h-4 w-4" /> Copy for Email</>
+                  )}
+                </Button>
+
+                {/* Save: primary when there are unsaved changes, muted otherwise. */}
+                <Button
+                  onClick={saveQuote}
+                  disabled={isSaving || !hasUnsavedChanges || itemCount === 0}
+                  title={
+                    !isViewingLatest && hasUnsavedChanges
+                      ? `Save as new revision (Rev ${maxRev + 1})`
+                      : undefined
+                  }
+                  className={cn(
+                    "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
+                    hasUnsavedChanges && itemCount > 0
+                      ? isViewingLatest
+                        ? "bg-green-600 hover:bg-green-700 text-white"
+                        : "bg-amber-600 hover:bg-amber-700 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {isSaving ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                  ) : !isViewingLatest && hasUnsavedChanges ? (
+                    <><Save className="h-4 w-4" /> Save as Rev {maxRev + 1}</>
+                  ) : (
+                    <><Save className="h-4 w-4" /> Save</>
+                  )}
+                </Button>
+
+                {/* Close & Finish: becomes the prominent primary once everything
+                    is saved, giving the user a clear "done, exit" path. */}
+                {onClose && (
+                  <Button
+                    onClick={onClose}
+                    className={cn(
+                      "gap-2 h-9 px-4 rounded-lg font-bold shadow-sm",
+                      !hasUnsavedChanges && itemCount > 0
+                        ? "bg-foreground text-background hover:bg-foreground/90"
+                        : "bg-card text-foreground border border-border hover:bg-secondary"
+                    )}
+                    title={
+                      hasUnsavedChanges
+                        ? "Close without saving"
+                        : "Close quote and return to Quotes"
+                    }
+                  >
+                    <X className="h-4 w-4" />
+                    {!hasUnsavedChanges && itemCount > 0 ? "Finish" : "Close"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </footer>
+        </article>
+      </section>
+
+      {/* ═══════════ RIGHT: STEP TOOL — "Pricing Helper" ═══════════ */}
+      <aside className="hidden lg:flex flex-col w-[440px] xl:w-[500px] 2xl:w-[560px] shrink-0 border-l border-border bg-card overflow-hidden">
+        {/* Helper header - substantial, clear "you are here" indicator.
+            Keyed on stepId so only THIS strip animates when the step changes
+            (the quote document beside it stays rock-stable). */}
+        <header
+          key={stepId}
+          className="shrink-0 border-b-2 border-border bg-gradient-to-b from-muted/40 to-card animate-in fade-in slide-in-from-right-2 duration-300"
+        >
+          {/* Top strip: "Pricing Helper" label + step progress */}
+          <div className="px-5 pt-3 pb-1.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5">
+              <Wrench className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Pricing Helper
+              </span>
+            </div>
+            {typeof stepNumber === "number" && typeof totalSteps === "number" && (
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="tabular-nums">Step {stepNumber} / {totalSteps}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Main: big numbered badge + bold title + description */}
+          <div className="px-5 pb-3 flex items-center gap-3">
+            {typeof stepNumber === "number" ? (
+              <div className="h-11 w-11 rounded-xl bg-foreground text-background flex items-center justify-center shrink-0 shadow-sm font-bold text-lg tabular-nums">
+                {stepNumber}
+              </div>
+            ) : stepIcon ? (
+              <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                {stepIcon}
+              </div>
+            ) : null}
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-bold text-foreground truncate leading-tight">
+                {stepTitle}
+              </p>
+              {stepDescription && (
+                <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
+                  {stepDescription}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Progress bar - fills proportionally to step position */}
+          {typeof stepNumber === "number" && typeof totalSteps === "number" && totalSteps > 0 && (
+            <div className="h-1 w-full bg-border/50 overflow-hidden">
+              <div
+                className="h-full bg-foreground transition-all duration-500 ease-out"
+                style={{ width: `${(stepNumber / totalSteps) * 100}%` }}
+              />
+            </div>
+          )}
+        </header>
+
+        {/* Tool content — only area that scrolls in the right column.
+            `data-pricing-helper` triggers the normalization CSS scope. */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div data-pricing-helper className="p-4">
+            {children}
+          </div>
+        </div>
+      </aside>
+
+      {/* ═══════════ MOBILE bottom save bar ═══════════ */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 backdrop-blur-sm px-4 py-2 flex items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              {itemCount} {itemCount === 1 ? "item" : "items"}
+            </p>
+            <p className="text-sm font-bold font-mono tabular-nums truncate">
+              {formatCurrency(total)}
+            </p>
+          </div>
+        </div>
+        {hasUnsavedChanges && itemCount > 0 && (
+          <Button
+            onClick={saveQuote}
+            disabled={isSaving}
+            size="sm"
+            className="gap-1.5 h-8 rounded-lg font-bold bg-green-600 hover:bg-green-700 text-white shrink-0"
+          >
+            {isSaving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <><Save className="h-3.5 w-3.5" /> Save</>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* ─── Unsaved-changes guard when switching revisions ─── */}
+      <AlertDialog
+        open={pendingRevisionSwitch !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRevisionSwitch(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;re editing{" "}
+              <strong className="text-foreground">Rev {currentRevision}</strong>
+              {" "}and have unsaved changes. What would you like to do before
+              switching to{" "}
+              <strong className="text-foreground">
+                Rev {pendingRevisionSwitch ?? ""}
+              </strong>
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPendingRevisionSwitch(null)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleDiscardAndSwitch}
+              disabled={isSaving}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900"
+            >
+              <Trash2 className="h-4 w-4" />
+              Discard changes
+            </Button>
+            <Button
+              onClick={handleSaveAndSwitch}
+              disabled={isSaving}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold"
+            >
+              {isSaving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : (
+                <><Save className="h-4 w-4" /> Save as Rev {maxRev + 1}</>
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+

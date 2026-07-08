@@ -126,3 +126,14 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Pricing Helper scope: minimal, tag-only normalization (safe for Tailwind v4 parser) */
+[data-pricing-helper] {
+  font-size: 13px;
+}
+[data-pricing-helper] hr {
+  border-color: hsl(var(--border));
+  opacity: 0.5;
+  margin: 0.25rem 0;
+}
+

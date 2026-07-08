@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
-import { 
-  Calculator, FileText, BookOpen, Mail, Layers, 
+  import React, { useState } from "react"
+  import {
+  Calculator, FileText, BookOpen, Mail, Layers,
   Package, Scissors, Settings, Database, ChevronLeft,
   Truck, Stamp, StickyNote, Disc3, BookMarked,
-  Printer, LayoutGrid
+  Printer, LayoutGrid, Check, AlertCircle,
+  CheckCircle2, Info, ArrowRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -84,65 +85,123 @@ const CALCULATORS = [
   },
 ]
 
-// Settings definitions
-const SETTINGS_CATEGORIES = [
+// Tag tones used to tell the user, at a glance, whether a settings screen
+// is the AUTHORITATIVE place to edit a given price ("price") or whether it
+// is reference data that does NOT affect pricing ("reference"). A neutral
+// "info" tone is used for screens that own their own specific rates.
+type SettingTagTone = "price" | "reference" | "info"
+
+// Settings definitions. Each entry carries an explicit `tag` so users know
+// which screen is the right place to change a value — and which screens are
+// NOT where prices are set — to avoid editing in the wrong place.
+const SETTINGS_CATEGORIES: {
+  id: string
+  name: string
+  description: string
+  icon: typeof Layers
+  component: React.ComponentType<{ readOnly?: boolean }>
+  tag: string
+  tagTone: SettingTagTone
+  /** Short, plain-language assurance shown in a banner INSIDE the screen
+   *  so the user knows at a glance whether they're in the right place. */
+  assurance: string
+  /** For "reference"/"info" screens that are NOT the price source: where
+   *  the user SHOULD go to change prices. Renders a jump button. */
+  redirectTo?: { id: string; name: string }
+}[] = [
   {
     id: "papers",
     name: "Paper Stocks",
-    description: "Manage paper types, sizes, and prices",
+    description: "Edit paper types, sizes, and the per-sheet PRICE. This is the one place that controls paper pricing everywhere.",
     icon: Layers,
     component: PapersSettings,
+    tag: "Paper prices set here",
+    tagTone: "price",
+    assurance: "You're in the right place. Paper prices you set here apply to every calculator across the whole app.",
   },
   {
     id: "paper-weights",
     name: "Paper Weights",
-    description: "Weight reference tables",
+    description: "Weight reference tables only. Changing these does NOT change any prices — edit prices in Paper Stocks.",
     icon: Database,
     component: PaperWeightsSettingsTab,
+    tag: "Reference only — not prices",
+    tagTone: "reference",
+    assurance: "This is NOT where prices are set. Editing weights here will NOT change any quote pricing. To change paper prices, go to Paper Stocks.",
+    redirectTo: { id: "papers", name: "Paper Stocks" },
   },
   {
     id: "finishing",
     name: "Finishing Options",
-    description: "Lamination, coating, scoring, folding",
+    description: "Lamination & coating rates, labor and markup used by the calculators. This is where finishing prices are set.",
     icon: Scissors,
     component: FinishingCalculatorsSettingsTab,
+    tag: "Finishing prices set here",
+    tagTone: "price",
+    assurance: "You're in the right place. Lamination, coating and other finishing prices are set here and used by the calculators.",
   },
   {
     id: "fold-score",
     name: "Fold & Score",
-    description: "Folding and scoring rates",
+    description: "Folding & scoring labor rates only. For lamination or coating use Finishing Options instead.",
     icon: LayoutGrid,
     component: FoldScoreSettingsTab,
+    tag: "Fold / score rates only",
+    tagTone: "info",
+    assurance: "This screen sets ONLY folding & scoring labor rates. Looking for lamination or coating? Those live in Finishing Options.",
+    redirectTo: { id: "finishing", name: "Finishing Options" },
   },
   {
     id: "saddle-stitch",
     name: "Saddle Stitch",
-    description: "Booklet binding settings",
+    description: "Saddle stitch (booklet) binding rates. This is the right place for booklet binding pricing.",
     icon: BookOpen,
     component: SaddleStitchSettingsTab,
+    tag: "Booklet binding rates",
+    tagTone: "info",
+    assurance: "You're in the right place for saddle stitch (booklet) binding rates. Perfect-bound books are priced under Perfect Binding.",
   },
   {
     id: "perfect-binding",
     name: "Perfect Binding",
-    description: "Perfect binding settings",
+    description: "Perfect binding rates. This is the right place for perfect-bound book pricing.",
     icon: BookMarked,
     component: PerfectBindingSettingsTab,
+    tag: "Perfect binding rates",
+    tagTone: "info",
+    assurance: "You're in the right place for perfect-bound book binding rates. Saddle-stitched booklets are priced under Saddle Stitch.",
   },
   {
     id: "boxes",
     name: "Shipping Boxes",
-    description: "Box sizes and inventory",
+    description: "Box sizes and inventory used for shipping. No print or paper pricing here.",
     icon: Package,
     component: BoxSizesSettings,
+    tag: "Box sizes & inventory",
+    tagTone: "info",
+    assurance: "This screen manages shipping box sizes and inventory only. There is no print or paper pricing here.",
   },
   {
     id: "suppliers",
     name: "Suppliers & Supplies",
-    description: "Vendor catalog and supply items",
+    description: "Vendor catalog and supply item prices. This is where supply / vendor pricing is set.",
     icon: Truck,
     component: SuppliersSettings,
+    tag: "Supply prices set here",
+    tagTone: "price",
+    assurance: "You're in the right place for vendor and supply item prices. Paper prices live in Paper Stocks, finishing in Finishing Options.",
   },
 ]
+
+// Small helper: visual styles for each tag tone.
+const SETTING_TAG_STYLES: Record<SettingTagTone, string> = {
+  // Green = authoritative place to edit this kind of price.
+  price: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+  // Amber = NOT where prices are set; reference only. Draws caution.
+  reference: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+  // Neutral = owns its own specific rates, no confusion risk.
+  info: "bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+}
 
 interface CalculatorsHubProps {
   /** If true, Settings are read-only and require password to edit */
@@ -277,7 +336,67 @@ export function CalculatorsHub({
             </p>
           </div>
         )}
-        
+
+        {/* "Right place vs wrong place" assurance banner.
+            - price tone  → green  : confirms this IS the source of truth.
+            - reference   → red    : warns this is NOT where prices live.
+            - info tone   → blue   : clarifies exactly what this screen owns.
+            Keeps the user from editing in the wrong place. */}
+        {setting && (
+          <div
+            className={cn(
+              "mx-6 mt-4 flex items-start gap-3 p-4 rounded-xl border-2",
+              setting.tagTone === "price" &&
+                "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/30 dark:border-emerald-800",
+              setting.tagTone === "reference" &&
+                "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-800",
+              setting.tagTone === "info" &&
+                "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-800",
+            )}
+          >
+            <div className="shrink-0 mt-0.5">
+              {setting.tagTone === "price" && (
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              )}
+              {setting.tagTone === "reference" && (
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              )}
+              {setting.tagTone === "info" && (
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p
+                className={cn(
+                  "text-sm font-bold leading-snug",
+                  setting.tagTone === "price" &&
+                    "text-emerald-800 dark:text-emerald-200",
+                  setting.tagTone === "reference" &&
+                    "text-red-800 dark:text-red-200",
+                  setting.tagTone === "info" &&
+                    "text-blue-800 dark:text-blue-200",
+                )}
+              >
+                {setting.assurance}
+              </p>
+              {setting.redirectTo && (
+                <button
+                  onClick={() => setActiveSetting(setting.redirectTo!.id)}
+                  className={cn(
+                    "mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors",
+                    setting.tagTone === "reference"
+                      ? "bg-red-600 text-white hover:bg-red-700"
+                      : "bg-blue-600 text-white hover:bg-blue-700",
+                  )}
+                >
+                  Go to {setting.redirectTo.name}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Setting content */}
         <div className={cn(
           "flex-1 overflow-auto p-6",
@@ -405,10 +524,24 @@ export function CalculatorsHub({
                   <setting.icon className="h-6 w-6 text-slate-600 dark:text-slate-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
-                    {setting.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-base group-hover:text-primary transition-colors">
+                      {setting.name}
+                    </h3>
+                    {/* Guidance badge: tells the user whether THIS is the
+                        right place to set a price, or reference-only. */}
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide leading-none",
+                        SETTING_TAG_STYLES[setting.tagTone],
+                      )}
+                    >
+                      {setting.tagTone === "price" && <Check className="h-2.5 w-2.5" />}
+                      {setting.tagTone === "reference" && <AlertCircle className="h-2.5 w-2.5" />}
+                      {setting.tag}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1.5 line-clamp-3">
                     {setting.description}
                   </p>
                 </div>

@@ -67,6 +67,18 @@ export function buildCustomerSpecs(m: Record<string, unknown>, category?: QuoteC
 
   // 3b. Cover paper (booklet/perfect)
   if (m.coverPaper) parts.push(`Cover: ${String(m.coverPaper)}${m.coverSides ? `, ${String(m.coverSides)}` : ""}`)
+  
+  // 3c. Binding type (booklet/perfect/spiral)
+  if (m.bindingType && m.bindingType !== "none") {
+    const bindingLabels: Record<string, string> = { 
+      staple: "Saddle Stitch", 
+      perfect: "Perfect Bound", 
+      spiral: "Spiral Bound",
+      coil: "Coil Bound",
+      wire: "Wire-O Bound"
+    }
+    parts.push(bindingLabels[String(m.bindingType)] || String(m.bindingType))
+  }
 
   // 4. Color / sides -- only as separate line when NO cover (flat prints etc.)
   if (m.sides && !m.coverPaper) parts.push(String(m.sides))
@@ -236,10 +248,29 @@ export function buildQuoteText(opts: QuoteTextOptions): string {
   }
 
   // --- MAIL WORK (consolidated: "item" + "listwork" under one header) ---
+  // Split list rentals from other mail work for better presentation
   const mailWorkItems = items.filter((i) => MAIL_WORK_CATS.includes(i.category))
-  if (mailWorkItems.length > 0) {
+  const listRentalItems = mailWorkItems.filter((i) => i.label.toLowerCase().includes("list rental"))
+  const otherMailWork = mailWorkItems.filter((i) => !i.label.toLowerCase().includes("list rental"))
+  
+  // Show list rentals first with proper formatting
+  if (listRentalItems.length > 0) {
+    lines.push("LIST RENTALS")
+    listRentalItems.forEach((item) => {
+      // Label has "List Rental - Monsey" format, description has "13,800 names @ $50/M"
+      const listName = item.label.replace(/^List Rental\s*[-–]\s*/i, "").trim()
+      // Build a nice customer line: "Monsey - 13,800 names @ $50/M"
+      const custLine = item.description ? `${listName} - ${item.description}` : listName
+      lines.push(custLine)
+      lines.push(formatCurrency(item.amount))
+    })
+    lines.push(divider)
+  }
+  
+  if (otherMailWork.length > 0) {
     lines.push("MAIL WORK")
-    mailWorkItems.forEach((item) => {
+    otherMailWork.forEach((item) => {
+      if (item.label) lines.push(item.label)
       if (item.description) lines.push(item.description)
       lines.push(formatCurrency(item.amount))
     })

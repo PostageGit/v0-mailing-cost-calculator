@@ -7,6 +7,7 @@ import { SpiralCalculator } from "@/components/spiral/spiral-calculator"
 import { PerfectCalculator } from "@/components/perfect/perfect-calculator"
 import { PadCalculator } from "@/components/pad/pad-calculator"
 import { USPSPostageCalculator } from "@/components/usps-postage-calculator"
+import { QuoteFormLayout } from "@/components/quote-form-layout"
 import { ServiceBuilder } from "@/components/service-builder"
 import { QuoteSidebar } from "@/components/quote-sidebar"
 import { MailPiecePlanner } from "@/components/mail-piece-planner"
@@ -173,6 +174,23 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [stepGateFlash, setStepGateFlash] = useState(false)
   const [calcViewMode, setCalcViewMode] = useState<"detailed" | "quick">("detailed")
+  // Optional QuickBooks-style quote form view - active across ALL pricing steps when on
+  const [quoteFormView, setQuoteFormViewRaw] = useState(false)
+  // Load persisted preference on mount
+  useEffect(() => {
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem("quoteFormView") : null
+      if (stored === "1") setQuoteFormViewRaw(true)
+    } catch { /* ignore */ }
+  }, [])
+  const setQuoteFormView = useCallback((on: boolean) => {
+    setQuoteFormViewRaw(on)
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("quoteFormView", on ? "1" : "0")
+      }
+    } catch { /* ignore */ }
+  }, [])
   const { loadQuote, items, newQuote, skippedSteps: savedSkipped, setSkippedSteps: saveSkipped, setMailingSnapshot, savedId } = useQuote()
   const mailing = useMailing()
   usePricingConfig()
@@ -192,11 +210,23 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
   }, [mailing.quantity, mailing.shape, mailing.className, mailing.mailService, mailing.pieces, setMailingSnapshot, mailing.getSnapshot])
 
   const visibleSteps = useMemo(() => {
+    // Detect printing-family lines already on the quote.  When editing an
+    // existing quote whose planner flags weren't restored, the mailing
+    // needs* booleans may all be false even though the quote clearly has
+    // envelope / printing / booklet etc. lines.  In that case the
+    // corresponding helper step must still be reachable so the user can
+    // edit those lines — without this, tapping a category badge lands on
+    // the wrong step.
+    const PRINTING_CATS = new Set(["envelope", "flat", "booklet", "spiral", "perfect", "pad", "ohp"])
+    const itemsHavePrinting = items.some((it) => PRINTING_CATS.has(it.category as string))
+    const itemCats = new Set(items.map((it) => it.category as string))
+
     // In SIMPLE MODE: consolidate all printing into one "Printing" step
     // Hide envelope, booklet, spiral, perfect, pad, ohp - all handled by SimplePrintingEntry
     if (appConfig.simple_mode) {
       const hasAnyPrinting = mailing.needsEnvelope || mailing.needsPrinting || mailing.needsBooklet || 
-                            mailing.needsSpiral || mailing.needsPerfect || mailing.needsPad || mailing.needsOHP
+                            mailing.needsSpiral || mailing.needsPerfect || mailing.needsPad || mailing.needsOHP ||
+                            itemsHavePrinting
       return ALL_STEPS.filter((step) => {
         // Only show: Postage, Services, and ONE "Printing" step
         if (step.id === "usps") return true
@@ -213,24 +243,45 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
       })
     }
     
-    // FULL MODE: show individual steps as before
+    // FULL MODE: show a step if its planner flag is set OR if the quote
+    // already has a line in that step's category (envelope cat -> envelope
+    // step, flat cat -> printing step, etc.) so users can always edit
+    // existing lines regardless of planner state.
     return ALL_STEPS.filter((step) => {
-      if (step.id === "envelope" && !mailing.needsEnvelope) return false
-      if (step.id === "printing" && !mailing.needsPrinting) return false
-      if (step.id === "booklet" && !mailing.needsBooklet) return false
-      if (step.id === "spiral" && !mailing.needsSpiral) return false
-      if (step.id === "perfect" && !mailing.needsPerfect) return false
-      if (step.id === "pad" && !mailing.needsPad) return false
-      if (step.id === "ohp" && !mailing.needsOHP) return false
+      if (step.id === "envelope" && !mailing.needsEnvelope && !itemCats.has("envelope")) return false
+      if (step.id === "printing" && !mailing.needsPrinting && !itemCats.has("flat")) return false
+      if (step.id === "booklet" && !mailing.needsBooklet && !itemCats.has("booklet")) return false
+      if (step.id === "spiral" && !mailing.needsSpiral && !itemCats.has("spiral")) return false
+      if (step.id === "perfect" && !mailing.needsPerfect && !itemCats.has("perfect")) return false
+      if (step.id === "pad" && !mailing.needsPad && !itemCats.has("pad")) return false
+      if (step.id === "ohp" && !mailing.needsOHP && !itemCats.has("ohp")) return false
       return true
     })
-  }, [appConfig.simple_mode, mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP])
+  }, [appConfig.simple_mode, mailing.needsEnvelope, mailing.needsPrinting, mailing.needsBooklet, mailing.needsSpiral, mailing.needsPerfect, mailing.needsPad, mailing.needsOHP, items])
 
   useEffect(() => {
     if (jobPhase === "pricing" && !visibleSteps.find((s) => s.id === currentStep)) {
       setCurrentStep(visibleSteps[0]?.id || "usps")
     }
   }, [visibleSteps, currentStep, jobPhase])
+
+  // Resolve a requested step id to a step that's actually visible.
+  // In simple mode, envelope / booklet / spiral / perfect / pad / ohp are
+  // all rolled up into the unified "printing" step — so tapping an
+  // envelope or booklet category badge should land on "printing", NOT get
+  // silently bounced to "usps" by the visibility effect. In full mode the
+  // requested step usually exists as-is; only fall back if it truly isn't.
+  const resolveStepForJump = useCallback((requested: StepId): StepId => {
+    const isVisible = visibleSteps.some((s) => s.id === requested)
+    if (isVisible) return requested
+    const PRINTING_FAMILY: StepId[] = ["envelope", "booklet", "spiral", "perfect", "pad", "ohp", "printing"]
+    if (appConfig.simple_mode && PRINTING_FAMILY.includes(requested)) {
+      // Simple mode consolidates all printing-family helpers into one step.
+      const unified = visibleSteps.find((s) => s.id === "printing")
+      if (unified) return "printing"
+    }
+    return (visibleSteps[0]?.id || "usps") as StepId
+  }, [visibleSteps, appConfig.simple_mode])
 
   const handleLoadQuote = useCallback(
     async (quoteId: string, step?: string) => {
@@ -339,15 +390,13 @@ const [sidebarOpen, setSidebarOpen] = useState(true)
     visibleSteps.filter((s) => !completedSteps.has(s.id)),
   [visibleSteps, completedSteps])
 
-const renderStep = () => {
-  // Map view mode: "quick" -> "compact" for the calculator forms
+// Builds just the helper tool for the current step (the right-side content
+// that swaps with each step). Rendered inside QuoteFormLayout in QB mode.
+const renderStepHelper = () => {
   const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
-  
-  // SIMPLE MODE: "printing" step shows SimplePrintingEntry with ALL pieces
   if (appConfig.simple_mode && currentStep === "printing") {
-    return <SimplePrintingEntry />
+    return <SimplePrintingEntry qbMode />
   }
-  
   switch (currentStep) {
     case "envelope": return <EnvelopeTab />
     case "usps":     return <USPSPostageCalculator />
@@ -358,7 +407,43 @@ const renderStep = () => {
     case "perfect":  return <PerfectCalculator viewMode={viewMode} />
     case "pad":      return <PadCalculator viewMode={viewMode} />
     case "ohp":      return <VendorBidTab />
+    default:         return null
   }
+}
+
+// Classic (non-QB) mode: returns the raw calculator content with no wrapper.
+const renderStep = () => {
+  const viewMode = calcViewMode === "quick" ? "compact" : "detailed"
+  if (appConfig.simple_mode && currentStep === "printing") {
+    return <SimplePrintingEntry />
+  }
+  switch (currentStep) {
+    case "envelope": return <EnvelopeTab />
+    case "usps":     return <USPSPostageCalculator />
+    case "labor":    return <ServiceBuilder />
+    case "printing": return <PrintingCalculator viewMode={viewMode} />
+    case "booklet":  return <BookletCalculator viewMode={viewMode} />
+    case "spiral":   return <SpiralCalculator viewMode={viewMode} />
+    case "perfect":  return <PerfectCalculator viewMode={viewMode} />
+    case "pad":      return <PadCalculator viewMode={viewMode} />
+    case "ohp":      return <VendorBidTab />
+    default:         return null
+  }
+}
+
+// Metadata used by QuoteFormLayout's top strip (shows the active step
+// label on the helper side). Doesn't affect the quote document at all.
+const qbStepMeta = ALL_STEPS.find(s => s.id === currentStep)
+const qbStepDescriptions: Record<string, string> = {
+  envelope: "Add envelope line items",
+  usps: "Calculate postage rates",
+  labor: "Add services & supplies",
+  printing: "Price flat printing",
+  booklet: "Price saddle-stitch booklets",
+  spiral: "Price spiral-bound booklets",
+  perfect: "Price perfect-bound booklets",
+  pad: "Price padded items",
+  ohp: "Vendor bids for outside help",
 }
 
   const isJobView = section === "job"
@@ -519,18 +604,21 @@ const renderStep = () => {
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
                 <h1 className="text-lg font-bold tracking-tight text-foreground">Quotes</h1>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-secondary rounded-lg p-0.5">
-<button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
-<button onClick={() => setQuoteView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
-<button onClick={() => setQuoteView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
-                  </div>
+                  {/* View toggle only in Full mode */}
+                  {!appConfig.simple_mode && (
+                    <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                      <button onClick={() => setQuoteView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                      <button onClick={() => setQuoteView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
+                      <button onClick={() => setQuoteView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", quoteView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
+                    </div>
+                  )}
                   <Button onClick={handleNewJob} size="sm" className="gap-1.5 rounded-lg bg-foreground text-background hover:bg-foreground/90 h-8 text-xs font-semibold">
                     <Plus className="h-3.5 w-3.5" /> New Quote
                   </Button>
                 </div>
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard boardType="quote" viewMode={quoteView} onLoadQuote={handleLoadQuote} />
+                <KanbanBoard boardType="quote" viewMode={quoteView} onLoadQuote={handleLoadQuote} appSimpleMode={appConfig.simple_mode} />
               </div>
             </div>
           )}
@@ -540,14 +628,17 @@ const renderStep = () => {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between shrink-0">
                 <h1 className="text-lg font-bold tracking-tight text-foreground">Jobs</h1>
-                <div className="flex items-center bg-secondary rounded-lg p-0.5">
-<button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
-<button onClick={() => setJobView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
-<button onClick={() => setJobView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
-                </div>
+                {/* View toggle only in Full mode */}
+                {!appConfig.simple_mode && (
+                  <div className="flex items-center bg-secondary rounded-lg p-0.5">
+                    <button onClick={() => setJobView("board")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "board" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><Columns3 className="h-3 w-3" /> Board</button>
+                    <button onClick={() => setJobView("list")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><List className="h-3 w-3" /> List</button>
+                    <button onClick={() => setJobView("sidebar")} className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all", jobView === "sidebar" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}><LayoutPanelLeft className="h-3 w-3" /> Sidebar</button>
+                  </div>
+                )}
               </div>
               <div className="flex-1 px-4 sm:px-6 pb-2 min-h-0 overflow-hidden flex flex-col">
-                <KanbanBoard boardType="job" viewMode={jobView} onLoadQuote={handleLoadQuote} />
+                <KanbanBoard boardType="job" viewMode={jobView} onLoadQuote={handleLoadQuote} appSimpleMode={appConfig.simple_mode} />
               </div>
             </div>
           )}
@@ -628,16 +719,42 @@ const renderStep = () => {
 
           {/* == JOB VIEW (Planner) == */}
           {isJobView && jobPhase === "planner" && (
-            <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-8">
-              <MailPiecePlanner onContinue={handleContinueToPricing} />
-            </div>
+            quoteFormView ? (
+              /* In QB Quote Form mode, the planner also becomes a helper beside
+                 the live quote document - so the quote is visible beginning-to-end. */
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <QuoteFormLayout
+                  stepTitle="Planner"
+                  stepDescription="Set up customer, job info & mail pieces"
+                  stepIcon={<Layers className="h-3.5 w-3.5" />}
+                  stepId="planner"
+                  onClose={() => setSection("quotes-board")}
+                  onGoToStep={(id) => {
+                    // Let users jump straight from a quote line's badge
+                    // into the right pricing helper, even when they're on
+                    // the planner screen. Resolved so simple-mode printing
+                    // family categories end up on the unified printing step.
+                    setJobPhase("pricing")
+                    setCurrentStep(resolveStepForJump(id as StepId))
+                  }}
+                >
+                  <MailPiecePlanner onContinue={handleContinueToPricing} qbMode />
+                </QuoteFormLayout>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto px-4 sm:px-6 pt-5 pb-8">
+                <MailPiecePlanner onContinue={handleContinueToPricing} />
+              </div>
+            )
           )}
 
           {/* == JOB VIEW (Pricing / Calculator) == */}
           {isJobView && jobPhase === "pricing" && (
             <StepErrorBoundary stepId="pricing-layout">
               <div className="flex-1 flex flex-col min-h-0">
-                {/* Step Pills */}
+                {/* Step Pills - hidden entirely in QB Quote Form mode
+                    (the bold bottom action bar handles navigation instead). */}
+                {!quoteFormView && (
                 <div className="shrink-0 bg-background border-b border-border/40">
                   <div className="px-4 sm:px-6 py-1.5">
                     <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -650,6 +767,8 @@ const renderStep = () => {
                         const active = step.id === currentStep
                         const status = getStepStatus(step.id)
                         const reachable = canNavigateTo(stepIdx)
+
+                        // CLASSIC MODE: Original colorful pill style
                         return (
                           <div key={step.id} className="relative shrink-0 group/pill">
                             <button
@@ -716,15 +835,54 @@ const renderStep = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Job Summary Bar */}
-                <div className="shrink-0 bg-secondary/30 border-b border-border/40">
+                {/* Job Summary Bar - becomes the sole top chrome in QB Quote Form mode */}
+                <div className={cn(
+                  "shrink-0 border-b border-border/40",
+                  quoteFormView ? "bg-white dark:bg-neutral-950" : "bg-secondary/30"
+                )}>
                   <div className="px-4 sm:px-6 py-2 flex items-center gap-4 text-xs overflow-x-auto no-scrollbar">
                     <button onClick={() => setJobPhase("planner")} className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold shrink-0 transition-colors">
                       <PenLine className="h-3 w-3" /> Edit
                     </button>
                     {mailing.quantity > 0 && <span className="text-muted-foreground shrink-0"><strong className="text-foreground">{mailing.quantity.toLocaleString()}</strong> pcs</span>}
                     <div className="w-px h-3 bg-border shrink-0" />
+                    {/* Global Quote Form View toggle - QuickBooks-style experience across ALL pricing steps */}
+                    {jobPhase === "pricing" && (
+                      <>
+                        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-background/80 border border-border shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setQuoteFormView(false)}
+                            className={cn(
+                              "px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
+                              !quoteFormView
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title="Classic calculator view"
+                          >
+                            Classic
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setQuoteFormView(true)}
+                            className={cn(
+                              "inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
+                              quoteFormView
+                                ? "bg-foreground text-background shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title="QuickBooks-style quote form view"
+                          >
+                            <FileText className="h-3 w-3" />
+                            Quote Form
+                          </button>
+                        </div>
+                        <div className="w-px h-3 bg-border shrink-0" />
+                      </>
+                    )}
                     {/* View toggle for calculators */}
                     {["printing", "booklet", "spiral", "perfect", "pad"].includes(currentStep) && (
                       <>
@@ -777,18 +935,57 @@ const renderStep = () => {
                 <div className="flex-1 flex min-h-0 overflow-hidden">
                   <div className={cn(
                     "flex-1 min-w-0 overflow-auto",
-                    // Simple mode printing uses full width, other steps use centered max-w
-                    appConfig.simple_mode && currentStep === "printing"
+                    // Full-width layouts: simple printing mode, and the QuickBooks quote form view
+                    (appConfig.simple_mode && currentStep === "printing") || quoteFormView
                       ? "px-0 pt-0 pb-0"
                       : "max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-8"
                   )}>
-                    <div key={currentStep} className="step-enter h-full">
-                      <StepErrorBoundary stepId={currentStep}>
-                        {renderStep()}
-                      </StepErrorBoundary>
-                    </div>
+                    {quoteFormView ? (
+                      // QB MODE: QuoteFormLayout is mounted ONCE and persists
+                      // across every step. Only the helper child remounts on
+                      // step change - the quote document stays rock-solid.
+                      (() => {
+                        const qbIdx = visibleSteps.findIndex(s => s.id === currentStep)
+                        return (
+                          <QuoteFormLayout
+                            stepTitle={qbStepMeta?.label || "Step"}
+                            stepDescription={qbStepDescriptions[currentStep] || ""}
+                            stepIcon={qbStepMeta?.icon}
+                            stepId={currentStep}
+                            stepNumber={qbIdx >= 0 ? qbIdx + 1 : undefined}
+                            totalSteps={visibleSteps.length}
+                            onExit={() => setQuoteFormView(false)}
+                            onClose={() => setSection("quotes-board")}
+                            onGoToPlanner={() => setJobPhase("planner")}
+                            onGoToStep={(id) => {
+                              // Tapping a line's category badge jumps to the
+                              // helper step that produced it. Resolve through
+                              // resolveStepForJump so simple-mode printing
+                              // family categories (envelope, booklet, etc.)
+                              // land on the unified "printing" step instead
+                              // of being silently bounced to Postage.
+                              setJobPhase("pricing")
+                              setCurrentStep(resolveStepForJump(id as StepId))
+                            }}
+                          >
+                            <div key={currentStep} className="h-full">
+                              <StepErrorBoundary stepId={currentStep}>
+                                {renderStepHelper()}
+                              </StepErrorBoundary>
+                            </div>
+                          </QuoteFormLayout>
+                        )
+                      })()
+                    ) : (
+                      <div key={currentStep} className="step-enter h-full">
+                        <StepErrorBoundary stepId={currentStep}>
+                          {renderStep()}
+                        </StepErrorBoundary>
+                      </div>
+                    )}
                   </div>
-                  {rightOpen ? (
+                  {/* In QuickBooks Quote Form View, hide the right sidebar - the quote is already center-stage in the form layout */}
+                  {quoteFormView ? null : rightOpen ? (
                     <aside className="hidden lg:block w-80 xl:w-96 shrink-0 border-l border-border overflow-y-auto bg-card/50">
                       <QuoteSidebar
                         onGoToExport={() => setSection("export-qb")}
@@ -809,6 +1006,165 @@ const renderStep = () => {
                     </aside>
                   )}
                 </div>
+
+                {/* QB MODE: Substantial, clear bottom action bar.
+                    A progress bar + step counter + prev/next makes the user
+                    always feel exactly where they are in the workflow. */}
+                {quoteFormView && jobPhase === "pricing" && (() => {
+                  const idx = visibleSteps.findIndex(s => s.id === currentStep)
+                  const prev = idx > 0 ? visibleSteps[idx - 1] : null
+                  const next = idx < visibleSteps.length - 1 ? visibleSteps[idx + 1] : null
+                  const canGoNext = isEditingExisting || getStepStatus(currentStep) !== "pending"
+                  const progressPct = visibleSteps.length > 0 ? ((idx + 1) / visibleSteps.length) * 100 : 0
+                  return (
+                    <div className="shrink-0 border-t-2 border-border bg-white dark:bg-neutral-950 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+                      {/* Full-width progress bar on top edge */}
+                      <div className="h-1 w-full bg-border/40 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-foreground to-foreground/80 transition-all duration-500 ease-out"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-stretch justify-between gap-4 px-4 sm:px-8">
+                        {/* LEFT: Previous */}
+                        {prev ? (
+                          <button
+                            onClick={() => setCurrentStep(prev.id)}
+                            className="group flex items-center gap-3 py-4 pr-6 -ml-2 pl-3 hover:bg-secondary/50 transition-colors border-r border-border"
+                          >
+                            <div className="h-9 w-9 rounded-lg border-2 border-border group-hover:border-foreground bg-card flex items-center justify-center transition-colors shrink-0">
+                              <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                            </div>
+                            <div className="text-left hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">Previous</div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1 truncate">{prev.label}</div>
+                            </div>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setJobPhase("planner")}
+                            className="group flex items-center gap-3 py-4 pr-6 -ml-2 pl-3 hover:bg-secondary/50 transition-colors border-r border-border"
+                          >
+                            <div className="h-9 w-9 rounded-lg border-2 border-border group-hover:border-foreground bg-card flex items-center justify-center transition-colors shrink-0">
+                              <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                            </div>
+                            <div className="text-left hidden sm:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">Back to</div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1">Planner</div>
+                            </div>
+                          </button>
+                        )}
+
+                        {/* CENTER: Substantial step indicator - big number + label + dots */}
+                        <div className="flex-1 min-w-0 flex items-center justify-center py-3 gap-4">
+                          {/* Big "Step 3 of 7" display */}
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="h-10 w-10 rounded-xl bg-foreground text-background flex items-center justify-center font-bold text-base tabular-nums shadow-sm">
+                              {idx + 1}
+                            </div>
+                            <div className="hidden md:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">
+                                Step {idx + 1} of {visibleSteps.length}
+                              </div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1 truncate max-w-[160px]">
+                                {qbStepMeta?.label || currentStep}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Step dots - clickable navigation */}
+                          <div className="hidden lg:flex items-center gap-1.5 pl-4 border-l border-border">
+                            {visibleSteps.map((s, i) => {
+                              const st = getStepStatus(s.id)
+                              const isActive = s.id === currentStep
+                              const reachable = canNavigateTo(i)
+                              return (
+                                <button
+                                  key={s.id}
+                                  onClick={() => reachable && setCurrentStep(s.id)}
+                                  disabled={!reachable}
+                                  title={`${i + 1}. ${s.label}`}
+                                  className={cn(
+                                    "transition-all rounded-full shrink-0",
+                                    isActive
+                                      ? "w-10 h-2.5 bg-foreground"
+                                      : st === "done"
+                                        ? "w-2.5 h-2.5 bg-emerald-500 hover:w-5"
+                                        : st === "skipped"
+                                          ? "w-2.5 h-2.5 bg-amber-400 hover:w-5"
+                                          : reachable
+                                            ? "w-2.5 h-2.5 bg-muted-foreground/25 hover:bg-muted-foreground/60"
+                                            : "w-2.5 h-2.5 bg-muted-foreground/15 cursor-not-allowed"
+                                  )}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* RIGHT-SIDE ACTIONS: Close + Next/Finish */}
+                        <div className="flex items-stretch">
+                          {/* Close - exits the quote workflow back to Quotes board */}
+                          <button
+                            onClick={() => setSection("quotes-board")}
+                            className="group flex items-center gap-2 py-4 px-3 hover:bg-secondary/50 transition-colors border-l border-border"
+                            title="Close and return to Quotes"
+                          >
+                            <div className="h-9 w-9 rounded-lg border-2 border-border group-hover:border-red-500 bg-card flex items-center justify-center transition-colors shrink-0">
+                              <X className="h-4 w-4 text-muted-foreground group-hover:text-red-600" />
+                            </div>
+                            <div className="text-left hidden md:block">
+                              <div className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground font-bold leading-none">Exit</div>
+                              <div className="text-sm font-bold text-foreground leading-tight mt-1">Close</div>
+                            </div>
+                          </button>
+
+                          {/* Next - large, bold, clear primary action */}
+                          {next ? (
+                            <button
+                              onClick={handleNextStep}
+                              disabled={!canGoNext}
+                              className={cn(
+                                "group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 transition-all border-l border-border",
+                                canGoNext
+                                  ? "bg-foreground text-background hover:bg-foreground/95"
+                                  : "bg-muted/30 text-muted-foreground cursor-not-allowed"
+                              )}
+                              title={!canGoNext ? "Complete or skip this step first" : undefined}
+                            >
+                              <div className="text-right hidden sm:block">
+                                <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-70">
+                                  {canGoNext ? "Continue to" : "Complete first"}
+                                </div>
+                                <div className="text-sm font-bold leading-tight mt-1 truncate">{next.label}</div>
+                              </div>
+                              <div className={cn(
+                                "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                                canGoNext ? "bg-background/15 group-hover:bg-background/25" : "bg-muted"
+                              )}>
+                                <ChevronRight className="h-4 w-4" />
+                              </div>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setSection("export-qb")}
+                              className="group flex items-center gap-3 py-4 pl-6 -mr-2 pr-3 bg-emerald-600 text-white hover:bg-emerald-700 transition-all border-l border-border"
+                            >
+                              <div className="text-right hidden sm:block">
+                                <div className="text-[9px] uppercase tracking-[0.15em] font-bold leading-none opacity-80">All Done</div>
+                                <div className="text-sm font-bold leading-tight mt-1">Finish Quote</div>
+                              </div>
+                              <div className="h-9 w-9 rounded-lg bg-white/15 group-hover:bg-white/25 flex items-center justify-center shrink-0 transition-colors">
+                                <Check className="h-4 w-4" />
+                              </div>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 <MobileBar onGoToExport={() => setSection("export-qb")} />
               </div>

@@ -72,7 +72,16 @@ const ADD_CATEGORIES: CategoryItem[] = [
   },
 ]
 
-export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
+export function MailPiecePlanner({
+  onContinue, qbMode = false,
+}: {
+  onContinue: () => void
+  /** When true, the planner is rendered inside QuoteFormLayout as a helper
+   *  beside the live quote document. Hide its internal "New Mailing Job"
+   *  header (QuoteFormLayout already shows the step header) and make the
+   *  container adapt to its parent width. */
+  qbMode?: boolean
+}) {
   const m = useMailing()
   const q = useQuote()
   const { config: appConfig } = useAppConfig()
@@ -158,19 +167,25 @@ export function MailPiecePlanner({ onContinue }: { onContinue: () => void }) {
   stepSummary.push("Items")
 
   return (
-    <div className="max-w-4xl mx-auto w-full pb-8">
-      {/* ─── Header ─── */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
-            <span className="text-xs font-bold text-background">1</span>
+    <div className={cn(
+      "w-full",
+      qbMode ? "px-4 sm:px-6 py-4 overflow-y-auto h-full" : "max-w-4xl mx-auto pb-8",
+    )}>
+      {/* ─── Header (hidden in qbMode since QuoteFormLayout already shows
+              the step header on its helper pane) ─── */}
+      {!qbMode && (
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
+              <span className="text-xs font-bold text-background">1</span>
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">New Mailing Job</h1>
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">New Mailing Job</h1>
+          <p className="text-sm text-muted-foreground ml-11">
+            Set up customer, job info, and define each mail piece.
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground ml-11">
-          Set up customer, job info, and define each mail piece.
-        </p>
-      </div>
+      )}
 
       {/* ─── Top row: Customer + Job basics ─── */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr] gap-4 mb-6">

@@ -151,7 +151,7 @@ function getJobNextStep(q: Quote): NextStepResult | null {
     }
   }
   
-  // ═══ PRIORITY 7: All done! (GREEN) ═══
+  // ══������ PRIORITY 7: All done! (GREEN) ═══
   return { msg: "Ready to mark done!", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 5, action: { type: "done" } }
 }
 
@@ -1366,7 +1366,7 @@ function MailDatePicker({ value, onChange }: { value: string; onChange: (v: stri
    ════════════════════════════════════════════════════ */
 
 function QuoteCard({
-  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn, defaultExpanded,
+  quote, columns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onOpen, onConvertToJob, onPatch, onReorder, boardType, isArchived, listColumn, defaultExpanded,
   }: {
   quote: Quote; columns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void
@@ -1374,6 +1374,9 @@ function QuoteCard({
   onArchive: (id: string) => void
   onRestore: (id: string) => void
   onEdit: (id: string) => void
+  /** Opens the full Quote Builder form (not the tiny summary modal).
+   *  Wired to the prominent "Open" button in the card's title row. */
+  onOpen: (id: string) => void
   onConvertToJob?: (id: string) => void
   onPatch: (id: string, patch: Record<string, unknown>) => void
   onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void
@@ -1455,13 +1458,25 @@ function QuoteCard({
         </div>
 
         <div className="pl-7 pr-4 pt-3.5 pb-3">
-          {/* Row 1: Title + expand/notes actions */}
+          {/* Row 1: Title + OPEN QUOTE primary action + secondary icons.
+              "Open Quote" is the single most important action on a card so
+              it's rendered as a substantial pill button with label + icon,
+              always visible.  The small notes/expand icons stay compact
+              beside it. */}
           <div className="flex items-start gap-2 mb-0.5 relative">
             <p className="text-base font-extrabold text-foreground truncate flex-1 min-w-0 leading-tight">{quote.project_name || "Untitled"}</p>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); onOpen(quote.id) }}
+                className="group/open flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full bg-foreground text-background hover:bg-foreground/90 font-bold text-[11px] tracking-wide shadow-sm hover:shadow transition-all active:scale-[0.97]"
+                title="Open full quote form"
+              >
+                <Pencil className="h-3 w-3" />
+                <span>Open</span>
+              </button>
               <button onClick={(e) => { e.stopPropagation(); setShowQuickNotes(!showQuickNotes) }}
-                className={cn("relative h-6 w-6 flex items-center justify-center rounded transition-colors",
-                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/30 hover:text-foreground"
+                className={cn("relative h-7 w-7 flex items-center justify-center rounded-full transition-colors",
+                  showQuickNotes ? "text-foreground bg-secondary" : "text-muted-foreground/40 hover:text-foreground hover:bg-secondary/60"
                 )} title="Quick Notes">
                 <NotepadText className="h-3.5 w-3.5" />
                 {(meta.quick_notes || quote.notes) && !showQuickNotes && (
@@ -1469,7 +1484,7 @@ function QuoteCard({
                 )}
               </button>
               <button onClick={() => setOpen(!open)}
-                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground/30 hover:text-foreground transition-colors" title="Expand">
+                className="h-7 w-7 flex items-center justify-center rounded-full text-muted-foreground/40 hover:text-foreground hover:bg-secondary/60 transition-colors" title="Expand">
                 <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
               </button>
             </div>
@@ -1790,10 +1805,8 @@ function QuoteCard({
                 className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Files">
                 <Paperclip className="h-3.5 w-3.5" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onEdit(quote.id) }}
-                className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border" title="Edit Quote">
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
+              {/* Edit pencil removed - replaced by the prominent "Open" button
+                  in the card's title row (row 1). */}
               {!isArchived && (
                 <button onClick={(e) => { e.stopPropagation(); onArchive(quote.id) }}
                   className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-amber-600 hover:bg-background border border-transparent hover:border-border" title="Archive">
@@ -2159,7 +2172,7 @@ function QuoteCard({
   )
 }
 
-/* ════════════════════════════════════════════════════
+/* ══════════════════════════════════�����════════════════
    COLUMN SETTINGS
    ════════════════════════════════════════════════════ */
 
@@ -2633,10 +2646,11 @@ function SidebarDropTarget({ col, isActive, count, colTotal, onClick, onDrop, bo
   )
 }
 
-function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onConvertToJob, onPatch, onReorder, boardType }: {
+function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onArchive, onRestore, onEdit, onOpen, onConvertToJob, onPatch, onReorder, boardType }: {
   col: BoardColumn; quotes: Quote[]; allColumns: BoardColumn[]
   onColumnChange: (id: string, colId: string) => void; onVoid: (id: string, reason?: string) => void
   onArchive: (id: string) => void; onRestore: (id: string) => void; onEdit: (id: string) => void
+  onOpen: (id: string) => void
   onConvertToJob?: (id: string) => void; onPatch: (id: string, patch: Record<string, unknown>) => void
   onReorder?: (draggedId: string, targetId: string, position: "before" | "after") => void; boardType: "quote" | "job"
 }) {
@@ -2671,7 +2685,7 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onAr
   ) : quotes.map((q) => (
   <QuoteCard key={q.id} quote={q} columns={allColumns}
   onColumnChange={onColumnChange} onVoid={onVoid} onArchive={onArchive}
-  onRestore={onRestore} onEdit={onEdit} onConvertToJob={onConvertToJob}
+  onRestore={onRestore} onEdit={onEdit} onOpen={onOpen} onConvertToJob={onConvertToJob}
   onPatch={onPatch} onReorder={onReorder} boardType={boardType} />
   ))}
       </div>
@@ -2683,8 +2697,9 @@ function DroppableColumn({ col, quotes, allColumns, onColumnChange, onVoid, onAr
    MAIN KANBAN BOARD
    ════════════════════════════════════��═══════════════ */
 
-export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote }: {
-  boardType?: "quote" | "job"; viewMode?: "board" | "list" | "sidebar"; onLoadQuote: (quoteId: string) => void
+export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuote, appSimpleMode = false }: {
+  boardType?: "quote" | "job"; viewMode?: "board" | "list" | "sidebar"; onLoadQuote: (quoteId: string) => void;
+  appSimpleMode?: boolean;  // Global app Simple Mode - hides extra toggles
 }) {
   const isJob = boardType === "job"
   const colsUrl = `/api/board-columns?type=${boardType}`
@@ -2704,7 +2719,9 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   const [searchTerm, setSearchTerm] = useState("")
   const [sidebarColId, setSidebarColId] = useState<string | null>(null)
   const [userFilter, setUserFilter] = useState<string>("all")
-  const [simpleView, setSimpleView] = useState(true)
+  // Card density toggle - always defaults to Full (false = detailed cards)
+  // This is independent of the global Simple Mode setting
+  const [simpleView, setSimpleView] = useState(false)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [rowRevisions, setRowRevisions] = useState<Record<string, { loading: boolean; data: any[] | null; showTimeline?: boolean }>>({})
@@ -3027,35 +3044,37 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Simple/Full View Toggle */}
-          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
-            <button
-              onClick={() => setSimpleView(true)}
-              className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
-                simpleView
-                  ? "bg-background shadow-sm text-foreground border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="Simple table view"
-            >
-              <List className="h-3 w-3" />
-              Simple
-            </button>
-            <button
-              onClick={() => setSimpleView(false)}
-              className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
-                !simpleView
-                  ? "bg-background shadow-sm text-foreground border border-border"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title="Full kanban view"
-            >
-              <LayoutGrid className="h-3 w-3" />
-              Full
-            </button>
-          </div>
+          {/* Simple/Full View Toggle - only show in Full app mode */}
+          {!appSimpleMode && (
+            <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
+              <button
+                onClick={() => setSimpleView(true)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                  simpleView
+                    ? "bg-background shadow-sm text-foreground border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Simple table view"
+              >
+                <List className="h-3 w-3" />
+                Simple
+              </button>
+              <button
+                onClick={() => setSimpleView(false)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold transition-colors",
+                  !simpleView
+                    ? "bg-background shadow-sm text-foreground border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Full kanban view"
+              >
+                <LayoutGrid className="h-3 w-3" />
+                Full
+              </button>
+            </div>
+          )}
           <button onClick={() => setShowHistory(!showHistory)}
             className={cn("flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-colors", showHistory ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
             <Clock className="h-3.5 w-3.5" />
@@ -3217,6 +3236,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                       onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
                       onRestore={handleRestore} onPatch={handlePatch}
                       onEdit={(id) => { const found = doneQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+                      onOpen={onLoadQuote}
                       onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
                       boardType={boardType} />
                   ))}
@@ -3404,18 +3424,27 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     <span className="text-[14px] text-right font-semibold tabular-nums text-foreground">
                       {formatCurrency(q.total)}
                     </span>
-                    {/* Full Card Button */}
-                    <div className="flex justify-center">
-                      <div
-                        role="button"
-                        tabIndex={0}
+                    {/* Primary row action: OPEN — loads the full Quote Form
+                        directly (not the tiny summary modal). Matches the
+                        prominent Open button on board cards so behaviour is
+                        consistent across every kanban view.  A secondary
+                        quick-peek icon still opens the summary card modal. */}
+                    <div className="flex justify-center items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onLoadQuote(q.id) }}
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-foreground text-background font-bold text-[11px] tracking-wide shadow-sm hover:bg-foreground/90 hover:shadow transition-all active:scale-[0.97]"
+                        title="Open full quote form"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Open
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); setFullCardModalQuote(q) }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setFullCardModalQuote(q) }}}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium bg-foreground/90 text-background cursor-pointer hover:bg-foreground transition-all select-none"
+                        className="h-8 w-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                        title="Quick preview card"
                       >
                         <LayoutPanelLeft className="h-3.5 w-3.5" />
-                        View
-                      </div>
+                      </button>
                     </div>
                   </div>
                   {/* Expanded Details Panel - Chat Quote inspired */}
@@ -3604,22 +3633,30 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Primary action: OPEN — loads the full Quote
+                              Builder form (same behaviour as the Open button
+                              on every kanban card). Was previously mislabeled
+                              "Calculator" which hid the real entry point. */}
                           <button
-                            onClick={() => setDetailQuote(q)}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/30 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); onLoadQuote(q.id) }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-foreground text-background font-bold text-[11px] tracking-wide shadow-sm hover:bg-foreground/90 hover:shadow transition-all active:scale-[0.97]"
+                            title="Open full quote form"
                           >
                             <Pencil className="h-3 w-3" />
-                            Edit / Revise
+                            Open
                           </button>
+                          {/* Secondary: quick peek of the summary card */}
                           <button
-                            onClick={() => { setExpandedRowId(null); onLoadQuote(q.id) }}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-border bg-secondary/80 text-foreground hover:bg-secondary transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setDetailQuote(q) }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                            title="Quick summary preview"
                           >
-                            Calculator
+                            <LayoutPanelLeft className="h-3 w-3" />
+                            Preview
                           </button>
                           <button
-                            onClick={() => { setExpandedRowId(null); handleArchive(q.id) }}
-                            className="inline-flex items-center gap-1.5 h-7 px-3 text-[10px] font-medium rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setExpandedRowId(null); handleArchive(q.id) }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 text-[11px] font-medium rounded-md border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                           >
                             <Archive className="h-3 w-3" />
                             Archive
@@ -3650,6 +3687,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const q = filteredQuotes.find((x) => x.id === id); if (q) setDetailQuote(q) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} />
               )
@@ -3669,6 +3707,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} listColumn={col} />
             )
@@ -3761,6 +3800,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const found = filteredQuotes.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} />
                     ))}
@@ -3789,6 +3829,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
   onColumnChange={handleColumnChange} onVoid={handleVoid} onArchive={handleArchive}
   onRestore={handleRestore} onPatch={handlePatch} onReorder={handleReorder}
   onEdit={(id) => { const found = unassigned.find((x) => x.id === id); if (found) setDetailQuote(found) }}
+  onOpen={onLoadQuote}
   onConvertToJob={boardType === "quote" ? handleConvertToJob : undefined}
   boardType={boardType} />
               ))}
@@ -3879,6 +3920,7 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                     onPatch={(id, data) => { handlePatch(id, data); setFullCardModalQuote(prev => prev ? { ...prev, ...data } : null) }}
                     onReorder={handleReorder}
                     onEdit={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                    onOpen={(id) => { setFullCardModalQuote(null); onLoadQuote(id) }}
                     onConvertToJob={boardType === "quote" ? (id) => { handleConvertToJob(id); setFullCardModalQuote(null) } : undefined}
                     boardType={boardType}
                     defaultExpanded={true}
@@ -4146,20 +4188,25 @@ export function KanbanBoard({ boardType = "quote", viewMode = "board", onLoadQuo
                         </div>
                       </div>
                     
-                      {/* Quick Actions */}
+                      {/* Quick Actions — OPEN is the primary action.
+                          It loads the full Quote Form (with the planner,
+                          pricing, revisions tabs).  The smaller secondary
+                          "Edit Details" below opens the lightweight summary
+                          modal for quick field tweaks. */}
                       <div className="mt-auto space-y-2 pt-4 border-t border-border/30">
-                        <div
-                          onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
-                          className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-medium bg-foreground text-background cursor-pointer hover:bg-foreground/90 transition-colors"
-                        >
-                          Edit Details
-                        </div>
-                        <div
+                        <button
                           onClick={() => { setFullCardModalQuote(null); onLoadQuote(q.id) }}
-                          className="w-full px-4 py-2.5 rounded-lg text-center text-[12px] font-medium bg-secondary border border-border/50 cursor-pointer hover:bg-secondary/80 transition-colors"
+                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[13px] font-bold bg-foreground text-background shadow-sm hover:bg-foreground/90 hover:shadow transition-all active:scale-[0.98]"
                         >
-                          Open in Calculator
-                        </div>
+                          <Pencil className="h-3.5 w-3.5" />
+                          Open Full Quote Form
+                        </button>
+                        <button
+                          onClick={() => { setDetailQuote(q); setFullCardModalQuote(null) }}
+                          className="w-full px-4 py-2 rounded-lg text-center text-[11px] font-medium bg-secondary/60 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                        >
+                          Edit quick details only
+                        </button>
                         {boardType === "quote" && (
                           <div
                             onClick={() => { handleConvertToJob(q.id); setFullCardModalQuote(null) }}

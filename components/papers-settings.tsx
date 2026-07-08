@@ -127,6 +127,25 @@ export function PapersSettings() {
 
   return (
     <div className="space-y-4">
+      {/* "Right place" confirmation banner — this is the single source of
+          truth for paper prices. Every calculator reads the prices set
+          here (via the papers database), so editing them here is correct
+          and safe. Paired with a warning banner on the legacy "Click &
+          Paper Costs" tab so staff never edit prices in the wrong spot. */}
+      <div className="flex items-start gap-3 rounded-lg border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-3">
+        <Check className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+            You&apos;re in the right place to edit paper prices
+          </p>
+          <p className="text-xs text-emerald-700/90 dark:text-emerald-400/80 mt-0.5">
+            Prices set here are the live prices used by every calculator (flat,
+            booklet, perfect, spiral, pad). This is the correct, official place
+            to add papers and change their prices.
+          </p>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Paper Management</h3>

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import {
   FileText, ChevronDown, ChevronRight, ClipboardCopy, Check,
   FilePlus, Cloud, Loader2, Pencil, Trash2, Clock, Send,
-  AlertCircle, SkipForward, CheckCircle2, List, LayoutGrid, Search, X,
+  AlertCircle, SkipForward, CheckCircle2, List, LayoutGrid, Search, X, Save,
 } from "lucide-react"
 import { useState, useCallback, useRef, useEffect } from "react"
 import { formatCurrency } from "@/lib/pricing"
@@ -237,6 +237,7 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
     removeItem, updateItem, clearAll, getTotal, getCategoryTotal, newQuote, ensureSaved,
     contactName, referenceNumber, quantity,
     currentRevision, revisions, fetchRevisions, loadRevision,
+    hasUnsavedChanges, saveQuote,
   } = useQuote()
 
   const [collapsedCats, setCollapsedCats] = useState<Set<QuoteCategory>>(new Set())
@@ -341,14 +342,20 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                       }
                     }}
                     className={cn(
-                      "text-[11px] font-mono font-semibold px-2 py-0.5 rounded border transition-colors",
+                      "flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors",
                       revisions.length > 1 
                         ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40"
                         : "bg-secondary/60 text-muted-foreground border-border/50 hover:bg-secondary"
                     )}
-                    title="View version history"
+                    title="View all revisions - each change is saved as a complete version"
                   >
-                    Rev {currentRevision}
+                    <Clock className="h-3 w-3" />
+                    <span className="font-mono">R{currentRevision}</span>
+                    {revisions.length > 1 && (
+                      <span className="text-[9px] bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1 py-0.5 rounded-full font-bold">
+                        {revisions.length}
+                      </span>
+                    )}
                   </button>
                 )}
               </div>
@@ -662,6 +669,30 @@ export function QuoteSidebar({ onGoToExport, pendingSteps, onGoToStep }: QuoteSi
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* SAVE BUTTON - Creates a new revision */}
+          {hasUnsavedChanges && items.length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                  You have unsaved changes
+                </span>
+              </div>
+              <Button
+                size="sm"
+                className="w-full gap-2 text-sm h-11 rounded-xl font-bold bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                onClick={saveQuote}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                ) : (
+                  <><Check className="h-4 w-4" /> Save Quote (New Revision)</>
+                )}
+              </Button>
             </div>
           )}
 

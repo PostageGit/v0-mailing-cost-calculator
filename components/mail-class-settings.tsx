@@ -146,8 +146,8 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
   {
     label: "Pricing Engine",
     items: [
-      { id: "pricing", label: "Click & Paper Costs", icon: <DollarSign className="h-4 w-4" />, description: "Click costs, paper prices, markup levels" },
-      { id: "papers", label: "Paper Management", icon: <Package className="h-4 w-4" />, description: "Add, edit, deactivate papers for all calculators" },
+      { id: "pricing", label: "Click & Paper Costs", icon: <DollarSign className="h-4 w-4" />, description: "Click costs & markups (paper prices here are fallback only)" },
+      { id: "papers", label: "Paper Management", icon: <Package className="h-4 w-4" />, description: "The right place to set paper prices — used by all calculators" },
       { id: "paper-weights", label: "Paper Weights", icon: <Scale className="h-4 w-4" />, description: "Weight per 1,000 sheets, thickness" },
       { id: "finishings", label: "Finishings", icon: <Wrench className="h-4 w-4" />, description: "Score, fold, lamination options" },
       { id: "finishing-calcs", label: "Finishing Calculators", icon: <Calculator className="h-4 w-4" />, description: "Custom finishing cost builders" },
@@ -2229,6 +2229,29 @@ function PricingSettingsTab() {
       <p className="text-sm text-muted-foreground">
         {sections.find((s) => s.key === section)?.description}
       </p>
+
+      {/* "Wrong place" warning — only on the paper-price sections.
+          Paper prices here are legacy fallback defaults; the live prices
+          calculators use come from the Paper Management tab (the papers
+          database), which overrides these. Click Costs and Markup Levels
+          below ARE still used, so the warning is scoped to flat/booklet. */}
+      {(section === "flat" || section === "booklet") && (
+        <div className="flex items-start gap-3 rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+              This is NOT the main place to set paper prices
+            </p>
+            <p className="text-xs text-amber-700/90 dark:text-amber-400/80 mt-0.5">
+              These are fallback defaults only. The live paper prices your
+              calculators use come from{" "}
+              <span className="font-semibold">Settings &rarr; Paper Management</span>,
+              which overrides anything you change here. To actually change a
+              paper&apos;s price, edit it there instead.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Save / Reset bar */}
       <div className="flex items-center gap-3">
