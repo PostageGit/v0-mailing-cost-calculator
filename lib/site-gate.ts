@@ -18,7 +18,7 @@ export const GATE_COOKIE = "pf_site_gate"
 
 // A fixed message that we sign with the password. The signature is what we
 // store in the cookie. Bump the version suffix to invalidate all sessions.
-const GATE_MESSAGE = "postflow-site-gate-v1"
+const GATE_MESSAGE = "postflow-site-gate-v2"
 
 /** Returns the configured site password, or "" if not set. */
 export function getSitePassword(): string {
