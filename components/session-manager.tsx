@@ -70,7 +70,16 @@ function deviceLabel(ua: string | null): string {
   return `${browser} on ${os}`
 }
 
-export function SessionManager({ sidebarOpen }: { sidebarOpen: boolean }) {
+export function SessionManager({
+  sidebarOpen,
+  horizontal = false,
+}: {
+  sidebarOpen: boolean
+  /** When true, render the two triggers as compact inline buttons suitable
+   *  for a top header/toolbar (used on pages without the app sidebar, e.g.
+   *  /tools/calc). Defaults to the vertical sidebar layout. */
+  horizontal?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [sessions, setSessions] = useState<GateSession[]>([])
   const [currentId, setCurrentId] = useState<string | null>(null)
@@ -156,29 +165,38 @@ export function SessionManager({ sidebarOpen }: { sidebarOpen: boolean }) {
 
   return (
     <>
-      <div className={cn("flex flex-col gap-1", !sidebarOpen && "items-center")}>
+      <div
+        className={cn(
+          horizontal ? "flex flex-row items-center gap-2" : "flex flex-col gap-1",
+          !horizontal && !sidebarOpen && "items-center",
+        )}
+      >
         <button
           onClick={() => setOpen(true)}
           className={cn(
-            "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all w-full",
-            sidebarOpen ? "min-h-[40px] px-3 py-2 text-sm" : "h-10 justify-center",
+            "flex items-center gap-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all",
+            horizontal
+              ? "h-9 px-3 text-sm border border-border"
+              : cn("gap-2.5 w-full", sidebarOpen ? "min-h-[40px] px-3 py-2 text-sm" : "h-10 justify-center"),
           )}
           aria-label="Active logins"
         >
           <Users className="h-4 w-4 shrink-0" />
-          {sidebarOpen && <span>Active Logins</span>}
+          {(sidebarOpen || horizontal) && <span>Active Logins</span>}
         </button>
         <button
           onClick={lockNow}
           disabled={locking}
           className={cn(
-            "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all w-full disabled:opacity-50",
-            sidebarOpen ? "min-h-[40px] px-3 py-2 text-sm" : "h-10 justify-center",
+            "flex items-center gap-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all disabled:opacity-50",
+            horizontal
+              ? "h-9 px-3 text-sm border border-border"
+              : cn("gap-2.5 w-full", sidebarOpen ? "min-h-[40px] px-3 py-2 text-sm" : "h-10 justify-center"),
           )}
           aria-label="Lock now"
         >
           {locking ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <LogOut className="h-4 w-4 shrink-0" />}
-          {sidebarOpen && <span>Lock Now</span>}
+          {(sidebarOpen || horizontal) && <span>Lock Now</span>}
         </button>
       </div>
 
