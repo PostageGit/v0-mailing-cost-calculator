@@ -13,7 +13,8 @@ import { QuoteSidebar } from "@/components/quote-sidebar"
 import { MailPiecePlanner } from "@/components/mail-piece-planner"
 import { QuoteProvider, useQuote } from "@/lib/quote-context"
 import { MailingProvider, useMailing, PIECE_TYPE_META } from "@/lib/mailing-context"
-import { KanbanBoard } from "@/components/kanban-board"
+  import { KanbanBoard } from "@/components/kanban-board"
+  import { SessionManager } from "@/components/session-manager"
 import { MailClassSettingsPanel } from "@/components/mail-class-settings"
 import { CustomerList } from "@/components/customer-list"
 
@@ -538,7 +539,7 @@ const qbStepDescriptions: Record<string, string> = {
           </nav>
 
           {/* Settings footer */}
-          <div className={cn("pb-3 border-t border-border pt-2", sidebarOpen ? "px-3" : "px-[7px]")}>
+          <div className={cn("pb-3 border-t border-border pt-2 flex flex-col gap-1", sidebarOpen ? "px-3" : "px-[7px]")}>
             <button onClick={() => setShowSettings(true)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all w-full",
@@ -547,6 +548,8 @@ const qbStepDescriptions: Record<string, string> = {
               <Settings className="h-4 w-4 shrink-0" />
               {sidebarOpen && <span>Settings</span>}
             </button>
+            {/* Active logins + Lock now + 5-min idle auto-logout */}
+            <SessionManager sidebarOpen={sidebarOpen} />
           </div>
         </aside>
 
@@ -586,11 +589,12 @@ const qbStepDescriptions: Record<string, string> = {
                 </div>
               )})}
             </nav>
-            <div className="px-2 pb-3 border-t border-border pt-2">
+            <div className="px-2 pb-3 border-t border-border pt-2 flex flex-col gap-1">
               <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }}
                 className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary w-full min-h-[44px]">
                 <Settings className="h-4 w-4 shrink-0" /> Settings
               </button>
+              <SessionManager sidebarOpen={true} />
             </div>
           </aside>
         )}
