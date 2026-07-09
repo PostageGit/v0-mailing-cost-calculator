@@ -4,7 +4,8 @@ import {
   GATE_COOKIE,
   isGateConfigured,
   isPublicGatePath,
-  isValidGateCookie,
+  verifyCookieSignature,
+  touchSession,
 } from '@/lib/site-gate'
 
 export async function middleware(request: NextRequest) {
@@ -13,10 +14,15 @@ export async function middleware(request: NextRequest) {
   // --- Site-wide password gate ---------------------------------------
   // Every page (including the simple calculator tools) requires the shared
   // site password. We let the unlock screen and its API through, then
-  // require a valid gate cookie for everything else.
+  // require a valid, non-revoked, non-idle session for everything else.
   if (!isPublicGatePath(pathname)) {
     const cookie = request.cookies.get(GATE_COOKIE)?.value
-    const unlocked = await isValidGateCookie(cookie)
+    // 1) Cheap signature check — is this cookie even ours & unforged?
+    const sessionId = await verifyCookieSignature(cookie)
+    // 2) If the signature is valid, confirm the session is still active in
+    //    the DB and slide its idle window forward (single REST round-trip).
+    //    This is what enforces the 5-minute auto-logout and instant revoke.
+    const unlocked = sessionId ? await touchSession(sessionId) : false
 
     if (!unlocked) {
       // If no password is configured yet, still send users to the gate so

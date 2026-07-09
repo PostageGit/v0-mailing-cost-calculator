@@ -9,7 +9,8 @@
   CheckCircle2, Info, ArrowRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+  import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+  import { SessionManager } from "@/components/session-manager"
 
 // Import standalone calculator wrappers (no quote dependencies)
 import {
@@ -413,16 +414,21 @@ export function CalculatorsHub({
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="px-6 py-5 border-b bg-muted/30">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
-            <Calculator className="h-6 w-6 text-white" />
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
+              <Calculator className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Calculators</h1>
+              <p className="text-sm text-muted-foreground">
+                Standalone pricing calculators, settings, and inventory
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold">Calculators</h1>
-            <p className="text-sm text-muted-foreground">
-              Standalone pricing calculators, settings, and inventory
-            </p>
-          </div>
+          {/* Active Logins (with IPs) + Lock Now, available on this
+              sidebar-less page too. */}
+          <SessionManager sidebarOpen horizontal />
         </div>
       </div>
 
